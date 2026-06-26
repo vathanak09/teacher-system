@@ -88,13 +88,13 @@ export default function LoginPage() {
         <div style={{ marginTop: '2.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)', padding: '1rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
           <p style={{ marginBottom: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' }}>គណនីសាកល្បង (Demo):</p>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span>អ្នកគ្រប់គ្រង (Admin):</span> <code>admin / password</code>
+            <span>អ្នកគ្រប់គ្រង (Admin):</span> <code>admin1 / 123</code>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span>គ្រូបង្រៀន (Teacher):</span> <code>teacher / password</code>
+            <span>គ្រូបង្រៀន (Teacher):</span> <code>teacher1 / 123</code>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>សិស្ស (Student):</span> <code>student / password</code>
+            <span>សិស្ស (Student):</span> <code>student1 / 123</code>
           </div>
         </div>
       </div>
