@@ -9,6 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userName, setUserName] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -27,6 +28,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (savedTheme) {
       setTheme(savedTheme);
       document.body.setAttribute('data-theme', savedTheme);
+    }
+
+    const storedSchool = localStorage.getItem('schoolName');
+    if (storedSchool) {
+      setSchoolName(storedSchool);
     }
   }, [router]);
 
@@ -50,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'បញ្ចូលពិន្ទុសិស្ស', path: '/dashboard/scores', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg> },
     { name: 'វិធីសាស្ត្របង្រៀន', path: '/dashboard/methodologies', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg> },
     { name: 'ឧបករណ៍គ្រូ', path: '/dashboard/tools', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg> },
-    { name: 'គ្រប់គ្រងអ្នកប្រើប្រាស់', path: '/dashboard/users', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> },
+    { name: 'ការកំណត់', path: '/dashboard/settings', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> },
   ];
 
   const allowedLinks = navLinks.filter(link => link.roles.includes(role));
@@ -62,7 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }} onClick={() => setMobileMenuOpen(true)}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
           </button>
-          <h3 style={{ margin: 0, fontWeight: 600 }}>ប្រេនស្តម BSIS</h3>
+          <h3 style={{ margin: 0, fontWeight: 600 }}>{schoolName}</h3>
         </div>
         <button onClick={toggleTheme} className="theme-toggle-btn" style={{ width: '32px', height: '32px' }} title="ប្តូរពន្លឺ (Theme)">
           {theme === 'dark' ? (
@@ -86,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
               <div>
-                <h2 style={{ fontSize: '0.95rem', margin: 0, fontWeight: 600 }}>ប្រេនស្តម BSIS</h2>
+                <h2 style={{ fontSize: '0.95rem', margin: 0, fontWeight: 600 }}>{schoolName}</h2>
                 <p style={{ fontSize: '0.8rem', margin: 0, opacity: 0.8 }}>ប្រព័ន្ធគ្រប់គ្រង</p>
               </div>
             </div>

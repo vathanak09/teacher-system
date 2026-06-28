@@ -7,6 +7,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
   const router = useRouter();
 
   useEffect(() => {
@@ -19,6 +20,11 @@ export default function LoginPage() {
         { id: '3', username: 'student1', password: '123', role: 'student', name: 'Student User' },
       ];
       localStorage.setItem('appUsers', JSON.stringify(defaultUsers));
+    }
+
+    const storedSchool = localStorage.getItem('schoolName');
+    if (storedSchool) {
+      setSchoolName(storedSchool);
     }
   }, []);
 
@@ -38,14 +44,40 @@ export default function LoginPage() {
     }
   };
 
+  const quickLogin = (role: 'admin' | 'teacher' | 'student') => {
+    let name = '', id = '';
+    if (role === 'admin') {
+      name = 'Admin User';
+      id = '1';
+    } else if (role === 'teacher') {
+      name = 'Teacher User';
+      id = '2';
+    } else if (role === 'student') {
+      name = 'Student User';
+      id = '3';
+    }
+
+    localStorage.setItem('userRole', role);
+    localStorage.setItem('userName', name);
+    localStorage.setItem('userId', id);
+    router.push('/dashboard');
+  };
+
   return (
     <div className="flex-center" style={{ minHeight: '100vh', padding: '1rem' }}>
       <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <h2 style={{ marginBottom: '0.5rem', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: 'Inter' }}>
-            EduConnect
+        <div style={{ textAlign: 'center', marginBottom: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img 
+            src="/logo.png" 
+            alt="សាលាអន្តរជាតិប្រេនស្តម Logo" 
+            style={{ width: '120px', height: '120px', objectFit: 'contain', marginBottom: '1rem' }}
+          />
+          <h2 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', margin: 0, fontWeight: 600 }}>
+            {schoolName}
           </h2>
-          <p style={{ margin: 0, fontSize: '1.1rem' }}>ប្រព័ន្ធគ្រប់គ្រងគ្រូបង្រៀន</p>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+            ប្រព័ន្ធគ្រប់គ្រងសាលារៀន (BSIS)
+          </p>
         </div>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -56,7 +88,7 @@ export default function LoginPage() {
             <input 
               type="text" 
               className="input-field" 
-              placeholder="ឧទាហរណ៍: admin, teacher, student" 
+              placeholder="ឧទាហរណ៍: admin1, teacher1" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -80,21 +112,37 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%', fontSize: '1.05rem' }}>
+          <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', width: '100%', fontSize: '1.05rem' }}>
             ចូលប្រើប្រាស់
           </button>
         </form>
         
-        <div style={{ marginTop: '2.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)', padding: '1rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <p style={{ marginBottom: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'center' }}>គណនីសាកល្បង (Demo):</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span>អ្នកគ្រប់គ្រង (Admin):</span> <code>admin1 / 123</code>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span>គ្រូបង្រៀន (Teacher):</span> <code>teacher1 / 123</code>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>សិស្ស (Student):</span> <code>student1 / 123</code>
+        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+          <p style={{ marginBottom: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.85rem' }}>
+            សាកល្បងចូលរហ័ស (Quick Login):
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            <button 
+              onClick={() => quickLogin('admin')} 
+              className="btn" 
+              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }}
+            >
+              🔑 Admin
+            </button>
+            <button 
+              onClick={() => quickLogin('teacher')} 
+              className="btn" 
+              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', border: 'none' }}
+            >
+              🧑‍🏫 Teacher
+            </button>
+            <button 
+              onClick={() => quickLogin('student')} 
+              className="btn" 
+              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: 'none' }}
+            >
+              🎓 Student
+            </button>
           </div>
         </div>
       </div>

@@ -150,7 +150,7 @@ export default function ScoresPage() {
 
     {isModalOpen && (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-        <div className="glass-panel" style={{ width: '500px', maxWidth: '90%', padding: '2rem', background: 'var(--card-bg)' }}>
+        <div className="glass-panel" style={{ width: '500px', maxWidth: '90%', padding: '2rem', background: 'var(--main-bg)' }}>
           <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.4rem' }}>
             {editId ? 'កែប្រែទម្រង់បញ្ចូលពិន្ទុ' : 'បន្ថែមទម្រង់បញ្ចូលពិន្ទុថ្មី'}
           </h2>
