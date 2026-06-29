@@ -6,7 +6,15 @@ import { useRouter } from 'next/navigation';
 export default function SettingsPage() {
   const router = useRouter();
   const [role, setRole] = useState('');
-  const [activeTab, setActiveTab] = useState<'tags' | 'users' | 'school'>('tags');
+  const [activeTab, setActiveTab] = useState<'tags' | 'users' | 'school' | 'studentOptions'>('tags');
+
+  // Student Options States
+  const [levels, setLevels] = useState<string[]>(['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
+  const [shifts, setShifts] = useState<string[]>(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
+  const [addresses, setAddresses] = useState<string[]>(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
+  const [transports, setTransports] = useState<string[]>(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+  const [editingOptionType, setEditingOptionType] = useState<string | null>(null);
+  const [newOptionValue, setNewOptionValue] = useState('');
 
   // Tag Group States
   const [tagGroups, setTagGroups] = useState<any[]>([]);
@@ -91,6 +99,16 @@ export default function SettingsPage() {
     if (storedSchool) {
       setSchoolName(storedSchool);
     }
+
+    // Load Student Options
+    const storedLevels = localStorage.getItem('appStudentLevels');
+    if (storedLevels) setLevels(JSON.parse(storedLevels));
+    const storedShifts = localStorage.getItem('appStudentShifts');
+    if (storedShifts) setShifts(JSON.parse(storedShifts));
+    const storedAddresses = localStorage.getItem('appStudentAddresses');
+    if (storedAddresses) setAddresses(JSON.parse(storedAddresses));
+    const storedTransports = localStorage.getItem('appStudentTransports');
+    if (storedTransports) setTransports(JSON.parse(storedTransports));
   }, [router]);
 
   // Tag Group CRUD Functions
@@ -128,7 +146,6 @@ export default function SettingsPage() {
       setTagGroups(updatedGroups);
       localStorage.setItem('appTagGroups', JSON.stringify(updatedGroups));
 
-      // Remove groupId from tags that belonged to deleted group
       const updatedTags = tags.map(t => t.groupId === id ? { ...t, groupId: null } : t);
       setTags(updatedTags);
       localStorage.setItem('appTags', JSON.stringify(updatedTags));
@@ -231,6 +248,51 @@ export default function SettingsPage() {
     alert('រក្សាទុកព័ត៌មានសាលារៀនដោយជោគជ័យ! (សូម Refresh ដើម្បីឃើញការផ្លាស់ប្តូរ)');
   };
 
+  // Student Options Functions
+  const handleSaveOption = () => {
+    if (!newOptionValue.trim() || !editingOptionType) return;
+    const val = newOptionValue.trim();
+    if (editingOptionType === 'level' && !levels.includes(val)) {
+      const updated = [...levels, val];
+      setLevels(updated);
+      localStorage.setItem('appStudentLevels', JSON.stringify(updated));
+    } else if (editingOptionType === 'shift' && !shifts.includes(val)) {
+      const updated = [...shifts, val];
+      setShifts(updated);
+      localStorage.setItem('appStudentShifts', JSON.stringify(updated));
+    } else if (editingOptionType === 'address' && !addresses.includes(val)) {
+      const updated = [...addresses, val];
+      setAddresses(updated);
+      localStorage.setItem('appStudentAddresses', JSON.stringify(updated));
+    } else if (editingOptionType === 'transport' && !transports.includes(val)) {
+      const updated = [...transports, val];
+      setTransports(updated);
+      localStorage.setItem('appStudentTransports', JSON.stringify(updated));
+    }
+    setNewOptionValue('');
+  };
+
+  const handleDeleteOption = (type: string, val: string) => {
+    if (!confirm(`តើអ្នកពិតជាចង់លុប "${val}" មែនទេ?`)) return;
+    if (type === 'level') {
+      const updated = levels.filter(x => x !== val);
+      setLevels(updated);
+      localStorage.setItem('appStudentLevels', JSON.stringify(updated));
+    } else if (type === 'shift') {
+      const updated = shifts.filter(x => x !== val);
+      setShifts(updated);
+      localStorage.setItem('appStudentShifts', JSON.stringify(updated));
+    } else if (type === 'address') {
+      const updated = addresses.filter(x => x !== val);
+      setAddresses(updated);
+      localStorage.setItem('appStudentAddresses', JSON.stringify(updated));
+    } else if (type === 'transport') {
+      const updated = transports.filter(x => x !== val);
+      setTransports(updated);
+      localStorage.setItem('appStudentTransports', JSON.stringify(updated));
+    }
+  };
+
   if (role !== 'admin') return null;
 
   return (
@@ -240,36 +302,72 @@ export default function SettingsPage() {
         <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ផ្ទាំងបញ្ជាកណ្តាលសម្រាប់គ្រប់គ្រងប្រព័ន្ធ</p>
       </div>
 
-      {/* Tab Selectors */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+      {/* Tab Selectors (No Emojis, replaced with pure SVGs) */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', overflowX: 'auto' }}>
         <button 
           onClick={() => setActiveTab('tags')}
-          style={{ padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', color: activeTab === 'tags' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: activeTab === 'tags' ? '3px solid var(--accent-primary)' : '3px solid transparent', fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          style={{ 
+            padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', 
+            color: activeTab === 'tags' ? 'var(--accent-primary)' : 'var(--text-secondary)', 
+            borderBottom: activeTab === 'tags' ? '3px solid var(--accent-primary)' : '3px solid transparent', 
+            fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center'
+          }}
         >
-          🏷️ គ្រប់គ្រង Tags & ក្រុម
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          គ្រប់គ្រង Tags & ក្រុម
         </button>
         <button 
           onClick={() => setActiveTab('users')}
-          style={{ padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', color: activeTab === 'users' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: activeTab === 'users' ? '3px solid var(--accent-primary)' : '3px solid transparent', fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          style={{ 
+            padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', 
+            color: activeTab === 'users' ? 'var(--accent-primary)' : 'var(--text-secondary)', 
+            borderBottom: activeTab === 'users' ? '3px solid var(--accent-primary)' : '3px solid transparent', 
+            fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center'
+          }}
         >
-          👥 អ្នកប្រើប្រាស់ (Users)
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          អ្នកប្រើប្រាស់ (Users)
         </button>
         <button 
           onClick={() => setActiveTab('school')}
-          style={{ padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', color: activeTab === 'school' ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: activeTab === 'school' ? '3px solid var(--accent-primary)' : '3px solid transparent', fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          style={{ 
+            padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', 
+            color: activeTab === 'school' ? 'var(--accent-primary)' : 'var(--text-secondary)', 
+            borderBottom: activeTab === 'school' ? '3px solid var(--accent-primary)' : '3px solid transparent', 
+            fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center'
+          }}
         >
-          🏫 ព័ត៌មានសាលា (School Info)
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+          ព័ត៌មានសាលា (School Info)
+        </button>
+        <button 
+          onClick={() => setActiveTab('studentOptions')}
+          style={{ 
+            padding: '0.75rem 1.5rem', border: 'none', background: 'transparent', 
+            color: activeTab === 'studentOptions' ? 'var(--accent-primary)' : 'var(--text-secondary)', 
+            borderBottom: activeTab === 'studentOptions' ? '3px solid var(--accent-primary)' : '3px solid transparent', 
+            fontWeight: 600, cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center'
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.5rem' }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          កំណត់ទម្រង់សិស្ស
         </button>
       </div>
 
-      {/* TAB CONTENT: TAGS & GROUPS (2-Column Layout) */}
+      {/* TAB CONTENT: TAGS & GROUPS */}
       {activeTab === 'tags' && (
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-          
           {/* Column 1: Tag Groups (35% Width) */}
           <div style={{ flex: '1 1 350px' }}>
             <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>📂 ក្រុមស្លាកពាក្យ (Tag Groups)</h2>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                ក្រុមស្លាកពាក្យ (Tag Groups)
+              </h2>
               <button className="btn btn-primary" onClick={handleOpenAddGroup} style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
                 + បង្កើតក្រុម
               </button>
@@ -280,8 +378,12 @@ export default function SettingsPage() {
                 <div key={group.id} className="flex-between" style={{ padding: '0.75rem', background: 'var(--main-bg)', borderRadius: '8px' }}>
                   <span style={{ fontWeight: 600 }}>{group.name}</span>
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <button onClick={() => handleOpenEditGroup(group)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">✏️</button>
-                    <button onClick={() => handleDeleteGroup(group.id)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">🗑</button>
+                    <button onClick={() => handleOpenEditGroup(group)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', display: 'flex', alignItems: 'center' }} title="កែប្រែ">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button onClick={() => handleDeleteGroup(group.id)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none', display: 'flex', alignItems: 'center' }} title="លុប">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -296,7 +398,10 @@ export default function SettingsPage() {
           {/* Column 2: Tags (65% Width) */}
           <div style={{ flex: '2 1 550px' }}>
             <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>🏷️ ស្លាកពាក្យ (Tags)</h2>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                ស្លាកពាក្យ (Tags)
+              </h2>
               <button className="btn btn-primary" onClick={handleOpenAddTag} style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
                 + បង្កើត Tag
               </button>
@@ -317,8 +422,13 @@ export default function SettingsPage() {
                     </div>
                     
                     <div style={{ display: 'flex', gap: '0.25rem' }}>
-                      <button onClick={() => handleOpenEditTag(tag)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ / ប្តូរក្រុម">✏️ Move/Edit</button>
-                      <button onClick={() => handleDeleteTag(tag.id)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">🗑</button>
+                      <button onClick={() => handleOpenEditTag(tag)} className="btn" style={{ padding: '0.35rem 0.6rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem' }} title="កែប្រែ / ប្តូរក្រុម">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        Move/Edit
+                      </button>
+                      <button onClick={() => handleDeleteTag(tag.id)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none', display: 'flex', alignItems: 'center' }} title="លុប">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
                     </div>
                   </div>
                 );
@@ -337,7 +447,10 @@ export default function SettingsPage() {
       {activeTab === 'users' && (
         <div>
           <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>គ្រប់គ្រងគណនីអ្នកប្រើប្រាស់</h2>
+            <h2 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              គ្រប់គ្រងគណនីអ្នកប្រើប្រាស់
+            </h2>
             <button className="btn btn-primary" onClick={handleOpenAddUser}>+ បង្កើតគណនីថ្មី</button>
           </div>
 
@@ -370,8 +483,12 @@ export default function SettingsPage() {
                     </td>
                     <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                        <button onClick={() => handleOpenEditUser(user)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">✏️</button>
-                        <button onClick={() => handleDeleteUser(user.id)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">🗑</button>
+                        <button onClick={() => handleOpenEditUser(user)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', display: 'flex', alignItems: 'center' }} title="កែប្រែ">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+                        <button onClick={() => handleDeleteUser(user.id)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none', display: 'flex', alignItems: 'center' }} title="លុប">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -385,7 +502,10 @@ export default function SettingsPage() {
       {/* TAB CONTENT: SCHOOL INFO */}
       {activeTab === 'school' && (
         <div className="glass-panel" style={{ padding: '2rem', maxWidth: '600px' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem' }}>កំណត់ព័ត៌មានសាលារៀន</h2>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+            កំណត់ព័ត៌មានសាលារៀន
+          </h2>
           
           <div style={{ marginBottom: '1.5rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ឈ្មោះសាលារៀន (ភាសាខ្មែរ)</label>
@@ -405,10 +525,107 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* TAB CONTENT: STUDENT OPTIONS */}
+      {activeTab === 'studentOptions' && (
+        <div className="glass-panel" style={{ padding: '2rem' }}>
+          <h2 style={{ marginTop: 0, marginBottom: '2rem' }}>កំណត់ទម្រង់សិស្ស (Student Form Options)</h2>
+          
+          {/* Add Option Input Row */}
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ប្រភេទជម្រើស</label>
+              <select className="input-field" value={editingOptionType || ''} onChange={(e) => setEditingOptionType(e.target.value)}>
+                <option value="" disabled>-- ជ្រើសរើសប្រភេទ --</option>
+                <option value="level">កម្រិតសិក្សា (Level)</option>
+                <option value="shift">វេនសិក្សា (Shift)</option>
+                <option value="address">អាសយដ្ឋាន (Address)</option>
+                <option value="transport">មធ្យោបាយ (Transport)</option>
+              </select>
+            </div>
+            <div style={{ flex: 2, minWidth: '200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>តម្លៃថ្មី</label>
+              <input type="text" className="input-field" value={newOptionValue} onChange={e => setNewOptionValue(e.target.value)} placeholder="បញ្ចូលតម្លៃថ្មី..." onKeyDown={(e) => e.key === 'Enter' && handleSaveOption()} />
+            </div>
+            <button className="btn btn-primary" onClick={handleSaveOption} disabled={!editingOptionType || !newOptionValue.trim()} style={{ padding: '0.8rem 1.5rem', height: 'max-content' }}>
+              បន្ថែម
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
+            {/* Level List */}
+            <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>កម្រិតសិក្សា ({levels.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {levels.map(val => (
+                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>{val}</span>
+                    <button onClick={() => handleDeleteOption('level', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Shift List */}
+            <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>វេនសិក្សា ({shifts.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {shifts.map(val => (
+                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>{val}</span>
+                    <button onClick={() => handleDeleteOption('shift', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Address List */}
+            <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>អាសយដ្ឋាន ({addresses.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {addresses.map(val => (
+                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>{val}</span>
+                    <button onClick={() => handleDeleteOption('address', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Transport List */}
+            <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>មធ្យោបាយ ({transports.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {transports.map(val => (
+                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
+                    <span>{val}</span>
+                    <button onClick={() => handleDeleteOption('transport', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAG GROUP MODAL (Add/Edit) */}
       {isGroupModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '450px', maxWidth: '90%', padding: '2rem', background: 'var(--modal-bg)' }}>
+        <div 
+          onClick={() => setIsGroupModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-fade-in settings-modal" 
+            style={{ padding: '2rem', background: 'var(--modal-bg)' }}
+          >
             <h2 style={{ margin: '0 0 1.5rem 0' }}>{groupEditId ? 'កែប្រែក្រុមស្លាកពាក្យ' : 'បង្កើតក្រុមស្លាកពាក្យថ្មី'}</h2>
             
             <div style={{ marginBottom: '1.5rem' }}>
@@ -426,8 +643,15 @@ export default function SettingsPage() {
 
       {/* TAG MODAL (Add/Edit) */}
       {isTagModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '450px', maxWidth: '90%', padding: '2rem', background: 'var(--modal-bg)' }}>
+        <div 
+          onClick={() => setIsTagModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-fade-in settings-modal" 
+            style={{ padding: '2rem', background: 'var(--modal-bg)' }}
+          >
             <h2 style={{ margin: '0 0 1.5rem 0' }}>{tagEditId ? 'កែប្រែស្លាកពាក្យ' : 'បន្ថែមស្លាកពាក្យថ្មី'}</h2>
             
             <div style={{ marginBottom: '1.25rem' }}>
@@ -435,7 +659,6 @@ export default function SettingsPage() {
               <input type="text" className="input-field" value={tagName} onChange={e => setTagName(e.target.value)} placeholder="ឧ. កម្រិតដំបូង, Programming..." />
             </div>
 
-            {/* Move Tag (Assigned Group Selection) */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ក្រុមស្លាកពាក្យ (Tag Group / Move to)</label>
               <select className="input-field" value={tagGroupId} onChange={e => setTagGroupId(e.target.value)}>
@@ -475,8 +698,15 @@ export default function SettingsPage() {
 
       {/* USER MODAL */}
       {isUserModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-panel animate-fade-in" style={{ width: '450px', maxWidth: '90%', padding: '2rem', background: 'var(--modal-bg)' }}>
+        <div 
+          onClick={() => setIsUserModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-fade-in settings-modal" 
+            style={{ padding: '2rem', background: 'var(--modal-bg)' }}
+          >
             <h2 style={{ margin: '0 0 1.5rem 0' }}>{userEditId ? 'កែប្រែគណនី' : 'បង្កើតគណនីថ្មី'}</h2>
             
             <div style={{ marginBottom: '1.25rem' }}>

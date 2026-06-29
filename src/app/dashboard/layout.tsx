@@ -49,7 +49,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navLinks = [
     { name: 'ផ្ទាំងគ្រប់គ្រង', path: '/dashboard', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> },
-    { name: 'វគ្គសិក្សា', path: '/dashboard/courses', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> },
+    { name: 'ព័ត៌មានសិស្ស', path: '/dashboard/students', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg> },
+    { name: 'ព័ត៌មានគ្រូ', path: '/dashboard/teachers', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> },
+    { name: 'ថ្នាក់រៀន', path: '/dashboard/classes', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> },
+    { name: 'វគ្គសិក្សា', path: '/dashboard/courses', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
     { name: 'មេរៀន', path: '/dashboard/lessons', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
     { name: 'កាលវិភាគ', path: '/dashboard/schedule', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> },
     { name: 'បញ្ជីវត្តមាន', path: '/dashboard/attendance', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> },
@@ -145,7 +148,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             </button>
           </div>
-          <div style={{ padding: '0 2rem 2rem 2rem' }}>
+          <div className="dashboard-content">
             {children}
           </div>
         </main>

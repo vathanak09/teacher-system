@@ -1,0 +1,944 @@
+"use client";
+
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function StudentsPage() {
+  const router = useRouter();
+  const [role, setRole] = useState('');
+  
+  // Student States
+  const [students, setStudents] = useState<any[]>([]);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [studentEditId, setStudentEditId] = useState<string | null>(null);
+  const [isStudentTableLocked, setIsStudentTableLocked] = useState(true);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+
+  // Student Form Fields
+  const [studentIdField, setStudentIdField] = useState('');
+  const [studentFullNameField, setStudentFullNameField] = useState('');
+  const [studentEnglishNameField, setStudentEnglishNameField] = useState('');
+  const [studentGenderField, setStudentGenderField] = useState('ស្រី');
+  const [studentLevelField, setStudentLevelField] = useState('កម្រិតមធ្យមសិក្សា');
+  const [studentShiftField, setStudentShiftField] = useState('វេនព្រឹក');
+  const [studentEnrollDateField, setStudentEnrollDateField] = useState('');
+  const [studentFeeField, setStudentFeeField] = useState('120'); // 1 = 1000 Riels
+  const [studentClassNameField, setStudentClassNameField] = useState('10C');
+  const [studentTeacherField, setStudentTeacherField] = useState('ស៊ុន សុខ');
+  const [studentDobField, setStudentDobField] = useState('');
+  const [studentAddressField, setStudentAddressField] = useState('');
+  const [studentLocationField, setStudentLocationField] = useState('');
+  const [studentTransportField, setStudentTransportField] = useState('Personal');
+  const [studentPhotoField, setStudentPhotoField] = useState('');
+  const [studentStatusField, setStudentStatusField] = useState('កំពុងសិក្សា');
+  const [studentContactField, setStudentContactField] = useState('');
+  const [studentFatherField, setStudentFatherField] = useState('');
+  const [studentMotherField, setStudentMotherField] = useState('');
+  const [studentPhoneNumField, setStudentPhoneNumField] = useState('');
+
+  // Form Part Visibility toggles
+  const [showPart1, setShowPart1] = useState(true);
+  const [showPart2, setShowPart2] = useState(true);
+
+  // Student Filters
+  const [studentSearch, setStudentSearch] = useState('');
+  const [studentClassFilter, setStudentClassFilter] = useState('all');
+  const [studentLevelFilter, setStudentLevelFilter] = useState('all');
+  const [studentShiftFilter, setStudentShiftFilter] = useState('all');
+  const [studentStatusFilter, setStudentStatusFilter] = useState('កំពុងសិក្សា');
+  const [studentSortBy, setStudentSortBy] = useState('id'); // 'id' | 'name' | 'dob'
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dynamic Options States
+  const [levelOptions, setLevelOptions] = useState<string[]>(['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
+  const [shiftOptions, setShiftOptions] = useState<string[]>(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
+  const [addressOptions, setAddressOptions] = useState<string[]>(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
+  const [transportOptions, setTransportOptions] = useState<string[]>(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+
+  useEffect(() => {
+    const currentRole = localStorage.getItem('userRole') || '';
+    setRole(currentRole);
+    if (currentRole !== 'admin') {
+      router.push('/dashboard');
+      return;
+    }
+
+    // Load Dynamic Options
+    const storedLevels = localStorage.getItem('appStudentLevels');
+    if (storedLevels) setLevelOptions(JSON.parse(storedLevels));
+    const storedShifts = localStorage.getItem('appStudentShifts');
+    if (storedShifts) setShiftOptions(JSON.parse(storedShifts));
+    const storedAddresses = localStorage.getItem('appStudentAddresses');
+    if (storedAddresses) setAddressOptions(JSON.parse(storedAddresses));
+    const storedTransports = localStorage.getItem('appStudentTransports');
+    if (storedTransports) setTransportOptions(JSON.parse(storedTransports));
+
+    // Load Students (Fallback to 26 default students matching the requested count of Female 12, Male 14)
+    const storedStudents = localStorage.getItem('appStudents');
+    if (storedStudents) {
+      let parsedStudents = JSON.parse(storedStudents);
+      let isModified = false;
+      
+      const updatedStudents = parsedStudents.map((s: any) => {
+        let sUpdated = { ...s };
+        // Legacy migration for transport
+        if (sUpdated.transport === 'ឡានក្រុង') { sUpdated.transport = 'Bus'; isModified = true; }
+        if (sUpdated.transport === 'ម៉ូតូ' || sUpdated.transport === 'កង់') { sUpdated.transport = 'Personal'; isModified = true; }
+        
+        // Normalize against current options
+        if (storedLevels && !JSON.parse(storedLevels).includes(sUpdated.level)) { sUpdated.level = JSON.parse(storedLevels)[0] || ''; isModified = true; }
+        if (storedShifts && !JSON.parse(storedShifts).includes(sUpdated.shift)) { sUpdated.shift = JSON.parse(storedShifts)[0] || ''; isModified = true; }
+        if (storedAddresses && !JSON.parse(storedAddresses).includes(sUpdated.address)) { sUpdated.address = JSON.parse(storedAddresses)[0] || ''; isModified = true; }
+        if (storedTransports && !JSON.parse(storedTransports).includes(sUpdated.transport)) { sUpdated.transport = JSON.parse(storedTransports)[0] || ''; isModified = true; }
+        
+        // Initialize new fields
+        if (sUpdated.contact === undefined) { sUpdated.contact = ''; isModified = true; }
+        if (sUpdated.father === undefined) { sUpdated.father = ''; isModified = true; }
+        if (sUpdated.mother === undefined) { sUpdated.mother = ''; isModified = true; }
+        if (sUpdated.phoneNum === undefined) { sUpdated.phoneNum = ''; isModified = true; }
+
+        return sUpdated;
+      });
+      
+      setStudents(updatedStudents);
+      if (isModified) {
+        localStorage.setItem('appStudents', JSON.stringify(updatedStudents));
+      }
+    } else {
+      const defaultStudents = [
+        { id: '1', studentId: '9201', fullName: 'លី តិចស្រេង', englishName: 'Ly Tichsreng', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-06-27', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '2', studentId: '9202', fullName: 'មេសា ឡាឌី', englishName: 'Mesa Ladi', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-09-15', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '3', studentId: '1023105', fullName: 'សុវណ្ណារិទ្ធ ស៊ីវិចិត្រ', englishName: 'Sovannarith Sivichitr', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនរសៀល', enrollDate: '2026-05-12', fee: 150, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2013-11-20', address: 'ភ្នំពេញ', location: 'បឹងកេងកង', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '4', studentId: '01234560', fullName: 'លឿន សុខចាន់', englishName: 'Loeun Sokchan', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-04-05', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '5', studentId: '12345681', fullName: 'ណាត សុខលីម', englishName: 'Nat Soklim', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-08-12', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '6', studentId: '01234561', fullName: 'ណាត នីហ្សា', englishName: 'Nat Niza', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-10-09', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '7', studentId: '12345682', fullName: 'តេង មករា', englishName: 'Teng Makara', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-01-01', address: 'ភ្នំពេញ', location: 'ដង្កោ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '8', studentId: '01234562', fullName: 'ហៅ សៀវឡេង', englishName: 'Heav Sievleng', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-05-18', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '9', studentId: '12345683', fullName: 'ជូ គន្ធា', englishName: 'Chu Kunthea', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-07-22', address: 'ភ្នំពេញ', location: 'ពោធិ៍សែនជ័យ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '10', studentId: '01234583', fullName: 'លឿន វណ្ណៈ', englishName: 'Loeun Vannak', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-12-14', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '11', studentId: '12345684', fullName: 'ប៉េង គីមឆេង', englishName: 'Peng Kimchheng', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-03-24', address: 'ភ្នំពេញ', location: 'ជ្រោយចង្វារ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '12', studentId: '01234584', fullName: 'ញ៉ែម សុធារី', englishName: 'Nhem Sotheary', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-09-02', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '13', studentId: '12345685', fullName: 'សាន តុលា', englishName: 'San Tola', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-10-12', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '14', studentId: '01234585', fullName: 'ម៉ៅ ម៉ាលីស', englishName: 'Mao Malis', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-11-28', address: 'ភ្នំពេញ', location: '៧មករា', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '15', studentId: '12345686', fullName: 'ឈិន វាសនា', englishName: 'Chhin Veasna', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-04-18', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '16', studentId: '01234586', fullName: 'ទូច ម៉ាលីន', englishName: 'Touch Malin', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-02-14', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '17', studentId: '12345687', fullName: 'កែវ រតនា', englishName: 'Keo Ratana', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-08-30', address: 'ភ្នំពេញ', location: 'ជ្រោយចង្វារ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '18', studentId: '01234587', fullName: 'អ៊ុង សុភ័ក្ត្រ', englishName: 'Oung Sopheaktra', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-03-22', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '19', studentId: '12345688', fullName: 'ហ៊ាន សុភ័ក្ត្រ', englishName: 'Hean Sopheak', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-06-15', address: 'ភ្នំពេញ', location: 'ដង្កោ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '20', studentId: '01234588', fullName: 'សុង ចន្នី', englishName: 'Song Channy', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-07-07', address: 'ភ្នំពេញ', location: '៧មករា', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '21', studentId: '12345689', fullName: 'សួង ដារ៉ា', englishName: 'Soung Dara', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-09-09', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '22', studentId: '01234589', fullName: 'ឃីម ស្រីរ័ត្ន', englishName: 'Khim Sreyrath', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-05-05', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '23', studentId: '12345690', fullName: 'ផាន សំណាង', englishName: 'Phan Samnang', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-04-12', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '24', studentId: '01234590', fullName: 'សេង វិបុល', englishName: 'Seng Vibol', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-12-25', address: 'ភ្នំពេញ', location: 'បឹងកេងកង', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '25', studentId: '12345691', fullName: 'អ៊ូ ច័ន្ទរក្សា', englishName: 'Ou Chanraksa', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-02-12', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
+        { id: '26', studentId: '01234591', fullName: 'សឺន ពិសិដ្ឋ', englishName: 'Soen Piseth', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-07-19', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' }
+      ];
+      const defaultStudentsWithNewFields = defaultStudents.map(s => ({
+        ...s,
+        contact: '',
+        father: '',
+        mother: '',
+        phoneNum: ''
+      }));
+      setStudents(defaultStudentsWithNewFields);
+      localStorage.setItem('appStudents', JSON.stringify(defaultStudentsWithNewFields));
+    }
+  }, [router]);
+
+  // Student CRUD Functions
+  const handleOpenAddStudent = () => {
+    if (isStudentTableLocked) return;
+    setStudentEditId(null);
+    setStudentIdField('');
+    setStudentFullNameField('');
+    setStudentEnglishNameField('');
+    setStudentGenderField('ស្រី');
+    setStudentLevelField(levelOptions.length > 0 ? levelOptions[0] : '');
+    setStudentShiftField(shiftOptions.length > 0 ? shiftOptions[0] : '');
+    setStudentEnrollDateField(new Date().toISOString().slice(0, 10));
+    setStudentFeeField('120');
+    setStudentClassNameField('');
+    setStudentTeacherField('');
+    setStudentDobField('');
+    setStudentAddressField(addressOptions.length > 0 ? addressOptions[0] : '');
+    setStudentLocationField('');
+    setStudentTransportField(transportOptions.includes('Personal') ? 'Personal' : transportOptions.length > 0 ? transportOptions[0] : 'Personal');
+    setStudentPhotoField('');
+    setStudentStatusField('កំពុងសិក្សា');
+    setStudentContactField('');
+    setStudentFatherField('');
+    setStudentMotherField('');
+    setStudentPhoneNumField('');
+    setIsStudentModalOpen(true);
+  };
+
+  const handleOpenEditStudent = (student: any) => {
+    if (isStudentTableLocked) return;
+    setStudentEditId(student.id);
+    setStudentIdField(student.studentId || '');
+    setStudentFullNameField(student.fullName || '');
+    setStudentEnglishNameField(student.englishName || '');
+    setStudentGenderField(student.gender || 'ស្រី');
+    setStudentLevelField(student.level || 'កម្រិតមធ្យមសិក្សា');
+    setStudentShiftField(student.shift || 'វេនព្រឹក');
+    setStudentEnrollDateField(student.enrollDate || '');
+    setStudentFeeField((student.fee || 120).toString());
+    setStudentClassNameField(student.className || '10C');
+    setStudentTeacherField(student.teacherName || 'ស៊ុន សុខ');
+    setStudentDobField(student.dob || '');
+    setStudentAddressField(student.address || '');
+    setStudentLocationField(student.location || '');
+    setStudentTransportField(student.transport || 'ម៉ូតូ');
+    setStudentPhotoField(student.photo || '');
+    setStudentStatusField(student.status || 'កំពុងសិក្សា');
+    setStudentContactField(student.contact || '');
+    setStudentFatherField(student.father || '');
+    setStudentMotherField(student.mother || '');
+    setStudentPhoneNumField(student.phoneNum || '');
+    setIsStudentModalOpen(true);
+  };
+
+  const convertDriveUrl = (url: string): string => {
+    if (!url) return '';
+    if (url.includes('drive.google.com')) {
+      let fileId = '';
+      const matchD = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (matchD && matchD[1]) {
+        fileId = matchD[1];
+      } else {
+        const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (matchId && matchId[1]) {
+          fileId = matchId[1];
+        }
+      }
+      if (fileId) {
+        return `https://lh3.googleusercontent.com/d/${fileId}`;
+      }
+    }
+    return url;
+  };
+
+  const handleSaveStudent = () => {
+    // Validate all Part 1 fields (Mandatory)
+    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
+      alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
+      return;
+    }
+
+    const directPhotoUrl = convertDriveUrl(studentPhotoField);
+    
+    let updated;
+    const studentData = {
+      studentId: studentIdField,
+      fullName: studentFullNameField,
+      englishName: studentEnglishNameField,
+      gender: studentGenderField,
+      level: studentLevelField,
+      shift: studentShiftField,
+      enrollDate: studentEnrollDateField,
+      fee: Number(studentFeeField) || 0,
+      className: studentClassNameField,
+      teacherName: studentTeacherField,
+      dob: studentDobField,
+      address: studentAddressField,
+      location: studentLocationField,
+      transport: studentTransportField,
+      photo: directPhotoUrl,
+      status: studentStatusField,
+      contact: studentContactField,
+      father: studentFatherField,
+      mother: studentMotherField,
+      phoneNum: studentPhoneNumField
+    };
+
+    if (studentEditId) {
+      updated = students.map(s => s.id === studentEditId ? { ...s, ...studentData } : s);
+    } else {
+      updated = [...students, { ...studentData, id: Date.now().toString() }];
+    }
+
+    setStudents(updated);
+    localStorage.setItem('appStudents', JSON.stringify(updated));
+    setIsStudentModalOpen(false);
+  };
+
+  const handleDeleteStudent = (id: string) => {
+    if (isStudentTableLocked) return;
+    if (confirm('តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សនេះមែនទេ?')) {
+      const updated = students.filter(s => s.id !== id);
+      setStudents(updated);
+      localStorage.setItem('appStudents', JSON.stringify(updated));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (isStudentTableLocked) return;
+    if (selectedStudentIds.length === 0) return;
+    if (confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សទាំង ${selectedStudentIds.length} នាក់នេះមែនទេ?`)) {
+      const updated = students.filter(s => !selectedStudentIds.includes(s.id));
+      setStudents(updated);
+      localStorage.setItem('appStudents', JSON.stringify(updated));
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const downloadSampleCSV = () => {
+    const headers = [
+      "ID", "Full Name", "English Name", "Gender", "Level", "Shift", 
+      "Enroll Date", "Fee", "Class", "Teacher", "DOB", "Address", 
+      "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
+    ];
+    const sampleRow = [
+      "9201", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", 
+      "2026-05-10", "120", "10C", "ស៊ុន សុខ", "27-06-2012", "ភ្នំពេញ", 
+      "ច្បារអំពៅ", "Personal", "", "កំពុងសិក្សា", "មាស សុខ", "លី សុវណ្ណ", "មាស សុខ", "012345678"
+    ];
+    const csvContent = "\uFEFF" + [headers.join(","), sampleRow.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(",")].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sample_students_import.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // CSV Export & Import
+  const exportToCSV = () => {
+    const headers = [
+      "ID", "Full Name", "English Name", "Gender", "Level", "Shift", 
+      "Enroll Date", "Fee", "Class", "Teacher", "DOB", "Address", 
+      "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
+    ];
+    const rows = students.map(s => [
+      s.studentId, s.fullName, s.englishName, s.gender, s.level, s.shift,
+      s.enrollDate, s.fee, s.className, s.teacherName, s.dob, s.address,
+      s.location, s.transport, s.photo, s.status || 'កំពុងសិក្សា',
+      s.contact || '', s.father || '', s.mother || '', s.phoneNum || ''
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `student_data_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const importFromCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split('\n');
+      if (lines.length <= 1) return;
+
+      const imported: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+        const fields = matches.map(f => f.replace(/^"|"$/g, '').trim());
+
+        if (fields.length >= 10) {
+          imported.push({
+            id: Date.now().toString() + Math.random().toString(36).substring(2, 5),
+            studentId: fields[0] || '',
+            fullName: fields[1] || '',
+            englishName: fields[2] || '',
+            gender: fields[3] || 'ប្រុស',
+            level: fields[4] || 'កម្រិតមធ្យមសិក្សា',
+            shift: fields[5] || 'វេនព្រឹក',
+            enrollDate: fields[6] || '',
+            fee: Number(fields[7]) || 120,
+            className: fields[8] || '10C',
+            teacherName: fields[9] || 'ស៊ុន សុខ',
+            dob: fields[10] || '',
+            address: fields[11] || '',
+            location: fields[12] || '',
+            transport: fields[13] || 'ម៉ូតូ',
+            photo: fields[14] || '',
+            status: fields[15] || 'កំពុងសិក្សា',
+            contact: fields[16] || '',
+            father: fields[17] || '',
+            mother: fields[18] || '',
+            phoneNum: fields[19] || ''
+          });
+        }
+      }
+
+      if (imported.length > 0) {
+        const merged = [...students, ...imported];
+        setStudents(merged);
+        localStorage.setItem('appStudents', JSON.stringify(merged));
+        alert(`បាននាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់ ដោយជោគជ័យ!`);
+      } else {
+        alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const getFirstLetter = (name: string) => {
+    if (!name) return 'ស';
+    const parts = name.trim().split(' ');
+    const lastPart = parts[parts.length - 1];
+    return lastPart.charAt(0);
+  };
+
+  // Dynamic Class Options based on current students
+  const classOptions = Array.from(new Set(students.map(s => s.className).filter(Boolean)));
+
+  // Selection Checkbox Logic
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedStudentIds(filteredAndSortedStudents.map(s => s.id));
+    } else {
+      setSelectedStudentIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedStudentIds(prev => [...prev, id]);
+    } else {
+      setSelectedStudentIds(prev => prev.filter(item => item !== id));
+    }
+  };
+
+  // Filter & Sort Logic
+  const filteredAndSortedStudents = students
+    .filter(s => {
+      const matchesSearch = 
+        s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) || 
+        s.englishName.toLowerCase().includes(studentSearch.toLowerCase()) || 
+        s.studentId.includes(studentSearch);
+      const matchesClass = studentClassFilter === 'all' || s.className === studentClassFilter;
+      const matchesLevel = studentLevelFilter === 'all' || s.level === studentLevelFilter;
+      const matchesShift = studentShiftFilter === 'all' || s.shift === studentShiftFilter;
+      const matchesStatus = s.status === studentStatusFilter;
+      return matchesSearch && matchesClass && matchesLevel && matchesShift && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (studentSortBy === 'id') return a.studentId.localeCompare(b.studentId);
+      if (studentSortBy === 'name') return a.fullName.localeCompare(b.fullName, 'km-KH');
+      if (studentSortBy === 'dob') return a.dob.localeCompare(b.dob);
+      return 0;
+    });
+
+  const totalInFilter = filteredAndSortedStudents.length;
+  const femaleCount = filteredAndSortedStudents.filter(s => s.gender === 'ស្រី').length;
+  const maleCount = filteredAndSortedStudents.filter(s => s.gender === 'ប្រុស').length;
+
+  if (role !== 'admin' && role !== 'teacher') return null;
+
+  return (
+    <>
+      <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      
+      {/* Header Bar: Title and Stats */}
+      <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--accent-primary)' }}><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+            ព័ត៌មានសិស្ស
+          </h1>
+          {/* Stats Badges (Custom CSS Badges instead of Emojis) */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
+              {totalInFilter === students.length ? `សរុប ${students.length} នាក់` : `បង្ហាញ ${totalInFilter} / ${students.length} នាក់`}
+            </span>
+            <span style={{ color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', border: '1px solid rgba(236, 72, 153, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
+              ស្រី {femaleCount}
+            </span>
+            <span style={{ color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
+              ប្រុស {maleCount}
+            </span>
+          </div>
+        </div>
+
+        {/* Filters and Action Buttons Row */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          
+          {/* Level Filter */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <select className="input-field" value={studentLevelFilter} onChange={e => setStudentLevelFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
+              <option value="all">គ្រប់កម្រិត</option>
+              {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+
+          {/* Shift Filter */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <select className="input-field" value={studentShiftFilter} onChange={e => setStudentShiftFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
+              <option value="all">គ្រប់វេន</option>
+              {shiftOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* Class Filter */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <select className="input-field" value={studentClassFilter} onChange={e => setStudentClassFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
+              <option value="all">គ្រប់ថ្នាក់</option>
+              {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <select className="input-field" value={studentStatusFilter} onChange={e => setStudentStatusFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
+            <option value="កំពុងសិក្សា">កំពុងសិក្សា</option>
+            <option value="ព្យួរការសិក្សា">ព្យួរការសិក្សា</option>
+            <option value="ឈប់រៀន">ឈប់រៀន</option>
+          </select>
+
+          {/* Search Box */}
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="ស្វែងរក..." 
+            value={studentSearch} 
+            onChange={e => setStudentSearch(e.target.value)}
+            style={{ width: '160px', padding: '0.4rem 0.75rem', background: 'var(--main-bg)', fontSize: '0.9rem' }} 
+          />
+
+          {/* Action SVGs (Stop using Emojis) */}
+          <button onClick={handleOpenAddStudent} className="btn btn-primary" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="បន្ថែមសិស្ស">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          
+          {selectedStudentIds.length > 0 && (
+            <button 
+              onClick={handleBulkDelete} 
+              className="btn animate-fade-in" 
+              disabled={isStudentTableLocked} 
+              style={{ 
+                padding: '0.45rem 0.75rem', 
+                background: 'rgba(239, 68, 68, 0.15)', 
+                color: 'var(--danger)',
+                border: 'none', 
+                display: 'flex', 
+                alignItems: 'center',
+                opacity: isStudentTableLocked ? 0.5 : 1
+              }} 
+              title="លុបសិស្សដែលបានជ្រើសរើស"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          )}
+
+          <button onClick={() => setStudentSortBy(studentSortBy === 'id' ? 'name' : studentSortBy === 'name' ? 'dob' : 'id')} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="តម្រៀប">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 9 17 9 17 21 13 21 13 9 9 9 15 3"></polyline><polyline points="9 21 3 15 7 15 7 3 11 3 11 15 15 15 9 21"></polyline></svg>
+          </button>
+          
+          <button onClick={() => { setStudentSearch(''); setStudentClassFilter('all'); setStudentLevelFilter('all'); setStudentShiftFilter('all'); setStudentStatusFilter('កំពុងសិក្សា'); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+          </button>
+
+          <button onClick={exportToCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Export CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          </button>
+          
+          <button onClick={() => !isStudentTableLocked && fileInputRef.current?.click()} className="btn" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="Import CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          </button>
+          
+          <button onClick={downloadSampleCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="ទាញយកគំរូ CSV">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            គំរូ CSV
+          </button>
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={importFromCSV} style={{ display: 'none' }} />
+
+          {/* Lock Toggle SVG Button */}
+          <button 
+            onClick={() => setIsStudentTableLocked(!isStudentTableLocked)} 
+            className="btn" 
+            style={{ 
+              padding: '0.45rem 0.75rem', 
+              background: isStudentTableLocked ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', 
+              color: isStudentTableLocked ? '#d97706' : '#10b981', 
+              border: 'none', 
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title={isStudentTableLocked ? "ដោះសោដើម្បីកែប្រែ" : "ចាក់សោតារាង"}
+          >
+            {isStudentTableLocked ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Lock Warning Banner */}
+      {isStudentTableLocked && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.15)', padding: '0.75rem 1rem', borderRadius: '8px', color: '#d97706', marginBottom: '1.25rem', fontWeight: 500, fontSize: '0.9rem' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '0.25rem' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          តារាងត្រូវបានចាក់សោ — ចុចរូបសោ 🔒 នៅខាងលើ ដើម្បីបើកបន្ថែម កែប្រែ ឬលុបទិន្នន័យសិស្ស។
+        </div>
+      )}
+
+      {/* Table Container (Horizontal Scrollable) */}
+      <div className="glass-panel" style={{ overflow: 'hidden', overflowX: 'auto', border: '1px solid var(--border-color)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1800px', fontSize: '0.95rem' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
+              <th style={{ padding: '0.85rem 1.25rem', width: '40px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={filteredAndSortedStudents.length > 0 && selectedStudentIds.length === filteredAndSortedStudents.length} 
+                  onChange={handleSelectAll} 
+                />
+              </th>
+              <th style={{ padding: '0.85rem 1.25rem', width: '60px' }}>ល.រ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>រូបថត</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>អត្តលេខ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ឈ្មោះពេញ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ឈ្មោះអង់គ្លេស</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ភេទ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>កម្រិតសិក្សា</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>វេន</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្ងៃចូលរៀន</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្លៃសិក្សា (Fee)</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្នាក់</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>គ្រូ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្ងៃកំណើត (DOB)</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>អាសយដ្ឋាន</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ទីតាំង</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>មធ្យោបាយ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>អ្នកទំនាក់ទំនង</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ឪពុក</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>ម្តាយ</th>
+              <th style={{ padding: '0.85rem 1.25rem' }}>លេខទូរស័ព្ទ</th>
+              <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right', width: '120px' }}>ជម្រើស</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAndSortedStudents.map((student, index) => (
+              <tr 
+                key={student.id} 
+                onClick={() => handleOpenEditStudent(student)}
+                style={{ 
+                  borderBottom: '1px solid var(--border-color)', 
+                  background: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
+                  cursor: isStudentTableLocked ? 'default' : 'pointer',
+                  transition: 'background 0.2s'
+                }}
+                className={!isStudentTableLocked ? 'hover:bg-black/5' : ''}
+              >
+                <td style={{ padding: '0.75rem 1.25rem' }} onClick={(e) => e.stopPropagation()}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedStudentIds.includes(student.id)} 
+                    onChange={(e) => handleSelectOne(student.id, e.target.checked)} 
+                  />
+                </td>
+                <td style={{ padding: '0.75rem 1.25rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
+                
+                {/* Photo / Avatar */}
+                <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {student.photo ? (
+                    <img src={student.photo} alt={student.fullName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ 
+                      width: '32px', height: '32px', borderRadius: '50%', 
+                      background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.85rem'
+                    }}>
+                      {getFirstLetter(student.fullName)}
+                    </div>
+                  )}
+                </td>
+
+                <td style={{ padding: '0.75rem 1.25rem' }}><code>{student.studentId}</code></td>
+                <td style={{ padding: '0.75rem 1.25rem', fontWeight: 500 }}>{student.fullName}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.englishName}</td>
+                
+                {/* Gender badge */}
+                <td style={{ padding: '0.75rem 1.25rem' }}>
+                  <span style={{ 
+                    fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
+                    background: student.gender === 'ស្រី' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                    color: student.gender === 'ស្រី' ? '#ec4899' : '#3b82f6'
+                  }}>
+                    {student.gender}
+                  </span>
+                </td>
+                
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.level}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.shift}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.enrollDate}</td>
+                
+                {/* Fee (Value 1 = 1000 Riels) */}
+                <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
+                  {(student.fee * 1000).toLocaleString('km-KH')}៛
+                </td>
+                
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.className}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.teacherName}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.dob}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.address}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {student.location && (student.location.startsWith('http://') || student.location.startsWith('https://')) ? (
+                    <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>
+                      Link 📍
+                    </a>
+                  ) : (
+                    student.location
+                  )}
+                </td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.transport}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {student.contact ? (
+                    student.contact.startsWith('http://') || student.contact.startsWith('https://') ? (
+                      <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }}>
+                        Link 🔗
+                      </a>
+                    ) : student.contact.startsWith('@') ? (
+                      <a href={`https://t.me/${student.contact.substring(1)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }}>
+                        {student.contact} ✈️
+                      </a>
+                    ) : (
+                      student.contact
+                    )
+                  ) : (
+                    ''
+                  )}
+                </td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.father}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.mother}</td>
+                <td style={{ padding: '0.75rem 1.25rem' }}>{student.phoneNum}</td>
+                
+                {/* Actions */}
+                <td style={{ padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleOpenEditStudent(student); }} 
+                      className="btn" 
+                      disabled={isStudentTableLocked}
+                      style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', opacity: isStudentTableLocked ? 0.4 : 1 }} 
+                      title="កែប្រែ"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDeleteStudent(student.id); }} 
+                      className="btn" 
+                      disabled={isStudentTableLocked}
+                      style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none', opacity: isStudentTableLocked ? 0.4 : 1 }} 
+                      title="លុប"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filteredAndSortedStudents.length === 0 && (
+              <tr>
+                <td colSpan={22} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  មិនមានទិន្នន័យសិស្សត្រូវគ្នានឹងការស្វែងរកទេ។
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      </div>
+
+      {/* STUDENT MODAL (Responsive Opaque Modals) */}
+      {isStudentModalOpen && (
+        <div 
+          onClick={() => setIsStudentModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-fade-in post-read-modal" 
+            style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', padding: '2rem', overflowY: 'auto' }}
+          >
+            <h2 style={{ margin: '0 0 1.5rem 0' }}>
+              {studentEditId ? 'កែប្រែព័ត៌មានសិស្ស' : 'បន្ថែមសិស្សថ្មី'}
+            </h2>
+            
+            {/* Part 1 Header Toggle */}
+            <div 
+              onClick={() => setShowPart1(!showPart1)} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                background: 'rgba(99, 102, 241, 0.08)', 
+                border: '1px solid rgba(99, 102, 241, 0.15)', 
+                padding: '0.75rem 1.25rem', 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                marginBottom: '1rem',
+                userSelect: 'none'
+              }}
+            >
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🎓 ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Fee)
+              </span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart1 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+            </div>
+
+            {showPart1 && (
+              <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អត្តលេខ (Student ID) *</label>
+                  <input type="text" className="input-field" value={studentIdField} onChange={e => setStudentIdField(e.target.value)} placeholder="ឧ. 9201" />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះពេញ (Khmer Name) *</label>
+                  <input type="text" className="input-field" value={studentFullNameField} onChange={e => setStudentFullNameField(e.target.value)} placeholder="ឧ. លី តិចស្រេង" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះឡាតាំង (English Name) *</label>
+                  <input type="text" className="input-field" value={studentEnglishNameField} onChange={e => setStudentEnglishNameField(e.target.value)} placeholder="ឧ. Ly Tichsreng" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ភេទ (Gender) *</label>
+                  <select className="input-field" value={studentGenderField} onChange={e => setStudentGenderField(e.target.value)}>
+                    <option value="ប្រុស">ប្រុស (Male)</option>
+                    <option value="ស្រី">ស្រី (Female)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>កម្រិតសិក្សា (Level) *</label>
+                  <select className="input-field" value={studentLevelField} onChange={e => setStudentLevelField(e.target.value)}>
+                    {levelOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {!levelOptions.includes(studentLevelField) && studentLevelField && <option value={studentLevelField}>{studentLevelField}</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>វេនសិក្សា (Shift) *</label>
+                  <select className="input-field" value={studentShiftField} onChange={e => setStudentShiftField(e.target.value)}>
+                    {shiftOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {!shiftOptions.includes(studentShiftField) && studentShiftField && <option value={studentShiftField}>{studentShiftField}</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
+                  <input type="date" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្លៃសិក្សា (Fee) [1 = 1000៛] *</label>
+                  <input type="number" className="input-field" value={studentFeeField} onChange={e => setStudentFeeField(e.target.value)} placeholder="ឧ. 120 (120,000៛)" />
+                </div>
+              </div>
+            )}
+
+            {/* Part 2 Header Toggle */}
+            <div 
+              onClick={() => setShowPart2(!showPart2)} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                background: 'rgba(139, 92, 246, 0.08)', 
+                border: '1px solid rgba(139, 92, 246, 0.15)', 
+                padding: '0.75rem 1.25rem', 
+                borderRadius: '8px', 
+                cursor: 'pointer', 
+                marginBottom: '1rem',
+                userSelect: 'none'
+              }}
+            >
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🏠 ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
+              </span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart2 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+            </div>
+
+            {showPart2 && (
+              <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃខែឆ្នាំកំណើត (DOB)</label>
+                  <input type="text" className="input-field" value={studentDobField} onChange={e => setStudentDobField(e.target.value)} placeholder="ឧ. 27-06-2012" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អាសយដ្ឋាន (Address)</label>
+                  <select className="input-field" value={studentAddressField} onChange={e => setStudentAddressField(e.target.value)}>
+                    {addressOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {!addressOptions.includes(studentAddressField) && studentAddressField && <option value={studentAddressField}>{studentAddressField}</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ទីតាំង (Google Maps Link)</label>
+                  <input type="text" className="input-field" value={studentLocationField} onChange={e => setStudentLocationField(e.target.value)} placeholder="https://maps.google.com/..." />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>មធ្យោបាយធ្វើដំណើរ (Transport)</label>
+                  <select className="input-field" value={studentTransportField} onChange={e => setStudentTransportField(e.target.value)}>
+                    {transportOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {!transportOptions.includes(studentTransportField) && studentTransportField && <option value={studentTransportField}>{studentTransportField}</option>}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>តំណលីងរូបថត (Photo URL / Google Drive)</label>
+                  <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="បិទភ្ជាប់ Link រូបភាព ឬ Link ពី Google Drive" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ស្ថានភាពសិក្សា (Status)</label>
+                  <select className="input-field" value={studentStatusField} onChange={e => setStudentStatusField(e.target.value)}>
+                    <option value="កំពុងសិក្សា">កំពុងសិក្សា (Active)</option>
+                    <option value="ព្យួរការសិក្សា">ព្យួរការសិក្សា (Suspended)</option>
+                    <option value="ឈប់រៀន">ឈប់រៀន (Dropped)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អ្នកទំនាក់ទំនង (Social Media Link)</label>
+                  <input type="text" className="input-field" value={studentContactField} onChange={e => setStudentContactField(e.target.value)} placeholder="https://t.me/username ឬ Link ផ្សេងៗ" />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះឪពុក (Father Name)</label>
+                  <input type="text" className="input-field" value={studentFatherField} onChange={e => setStudentFatherField(e.target.value)} placeholder="ឧ. លី សុវណ្ណ" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះម្តាយ (Mother Name)</label>
+                  <input type="text" className="input-field" value={studentMotherField} onChange={e => setStudentMotherField(e.target.value)} placeholder="ឧ. មាស សុខ" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>លេខទូរស័ព្ទ (Phone Num)</label>
+                  <input type="text" className="input-field" value={studentPhoneNumField} onChange={e => setStudentPhoneNumField(e.target.value)} placeholder="ឧ. 012345678" />
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: 'auto' }}>
+              <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsStudentModalOpen(false)}>បោះបង់</button>
+              <button className="btn btn-primary" onClick={handleSaveStudent} style={{ padding: '0.75rem 2rem' }}>រក្សាទុក</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

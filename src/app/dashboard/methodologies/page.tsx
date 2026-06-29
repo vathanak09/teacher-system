@@ -216,7 +216,7 @@ export default function MethodologiesPage() {
           <input 
             type="text" 
             className="input-field" 
-            placeholder="🔍 ស្វែងរកចំណងជើងអត្ថបទ..." 
+            placeholder="ស្វែងរកចំណងជើងអត្ថបទ..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
@@ -230,7 +230,7 @@ export default function MethodologiesPage() {
             onChange={e => setFilterTag(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
           >
-            <option value="all">🏷️ ស្លាកពាក្យទាំងអស់</option>
+            <option value="all">ស្លាកពាក្យទាំងអស់</option>
             {availableTags.map(tag => (
               <option key={tag.id} value={tag.id}>{tag.name}</option>
             ))}
@@ -242,9 +242,9 @@ export default function MethodologiesPage() {
             onChange={e => setFilterAuthor(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
           >
-            <option value="all">📁 អត្ថបទទាំងអស់</option>
-            <option value="mine">👤 អត្ថបទរបស់ខ្ញុំ</option>
-            <option value="others">👥 អត្ថបទអ្នកដទៃ</option>
+            <option value="all">អត្ថបទទាំងអស់</option>
+            <option value="mine">អត្ថបទរបស់ខ្ញុំ</option>
+            <option value="others">អត្ថបទអ្នកដទៃ</option>
           </select>
 
           <select 
@@ -253,9 +253,9 @@ export default function MethodologiesPage() {
             onChange={e => setSortBy(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
           >
-            <option value="newest">📅 ថ្មីបំផុត</option>
-            <option value="oldest">📅 ចាស់បំផុត</option>
-            <option value="title">🔤 តាមចំណងជើង (ក-ខ)</option>
+            <option value="newest">ថ្មីបំផុត</option>
+            <option value="oldest">ចាស់បំផុត</option>
+            <option value="title">តាមចំណងជើង (ក-ខ)</option>
           </select>
         </div>
       </div>
@@ -323,28 +323,30 @@ export default function MethodologiesPage() {
     {/* EDITOR MODAL (Solid Background Fixed) */}
     {isEditorOpen && (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
-        <div className="glass-panel animate-fade-in" style={{ width: '900px', maxWidth: '95%', height: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}>
+        <div className="glass-panel animate-fade-in post-editor-modal" style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}>
           <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
             <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{editingId ? 'កែប្រែអត្ថបទ' : 'សរសេរអត្ថបទថ្មី'}</h2>
             
             {!editingId ? (
               <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--main-bg)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                  <button 
-                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'word' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'word' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s' }} 
+                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'word' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'word' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.35rem' }} 
                     onClick={() => setEditorMode('word')}
                  >
-                   📝 Add Post
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                   Word Style
                  </button>
                  <button 
-                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'html' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'html' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s' }} 
+                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'html' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'html' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.35rem' }} 
                     onClick={() => setEditorMode('html')}
                  >
-                   ⌨️ Add HTML
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                   HTML Style
                  </button>
               </div>
             ) : (
-              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(0,0,0,0.05)' }}>
-                របៀបសរសេរ៖ {editorMode === 'word' ? '📝 Word Style' : '⌨️ HTML Style'}
+              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                របៀបសរសេរ៖ {editorMode === 'word' ? 'Word Style' : 'HTML Style'}
               </span>
             )}
           </div>
@@ -500,8 +502,8 @@ export default function MethodologiesPage() {
       >
         <div 
           onClick={e => e.stopPropagation()} // Stop propagation to prevent closing
-          className="glass-panel animate-fade-in" 
-          style={{ width: '1000px', maxWidth: '95%', height: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', overflow: 'hidden' }}
+          className="glass-panel animate-fade-in post-read-modal" 
+          style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', overflow: 'hidden' }}
         >
           
           <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>

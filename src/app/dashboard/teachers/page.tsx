@@ -1,0 +1,327 @@
+"use client";
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function TeachersPage() {
+  const router = useRouter();
+  const [role, setRole] = useState('');
+  
+  // State for Teachers
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [teacherEditId, setTeacherEditId] = useState<string | null>(null);
+
+  // Form Fields
+  const [teacherIdField, setTeacherIdField] = useState('');
+  const [fullNameField, setFullNameField] = useState('');
+  const [englishNameField, setEnglishNameField] = useState('');
+  const [genderField, setGenderField] = useState('ប្រុស');
+  const [dobField, setDobField] = useState('');
+  const [phoneField, setPhoneField] = useState('');
+  const [subjectField, setSubjectField] = useState('');
+  const [addressField, setAddressField] = useState('');
+  const [joinDateField, setJoinDateField] = useState('');
+  const [photoField, setPhotoField] = useState('');
+  const [statusField, setStatusField] = useState('កំពុងបង្រៀន');
+
+  // Search & Filter
+  const [search, setSearch] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const currentRole = localStorage.getItem('userRole') || '';
+    setRole(currentRole);
+    if (currentRole !== 'admin') {
+      router.push('/dashboard');
+      return;
+    }
+
+    const storedTeachers = localStorage.getItem('appTeachers');
+    if (storedTeachers) {
+      setTeachers(JSON.parse(storedTeachers));
+    } else {
+      const defaultTeachers = [
+        { id: '1', teacherId: 'T001', fullName: 'ស៊ុន សុខ', englishName: 'Sun Sok', gender: 'ប្រុស', dob: '1985-05-12', phone: '012345678', subject: 'គណិតវិទ្យា', address: 'ភ្នំពេញ', joinDate: '2020-09-01', photo: '', status: 'កំពុងបង្រៀន' },
+        { id: '2', teacherId: 'T002', fullName: 'កែវ មាលី', englishName: 'Keo Maly', gender: 'ស្រី', dob: '1990-11-20', phone: '098765432', subject: 'ភាសាខ្មែរ', address: 'កណ្ដាល', joinDate: '2021-10-15', photo: '', status: 'កំពុងបង្រៀន' },
+      ];
+      setTeachers(defaultTeachers);
+      localStorage.setItem('appTeachers', JSON.stringify(defaultTeachers));
+    }
+  }, [router]);
+
+  const handleOpenAddTeacher = () => {
+    setTeacherEditId(null);
+    setTeacherIdField('');
+    setFullNameField('');
+    setEnglishNameField('');
+    setGenderField('ប្រុស');
+    setDobField('');
+    setPhoneField('');
+    setSubjectField('');
+    setAddressField('');
+    setJoinDateField('');
+    setPhotoField('');
+    setStatusField('កំពុងបង្រៀន');
+    setIsTeacherModalOpen(true);
+  };
+
+  const handleOpenEditTeacher = (teacher: any) => {
+    setTeacherEditId(teacher.id);
+    setTeacherIdField(teacher.teacherId);
+    setFullNameField(teacher.fullName);
+    setEnglishNameField(teacher.englishName);
+    setGenderField(teacher.gender);
+    setDobField(teacher.dob);
+    setPhoneField(teacher.phone);
+    setSubjectField(teacher.subject);
+    setAddressField(teacher.address);
+    setJoinDateField(teacher.joinDate);
+    setPhotoField(teacher.photo || '');
+    setStatusField(teacher.status);
+    setIsTeacherModalOpen(true);
+  };
+
+  const handleDeleteTeacher = (id: string) => {
+    if (confirm('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
+      const updated = teachers.filter(t => t.id !== id);
+      setTeachers(updated);
+      localStorage.setItem('appTeachers', JSON.stringify(updated));
+    }
+  };
+
+  const handleSaveTeacher = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullNameField || !teacherIdField) {
+      alert('សូមបំពេញព័ត៌មានដែលចាំបាច់!');
+      return;
+    }
+    const newTeacher = {
+      id: teacherEditId || Date.now().toString(),
+      teacherId: teacherIdField,
+      fullName: fullNameField,
+      englishName: englishNameField,
+      gender: genderField,
+      dob: dobField,
+      phone: phoneField,
+      subject: subjectField,
+      address: addressField,
+      joinDate: joinDateField,
+      photo: photoField,
+      status: statusField,
+    };
+    
+    let updated;
+    if (teacherEditId) {
+      updated = teachers.map(t => (t.id === teacherEditId ? newTeacher : t));
+    } else {
+      updated = [newTeacher, ...teachers];
+    }
+    
+    setTeachers(updated);
+    localStorage.setItem('appTeachers', JSON.stringify(updated));
+    setIsTeacherModalOpen(false);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoField(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const filteredTeachers = teachers.filter(t => 
+    t.fullName.includes(search) || t.englishName.toLowerCase().includes(search.toLowerCase()) || t.teacherId.includes(search)
+  );
+
+  if (!role) return null;
+
+  return (
+    <>
+      <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>ព័ត៌មានគ្រូ (Teachers)</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>គ្រប់គ្រងទិន្នន័យគ្រូបង្រៀនទាំងអស់</p>
+          </div>
+          <button 
+            onClick={handleOpenAddTeacher}
+            style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            បញ្ចូលគ្រូថ្មី
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ស្វែងរក</label>
+              <input 
+                type="text" 
+                placeholder="ឈ្មោះ ឬអត្តលេខ..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Teachers Table */}
+        <div className="glass-panel" style={{ overflowX: 'auto', padding: '1rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្តលេខ</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះខ្មែរ</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អក្សរឡាតាំង</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ភេទ</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>មុខវិជ្ជា</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ទូរស័ព្ទ</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ស្ថានភាព</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>សកម្មភាព</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTeachers.map((teacher, index) => (
+                <tr key={teacher.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {teacher.photo ? <img src={teacher.photo} alt={teacher.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
+                    </div>
+                  </td>
+                  <td style={{ padding: '1rem', fontWeight: '500', color: 'var(--text-primary)' }}>{teacher.teacherId}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-primary)' }}>{teacher.fullName}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{teacher.englishName}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{teacher.gender}</td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary-color)', fontSize: '0.875rem' }}>{teacher.subject}</span>
+                  </td>
+                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{teacher.phone}</td>
+                  <td style={{ padding: '1rem' }}>
+                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.875rem', fontWeight: '500', background: teacher.status === 'កំពុងបង្រៀន' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: teacher.status === 'កំពុងបង្រៀន' ? '#10b981' : '#ef4444' }}>
+                      {teacher.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                      <button onClick={() => handleOpenEditTeacher(teacher)} style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="កែប្រែ">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteTeacher(teacher.id)} style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="លុប">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredTeachers.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>មិនមានទិន្នន័យគ្រូទេ</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Teacher Modal */}
+      {isTeacherModalOpen && (
+        <div 
+          onClick={() => setIsTeacherModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-scale-in" 
+            style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--modal-bg)' }}
+          >
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--modal-bg)', zIndex: 10 }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{teacherEditId ? 'កែប្រែព័ត៌មានគ្រូ' : 'បញ្ចូលគ្រូថ្មី'}</h2>
+              <button onClick={() => setIsTeacherModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <form onSubmit={handleSaveTeacher} style={{ padding: '1.5rem' }}>
+              
+              <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '120px', height: '120px', borderRadius: '12px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {photoField ? <img src={photoField} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>រូបថត</span>}
+                  </div>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}>ជ្រើសរើសរូបថត</button>
+                  <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
+                </div>
+                
+                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អត្តលេខ *</label>
+                    <input type="text" value={teacherIdField} onChange={e => setTeacherIdField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះខ្មែរ *</label>
+                    <input type="text" value={fullNameField} onChange={e => setFullNameField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អក្សរឡាតាំង</label>
+                    <input type="text" value={englishNameField} onChange={e => setEnglishNameField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភេទ</label>
+                    <select value={genderField} onChange={e => setGenderField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                      <option value="ប្រុស">ប្រុស</option>
+                      <option value="ស្រី">ស្រី</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>មុខវិជ្ជា</label>
+                  <input type="text" value={subjectField} onChange={e => setSubjectField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ទូរស័ព្ទ</label>
+                  <input type="text" value={phoneField} onChange={e => setPhoneField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃខែឆ្នាំកំណើត</label>
+                  <input type="date" value={dobField} onChange={e => setDobField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលធ្វើការ</label>
+                  <input type="date" value={joinDateField} onChange={e => setJoinDateField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អាសយដ្ឋាន</label>
+                  <input type="text" value={addressField} onChange={e => setAddressField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ស្ថានភាព</label>
+                  <select value={statusField} onChange={e => setStatusField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                    <option value="កំពុងបង្រៀន">កំពុងបង្រៀន</option>
+                    <option value="ឈប់បង្រៀន">ឈប់បង្រៀន</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                <button type="button" onClick={() => setIsTeacherModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
+                <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
