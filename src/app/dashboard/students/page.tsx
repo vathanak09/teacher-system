@@ -65,15 +65,15 @@ export default function StudentsPage() {
       return;
     }
 
-    // Load Dynamic Options
-    const storedLevels = localStorage.getItem('appStudentLevels');
-    if (storedLevels) setLevelOptions(JSON.parse(storedLevels));
-    const storedShifts = localStorage.getItem('appStudentShifts');
-    if (storedShifts) setShiftOptions(JSON.parse(storedShifts));
-    const storedAddresses = localStorage.getItem('appStudentAddresses');
-    if (storedAddresses) setAddressOptions(JSON.parse(storedAddresses));
-    const storedTransports = localStorage.getItem('appStudentTransports');
-    if (storedTransports) setTransportOptions(JSON.parse(storedTransports));
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.appStudentLevels) setLevelOptions(data.appStudentLevels);
+        if (data.appStudentShifts) setShiftOptions(data.appStudentShifts);
+        if (data.appStudentAddresses) setAddressOptions(data.appStudentAddresses);
+        if (data.appStudentTransports) setTransportOptions(data.appStudentTransports);
+      }
+    });
 
     const unsubscribe = onSnapshot(collection(db, 'students'), (snapshot) => {
       const studentsData: any[] = [];
@@ -83,7 +83,10 @@ export default function StudentsPage() {
       setStudents(studentsData);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
   }, [router]);
 
   // Student CRUD Functions

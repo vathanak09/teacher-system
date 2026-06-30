@@ -42,18 +42,14 @@ export default function MethodologiesPage() {
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');
     setAuthorName(localStorage.getItem('userName') || 'Admin');
-    
-    // Load Tags
-    const savedTags = localStorage.getItem('appTags');
-    if (savedTags) {
-      setAvailableTags(JSON.parse(savedTags));
-    }
 
-    // Load Tag Groups
-    const savedGroups = localStorage.getItem('appTagGroups');
-    if (savedGroups) {
-      setTagGroups(JSON.parse(savedGroups));
-    }
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.appTags) setAvailableTags(data.appTags);
+        if (data.appTagGroups) setTagGroups(data.appTagGroups);
+      }
+    });
 
     // Load Posts
     const unsubscribe = onSnapshot(collection(db, 'methodologies'), (snapshot) => {
@@ -64,7 +60,10 @@ export default function MethodologiesPage() {
       setPosts(postsData);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
   }, []);
 
   const openCreateModal = () => {
