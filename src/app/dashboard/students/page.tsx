@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -73,76 +75,15 @@ export default function StudentsPage() {
     const storedTransports = localStorage.getItem('appStudentTransports');
     if (storedTransports) setTransportOptions(JSON.parse(storedTransports));
 
-    // Load Students (Fallback to 26 default students matching the requested count of Female 12, Male 14)
-    const storedStudents = localStorage.getItem('appStudents');
-    if (storedStudents) {
-      let parsedStudents = JSON.parse(storedStudents);
-      let isModified = false;
-      
-      const updatedStudents = parsedStudents.map((s: any) => {
-        let sUpdated = { ...s };
-        // Legacy migration for transport
-        if (sUpdated.transport === 'ឡានក្រុង') { sUpdated.transport = 'Bus'; isModified = true; }
-        if (sUpdated.transport === 'ម៉ូតូ' || sUpdated.transport === 'កង់') { sUpdated.transport = 'Personal'; isModified = true; }
-        
-        // Normalize against current options
-        if (storedLevels && !JSON.parse(storedLevels).includes(sUpdated.level)) { sUpdated.level = JSON.parse(storedLevels)[0] || ''; isModified = true; }
-        if (storedShifts && !JSON.parse(storedShifts).includes(sUpdated.shift)) { sUpdated.shift = JSON.parse(storedShifts)[0] || ''; isModified = true; }
-        if (storedAddresses && !JSON.parse(storedAddresses).includes(sUpdated.address)) { sUpdated.address = JSON.parse(storedAddresses)[0] || ''; isModified = true; }
-        if (storedTransports && !JSON.parse(storedTransports).includes(sUpdated.transport)) { sUpdated.transport = JSON.parse(storedTransports)[0] || ''; isModified = true; }
-        
-        // Initialize new fields
-        if (sUpdated.contact === undefined) { sUpdated.contact = ''; isModified = true; }
-        if (sUpdated.father === undefined) { sUpdated.father = ''; isModified = true; }
-        if (sUpdated.mother === undefined) { sUpdated.mother = ''; isModified = true; }
-        if (sUpdated.phoneNum === undefined) { sUpdated.phoneNum = ''; isModified = true; }
-
-        return sUpdated;
+    const unsubscribe = onSnapshot(collection(db, 'students'), (snapshot) => {
+      const studentsData: any[] = [];
+      snapshot.forEach((doc) => {
+        studentsData.push({ id: doc.id, ...doc.data() });
       });
-      
-      setStudents(updatedStudents);
-      if (isModified) {
-        localStorage.setItem('appStudents', JSON.stringify(updatedStudents));
-      }
-    } else {
-      const defaultStudents = [
-        { id: '1', studentId: '9201', fullName: 'លី តិចស្រេង', englishName: 'Ly Tichsreng', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-06-27', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '2', studentId: '9202', fullName: 'មេសា ឡាឌី', englishName: 'Mesa Ladi', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-09-15', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '3', studentId: '1023105', fullName: 'សុវណ្ណារិទ្ធ ស៊ីវិចិត្រ', englishName: 'Sovannarith Sivichitr', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនរសៀល', enrollDate: '2026-05-12', fee: 150, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2013-11-20', address: 'ភ្នំពេញ', location: 'បឹងកេងកង', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '4', studentId: '01234560', fullName: 'លឿន សុខចាន់', englishName: 'Loeun Sokchan', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-04-05', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '5', studentId: '12345681', fullName: 'ណាត សុខលីម', englishName: 'Nat Soklim', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-08-12', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '6', studentId: '01234561', fullName: 'ណាត នីហ្សា', englishName: 'Nat Niza', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-10-09', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '7', studentId: '12345682', fullName: 'តេង មករា', englishName: 'Teng Makara', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-01-01', address: 'ភ្នំពេញ', location: 'ដង្កោ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '8', studentId: '01234562', fullName: 'ហៅ សៀវឡេង', englishName: 'Heav Sievleng', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-05-18', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '9', studentId: '12345683', fullName: 'ជូ គន្ធា', englishName: 'Chu Kunthea', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-07-22', address: 'ភ្នំពេញ', location: 'ពោធិ៍សែនជ័យ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '10', studentId: '01234583', fullName: 'លឿន វណ្ណៈ', englishName: 'Loeun Vannak', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-12-14', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '11', studentId: '12345684', fullName: 'ប៉េង គីមឆេង', englishName: 'Peng Kimchheng', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-03-24', address: 'ភ្នំពេញ', location: 'ជ្រោយចង្វារ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '12', studentId: '01234584', fullName: 'ញ៉ែម សុធារី', englishName: 'Nhem Sotheary', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-09-02', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '13', studentId: '12345685', fullName: 'សាន តុលា', englishName: 'San Tola', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-10-12', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '14', studentId: '01234585', fullName: 'ម៉ៅ ម៉ាលីស', englishName: 'Mao Malis', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-11-28', address: 'ភ្នំពេញ', location: '៧មករា', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '15', studentId: '12345686', fullName: 'ឈិន វាសនា', englishName: 'Chhin Veasna', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-04-18', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '16', studentId: '01234586', fullName: 'ទូច ម៉ាលីន', englishName: 'Touch Malin', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-02-14', address: 'ភ្នំពេញ', location: 'ចំការមន', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '17', studentId: '12345687', fullName: 'កែវ រតនា', englishName: 'Keo Ratana', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-08-30', address: 'ភ្នំពេញ', location: 'ជ្រោយចង្វារ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '18', studentId: '01234587', fullName: 'អ៊ុង សុភ័ក្ត្រ', englishName: 'Oung Sopheaktra', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-03-22', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '19', studentId: '12345688', fullName: 'ហ៊ាន សុភ័ក្ត្រ', englishName: 'Hean Sopheak', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-06-15', address: 'ភ្នំពេញ', location: 'ដង្កោ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '20', studentId: '01234588', fullName: 'សុង ចន្នី', englishName: 'Song Channy', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-07-07', address: 'ភ្នំពេញ', location: '៧មករា', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '21', studentId: '12345689', fullName: 'សួង ដារ៉ា', englishName: 'Soung Dara', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-09-09', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '22', studentId: '01234589', fullName: 'ឃីម ស្រីរ័ត្ន', englishName: 'Khim Sreyrath', gender: 'ស្រី', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-05-05', address: 'ភ្នំពេញ', location: 'មានជ័យ', transport: 'Bus', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '23', studentId: '12345690', fullName: 'ផាន សំណាង', englishName: 'Phan Samnang', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2012-04-12', address: 'ភ្នំពេញ', location: 'ទួលគោក', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '24', studentId: '01234590', fullName: 'សេង វិបុល', englishName: 'Seng Vibol', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-12-25', address: 'ភ្នំពេញ', location: 'បឹងកេងកង', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '25', studentId: '12345691', fullName: 'អ៊ូ ច័ន្ទរក្សា', englishName: 'Ou Chanraksa', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-02-12', address: 'ភ្នំពេញ', location: 'សែនសុខ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' },
-        { id: '26', studentId: '01234591', fullName: 'សឺន ពិសិដ្ឋ', englishName: 'Soen Piseth', gender: 'ប្រុស', level: 'កម្រិតមធ្យមសិក្សា', shift: 'វេនព្រឹក', enrollDate: '2026-05-10', fee: 120, className: '10C', teacherName: 'ស៊ុន សុខ', dob: '2011-07-19', address: 'ភ្នំពេញ', location: 'ច្បារអំពៅ', transport: 'Personal', photo: '', status: 'កំពុងសិក្សា' }
-      ];
-      const defaultStudentsWithNewFields = defaultStudents.map(s => ({
-        ...s,
-        contact: '',
-        father: '',
-        mother: '',
-        phoneNum: ''
-      }));
-      setStudents(defaultStudentsWithNewFields);
-      localStorage.setItem('appStudents', JSON.stringify(defaultStudentsWithNewFields));
-    }
+      setStudents(studentsData);
+    });
+
+    return () => unsubscribe();
   }, [router]);
 
   // Student CRUD Functions
@@ -252,22 +193,18 @@ export default function StudentsPage() {
     };
 
     if (studentEditId) {
-      updated = students.map(s => s.id === studentEditId ? { ...s, ...studentData } : s);
+      updateDoc(doc(db, 'students', studentEditId), studentData);
     } else {
-      updated = [...students, { ...studentData, id: Date.now().toString() }];
+      addDoc(collection(db, 'students'), studentData);
     }
 
-    setStudents(updated);
-    localStorage.setItem('appStudents', JSON.stringify(updated));
     setIsStudentModalOpen(false);
   };
 
   const handleDeleteStudent = (id: string) => {
     if (isStudentTableLocked) return;
     if (confirm('តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សនេះមែនទេ?')) {
-      const updated = students.filter(s => s.id !== id);
-      setStudents(updated);
-      localStorage.setItem('appStudents', JSON.stringify(updated));
+      deleteDoc(doc(db, 'students', id));
     }
   };
 
@@ -275,9 +212,7 @@ export default function StudentsPage() {
     if (isStudentTableLocked) return;
     if (selectedStudentIds.length === 0) return;
     if (confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សទាំង ${selectedStudentIds.length} នាក់នេះមែនទេ?`)) {
-      const updated = students.filter(s => !selectedStudentIds.includes(s.id));
-      setStudents(updated);
-      localStorage.setItem('appStudents', JSON.stringify(updated));
+      selectedStudentIds.forEach(id => deleteDoc(doc(db, 'students', id)));
       setSelectedStudentIds([]);
     }
   };
@@ -376,10 +311,8 @@ export default function StudentsPage() {
       }
 
       if (imported.length > 0) {
-        const merged = [...students, ...imported];
-        setStudents(merged);
-        localStorage.setItem('appStudents', JSON.stringify(merged));
-        alert(`បាននាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់ ដោយជោគជ័យ!`);
+        imported.forEach(student => addDoc(collection(db, 'students'), student));
+        alert(`កំពុងនាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់...`);
       } else {
         alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');
       }

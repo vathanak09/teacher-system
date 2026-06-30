@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 export default function CoursesPage() {
   const [role, setRole] = useState('');
@@ -14,18 +16,16 @@ export default function CoursesPage() {
 
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');
-    const saved = localStorage.getItem('coursesData');
-    if (saved && JSON.parse(saved).length > 0) {
-      setCourses(JSON.parse(saved));
-    } else {
-      const defaultData = [
-        { id: 1, name: 'ការអភិវឌ្ឍន៍គេហទំព័រមូលដ្ឋាន', teacher: 'លោកគ្រូ សុខ ម៉េង', progress: 75, status: 'កំពុងសិក្សា' },
-        { id: 2, name: 'ភាសាសរសេរកូដកម្រិតខ្ពស់', teacher: 'អ្នកគ្រូ ចាន់ ស្រីមុំ', progress: 40, status: 'កំពុងសិក្សា' },
-        { id: 3, name: 'បណ្តាញកុំព្យូទ័រ', teacher: 'Mr. John', progress: 100, status: 'បញ្ចប់រួចរាល់' },
-      ];
-      setCourses(defaultData);
-      localStorage.setItem('coursesData', JSON.stringify(defaultData));
-    }
+
+    const unsubscribe = onSnapshot(collection(db, 'courses'), (snapshot) => {
+      const coursesData: any[] = [];
+      snapshot.forEach((doc) => {
+        coursesData.push({ id: doc.id, ...doc.data() });
+      });
+      setCourses(coursesData);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const openAddModal = () => {
@@ -48,9 +48,7 @@ export default function CoursesPage() {
 
   const handleDelete = (id: number) => {
     if (confirm('តើអ្នកពិតជាចង់លុបវគ្គសិក្សានេះមែនទេ?')) {
-      const updated = courses.filter(c => c.id !== id);
-      setCourses(updated);
-      localStorage.setItem('coursesData', JSON.stringify(updated));
+      deleteDoc(doc(db, 'courses', id.toString()));
     }
   };
 
@@ -59,14 +57,12 @@ export default function CoursesPage() {
       alert('សូមបំពេញឈ្មោះវគ្គសិក្សា និងឈ្មោះគ្រូ!');
       return;
     }
-    let updated;
+    const courseData = { name, teacher, progress: Number(progress), status };
     if (editId) {
-      updated = courses.map(c => c.id === editId ? { ...c, name, teacher, progress: Number(progress), status } : c);
+      updateDoc(doc(db, 'courses', editId.toString()), courseData);
     } else {
-      updated = [...courses, { id: Date.now(), name, teacher, progress: Number(progress), status }];
+      addDoc(collection(db, 'courses'), courseData);
     }
-    setCourses(updated);
-    localStorage.setItem('coursesData', JSON.stringify(updated));
     setIsModalOpen(false);
   };
 

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -38,17 +40,15 @@ export default function TeachersPage() {
       return;
     }
 
-    const storedTeachers = localStorage.getItem('appTeachers');
-    if (storedTeachers) {
-      setTeachers(JSON.parse(storedTeachers));
-    } else {
-      const defaultTeachers = [
-        { id: '1', teacherId: 'T001', fullName: 'ស៊ុន សុខ', englishName: 'Sun Sok', gender: 'ប្រុស', dob: '1985-05-12', phone: '012345678', subject: 'គណិតវិទ្យា', address: 'ភ្នំពេញ', joinDate: '2020-09-01', photo: '', status: 'កំពុងបង្រៀន' },
-        { id: '2', teacherId: 'T002', fullName: 'កែវ មាលី', englishName: 'Keo Maly', gender: 'ស្រី', dob: '1990-11-20', phone: '098765432', subject: 'ភាសាខ្មែរ', address: 'កណ្ដាល', joinDate: '2021-10-15', photo: '', status: 'កំពុងបង្រៀន' },
-      ];
-      setTeachers(defaultTeachers);
-      localStorage.setItem('appTeachers', JSON.stringify(defaultTeachers));
-    }
+    const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
+      const teachersData: any[] = [];
+      snapshot.forEach((doc) => {
+        teachersData.push({ id: doc.id, ...doc.data() });
+      });
+      setTeachers(teachersData);
+    });
+
+    return () => unsubscribe();
   }, [router]);
 
   const handleOpenAddTeacher = () => {
@@ -85,9 +85,7 @@ export default function TeachersPage() {
 
   const handleDeleteTeacher = (id: string) => {
     if (confirm('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
-      const updated = teachers.filter(t => t.id !== id);
-      setTeachers(updated);
-      localStorage.setItem('appTeachers', JSON.stringify(updated));
+      deleteDoc(doc(db, 'teachers', id));
     }
   };
 
@@ -98,7 +96,6 @@ export default function TeachersPage() {
       return;
     }
     const newTeacher = {
-      id: teacherEditId || Date.now().toString(),
       teacherId: teacherIdField,
       fullName: fullNameField,
       englishName: englishNameField,
@@ -112,15 +109,12 @@ export default function TeachersPage() {
       status: statusField,
     };
     
-    let updated;
     if (teacherEditId) {
-      updated = teachers.map(t => (t.id === teacherEditId ? newTeacher : t));
+      updateDoc(doc(db, 'teachers', teacherEditId), newTeacher);
     } else {
-      updated = [newTeacher, ...teachers];
+      addDoc(collection(db, 'teachers'), newTeacher);
     }
     
-    setTeachers(updated);
-    localStorage.setItem('appTeachers', JSON.stringify(updated));
     setIsTeacherModalOpen(false);
   };
 

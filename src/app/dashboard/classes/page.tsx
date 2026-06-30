@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 
 export default function ClassesPage() {
   const router = useRouter();
@@ -32,21 +34,26 @@ export default function ClassesPage() {
       return;
     }
 
-    const storedClasses = localStorage.getItem('appClasses');
-    if (storedClasses) {
-      setClasses(JSON.parse(storedClasses));
-    } else {
-      const defaultClasses = [
-        { id: 'c1', className: '10C', academicYear: '2026-2027', shift: 'វេនព្រឹក', description: 'ថ្នាក់សិស្សពូកែ', studentIds: ['1', '2', '4', '5'] },
-      ];
-      setClasses(defaultClasses);
-      localStorage.setItem('appClasses', JSON.stringify(defaultClasses));
-    }
+    const unsubscribeClasses = onSnapshot(collection(db, 'classes'), (snapshot) => {
+      const classesData: any[] = [];
+      snapshot.forEach((doc) => {
+        classesData.push({ id: doc.id, ...doc.data() });
+      });
+      setClasses(classesData);
+    });
 
-    const storedStudents = localStorage.getItem('appStudents');
-    if (storedStudents) {
-      setAllStudents(JSON.parse(storedStudents));
-    }
+    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
+      const studentsData: any[] = [];
+      snapshot.forEach((doc) => {
+        studentsData.push({ id: doc.id, ...doc.data() });
+      });
+      setAllStudents(studentsData);
+    });
+
+    return () => {
+      unsubscribeClasses();
+      unsubscribeStudents();
+    };
   }, [router]);
 
   // CRUD Class
@@ -70,9 +77,7 @@ export default function ClassesPage() {
 
   const handleDeleteClass = (id: string) => {
     if (confirm('តើអ្នកពិតជាចង់លុបថ្នាក់រៀននេះមែនទេ? ទិន្នន័យសិស្សក្នុងថ្នាក់ក៏នឹងត្រូវលុបចេញពីថ្នាក់នេះដែរ។')) {
-      const updated = classes.filter(c => c.id !== id);
-      setClasses(updated);
-      localStorage.setItem('appClasses', JSON.stringify(updated));
+      deleteDoc(doc(db, 'classes', id));
       if (viewingClass?.id === id) setViewingClass(null);
     }
   };
@@ -85,7 +90,6 @@ export default function ClassesPage() {
     }
 
     const newClass = {
-      id: classEditId || Date.now().toString(),
       className: classNameField,
       academicYear: academicYearField,
       shift: shiftField,
@@ -93,18 +97,15 @@ export default function ClassesPage() {
       studentIds: classEditId ? (classes.find(c => c.id === classEditId)?.studentIds || []) : [],
     };
 
-    let updated;
     if (classEditId) {
-      updated = classes.map(c => (c.id === classEditId ? newClass : c));
+      updateDoc(doc(db, 'classes', classEditId), newClass);
     } else {
-      updated = [newClass, ...classes];
+      addDoc(collection(db, 'classes'), newClass);
     }
 
-    setClasses(updated);
-    localStorage.setItem('appClasses', JSON.stringify(updated));
     setIsClassModalOpen(false);
     if (viewingClass && classEditId === viewingClass.id) {
-      setViewingClass(newClass);
+      setViewingClass({ ...viewingClass, ...newClass });
     }
   };
 
@@ -114,22 +115,16 @@ export default function ClassesPage() {
     if (viewingClass.studentIds.includes(studentId)) return; // Already in class
 
     const updatedClass = { ...viewingClass, studentIds: [...viewingClass.studentIds, studentId] };
-    const updatedClasses = classes.map(c => c.id === viewingClass.id ? updatedClass : c);
-    
-    setClasses(updatedClasses);
+    updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
     setViewingClass(updatedClass);
-    localStorage.setItem('appClasses', JSON.stringify(updatedClasses));
   };
 
   const handleRemoveStudentFromClass = (studentId: string) => {
     if (!viewingClass) return;
     if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
       const updatedClass = { ...viewingClass, studentIds: viewingClass.studentIds.filter((id: string) => id !== studentId) };
-      const updatedClasses = classes.map(c => c.id === viewingClass.id ? updatedClass : c);
-      
-      setClasses(updatedClasses);
+      updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
       setViewingClass(updatedClass);
-      localStorage.setItem('appClasses', JSON.stringify(updatedClasses));
     }
   };
 

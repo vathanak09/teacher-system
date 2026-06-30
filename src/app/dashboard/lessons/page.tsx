@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -32,7 +34,7 @@ export default function LessonsPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editorMode, setEditorMode] = useState<'word' | 'html'>('word');
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Read post state
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -54,42 +56,15 @@ export default function LessonsPage() {
     }
 
     // Load Posts
-    const saved = localStorage.getItem('lessonsPosts');
-    if (saved && JSON.parse(saved).length > 0) {
-      setPosts(JSON.parse(saved));
-    } else {
-      const defaultPosts = [
-        {
-          id: 1,
-          title: "មេរៀនទី១៖ សេចក្តីផ្តើមអំពី HTML",
-          content: "<h2>តើអ្វីទៅជា HTML?</h2><p>HTML មកពីពាក្យ <b>HyperText Markup Language</b> គឺជាភាសាគ្រឹះសម្រាប់បង្កើតគេហទំព័រ។ រាល់គេហទំព័រទាំងអស់ដែលអ្នកឃើញនៅលើអ៊ីនធឺណិត សុទ្ធតែត្រូវប្រើ HTML។</p><p><br></p><h3>ឧទាហរណ៍កូដ HTML ងាយៗ៖</h3><pre><code>&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n  &lt;head&gt;\n    &lt;title&gt;ទំព័រដំបូងរបស់ខ្ញុំ&lt;/title&gt;\n  &lt;/head&gt;\n  &lt;body&gt;\n    &lt;h1&gt;សួស្តីអ្នកទាំងអស់គ្នា!&lt;/h1&gt;\n    &lt;p&gt;នេះគឺជាកថាខណ្ឌដំបូងរបស់ខ្ញុំ។&lt;/p&gt;\n  &lt;/body&gt;\n&lt;/html&gt;</code></pre><p><br></p><blockquote>សូមសាកល្បងថតចម្លង (Copy) កូដនេះទៅដាក់ក្នុង VS Code ហើយបើកវានៅលើ Browser ដើម្បីមើលលទ្ធផល!</blockquote>",
-          author: "Admin User",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [2] // Technology
-        },
-        {
-          id: 2,
-          title: "មេរៀនទី២៖ ការតុបតែងដោយ CSS",
-          content: "<h2>ស្គាល់ CSS ឲ្យកាន់តែច្បាស់</h2><p>CSS គឺជាភាសាសម្រាប់ធ្វើអោយ HTML របស់អ្នកមានភាពស្រស់ស្អាត មានពណ៌ និងរបៀបរៀបរយ។</p><pre><code>body {\n  background-color: lightblue;\n}\n\nh1 {\n  color: white;\n  text-align: center;\n}</code></pre><p>អ្នកអាចដាក់វាទៅក្នុងប្រអប់ <code>&lt;style&gt;</code> នៅក្នុង HTML របស់អ្នក។</p>",
-          author: "Teacher Sok",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [2]
-        },
-        {
-          id: 3,
-          title: "មេរៀនទី៣៖ JavaScript មូលដ្ឋាន",
-          content: "<h2>ចាប់ផ្តើមជាមួយ JavaScript</h2><p>JavaScript គឺជាភាសាដែលធ្វើអោយវិបសាយរបស់អ្នកមានចលនា និងឆ្លើយតបជាមួយអ្នកប្រើប្រាស់។</p><ul><li><strong>Variables:</strong> សម្រាប់ផ្ទុកទិន្នន័យ (let, const, var)</li><li><strong>Functions:</strong> កញ្ចប់កូដដែលធ្វើការងារអ្វីមួយ</li></ul><pre><code>function sayHello() {\n  alert('សួស្តីពី JavaScript!');\n}</code></pre><p>នេះគ្រាន់តែជាការចាប់ផ្តើមប៉ុណ្ណោះ!</p>",
-          author: "Admin User",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [2]
-        }
-      ];
-      setPosts(defaultPosts);
-      localStorage.setItem('lessonsPosts', JSON.stringify(defaultPosts));
-    }
+    const unsubscribe = onSnapshot(collection(db, 'lessons'), (snapshot) => {
+      const postsData: any[] = [];
+      snapshot.forEach((doc) => {
+        postsData.push({ id: doc.id, ...doc.data() });
+      });
+      setPosts(postsData);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const openCreateModal = () => {
@@ -118,23 +93,19 @@ export default function LessonsPage() {
 
   const handleSave = () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
-    let updated;
+    const postData = {
+      title,
+      content,
+      author: authorName,
+      date: new Date().toLocaleDateString('km-KH'),
+      editorMode,
+      tags: selectedTags
+    };
     if (editingId) {
-      updated = posts.map(p => p.id === editingId ? { ...p, title, content, tags: selectedTags } : p);
+      updateDoc(doc(db, 'lessons', editingId.toString()), postData);
     } else {
-      const newPost = {
-        id: Date.now(),
-        title,
-        content,
-        author: authorName,
-        date: new Date().toLocaleDateString('km-KH'),
-        editorMode,
-        tags: selectedTags
-      };
-      updated = [newPost, ...posts];
+      addDoc(collection(db, 'lessons'), postData);
     }
-    setPosts(updated);
-    localStorage.setItem('lessonsPosts', JSON.stringify(updated));
     setIsEditorOpen(false);
     setTitle('');
     setContent('');
@@ -142,14 +113,12 @@ export default function LessonsPage() {
     setEditingId(null);
   };
 
-  const handleDelete = (id: number, e: React.MouseEvent) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if(confirm("តើអ្នកពិតជាចង់លុបមេរៀននេះមែនទេ?")) {
-      const updated = posts.filter(p => p.id !== id);
-      setPosts(updated);
-      localStorage.setItem('lessonsPosts', JSON.stringify(updated));
+      deleteDoc(doc(db, 'lessons', id));
     }
-  }
+  };
 
   // Enhanced Quill Modules with size, color, background-color, alignment
   const modules = {
