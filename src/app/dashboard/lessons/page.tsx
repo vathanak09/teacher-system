@@ -98,6 +98,7 @@ export default function LessonsPage() {
       content,
       author: authorName,
       date: new Date().toLocaleDateString('km-KH'),
+      timestamp: Date.now(),
       editorMode,
       tags: selectedTags
     };
@@ -158,8 +159,8 @@ export default function LessonsPage() {
       return matchesSearch && matchesFilter && matchesTag;
     })
     .sort((a, b) => {
-      if (sortBy === 'newest') return b.id - a.id;
-      if (sortBy === 'oldest') return a.id - b.id;
+      if (sortBy === 'newest') return (b.timestamp || 0) - (a.timestamp || 0);
+      if (sortBy === 'oldest') return (a.timestamp || 0) - (b.timestamp || 0);
       if (sortBy === 'title') return a.title.localeCompare(b.title, 'km-KH');
       return 0;
     });

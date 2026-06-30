@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -32,7 +34,7 @@ export default function MethodologiesPage() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [editorMode, setEditorMode] = useState<'word' | 'html'>('word');
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Read post state
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -54,42 +56,15 @@ export default function MethodologiesPage() {
     }
 
     // Load Posts
-    const saved = localStorage.getItem('methodologiesPosts');
-    if (saved && JSON.parse(saved).length > 0) {
-      setPosts(JSON.parse(saved));
-    } else {
-      const defaultPosts = [
-        {
-          id: 1,
-          title: "វិធីសាស្ត្របង្រៀនបែបសកម្ម (Active Learning)",
-          content: "<h2>សេចក្តីផ្តើម</h2><p>វិធីសាស្ត្របង្រៀនបែបសកម្ម គឺជាការបង្រៀនដែលតម្រូវឱ្យសិស្សចូលរួមយ៉ាងសកម្មនៅក្នុងសកម្មភាពក្នុងថ្នាក់ ជាជាងការអង្គុយស្តាប់គ្រូតែម្ខាង។</p><ul><li>ការពិភាក្សាជាក្រុមតូចៗ</li><li>ការដោះស្រាយបញ្ហាជាក់ស្តែង (Problem Solving)</li><li>ការអនុវត្តគម្រោង (Project-Based Learning)</li></ul><p><br></p><p><strong>អត្ថប្រយោជន៍៖</strong></p><p>១. ជួយសិស្សឱ្យចងចាំមេរៀនបានយូរ</p><p>២. បណ្តុះគំនិតត្រិះរិះពិចារណា និងការធ្វើការងារជាក្រុម</p>",
-          author: "Admin User",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [3] // Science / Pedagogy
-        },
-        {
-          id: 2,
-          title: "ការបង្រៀនបែបត្រិះរិះពិចារណា (Critical Thinking)",
-          content: "<h2>តើអ្វីទៅជា Critical Thinking?</h2><p>គឺជានីតិវិធីដែលសិស្សត្រូវគិតដោះស្រាយបញ្ហាដោយពឹងផ្អែកលើហេតុផល ច្រើនជាងការទន្ទេញចាំមាត់。</p><blockquote>ការដាក់សំណួរបើក (Open-ended questions) គឺជាគន្លឹះដ៏សំខាន់។</blockquote><p>សាកល្បងសួរសិស្សថា៖ <em>តើមានអ្វីកើតឡើងប្រសិនបើ...</em> ជាជាងសួរថា <em>តើនរណាជាអ្នក...</em></p>",
-          author: "Teacher Sok",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [3]
-        },
-        {
-          id: 3,
-          title: "ការគ្រប់គ្រងថ្នាក់រៀនឱ្យមានប្រសិទ្ធភាព",
-          content: "<h3>គន្លឹះសំខាន់ៗ ៣ យ៉ាង៖</h3><ol><li><strong>ច្បាប់ច្បាស់លាស់៖</strong> កំណត់វិន័យតាំងពីថ្ងៃដំបូង。</li><li><strong>បរិយាកាសវិជ្ជមាន៖</strong> ផ្តល់ការសរសើរដល់សិស្សដែលធ្វើបានល្អ។</li><li><strong>ភាពបត់បែន៖</strong> ត្រូវចេះកែប្រែវិធីសាស្ត្របង្រៀននៅពេលសិស្សហាក់ដូចជាធុញថប់។</li></ol><p><br></p><p>សាកល្បងប្រើប្រាស់ហ្គេមអប់រំ (Educational Games) បន្តិចបន្តួចនៅចុងម៉ោង។</p>",
-          author: "Admin User",
-          date: new Date().toLocaleDateString('km-KH'),
-          editorMode: 'word',
-          tags: [1] // Foreign Language / General
-        }
-      ];
-      setPosts(defaultPosts);
-      localStorage.setItem('methodologiesPosts', JSON.stringify(defaultPosts));
-    }
+    const unsubscribe = onSnapshot(collection(db, 'methodologies'), (snapshot) => {
+      const postsData: any[] = [];
+      snapshot.forEach((doc) => {
+        postsData.push({ id: doc.id, ...doc.data() });
+      });
+      setPosts(postsData);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const openCreateModal = () => {
@@ -118,23 +93,20 @@ export default function MethodologiesPage() {
 
   const handleSave = () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
-    let updated;
+    const postData = {
+      title,
+      content,
+      author: authorName,
+      date: new Date().toLocaleDateString('km-KH'),
+      timestamp: Date.now(),
+      editorMode,
+      tags: selectedTags
+    };
     if (editingId) {
-      updated = posts.map(p => p.id === editingId ? { ...p, title, content, tags: selectedTags } : p);
+      updateDoc(doc(db, 'methodologies', editingId.toString()), postData);
     } else {
-      const newPost = {
-        id: Date.now(),
-        title,
-        content,
-        author: authorName,
-        date: new Date().toLocaleDateString('km-KH'),
-        editorMode,
-        tags: selectedTags
-      };
-      updated = [newPost, ...posts];
+      addDoc(collection(db, 'methodologies'), postData);
     }
-    setPosts(updated);
-    localStorage.setItem('methodologiesPosts', JSON.stringify(updated));
     setIsEditorOpen(false);
     setTitle('');
     setContent('');
@@ -142,14 +114,12 @@ export default function MethodologiesPage() {
     setEditingId(null);
   };
 
-  const handleDelete = (id: number, e: React.MouseEvent) => {
+  const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if(confirm("តើអ្នកពិតជាចង់លុបអត្ថបទនេះមែនទេ?")) {
-      const updated = posts.filter(p => p.id !== id);
-      setPosts(updated);
-      localStorage.setItem('methodologiesPosts', JSON.stringify(updated));
+      deleteDoc(doc(db, 'methodologies', id));
     }
-  }
+  };
 
   // Enhanced Quill Modules with size, color, background-color, alignment
   const modules = {
@@ -189,8 +159,8 @@ export default function MethodologiesPage() {
       return matchesSearch && matchesFilter && matchesTag;
     })
     .sort((a, b) => {
-      if (sortBy === 'newest') return b.id - a.id;
-      if (sortBy === 'oldest') return a.id - b.id;
+      if (sortBy === 'newest') return (b.timestamp || 0) - (a.timestamp || 0);
+      if (sortBy === 'oldest') return (a.timestamp || 0) - (b.timestamp || 0);
       if (sortBy === 'title') return a.title.localeCompare(b.title, 'km-KH');
       return 0;
     });
