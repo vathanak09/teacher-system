@@ -138,7 +138,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </aside>
 
-        <main className="dashboard-main" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <main className="dashboard-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="top-header">
             <button onClick={toggleTheme} className="theme-toggle-btn" title="ប្តូរពន្លឺ (Theme)">
               {theme === 'dark' ? (

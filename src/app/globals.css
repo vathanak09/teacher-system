@@ -252,6 +252,8 @@ body {
 /* Dashboard Content Container */
 .dashboard-content {
   padding: 0 1rem 1.5rem 1rem;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Modals */
@@ -346,6 +348,11 @@ body {
     max-height: 100vh !important;
     border-radius: 0 !important;
     padding: 1.5rem !important;
+  }
+  
+  /* Force smaller padding on glass-panels for mobile to prevent overflow */
+  .glass-panel {
+    padding: 1rem !important;
   }
 
   /* Utility classes for mobile */
