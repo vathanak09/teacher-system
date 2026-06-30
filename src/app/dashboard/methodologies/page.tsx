@@ -24,7 +24,7 @@ export default function MethodologiesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAuthor, setFilterAuthor] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
-  const [filterTag, setFilterTag] = useState('all');
+  const [filterTagsByGroup, setFilterTagsByGroup] = useState<Record<number, string>>({});
 
   // Tag & Tag Group lists
   const [availableTags, setAvailableTags] = useState<any[]>([]);
@@ -169,9 +169,13 @@ export default function MethodologiesPage() {
         (filterAuthor === 'others' && post.author !== authorName) ||
         (filterAuthor === 'favorites' && post.likes && post.likes.includes(userId));
       
-      const matchesTag = filterTag === 'all' || (post.tags && post.tags.includes(Number(filterTag)));
+      const matchesGroupTags = Object.keys(filterTagsByGroup).every(groupId => {
+        const tagId = filterTagsByGroup[Number(groupId)];
+        if (!tagId || tagId === 'all') return true;
+        return post.tags && post.tags.includes(Number(tagId));
+      });
       
-      return matchesSearch && matchesFilter && matchesTag;
+      return matchesSearch && matchesFilter && matchesGroupTags;
     })
     .sort((a, b) => {
       if (sortBy === 'newest') return (b.timestamp || 0) - (a.timestamp || 0);
@@ -208,18 +212,25 @@ export default function MethodologiesPage() {
           />
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Tag Filter */}
-          <select 
-            className="input-field" 
-            value={filterTag} 
-            onChange={e => setFilterTag(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
-          >
-            <option value="all">ស្លាកពាក្យទាំងអស់</option>
-            {availableTags.map(tag => (
-              <option key={tag.id} value={tag.id}>{tag.name}</option>
-            ))}
-          </select>
+          {/* Dynamic Tag Group Filters */}
+          {tagGroups.map(group => {
+            const groupTags = availableTags.filter(tag => tag.groupId === group.id);
+            if (groupTags.length === 0) return null;
+            return (
+              <select 
+                key={group.id}
+                className="input-field" 
+                value={filterTagsByGroup[group.id] || 'all'} 
+                onChange={e => setFilterTagsByGroup({...filterTagsByGroup, [group.id]: e.target.value})}
+                style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
+              >
+                <option value="all">{group.name}ទាំងអស់</option>
+                {groupTags.map(tag => (
+                  <option key={tag.id} value={tag.id}>{tag.name}</option>
+                ))}
+              </select>
+            );
+          })}
 
           <select 
             className="input-field" 
