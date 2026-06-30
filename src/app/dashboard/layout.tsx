@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { db } from '@/lib/firebaseClient';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
@@ -10,6 +12,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,6 +41,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const savedColor = localStorage.getItem('theme-color') || 'ocean';
     document.body.classList.add('theme-' + savedColor);
+    
+    // Fetch user profile from teachers collection if applicable
+    const userId = localStorage.getItem('userId');
+    const role = localStorage.getItem('userRole');
+    if (role === 'teacher' || role === 'admin') {
+      const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
+        let foundProfile = null;
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.linkedUserId === userId || data.fullName === storedName) {
+            foundProfile = { id: doc.id, ...data };
+          }
+        });
+        if (foundProfile) {
+          setUserPhoto((foundProfile as any).photo || null);
+          setProfileId((foundProfile as any).id);
+        } else {
+          setUserPhoto(null);
+          setProfileId(null);
+        }
+      });
+      return () => unsubscribe();
+    }
   }, [router]);
 
   const toggleTheme = () => {
@@ -53,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navLinks = [
     { name: 'ផ្ទាំងគ្រប់គ្រង', path: '/dashboard', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> },
     { name: 'ព័ត៌មានសិស្ស', path: '/dashboard/students', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg> },
-    { name: 'ព័ត៌មានគ្រូ', path: '/dashboard/teachers', roles: ['admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> },
+    { name: 'ព័ត៌មានគ្រូ', path: '/dashboard/teachers', roles: ['admin', 'teacher'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> },
     { name: 'ថ្នាក់រៀន', path: '/dashboard/classes', roles: ['teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> },
     { name: 'វគ្គសិក្សា', path: '/dashboard/courses', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
     { name: 'មេរៀន', path: '/dashboard/lessons', roles: ['student', 'teacher', 'admin'], icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
@@ -110,12 +137,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
 
-          <div className="user-profile">
-            <div className="avatar">{userName?.charAt(0).toUpperCase()}</div>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '1rem', textTransform: 'capitalize' }}>{userName}</div>
-              <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{roleKhmer}</div>
-            </div>
+          <div className="user-profile" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+            <Link href="/dashboard/teachers" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit' }}>
+              {userPhoto ? (
+                <img src={userPhoto} alt={userName || ''} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <div className="avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', fontWeight: 'bold' }}>{userName?.charAt(0).toUpperCase()}</div>
+              )}
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '1rem', textTransform: 'capitalize' }}>{userName}</div>
+                <div style={{ fontSize: '0.85rem', opacity: 0.8 }}>{roleKhmer}</div>
+              </div>
+            </Link>
           </div>
 
           <nav className="nav-menu">
