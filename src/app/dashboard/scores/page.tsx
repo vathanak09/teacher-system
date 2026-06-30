@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { db } from '@/lib/firebaseClient';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const icons = [
   { id: 'book', svg: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
@@ -41,12 +43,17 @@ export default function ScoresPage() {
 
   useEffect(() => { 
     setRole(localStorage.getItem('userRole') || ''); 
-    const savedLinks = localStorage.getItem('scoreLinks');
-    if (savedLinks) {
-      try {
-        setLinks(JSON.parse(savedLinks));
-      } catch (e) {}
-    }
+    const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.appScoreLinks) {
+          setLinks(data.appScoreLinks);
+        } else {
+          setLinks(defaultLinks);
+        }
+      }
+    });
+    return () => unsub();
   }, []);
 
   const handleOpenAdd = () => {
@@ -68,12 +75,16 @@ export default function ScoresPage() {
     setIsModalOpen(true);
   };
 
+  const updateFirebaseLinks = async (updatedLinks: any[]) => {
+    await setDoc(doc(db, 'settings', 'global'), { appScoreLinks: updatedLinks }, { merge: true });
+  };
+
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.preventDefault();
     if(confirm('តើអ្នកពិតជាចង់លុបទម្រង់នេះមែនទេ?')) {
       const updatedLinks = links.filter(l => l.id !== id);
       setLinks(updatedLinks);
-      localStorage.setItem('scoreLinks', JSON.stringify(updatedLinks));
+      updateFirebaseLinks(updatedLinks);
     }
   };
 
@@ -88,7 +99,7 @@ export default function ScoresPage() {
         updatedLinks = [...links, { id: Date.now(), title: newTitle, url: newUrl, icon: selectedIcon, color: selectedColor }];
       }
       setLinks(updatedLinks);
-      localStorage.setItem('scoreLinks', JSON.stringify(updatedLinks));
+      updateFirebaseLinks(updatedLinks);
       setIsModalOpen(false);
     } else {
       alert('សូមបំពេញ ចំណងជើង និងតំណលីងអោយបានត្រឹមត្រូវ!');
