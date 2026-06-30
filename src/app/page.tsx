@@ -2,37 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebaseClient';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
+  const [dbUsers, setDbUsers] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    // Initialize default users if they don't exist
-    const storedUsers = localStorage.getItem('appUsers');
-    if (!storedUsers) {
-      const defaultUsers = [
-        { id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' },
-        { id: '2', username: 'teacher1', password: '123', role: 'teacher', name: 'Teacher User' },
-        { id: '3', username: 'student1', password: '123', role: 'student', name: 'Student User' },
-      ];
-      localStorage.setItem('appUsers', JSON.stringify(defaultUsers));
-    }
-
-    const storedSchool = localStorage.getItem('schoolName');
-    if (storedSchool) {
-      setSchoolName(storedSchool);
-    }
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'global');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.appUsers) setDbUsers(data.appUsers);
+          if (data.schoolName) setSchoolName(data.schoolName);
+        } else {
+          // Default admin if nothing exists in Firebase
+          setDbUsers([{ id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' }]);
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    };
+    fetchSettings();
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const storedUsers = JSON.parse(localStorage.getItem('appUsers') || '[]');
-    const user = storedUsers.find((u: any) => u.username === username && u.password === password);
+    const user = dbUsers.find((u: any) => u.username === username && u.password === password);
 
     if (user) {
       localStorage.setItem('userRole', user.role);
