@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebaseClient';
@@ -111,8 +111,8 @@ export default function FavoritesPage() {
     <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '2rem' }}>
         <div>
-          <h1>ážŸáŸ†ážŽáž–áŸ’ážœáž…áž·ážáŸ’áž</h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>áž€áž¶ážšáž”áŸ’ážšáž˜áž¼áž›áž•áŸ’ážáž»áŸ†áž˜áŸážšáŸ€áž“ áž“áž·áž„ážœáž·áž’áž¸ážŸáž¶ážŸáŸ’ážáŸ’ážšážŠáŸ‚áž›áž¢áŸ’áž“áž€áž…áž¼áž›áž…áž·ážáŸ’áž</p>
+          <h1>សំណព្វចិត្ត</h1>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ការប្រមូលផ្តុំមេរៀន និងវិធីសាស្ត្រដែលអ្នកចូលចិត្ត</p>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ export default function FavoritesPage() {
           <input 
             type="text" 
             className="input-field" 
-            placeholder="ážŸáŸ’ážœáŸ‚áž„ážšáž€áž…áŸ†ážŽáž„áž‡áž¾áž„..." 
+            placeholder="ស្វែងរកចំណងជើង..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
@@ -134,9 +134,9 @@ export default function FavoritesPage() {
             onChange={e => setFilterType(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)' }}
           >
-            <option value="all">áž”áŸ’ážšáž—áŸáž‘áž‘áž¶áŸ†áž„áž¢ážŸáŸ‹</option>
-            <option value="lessons">áž˜áŸážšáŸ€áž“</option>
-            <option value="methodologies">ážœáž·áž’áž¸ážŸáž¶ážŸáŸ’ážáŸ’ážš</option>
+            <option value="all">ប្រភេទទាំងអស់</option>
+            <option value="lessons">មេរៀន</option>
+            <option value="methodologies">វិធីសាស្ត្រ</option>
           </select>
 
           <select 
@@ -145,16 +145,16 @@ export default function FavoritesPage() {
             onChange={e => setSortBy(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)' }}
           >
-            <option value="newest">ážáŸ’áž˜áž¸áž”áŸ†áž•áž»áž</option>
-            <option value="oldest">áž…áž¶ážŸáŸ‹áž”áŸ†áž•áž»áž</option>
-            <option value="title">ážáž¶áž˜áž…áŸ†ážŽáž„áž‡áž¾áž„ (áž€-áž)</option>
+            <option value="newest">ថ្មីបំផុត</option>
+            <option value="oldest">ចាស់បំផុត</option>
+            <option value="title">តាមចំណងជើង (ក-ខ)</option>
           </select>
         </div>
       </div>
 
       {filteredAndSortedPosts.length === 0 ? (
         <div className="glass-panel" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          {searchQuery ? "ážšáž€áž˜áž·áž“ážƒáž¾áž‰áž€áž¶ážšážŸáŸ’ážœáŸ‚áž„ážšáž€áž“áŸáŸ‡áž‘áŸ!" : "áž¢áŸ’áž“áž€áž˜áž·áž“áž‘áž¶áž“áŸ‹áž˜áž¶áž“ážŸáŸ†ážŽáž–áŸ’ážœáž…áž·ážáŸ’ážáž“áŸ…áž¡áž¾áž™áž‘áŸ!"}
+          {searchQuery ? "រកមិនឃើញការស្វែងរកនេះទេ!" : "អ្នកមិនទាន់មានសំណព្វចិត្តនៅឡើយទេ!"}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
@@ -163,7 +163,7 @@ export default function FavoritesPage() {
               <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 
                 <div style={{ marginBottom: '0.75rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {post.collectionName === 'lessons' ? 'áž˜áŸážšáŸ€áž“' : 'ážœáž·áž’áž¸ážŸáž¶ážŸáŸ’ážáŸ’ážš'}
+                  {post.collectionName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
                 </div>
 
                 <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '0.5rem' }}>
@@ -173,7 +173,7 @@ export default function FavoritesPage() {
                       onClick={(e) => toggleLike(e, post)} 
                       className="btn" 
                       style={{ background: 'transparent', border: 'none', padding: '0.25rem', fontSize: '1.25rem', color: post.likes?.includes(userId) ? '#ef4444' : '#ccc', lineHeight: 1 }} 
-                      title={post.likes?.includes(userId) ? "ážŠáž€áž…áŸáž‰áž–áž¸áž€áž¶ážšáž–áŸáž‰áž…áž·ážáŸ’áž" : "áž”áž“áŸ’ážáŸ‚áž˜áž‘áŸ…áž€áž¶ážšáž–áŸáž‰áž…áž·ážáŸ’áž"}
+                      title={post.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
                     >
                     {post.likes?.includes(userId) ? (
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="#f43f5e" stroke="#f43f5e" strokeWidth="2" style={{ filter: 'drop-shadow(0 2px 4px rgba(244,63,94,0.3))', transition: 'all 0.2s' }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -252,7 +252,7 @@ export default function FavoritesPage() {
                  <button 
                    onClick={(e) => toggleLike(e, selectedPost)} 
                    style={{ background: 'var(--bg-secondary)', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-                   title={selectedPost.likes?.includes(userId) ? "ážŠáž€áž…áŸáž‰áž–áž¸áž€áž¶ážšáž–áŸáž‰áž…áž·ážáŸ’áž" : "áž”áž“áŸ’ážáŸ‚áž˜áž‘áŸ…áž€áž¶ážšáž–áŸáž‰áž…áž·ážáŸ’áž"}
+                   title={selectedPost.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
                  >
                    {selectedPost.likes?.includes(userId) ? (
                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#f43f5e" stroke="#f43f5e" strokeWidth="2" style={{ filter: 'drop-shadow(0 2px 4px rgba(244,63,94,0.3))', transition: 'all 0.2s' }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
