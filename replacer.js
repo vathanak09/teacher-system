@@ -1,0 +1,12 @@
+const fs = require('fs');
+let c = fs.readFileSync('src/app/dashboard/settings/page.tsx', 'utf-8');
+c = c.replace(/localStorage\.setItem\(\s*'appTagGroups'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appTagGroups: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appTags'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appTags: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appUsers'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appUsers: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'schoolName'\s*,\s*(.*?)\s*\);/g, 'updateSettings({ schoolName: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appStudentLevels'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appStudentLevels: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appStudentShifts'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appStudentShifts: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appStudentAddresses'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appStudentAddresses: $1 });');
+c = c.replace(/localStorage\.setItem\(\s*'appStudentTransports'\s*,\s*JSON\.stringify\((.*?)\)\s*\);/g, 'updateSettings({ appStudentTransports: $1 });');
+fs.writeFileSync('src/app/dashboard/settings/page.tsx', c, 'utf-8');
+console.log('Done replacement');

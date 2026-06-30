@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebaseClient';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -61,55 +63,51 @@ export default function SettingsPage() {
       return;
     }
 
-    // Load Tag Groups
-    const savedGroups = localStorage.getItem('appTagGroups');
-    let currentGroups = [];
-    if (savedGroups) {
-      currentGroups = JSON.parse(savedGroups);
-      setTagGroups(currentGroups);
-    } else {
-      currentGroups = [
-        { id: 1, name: 'កម្រិតថ្នាក់' },
-        { id: 2, name: 'មុខវិជ្ជា' }
-      ];
-      setTagGroups(currentGroups);
-      localStorage.setItem('appTagGroups', JSON.stringify(currentGroups));
-    }
-
-    // Load Tags
-    const savedTags = localStorage.getItem('appTags');
-    if (savedTags) {
-      setTags(JSON.parse(savedTags));
-    } else {
-      const defaultTags = [
-        { id: 1, name: 'ភាសាបរទេស', color: '#8b5cf6', groupId: 2 },
-        { id: 2, name: 'បច្ចេកវិទ្យា', color: '#3b82f6', groupId: 2 },
-        { id: 3, name: 'ថ្នាក់ទី១២', color: '#10b981', groupId: 1 }
-      ];
-      setTags(defaultTags);
-      localStorage.setItem('appTags', JSON.stringify(defaultTags));
-    }
-
-    // Load Users
-    const storedUsers = JSON.parse(localStorage.getItem('appUsers') || '[]');
-    setUsers(storedUsers);
-
-    // Load School Name
-    const storedSchool = localStorage.getItem('schoolName');
-    if (storedSchool) {
-      setSchoolName(storedSchool);
-    }
-
-    // Load Student Options
-    const storedLevels = localStorage.getItem('appStudentLevels');
-    if (storedLevels) setLevels(JSON.parse(storedLevels));
-    const storedShifts = localStorage.getItem('appStudentShifts');
-    if (storedShifts) setShifts(JSON.parse(storedShifts));
-    const storedAddresses = localStorage.getItem('appStudentAddresses');
-    if (storedAddresses) setAddresses(JSON.parse(storedAddresses));
-    const storedTransports = localStorage.getItem('appStudentTransports');
-    if (storedTransports) setTransports(JSON.parse(storedTransports));
+    const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setTagGroups(data.appTagGroups || [
+          { id: 1, name: 'កម្រិតថ្នាក់' },
+          { id: 2, name: 'មុខវិជ្ជា' }
+        ]);
+        setTags(data.appTags || [
+          { id: 1, name: 'ភាសាបរទេស', color: '#8b5cf6', groupId: 2 },
+          { id: 2, name: 'បច្ចេកវិទ្យា', color: '#3b82f6', groupId: 2 },
+          { id: 3, name: 'ថ្នាក់ទី១២', color: '#10b981', groupId: 1 }
+        ]);
+        setUsers(data.appUsers || []);
+        setSchoolName(data.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម');
+        setLevels(data.appStudentLevels || ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
+        setShifts(data.appStudentShifts || ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
+        setAddresses(data.appStudentAddresses || ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
+        setTransports(data.appStudentTransports || ['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+      } else {
+        // Initialize defaults in Firebase
+        setDoc(doc(db, 'settings', 'global'), {
+          appTagGroups: [
+            { id: 1, name: 'កម្រិតថ្នាក់' },
+            { id: 2, name: 'មុខវិជ្ជា' }
+          ],
+          appTags: [
+            { id: 1, name: 'ភាសាបរទេស', color: '#8b5cf6', groupId: 2 },
+            { id: 2, name: 'បច្ចេកវិទ្យា', color: '#3b82f6', groupId: 2 },
+            { id: 3, name: 'ថ្នាក់ទី១២', color: '#10b981', groupId: 1 }
+          ],
+          appUsers: [],
+          schoolName: 'សាលាអន្តរជាតិប្រេនស្តម',
+          appStudentLevels: ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ'],
+          appStudentShifts: ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ'],
+          appStudentAddresses: ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម'],
+          appStudentTransports: ['Bus', 'Personal', 'ម៉ូតូ', 'កង់']
+        });
+      }
+    });
+    return () => unsub();
   }, [router]);
+
+  const updateSettings = async (updates: any) => {
+    await setDoc(doc(db, 'settings', 'global'), updates, { merge: true });
+  };
 
   // Tag Group CRUD Functions
   const handleOpenAddGroup = () => {
@@ -136,7 +134,7 @@ export default function SettingsPage() {
       updatedGroups = [...tagGroups, { id: Date.now(), name: groupName }];
     }
     setTagGroups(updatedGroups);
-    localStorage.setItem('appTagGroups', JSON.stringify(updatedGroups));
+    updateSettings({ appTagGroups: updatedGroups });
     setIsGroupModalOpen(false);
   };
 
@@ -144,11 +142,11 @@ export default function SettingsPage() {
     if (confirm('តើអ្នកពិតជាចង់លុបក្រុមស្លាកពាក្យនេះមែនទេ? (ស្លាកពាក្យនៅក្នុងក្រុមនេះនឹងត្រូវប្តូរទៅជាគ្មានក្រុម)')) {
       const updatedGroups = tagGroups.filter(g => g.id !== id);
       setTagGroups(updatedGroups);
-      localStorage.setItem('appTagGroups', JSON.stringify(updatedGroups));
+      updateSettings({ appTagGroups: updatedGroups });
 
       const updatedTags = tags.map(t => t.groupId === id ? { ...t, groupId: null } : t);
       setTags(updatedTags);
-      localStorage.setItem('appTags', JSON.stringify(updatedTags));
+      updateSettings({ appTags: updatedTags });
     }
   };
 
@@ -182,7 +180,7 @@ export default function SettingsPage() {
       updatedTags = [...tags, { id: Date.now(), name: tagName, color: tagColor, groupId: parsedGroupId }];
     }
     setTags(updatedTags);
-    localStorage.setItem('appTags', JSON.stringify(updatedTags));
+    updateSettings({ appTags: updatedTags });
     setIsTagModalOpen(false);
   };
 
@@ -190,7 +188,7 @@ export default function SettingsPage() {
     if (confirm('តើអ្នកពិតជាចង់លុបស្លាកពាក្យនេះមែនទេ?')) {
       const updatedTags = tags.filter(t => t.id !== id);
       setTags(updatedTags);
-      localStorage.setItem('appTags', JSON.stringify(updatedTags));
+      updateSettings({ appTags: updatedTags });
     }
   };
 
@@ -227,7 +225,7 @@ export default function SettingsPage() {
         updated = [...users, { id: Date.now().toString(), name: userNameField, username: userUsernameField, password: userPasswordField, role: userRoleField }];
       }
       setUsers(updated);
-      localStorage.setItem('appUsers', JSON.stringify(updated));
+      updateSettings({ appUsers: updated });
       setIsUserModalOpen(false);
     } else {
       alert('សូមបំពេញព័ត៌មានអោយបានគ្រប់គ្រាន់!');
@@ -238,13 +236,13 @@ export default function SettingsPage() {
     if (confirm('តើអ្នកពិតជាចង់លុបគណនីនេះមែនទេ?')) {
       const updated = users.filter(u => u.id !== id);
       setUsers(updated);
-      localStorage.setItem('appUsers', JSON.stringify(updated));
+      updateSettings({ appUsers: updated });
     }
   };
 
   // School Info Functions
   const handleSaveSchoolInfo = () => {
-    localStorage.setItem('schoolName', schoolName);
+    updateSettings({ schoolName: schoolName });
     alert('រក្សាទុកព័ត៌មានសាលារៀនដោយជោគជ័យ! (សូម Refresh ដើម្បីឃើញការផ្លាស់ប្តូរ)');
   };
 
@@ -255,19 +253,19 @@ export default function SettingsPage() {
     if (editingOptionType === 'level' && !levels.includes(val)) {
       const updated = [...levels, val];
       setLevels(updated);
-      localStorage.setItem('appStudentLevels', JSON.stringify(updated));
+      updateSettings({ appStudentLevels: updated });
     } else if (editingOptionType === 'shift' && !shifts.includes(val)) {
       const updated = [...shifts, val];
       setShifts(updated);
-      localStorage.setItem('appStudentShifts', JSON.stringify(updated));
+      updateSettings({ appStudentShifts: updated });
     } else if (editingOptionType === 'address' && !addresses.includes(val)) {
       const updated = [...addresses, val];
       setAddresses(updated);
-      localStorage.setItem('appStudentAddresses', JSON.stringify(updated));
+      updateSettings({ appStudentAddresses: updated });
     } else if (editingOptionType === 'transport' && !transports.includes(val)) {
       const updated = [...transports, val];
       setTransports(updated);
-      localStorage.setItem('appStudentTransports', JSON.stringify(updated));
+      updateSettings({ appStudentTransports: updated });
     }
     setNewOptionValue('');
   };
@@ -277,19 +275,19 @@ export default function SettingsPage() {
     if (type === 'level') {
       const updated = levels.filter(x => x !== val);
       setLevels(updated);
-      localStorage.setItem('appStudentLevels', JSON.stringify(updated));
+      updateSettings({ appStudentLevels: updated });
     } else if (type === 'shift') {
       const updated = shifts.filter(x => x !== val);
       setShifts(updated);
-      localStorage.setItem('appStudentShifts', JSON.stringify(updated));
+      updateSettings({ appStudentShifts: updated });
     } else if (type === 'address') {
       const updated = addresses.filter(x => x !== val);
       setAddresses(updated);
-      localStorage.setItem('appStudentAddresses', JSON.stringify(updated));
+      updateSettings({ appStudentAddresses: updated });
     } else if (type === 'transport') {
       const updated = transports.filter(x => x !== val);
       setTransports(updated);
-      localStorage.setItem('appStudentTransports', JSON.stringify(updated));
+      updateSettings({ appStudentTransports: updated });
     }
   };
 
