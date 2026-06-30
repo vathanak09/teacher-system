@@ -182,7 +182,7 @@ export default function MethodologiesPage() {
 
   return (
     <>
-    <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '2rem' }}>
         <div>
           <h1 style={{ margin: 0 }}>វិធីសាស្ត្របង្រៀន</h1>
@@ -264,7 +264,7 @@ export default function MethodologiesPage() {
                       style={{ background: 'transparent', border: 'none', padding: '0.25rem', fontSize: '1.25rem', color: post.likes?.includes(userId) ? '#ef4444' : '#ccc', lineHeight: 1 }} 
                       title={post.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
                     >
-                      {post.likes?.includes(userId) ? '❤️' : '🤍'}
+                      {post.likes?.includes(userId) ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#f43f5e" stroke="#f43f5e" strokeWidth="2" style={{ filter: "drop-shadow(0 2px 4px rgba(244,63,94,0.3))" }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg> : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>}
                     </button>
                   )}
                 </div>

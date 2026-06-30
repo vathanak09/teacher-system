@@ -59,7 +59,7 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0 }}>បញ្ជីវត្តមាន (Attendance)</h1>
       </div>

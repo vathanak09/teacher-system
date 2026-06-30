@@ -294,7 +294,7 @@ export default function SettingsPage() {
   if (role !== 'admin') return null;
 
   return (
-    <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="page-container animate-fade-in">
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ margin: 0 }}>ការកំណត់របស់ Admin</h1>
         <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ផ្ទាំងបញ្ជាកណ្តាលសម្រាប់គ្រប់គ្រងប្រព័ន្ធ</p>

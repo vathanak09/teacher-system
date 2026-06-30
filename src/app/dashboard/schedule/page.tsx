@@ -83,7 +83,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>កាលវិភាគ (Schedule)</h1>
         {(role === 'admin' || role === 'teacher') && (

@@ -118,7 +118,7 @@ export default function ScoresPage() {
 
   return (
     <>
-    <div className="animate-fade-in">
+    <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0 }}>បញ្ចូលពិន្ទុសិស្ស</h1>
         {role === 'admin' && (

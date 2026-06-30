@@ -137,7 +137,7 @@ export default function TeachersPage() {
 
   return (
     <>
-      <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="page-container animate-fade-in">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>ព័ត៌មានគ្រូ (Teachers)</h1>

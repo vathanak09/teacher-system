@@ -378,7 +378,7 @@ export default function StudentsPage() {
 
   return (
     <>
-      <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="page-container animate-fade-in">
       
       {/* Header Bar: Title and Stats */}
       <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>

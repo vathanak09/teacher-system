@@ -67,7 +67,7 @@ export default function CoursesPage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>វគ្គសិក្សា (Courses)</h1>
         {(role === 'admin' || role === 'teacher') && (

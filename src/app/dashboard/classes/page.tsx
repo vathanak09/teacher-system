@@ -139,7 +139,7 @@ export default function ClassesPage() {
 
   return (
     <>
-      <div className="animate-fade-in" style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
+      <div className="page-container animate-fade-in" style={{ display: 'flex', gap: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
         
         {/* Left Side: Class List */}
         <div style={{ flex: '1 1 300px', minWidth: '300px' }}>
