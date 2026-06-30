@@ -18,6 +18,7 @@ export default function LessonsPage() {
   
   const [role, setRole] = useState('');
   const [authorName, setAuthorName] = useState('');
+  const [userId, setUserId] = useState('');
 
   // Search, Filter, Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +43,7 @@ export default function LessonsPage() {
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');
     setAuthorName(localStorage.getItem('userName') || 'Admin');
+    setUserId(localStorage.getItem('userId') || '');
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
@@ -99,7 +101,8 @@ export default function LessonsPage() {
       date: new Date().toLocaleDateString('km-KH'),
       timestamp: Date.now(),
       editorMode,
-      tags: selectedTags
+      tags: selectedTags,
+      likes: []
     };
     if (editingId) {
       updateDoc(doc(db, 'lessons', editingId.toString()), postData);
@@ -118,6 +121,18 @@ export default function LessonsPage() {
     if(confirm("តើអ្នកពិតជាចង់លុបមេរៀននេះមែនទេ?")) {
       deleteDoc(doc(db, 'lessons', id));
     }
+  };
+
+  const toggleLike = (e: React.MouseEvent, post: any) => {
+    e.stopPropagation();
+    if (!userId) return;
+    const currentLikes = post.likes || [];
+    const hasLiked = currentLikes.includes(userId);
+    const newLikes = hasLiked 
+      ? currentLikes.filter((id: string) => id !== userId)
+      : [...currentLikes, userId];
+    
+    updateDoc(doc(db, 'lessons', post.id), { likes: newLikes });
   };
 
   // Enhanced Quill Modules with size, color, background-color, alignment
@@ -151,7 +166,8 @@ export default function LessonsPage() {
       const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesFilter = filterAuthor === 'all' || 
         (filterAuthor === 'mine' && post.author === authorName) ||
-        (filterAuthor === 'others' && post.author !== authorName);
+        (filterAuthor === 'others' && post.author !== authorName) ||
+        (filterAuthor === 'favorites' && post.likes && post.likes.includes(userId));
       
       const matchesTag = filterTag === 'all' || (post.tags && post.tags.includes(Number(filterTag)));
       
@@ -212,6 +228,7 @@ export default function LessonsPage() {
             style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
           >
             <option value="all">មេរៀនទាំងអស់</option>
+            <option value="favorites">មេរៀនដែលខ្ញុំពេញចិត្ត</option>
             <option value="mine">មេរៀនរបស់ខ្ញុំ</option>
             <option value="others">មេរៀនអ្នកដទៃ</option>
           </select>
@@ -238,7 +255,19 @@ export default function LessonsPage() {
           {filteredAndSortedPosts.map(post => (
             <div key={post.id} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', overflow: 'hidden' }} onClick={() => openReadModal(post)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
               <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4' }}>{post.title}</h3>
+                <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4' }}>{post.title}</h3>
+                  {userId && (
+                    <button 
+                      onClick={(e) => toggleLike(e, post)} 
+                      className="btn" 
+                      style={{ background: 'transparent', border: 'none', padding: '0.25rem', fontSize: '1.25rem', color: post.likes?.includes(userId) ? '#ef4444' : '#ccc', lineHeight: 1 }} 
+                      title={post.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
+                    >
+                      {post.likes?.includes(userId) ? '❤️' : '🤍'}
+                    </button>
+                  )}
+                </div>
                 
                 {/* Render Tag Badges on Cards */}
                 <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -500,9 +529,29 @@ export default function LessonsPage() {
                  </div>
                )}
              </div>
-             <button onClick={() => setIsReadModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-             </button>
+             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+               {userId && (
+                 <button 
+                   onClick={(e) => {
+                     toggleLike(e, selectedPost);
+                     // Optimistically update selectedPost for the modal view
+                     const currentLikes = selectedPost.likes || [];
+                     const hasLiked = currentLikes.includes(userId);
+                     setSelectedPost({
+                       ...selectedPost,
+                       likes: hasLiked ? currentLikes.filter((id: string) => id !== userId) : [...currentLikes, userId]
+                     });
+                   }} 
+                   style={{ background: 'var(--bg-secondary)', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                   title={selectedPost.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
+                 >
+                   {selectedPost.likes?.includes(userId) ? '❤️' : '🤍'}
+                 </button>
+               )}
+               <button onClick={() => setIsReadModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+               </button>
+             </div>
           </div>
 
           <div style={{ flex: 1, background: 'white', position: 'relative' }}>

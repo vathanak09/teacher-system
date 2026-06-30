@@ -14,6 +14,12 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Check auto-login
+    if (localStorage.getItem('userRole')) {
+      router.push('/dashboard');
+      return;
+    }
+
     const fetchSettings = async () => {
       try {
         const docRef = doc(db, 'settings', 'global');
