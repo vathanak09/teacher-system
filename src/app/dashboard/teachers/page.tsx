@@ -170,7 +170,8 @@ export default function TeachersPage() {
 
         {/* Teachers Table */}
         <div className="glass-panel" style={{ overflowX: 'auto', padding: '1rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
+          <div className="table-responsive">
+<table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
                 <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>
@@ -224,6 +225,7 @@ export default function TeachersPage() {
               )}
             </tbody>
           </table>
+</div>
         </div>
       </div>
 

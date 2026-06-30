@@ -269,6 +269,29 @@ body {
   max-width: 90%;
 }
 
+/* Mobile Responsiveness Utility Classes */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep styling consistent when wrapped */
+.table-responsive table {
+  width: 100%;
+  min-width: 600px; /* Force minimum width to enable scrolling instead of squishing */
+}
+
+/* By default, things flow naturally. Media queries change them below */
+.flex-col-mobile {
+  display: flex;
+  gap: 1.5rem;
+}
+.grid-1-mobile, .grid-2-mobile {
+  display: grid;
+  gap: 1.5rem;
+}
+
 /* Mobile Responsiveness */
 .mobile-header { display: none; }
 @media (max-width: 768px) {
@@ -311,5 +334,28 @@ body {
     max-height: 100vh !important;
     border-radius: 0 !important;
     padding: 1.5rem !important;
+  }
+
+  /* Utility classes for mobile */
+  .flex-col-mobile {
+    flex-direction: column !important;
+  }
+  
+  .grid-1-mobile {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .grid-2-mobile {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  
+  .table-responsive table {
+    font-size: 0.85rem;
+  }
+  
+  /* Make sure buttons inside small grids don't overflow */
+  .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
   }
 }

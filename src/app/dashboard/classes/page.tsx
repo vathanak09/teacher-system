@@ -247,7 +247,8 @@ export default function ClassesPage() {
                 <h3 style={{ fontSize: '1.25rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '1rem' }}>បញ្ជីសិស្សក្នុងថ្នាក់ ({enrolledStudents.length} នាក់)</h3>
                 
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                  <div className="table-responsive">
+<table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
                         <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្តលេខ</th>
@@ -292,6 +293,7 @@ export default function ClassesPage() {
                       )}
                     </tbody>
                   </table>
+</div>
                 </div>
 
               </div>

@@ -76,15 +76,16 @@ export default function AttendancePage() {
         />
       </div>
 
-      <div className="glass-panel" style={{ overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', background: 'rgba(0,0,0,0.02)', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>
-          <div>ឈ្មោះសិស្ស (Student Name)</div>
-          <div style={{ textAlign: 'center' }}>មានវត្តមាន (Present)</div>
-          <div style={{ textAlign: 'center' }}>អវត្តមាន (Absent)</div>
-          <div style={{ textAlign: 'center' }}>ច្បាប់ (Permission)</div>
-        </div>
-        
-        {students.map((student, idx) => {
+      <div className="glass-panel table-responsive" style={{ overflow: 'auto' }}>
+        <div style={{ minWidth: '600px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', background: 'rgba(0,0,0,0.02)', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>
+            <div>ឈ្មោះសិស្ស (Student Name)</div>
+            <div style={{ textAlign: 'center' }}>មានវត្តមាន (Present)</div>
+            <div style={{ textAlign: 'center' }}>អវត្តមាន (Absent)</div>
+            <div style={{ textAlign: 'center' }}>ច្បាប់ (Permission)</div>
+          </div>
+          
+          {students.map((student, idx) => {
           const status = currentRecords[student.id] || '';
           const isEditable = role === 'admin' || role === 'teacher';
           return (
@@ -153,6 +154,7 @@ export default function AttendancePage() {
             មិនទាន់មានសិស្សនៅក្នុងប្រព័ន្ធនៅឡើយទេ។
           </div>
         )}
+        </div>
       </div>
       
       {(role === 'admin' || role === 'teacher') && (

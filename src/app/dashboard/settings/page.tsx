@@ -453,7 +453,8 @@ export default function SettingsPage() {
           </div>
 
           <div className="glass-panel" style={{ overflow: 'hidden', overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div className="table-responsive">
+<table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
                   <th style={{ padding: '1rem 1.5rem' }}>ឈ្មោះ</th>
@@ -493,6 +494,7 @@ export default function SettingsPage() {
                 ))}
               </tbody>
             </table>
+</div>
           </div>
         </div>
       )}

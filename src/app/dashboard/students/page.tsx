@@ -525,7 +525,8 @@ export default function StudentsPage() {
 
       {/* Table Container (Horizontal Scrollable) */}
       <div className="glass-panel" style={{ overflow: 'hidden', overflowX: 'auto', border: '1px solid var(--border-color)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1800px', fontSize: '0.95rem' }}>
+        <div className="table-responsive">
+<table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1800px', fontSize: '0.95rem' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
               <th style={{ padding: '0.85rem 1.25rem', width: '40px' }}>
@@ -688,6 +689,7 @@ export default function StudentsPage() {
             )}
           </tbody>
         </table>
+</div>
       </div>
 
       </div>
