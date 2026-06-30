@@ -44,25 +44,6 @@ export default function LoginPage() {
     }
   };
 
-  const quickLogin = (role: 'admin' | 'teacher' | 'student') => {
-    let name = '', id = '';
-    if (role === 'admin') {
-      name = 'Admin User';
-      id = '1';
-    } else if (role === 'teacher') {
-      name = 'Teacher User';
-      id = '2';
-    } else if (role === 'student') {
-      name = 'Student User';
-      id = '3';
-    }
-
-    localStorage.setItem('userRole', role);
-    localStorage.setItem('userName', name);
-    localStorage.setItem('userId', id);
-    router.push('/dashboard');
-  };
-
   return (
     <div className="flex-center" style={{ minHeight: '100vh', padding: '1rem' }}>
       <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '420px', padding: '2.5rem' }}>
@@ -116,35 +97,6 @@ export default function LoginPage() {
             ចូលប្រើប្រាស់
           </button>
         </form>
-        
-        <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-          <p style={{ marginBottom: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center', fontSize: '0.85rem' }}>
-            សាកល្បងចូលរហ័ស (Quick Login):
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-            <button 
-              onClick={() => quickLogin('admin')} 
-              className="btn" 
-              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }}
-            >
-              🔑 Admin
-            </button>
-            <button 
-              onClick={() => quickLogin('teacher')} 
-              className="btn" 
-              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', border: 'none' }}
-            >
-              🧑‍🏫 Teacher
-            </button>
-            <button 
-              onClick={() => quickLogin('student')} 
-              className="btn" 
-              style={{ flex: 1, padding: '0.5rem', fontSize: '0.85rem', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: 'none' }}
-            >
-              🎓 Student
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
