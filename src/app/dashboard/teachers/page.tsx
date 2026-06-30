@@ -8,6 +8,10 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 export default function TeachersPage() {
   const router = useRouter();
   const [role, setRole] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [appUsers, setAppUsers] = useState<any[]>([]);
+  const [linkedUserIdField, setLinkedUserIdField] = useState('');
   
   // State for Teachers
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -42,21 +46,41 @@ export default function TeachersPage() {
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
+    const userId = localStorage.getItem('userId') || '';
+    const userName = localStorage.getItem('userName') || '';
     setRole(currentRole);
-    if (currentRole !== 'admin') {
+    setCurrentUserId(userId);
+    setCurrentUserName(userName);
+    
+    if (currentRole !== 'admin' && currentRole !== 'teacher') {
       router.push('/dashboard');
       return;
     }
 
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.appUsers) {
+          setAppUsers(data.appUsers.filter((u: any) => u.role === 'admin' || u.role === 'teacher'));
+        }
+      }
+    });
+
     const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
       const teachersData: any[] = [];
-      snapshot.forEach((doc) => {
-        teachersData.push({ id: doc.id, ...doc.data() });
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (currentRole === 'admin' || data.linkedUserId === userId || data.fullName === userName) {
+          teachersData.push({ id: docSnap.id, ...data });
+        }
       });
       setTeachers(teachersData);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubSettings();
+    };
   }, [router]);
 
   const handleOpenAddTeacher = () => {
@@ -72,6 +96,7 @@ export default function TeachersPage() {
     setJoinDateField('');
     setPhotoField('');
     setStatusField('កំពុងបង្រៀន');
+    setLinkedUserIdField('');
     setTelegramEnabled(false);
     setTelegramLink('');
     setFacebookEnabled(false);
@@ -95,6 +120,7 @@ export default function TeachersPage() {
     setJoinDateField(teacher.joinDate);
     setPhotoField(teacher.photo || '');
     setStatusField(teacher.status);
+    setLinkedUserIdField(teacher.linkedUserId || '');
     setTelegramEnabled(!!teacher.contacts?.telegram);
     setTelegramLink(teacher.contacts?.telegram || '');
     setFacebookEnabled(!!teacher.contacts?.facebook);
@@ -129,6 +155,7 @@ export default function TeachersPage() {
       joinDate: joinDateField,
       photo: photoField,
       status: statusField,
+      linkedUserId: role === 'admin' ? linkedUserIdField : (teacherEditId ? (teachers.find(t=>t.id===teacherEditId)?.linkedUserId || currentUserId) : currentUserId),
       contacts: {
         telegram: telegramEnabled ? telegramLink : '',
         facebook: facebookEnabled ? facebookLink : '',
@@ -353,6 +380,17 @@ export default function TeachersPage() {
                     <option value="ឈប់បង្រៀន">ឈប់បង្រៀន</option>
                   </select>
                 </div>
+                {role === 'admin' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភ្ជាប់ជាមួយគណនី (Linked User)</label>
+                    <select value={linkedUserIdField} onChange={e => setLinkedUserIdField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                      <option value="">-- មិនទាន់ភ្ជាប់ --</option>
+                      {appUsers.map(u => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
