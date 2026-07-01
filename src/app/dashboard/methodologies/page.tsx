@@ -434,16 +434,29 @@ export default function MethodologiesPage() {
           </div>
           
           <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ចំណងជើងអត្ថបទ</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="វាយបញ្ចូលចំណងជើង..." 
-                value={title} 
-                onChange={e => setTitle(e.target.value)} 
-                style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
-              />
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '300px' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ចំណងជើងអត្ថបទ</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="វាយបញ្ចូលចំណងជើង..." 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
+                />
+              </div>
+              <div style={{ width: '150px' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>លេខកូដ (ID)</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={postCodeField}
+                  onChange={e => setPostCodeField(e.target.value)}
+                  placeholder="XXXX"
+                  style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
+                />
+              </div>
             </div>
 
             {/* Grouped Tag Selection in Editor */}
