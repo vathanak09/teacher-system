@@ -102,11 +102,11 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
   const dateStr = post.timestamp ? new Date(post.timestamp).toLocaleDateString('km-KH') : '';
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '2rem', display: 'flex', justifyContent: 'center' }}>
+    <div className="public-page-wrapper" style={{ minHeight: '100vh', background: 'var(--bg-main)', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: '800px' }}>
         
         {/* Header */}
-        <div style={{ background: 'var(--bg-secondary)', padding: '2rem', borderRadius: '16px', boxShadow: 'var(--shadow-sm)', marginBottom: '2rem' }}>
+        <div className="dashboard-header-panel" style={{ background: 'var(--bg-secondary)', boxShadow: 'var(--shadow-sm)' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
             <h1 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-primary)', lineHeight: 1.4 }}>
@@ -158,7 +158,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         <div className="post-content-container" style={{ background: 'var(--bg-secondary)', boxShadow: 'var(--shadow-sm)' }}>
           {post.editorMode === 'html' ? (
             <iframe 
-              srcDoc={`<head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
+              srcDoc={`<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
               style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
               sandbox="allow-scripts allow-same-origin allow-popups"
               title="HTML Content"

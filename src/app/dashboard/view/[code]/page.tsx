@@ -117,7 +117,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
       </button>
 
       {/* Header */}
-      <div className="glass-panel" style={{ padding: '2rem', borderRadius: '16px', marginBottom: '2rem' }}>
+      <div className="glass-panel dashboard-header-panel">
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
           <h1 style={{ fontSize: '2rem', margin: 0, color: 'var(--text-primary)', lineHeight: 1.4 }}>
@@ -181,7 +181,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
       <div className="glass-panel post-content-container">
         {post.editorMode === 'html' ? (
           <iframe 
-            srcDoc={`<head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
+            srcDoc={`<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
             style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
             sandbox="allow-scripts allow-same-origin allow-popups"
             title="HTML Content"
