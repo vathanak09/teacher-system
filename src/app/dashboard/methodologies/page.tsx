@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebaseClient';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
@@ -10,6 +11,7 @@ import 'react-quill-new/dist/quill.snow.css';
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
 export default function MethodologiesPage() {
+  const router = useRouter();
   const [posts, setPosts] = useState<any[]>([]);
   
   // Modals state
@@ -21,7 +23,7 @@ export default function MethodologiesPage() {
   const [userId, setUserId] = useState('');
 
   // Search, Filter, Sort states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('methodologies_searchQuery') || ''; return ''; });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [postCodeField, setPostCodeField] = useState('');
   const [filterAuthor, setFilterAuthor] = useState('all');
@@ -91,10 +93,7 @@ export default function MethodologiesPage() {
     setIsEditorOpen(true);
   };
 
-  const openReadModal = (post: any) => {
-    setSelectedPost(post);
-    setIsReadModalOpen(true);
-  };
+  const openReadModal = (post: any) => { router.push(`/dashboard/view/${post.postCode || post.id}`); };
 
   const handleSave = async () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");

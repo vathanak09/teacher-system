@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebaseClient';
 import { collection, onSnapshot, updateDoc, doc, query, where } from 'firebase/firestore';
 
 export default function FavoritesPage() {
+  const router = useRouter();
   const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
   const [methodsPosts, setMethodsPosts] = useState<any[]>([]);
   
@@ -15,10 +17,10 @@ export default function FavoritesPage() {
   const [role, setRole] = useState('');
 
   // Search, Filter, Sort states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('favorites_searchQuery') || ''; return ''; });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('favorites_filterType') || 'all'; return 'all'; });
 
   // Tag list
   const [availableTags, setAvailableTags] = useState<any[]>([]);
@@ -59,10 +61,7 @@ export default function FavoritesPage() {
     };
   }, []);
 
-  const openReadModal = (post: any) => {
-    setSelectedPost(post);
-    setIsReadModalOpen(true);
-  };
+  const openReadModal = (post: any) => { router.push(`/dashboard/view/${post.postCode || post.id}`); };
 
   const toggleLike = (e: React.MouseEvent, post: any) => {
     e.stopPropagation();
@@ -99,6 +98,14 @@ export default function FavoritesPage() {
     return "";
   };
 
+
+  useEffect(() => {
+    sessionStorage.setItem('favorites_searchQuery', searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem('favorites_filterType', filterType);
+  }, [filterType]);
   const allPosts = [...lessonsPosts, ...methodsPosts];
 
   const filteredAndSortedPosts = allPosts
