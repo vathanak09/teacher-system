@@ -98,6 +98,25 @@ export default function LessonsPage() {
 
   const handleSave = async () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
+    if (!postCodeField) return alert("សូមបញ្ចូលលេខកូដ (ID)!");
+    
+    // Check for uniqueness across lessons and methodologies
+    const lessonsRef = collection(db, 'lessons');
+    const methodsRef = collection(db, 'methodologies');
+    const q1 = query(lessonsRef, where('postCode', '==', postCodeField));
+    const q2 = query(methodsRef, where('postCode', '==', postCodeField));
+    
+    try {
+      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+      const isDuplicate = [...snap1.docs, ...snap2.docs].some(doc => doc.id !== editingId);
+      if (isDuplicate) {
+        return alert("លេខកូដនេះមានរួចហើយ សូមប្រើលេខកូដផ្សេង!");
+      }
+    } catch (error) {
+      console.error("Error checking post code uniqueness", error);
+      return alert("មានបញ្ហាក្នុងការត្រួតពិនិត្យលេខកូដ!");
+    }
+
     const postData: any = {
       title,
       content,
@@ -109,10 +128,10 @@ export default function LessonsPage() {
       postCode: postCodeField
     };
     if (editingId) {
-      updateDoc(doc(db, 'lessons', editingId.toString()), postData);
+      await updateDoc(doc(db, 'lessons', editingId.toString()), postData);
     } else {
       postData.likes = [];
-      addDoc(collection(db, 'lessons'), postData);
+      await addDoc(collection(db, 'lessons'), postData);
     }
     setIsEditorOpen(false);
     setTitle('');

@@ -24,6 +24,7 @@ export default function PostsManagementPage() {
   const [role, setRole] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterTag, setFilterTag] = useState('all');
   
   const [availableTags, setAvailableTags] = useState<any[]>([]);
   const [tagGroups, setTagGroups] = useState<any[]>([]);
@@ -115,12 +116,20 @@ export default function PostsManagementPage() {
 
   const allPosts = [...lessonsPosts, ...methodsPosts];
 
+  const postCodeCounts = allPosts.reduce((acc: any, post) => {
+    if (post.postCode) {
+      acc[post.postCode] = (acc[post.postCode] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
   const filteredAndSortedPosts = allPosts
     .filter(post => {
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = post.title.toLowerCase().includes(searchLower) || (post.postCode && post.postCode.toString().includes(searchLower));
       const matchesType = filterType === 'all' || post.collectionName === filterType;
-      return matchesSearch && matchesType;
+      const matchesTag = filterTag === 'all' || (post.tags && post.tags.includes(Number(filterTag)));
+      return matchesSearch && matchesType && matchesTag;
     })
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
@@ -159,6 +168,17 @@ export default function PostsManagementPage() {
             <option value="lessons">មេរៀន</option>
             <option value="methodologies">វិធីសាស្ត្រ</option>
           </select>
+          <select 
+            className="input-field" 
+            value={filterTag} 
+            onChange={e => setFilterTag(e.target.value)}
+            style={{ width: 'auto', background: 'var(--main-bg)' }}
+          >
+            <option value="all">ស្លាកទាំងអស់</option>
+            {availableTags.map(tag => (
+              <option key={tag.id} value={tag.id}>{tag.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -166,12 +186,13 @@ export default function PostsManagementPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>លេខកូដ</th>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>ប្រភេទ</th>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>ចំណងជើង</th>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>អ្នកនិពន្ធ</th>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទ</th>
-              <th style={{ padding: '1rem', color: 'var(--text-secondary)', textAlign: 'center' }}>សកម្មភាព</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>លេខកូដ</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ប្រភេទ</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ចំណងជើង</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ស្លាក (Tags)</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>អ្នកនិពន្ធ</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទ</th>
+              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', textAlign: 'center' }}>សកម្មភាព</th>
             </tr>
           </thead>
           <tbody>
@@ -184,10 +205,13 @@ export default function PostsManagementPage() {
             ) : (
               filteredAndSortedPosts.map(post => (
                 <tr key={post.id + post.collectionName} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="hover-row">
-                  <td style={{ padding: '1rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                  <td style={{ padding: '0.5rem 1rem', fontWeight: 600, color: postCodeCounts[post.postCode] > 1 ? 'var(--danger)' : 'var(--accent-primary)' }}>
                     #{post.postCode || 'N/A'}
+                    {postCodeCounts[post.postCode] > 1 && (
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', background: 'var(--danger)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ស្ទួន</span>
+                    )}
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '0.5rem 1rem' }}>
                     <span style={{ 
                       background: post.collectionName === 'lessons' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)', 
                       color: post.collectionName === 'lessons' ? '#3b82f6' : '#ef4444', 
@@ -199,16 +223,29 @@ export default function PostsManagementPage() {
                       {post.collectionName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem', fontWeight: 500 }}>
+                  <td style={{ padding: '0.5rem 1rem', fontWeight: 500 }}>
                     {post.title}
                   </td>
-                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ padding: '0.5rem 1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', maxWidth: '200px' }}>
+                      {post.tags && post.tags.map((tagId: number) => {
+                        const t = availableTags.find((tg: any) => tg.id === tagId);
+                        if (!t) return null;
+                        return (
+                          <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem' }}>
+                            {t.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td style={{ padding: '0.5rem 1rem', color: 'var(--text-secondary)' }}>
                     {post.author}
                   </td>
-                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ padding: '0.5rem 1rem', color: 'var(--text-secondary)' }}>
                     {new Date(post.timestamp).toLocaleDateString('km-KH')}
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '0.5rem 1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                       <button onClick={() => openEditModal(post)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
