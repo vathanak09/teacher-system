@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -96,7 +96,7 @@ export default function MethodologiesPage() {
     setIsReadModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
     const postData: any = {
       title,
