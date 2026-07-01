@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { db } from '@/lib/firebaseClient';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
-export default function PublicPostPage({ params }: { params: { code: string } }) {
+export default function PublicPostPage(props: { params: Promise<{ code: string }> }) {
+  const params = use(props.params);
   const [post, setPost] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
