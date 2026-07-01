@@ -452,3 +452,13 @@ body {
     font-size: 0.9rem;
   }
 }
+
+
+.raw-html-content * { all: revert; font-family: inherit; }
+.raw-html-content { font-family: inherit; }
+
+
+.raw-html-content svg { max-width: 2rem; max-height: 2rem; display: inline-block; vertical-align: middle; }
+.raw-html-content button { padding: 0.5rem 1rem; background: var(--accent-primary); color: white; border: none; border-radius: 6px; cursor: pointer; }
+.raw-html-content input, .raw-html-content select { padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; }
+.raw-html-content iframe { max-width: 100%; }

@@ -156,7 +156,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
 
         {/* Content */}
         <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem 2rem', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}>
-          <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+          <div className={post.editorMode === 'html' ? "raw-html-content" : "ql-editor rich-text-content"} dangerouslySetInnerHTML={{ __html: post.content }} />
         </div>
         
       </div>

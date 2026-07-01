@@ -180,7 +180,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
       {/* Content */}
       <div className="glass-panel" style={{ padding: '2.5rem 2rem', borderRadius: '16px' }}>
         <div 
-          className={post.editorMode === 'html' ? "rich-text-content" : "ql-editor rich-text-content"} 
+          className={post.editorMode === 'html' ? "raw-html-content" : "ql-editor rich-text-content"} 
           dangerouslySetInnerHTML={{ __html: post.content }} 
           style={{ padding: 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} 
         />
