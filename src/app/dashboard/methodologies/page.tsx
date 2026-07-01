@@ -22,6 +22,8 @@ export default function MethodologiesPage() {
 
   // Search, Filter, Sort states
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [postCodeField, setPostCodeField] = useState('');
   const [filterAuthor, setFilterAuthor] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [filterTagsByGroup, setFilterTagsByGroup] = useState<Record<number, string>>({});
@@ -72,6 +74,7 @@ export default function MethodologiesPage() {
     setTitle('');
     setContent('');
     setSelectedTags([]);
+    setPostCodeField(generatePostCode());
     setEditingId(null);
     setEditorMode('word');
     setIsEditorOpen(true);
@@ -82,6 +85,7 @@ export default function MethodologiesPage() {
     setTitle(post.title);
     setContent(post.content);
     setSelectedTags(post.tags || []);
+    setPostCodeField(post.postCode || '');
     setEditingId(post.id);
     setEditorMode(post.editorMode || 'word');
     setIsEditorOpen(true);
@@ -94,7 +98,7 @@ export default function MethodologiesPage() {
 
   const handleSave = () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
-    const postData = {
+    const postData: any = {
       title,
       content,
       author: authorName,
@@ -102,11 +106,12 @@ export default function MethodologiesPage() {
       timestamp: Date.now(),
       editorMode,
       tags: selectedTags,
-      likes: []
+      postCode: postCodeField
     };
     if (editingId) {
       updateDoc(doc(db, 'methodologies', editingId.toString()), postData);
     } else {
+      postData.likes = [];
       addDoc(collection(db, 'methodologies'), postData);
     }
     setIsEditorOpen(false);
@@ -147,6 +152,19 @@ export default function MethodologiesPage() {
       ['code-block'],
       ['clean']
     ],
+  };
+
+  const generatePostCode = () => {
+    return 'M-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const handleShare = (e: React.MouseEvent, postCode: string | undefined, id: string) => {
+    e.stopPropagation();
+    const code = postCode || id;
+    const url = `${window.location.origin}/p/${code}`;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Link ត្រូវបានចម្លង: ' + url);
+    });
   };
 
   // Helper function to strip HTML for preview
@@ -254,6 +272,14 @@ export default function MethodologiesPage() {
             <option value="oldest">ចាស់បំផុត</option>
             <option value="title">តាមចំណងជើង (ក-ខ)</option>
           </select>
+          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'grid' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'grid' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="Grid View">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+            <button onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'list' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'list' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="List View">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -262,7 +288,7 @@ export default function MethodologiesPage() {
           {searchQuery ? "រកមិនឃើញអត្ថបទដែលត្រូវគ្នានឹងការស្វែងរកទេ!" : "មិនទាន់មានអត្ថបទណាមួយនៅឡើយទេ!"}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ display: viewMode === 'grid' ? 'grid' : 'flex', flexDirection: viewMode === 'grid' ? 'row' : 'column', gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(320px, 1fr))' : 'none', gap: '1.5rem' }}>
           {filteredAndSortedPosts.map(post => (
             <div key={post.id} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', overflow: 'hidden' }} onClick={() => openReadModal(post)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
               <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -309,18 +335,21 @@ export default function MethodologiesPage() {
                     </span>
                   </div>
                   
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={(e) => handleShare(e, post.postCode, post.id)} className="btn" style={{ padding: '0.4rem', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: 'none' }} title="Share">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    </button>
                   {(role === 'admin' || post.author === authorName) ? (
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <>
                       <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                       </button>
                       <button onClick={(e) => handleDelete(post.id, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                       </button>
-                    </div>
-                  ) : (
-                    <span style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', fontWeight: 500 }}>អានលម្អិត &rarr;</span>
-                  )}
+                    </>
+                  ) : null}
+                  </div>
                 </div>
               </div>
             </div>
