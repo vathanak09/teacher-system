@@ -12,6 +12,8 @@ const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
 export default function LessonsPage() {
   const router = useRouter();
+
+
   const [posts, setPosts] = useState<any[]>([]);
   
   // Modals state
@@ -23,7 +25,7 @@ export default function LessonsPage() {
   const [userId, setUserId] = useState('');
 
   // Search, Filter, Sort states
-  const [searchQuery, setSearchQuery] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('lessons_searchQuery') || ''; return ''; });
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [postCodeField, setPostCodeField] = useState('');
   const [filterAuthor, setFilterAuthor] = useState('all');
@@ -43,6 +45,24 @@ export default function LessonsPage() {
 
   // Read post state
   const [selectedPost, setSelectedPost] = useState<any>(null);
+
+  // --- Caching Logic ---
+  useEffect(() => {
+    const cached_searchQuery = sessionStorage.getItem('lessons_searchQuery');
+    if (cached_searchQuery !== null) setSearchQuery(cached_searchQuery as any);
+    const cached_viewMode = sessionStorage.getItem('lessons_viewMode');
+    if (cached_viewMode !== null) setViewMode(cached_viewMode as any);
+    const cached_filterAuthor = sessionStorage.getItem('lessons_filterAuthor');
+    if (cached_filterAuthor !== null) setFilterAuthor(cached_filterAuthor as any);
+    const cached_sortBy = sessionStorage.getItem('lessons_sortBy');
+    if (cached_sortBy !== null) setSortBy(cached_sortBy as any);
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem('lessons_searchQuery', searchQuery); }, [searchQuery]);
+  useEffect(() => { sessionStorage.setItem('lessons_viewMode', viewMode); }, [viewMode]);
+  useEffect(() => { sessionStorage.setItem('lessons_filterAuthor', filterAuthor); }, [filterAuthor]);
+  useEffect(() => { sessionStorage.setItem('lessons_sortBy', sortBy); }, [sortBy]);
+  // ----------------------
 
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');

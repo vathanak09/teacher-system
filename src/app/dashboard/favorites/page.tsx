@@ -7,6 +7,8 @@ import { collection, onSnapshot, updateDoc, doc, query, where } from 'firebase/f
 
 export default function FavoritesPage() {
   const router = useRouter();
+
+
   const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
   const [methodsPosts, setMethodsPosts] = useState<any[]>([]);
   
@@ -17,16 +19,34 @@ export default function FavoritesPage() {
   const [role, setRole] = useState('');
 
   // Search, Filter, Sort states
-  const [searchQuery, setSearchQuery] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('favorites_searchQuery') || ''; return ''; });
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
-  const [filterType, setFilterType] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('favorites_filterType') || 'all'; return 'all'; });
+  const [filterType, setFilterType] = useState('all');
 
   // Tag list
   const [availableTags, setAvailableTags] = useState<any[]>([]);
 
   // Read post state
   const [selectedPost, setSelectedPost] = useState<any>(null);
+
+  // --- Caching Logic ---
+  useEffect(() => {
+    const cached_searchQuery = sessionStorage.getItem('favorites_searchQuery');
+    if (cached_searchQuery !== null) setSearchQuery(cached_searchQuery as any);
+    const cached_viewMode = sessionStorage.getItem('favorites_viewMode');
+    if (cached_viewMode !== null) setViewMode(cached_viewMode as any);
+    const cached_sortBy = sessionStorage.getItem('favorites_sortBy');
+    if (cached_sortBy !== null) setSortBy(cached_sortBy as any);
+    const cached_filterType = sessionStorage.getItem('favorites_filterType');
+    if (cached_filterType !== null) setFilterType(cached_filterType as any);
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem('favorites_searchQuery', searchQuery); }, [searchQuery]);
+  useEffect(() => { sessionStorage.setItem('favorites_viewMode', viewMode); }, [viewMode]);
+  useEffect(() => { sessionStorage.setItem('favorites_sortBy', sortBy); }, [sortBy]);
+  useEffect(() => { sessionStorage.setItem('favorites_filterType', filterType); }, [filterType]);
+  // ----------------------
 
   useEffect(() => {
     const currentUserId = localStorage.getItem('userId') || '';
@@ -99,13 +119,9 @@ export default function FavoritesPage() {
   };
 
 
-  useEffect(() => {
-    sessionStorage.setItem('favorites_searchQuery', searchQuery);
-  }, [searchQuery]);
 
-  useEffect(() => {
-    sessionStorage.setItem('favorites_filterType', filterType);
-  }, [filterType]);
+
+
   const allPosts = [...lessonsPosts, ...methodsPosts];
 
   const filteredAndSortedPosts = allPosts

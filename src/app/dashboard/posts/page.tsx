@@ -11,6 +11,8 @@ const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
 export default function PostsManagementPage() {
   const router = useRouter();
+
+
   const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
   const [methodsPosts, setMethodsPosts] = useState<any[]>([]);
   
@@ -27,9 +29,9 @@ export default function PostsManagementPage() {
 
 
   const [role, setRole] = useState('');
-  const [searchQuery, setSearchQuery] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('posts_searchQuery') || ''; return ''; });
-  const [filterType, setFilterType] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('posts_filterType') || 'all'; return 'all'; });
-  const [filterTag, setFilterTag] = useState(() => { if (typeof window !== 'undefined') return sessionStorage.getItem('posts_filterTag') || 'all'; return 'all'; });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterTag, setFilterTag] = useState('all');
   
   // Sorting State
   const [sortColumn, setSortColumn] = useState<string>('timestamp');
@@ -37,6 +39,21 @@ export default function PostsManagementPage() {
 
   const [availableTags, setAvailableTags] = useState<any[]>([]);
   const [tagGroups, setTagGroups] = useState<any[]>([]);
+
+  // --- Caching Logic ---
+  useEffect(() => {
+    const cached_searchQuery = sessionStorage.getItem('posts_searchQuery');
+    if (cached_searchQuery !== null) setSearchQuery(cached_searchQuery as any);
+    const cached_filterType = sessionStorage.getItem('posts_filterType');
+    if (cached_filterType !== null) setFilterType(cached_filterType as any);
+    const cached_filterTag = sessionStorage.getItem('posts_filterTag');
+    if (cached_filterTag !== null) setFilterTag(cached_filterTag as any);
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem('posts_searchQuery', searchQuery); }, [searchQuery]);
+  useEffect(() => { sessionStorage.setItem('posts_filterType', filterType); }, [filterType]);
+  useEffect(() => { sessionStorage.setItem('posts_filterTag', filterTag); }, [filterTag]);
+  // ----------------------
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
@@ -145,17 +162,11 @@ export default function PostsManagementPage() {
   };
 
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_searchQuery', searchQuery);
-  }, [searchQuery]);
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_filterType', filterType);
-  }, [filterType]);
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_filterTag', filterTag);
-  }, [filterTag]);
+
+
+
   const allPosts = [...lessonsPosts, ...methodsPosts];
 
   const postCodeCounts = allPosts.reduce((acc: any, post) => {
@@ -189,17 +200,11 @@ export default function PostsManagementPage() {
     });
 
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_searchQuery', searchQuery);
-  }, [searchQuery]);
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_filterType', filterType);
-  }, [filterType]);
 
-  useEffect(() => {
-    sessionStorage.setItem('posts_filterTag', filterTag);
-  }, [filterTag]);
+
+
+
   if (role !== 'admin') {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>អ្នកគ្មានសិទ្ធិចូលមើលទំព័រនេះទេ។</div>;
   }
