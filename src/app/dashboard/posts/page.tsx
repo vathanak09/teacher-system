@@ -21,11 +21,19 @@ export default function PostsManagementPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCollection, setEditingCollection] = useState<'lessons' | 'methodologies'>('lessons');
   
+  // View Modal State
+  const [isReadModalOpen, setIsReadModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+
   const [role, setRole] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterTag, setFilterTag] = useState('all');
   
+  // Sorting State
+  const [sortColumn, setSortColumn] = useState<string>('timestamp');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   const [availableTags, setAvailableTags] = useState<any[]>([]);
   const [tagGroups, setTagGroups] = useState<any[]>([]);
 
@@ -78,6 +86,11 @@ export default function PostsManagementPage() {
     setIsEditorOpen(true);
   };
 
+  const openReadModal = (post: any) => {
+    setSelectedPost(post);
+    setIsReadModalOpen(true);
+  };
+
   const handleSave = async () => {
     if (!title) return alert("សូមបញ្ចូលចំណងជើង!");
     if (!postCodeField) return alert("សូមបញ្ចូលលេខកូដ (ID)!");
@@ -114,6 +127,25 @@ export default function PostsManagementPage() {
     setIsEditorOpen(false);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <svg style={{marginLeft: '4px', opacity: 0.3}} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>;
+    }
+    if (sortDirection === 'asc') {
+      return <svg style={{marginLeft: '4px'}} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 15l-6-6-6 6"/></svg>;
+    }
+    return <svg style={{marginLeft: '4px'}} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>;
+  };
+
   const allPosts = [...lessonsPosts, ...methodsPosts];
 
   const postCodeCounts = allPosts.reduce((acc: any, post) => {
@@ -131,11 +163,37 @@ export default function PostsManagementPage() {
       const matchesTag = filterTag === 'all' || (post.tags && post.tags.includes(Number(filterTag)));
       return matchesSearch && matchesType && matchesTag;
     })
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    .sort((a, b) => {
+      let valA = a[sortColumn];
+      let valB = b[sortColumn];
+
+      if (valA === undefined) valA = '';
+      if (valB === undefined) valB = '';
+
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   if (role !== 'admin') {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>អ្នកគ្មានសិទ្ធិចូលមើលទំព័រនេះទេ។</div>;
   }
+
+  const thStyle: React.CSSProperties = {
+    padding: '0.75rem 1rem', 
+    color: 'var(--text-secondary)', 
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    userSelect: 'none'
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: '0.5rem 1rem',
+    whiteSpace: 'nowrap',
+  };
 
   return (
     <div className="page-container animate-fade-in">
@@ -185,37 +243,60 @@ export default function PostsManagementPage() {
       <div className="glass-panel" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>លេខកូដ</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ប្រភេទ</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ចំណងជើង</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>ស្លាក (Tags)</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>អ្នកនិពន្ធ</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទ</th>
-              <th style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', textAlign: 'center' }}>សកម្មភាព</th>
+            <tr style={{ borderBottom: '2px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
+              <th style={{ ...thStyle, cursor: 'default' }}>សកម្មភាព</th>
+              <th style={thStyle} onClick={() => handleSort('postCode')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>លេខកូដ {renderSortIcon('postCode')}</div>
+              </th>
+              <th style={thStyle} onClick={() => handleSort('collectionName')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>ប្រភេទ {renderSortIcon('collectionName')}</div>
+              </th>
+              <th style={thStyle} onClick={() => handleSort('title')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>ចំណងជើង {renderSortIcon('title')}</div>
+              </th>
+              <th style={{ ...thStyle, cursor: 'default' }}>ស្លាក (Tags)</th>
+              <th style={thStyle} onClick={() => handleSort('author')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>អ្នកនិពន្ធ {renderSortIcon('author')}</div>
+              </th>
+              <th style={thStyle} onClick={() => handleSort('timestamp')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>កាលបរិច្ឆេទ {renderSortIcon('timestamp')}</div>
+              </th>
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedPosts.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                   រកមិនឃើញទិន្នន័យឡើយ!
                 </td>
               </tr>
             ) : (
               filteredAndSortedPosts.map(post => (
                 <tr key={post.id + post.collectionName} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="hover-row">
-                  <td style={{ padding: '0.5rem 1rem', fontWeight: 600, color: postCodeCounts[post.postCode] > 1 ? 'var(--danger)' : 'var(--accent-primary)' }}>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <button onClick={() => openReadModal(post)} className="btn" style={{ padding: '0.35rem', background: 'var(--main-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }} title="មើល">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      </button>
+                      <button onClick={() => openEditModal(post)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={(e) => handleDelete(post.id, post.collectionName, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    </div>
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: postCodeCounts[post.postCode] > 1 ? 'var(--danger)' : 'var(--accent-primary)' }}>
                     #{post.postCode || 'N/A'}
                     {postCodeCounts[post.postCode] > 1 && (
-                      <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem', background: 'var(--danger)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>ស្ទួន</span>
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', background: 'var(--danger)', color: 'white', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>ស្ទួន</span>
                     )}
                   </td>
-                  <td style={{ padding: '0.5rem 1rem' }}>
+                  <td style={tdStyle}>
                     <span style={{ 
                       background: post.collectionName === 'lessons' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)', 
                       color: post.collectionName === 'lessons' ? '#3b82f6' : '#ef4444', 
-                      padding: '0.2rem 0.5rem', 
+                      padding: '0.15rem 0.4rem', 
                       borderRadius: '4px', 
                       fontSize: '0.75rem', 
                       fontWeight: 600 
@@ -223,37 +304,27 @@ export default function PostsManagementPage() {
                       {post.collectionName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
                     </span>
                   </td>
-                  <td style={{ padding: '0.5rem 1rem', fontWeight: 500 }}>
+                  <td style={{ ...tdStyle, fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {post.title}
                   </td>
-                  <td style={{ padding: '0.5rem 1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', maxWidth: '200px' }}>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
                       {post.tags && post.tags.map((tagId: number) => {
                         const t = availableTags.find((tg: any) => tg.id === tagId);
                         if (!t) return null;
                         return (
-                          <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem' }}>
+                          <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                             {t.name}
                           </span>
                         );
                       })}
                     </div>
                   </td>
-                  <td style={{ padding: '0.5rem 1rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                     {post.author}
                   </td>
-                  <td style={{ padding: '0.5rem 1rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                     {new Date(post.timestamp).toLocaleDateString('km-KH')}
-                  </td>
-                  <td style={{ padding: '0.5rem 1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                      <button onClick={() => openEditModal(post)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                      </button>
-                      <button onClick={(e) => handleDelete(post.id, post.collectionName, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))
@@ -396,6 +467,69 @@ export default function PostsManagementPage() {
             <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', background: 'var(--modal-bg)' }}>
               <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsEditorOpen(false)}>បោះបង់</button>
               <button className="btn btn-primary" onClick={handleSave} style={{ minWidth: '150px' }}>រក្សាទុក (Update)</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* READ MODAL */}
+      {isReadModalOpen && selectedPost && (
+        <div 
+          onClick={() => setIsReadModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()}
+            className="glass-panel animate-fade-in"
+            style={{ width: '90%', maxWidth: '800px', maxHeight: '90vh', background: 'var(--modal-bg)', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}
+          >
+            <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'rgba(0,0,0,0.02)' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                  {selectedPost.postCode && (
+                    <span style={{ background: 'var(--accent-primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                      #{selectedPost.postCode}
+                    </span>
+                  )}
+                  <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>{selectedPost.title}</h2>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    {selectedPost.author}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    {selectedPost.date}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsReadModalOpen(false)}
+                style={{ background: 'var(--bg-secondary)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div className="custom-scrollbar" style={{ padding: '2rem', flex: 1, overflowY: 'auto', background: 'var(--main-bg)' }}>
+              {selectedPost.editorMode === 'html' ? (
+                <div dangerouslySetInnerHTML={{ __html: selectedPost.content }} style={{ lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} />
+              ) : (
+                <div className="ql-editor" dangerouslySetInnerHTML={{ __html: selectedPost.content }} style={{ padding: 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} />
+              )}
+            </div>
+            
+            <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'rgba(0,0,0,0.02)' }}>
+              {selectedPost.tags && selectedPost.tags.map((tagId: number) => {
+                const t = availableTags.find(tg => tg.id === tagId);
+                if (!t) return null;
+                return (
+                  <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
+                    {t.name}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
