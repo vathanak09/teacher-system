@@ -156,7 +156,16 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
 
         {/* Content */}
         <div style={{ background: 'var(--bg-secondary)', padding: '2.5rem 2rem', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}>
-          <div className={post.editorMode === 'html' ? "raw-html-content" : "ql-editor rich-text-content"} dangerouslySetInnerHTML={{ __html: post.content }} />
+          {post.editorMode === 'html' ? (
+            <iframe 
+              srcDoc={post.content} 
+              style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
+              sandbox="allow-scripts allow-same-origin allow-popups"
+              title="HTML Content"
+            />
+          ) : (
+            <div className="ql-editor rich-text-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+          )}
         </div>
         
       </div>
