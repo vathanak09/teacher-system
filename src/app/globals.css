@@ -462,3 +462,7 @@ body {
 .raw-html-content button { padding: 0.5rem 1rem; background: var(--accent-primary); color: white; border: none; border-radius: 6px; cursor: pointer; }
 .raw-html-content input, .raw-html-content select { padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; }
 .raw-html-content iframe { max-width: 100%; }
+
+
+.post-content-container { padding: 2.5rem 2rem; border-radius: 16px; }
+@media (max-width: 768px) { .post-content-container { padding: 0.5rem; border-radius: 8px; } }

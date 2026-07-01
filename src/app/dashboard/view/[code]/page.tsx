@@ -178,10 +178,10 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
       </div>
 
       {/* Content */}
-      <div className="glass-panel" style={{ padding: '2.5rem 2rem', borderRadius: '16px' }}>
+      <div className="glass-panel post-content-container">
         {post.editorMode === 'html' ? (
           <iframe 
-            srcDoc={post.content} 
+            srcDoc={`<head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
             style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
             sandbox="allow-scripts allow-same-origin allow-popups"
             title="HTML Content"
