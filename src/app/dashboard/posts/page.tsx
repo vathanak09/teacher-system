@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, deleteDoc, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, deleteDoc, doc, updateDoc, getDocs, query, where, addDoc } from 'firebase/firestore';
+import Papa from 'papaparse';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -222,14 +223,89 @@ export default function PostsManagementPage() {
     whiteSpace: 'nowrap',
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleBackup = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allPosts, null, 2));
+    // Only export ID, Title, Content
+    const data = allPosts.map(post => ({
+      'លេខកូដ (ID)': post.postCode || '',
+      'ចំណងជើង': post.title || '',
+      'ខ្លឹមសារ (HTML)': post.content || ''
+    }));
+    
+    const csvStr = Papa.unparse(data);
+    // Add BOM for Excel Khmer support
+    const csvData = '\uFEFF' + csvStr;
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `backup_posts_${new Date().toISOString().slice(0, 10)}.json`);
+    downloadAnchorNode.setAttribute("href", url);
+    downloadAnchorNode.setAttribute("download", `posts_backup_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data;
+        if (!data || data.length === 0) {
+          alert('មិនមានទិន្នន័យសម្រាប់បញ្ចូលទេ (No data found)');
+          return;
+        }
+
+        // Verify format
+        const firstRow = data[0] as any;
+        if (!('លេខកូដ (ID)' in firstRow) || !('ចំណងជើង' in firstRow) || !('ខ្លឹមសារ (HTML)' in firstRow)) {
+          alert('ទម្រង់ឯកសារមិនត្រឹមត្រូវ! សូមប្រាកដថាអ្នកប្រើប្រាស់ឯកសារ CSV ដែលបាន Backup ពីប្រព័ន្ធនេះ។');
+          return;
+        }
+        
+        const confirmMsg = `តើអ្នកពិតជាចង់បញ្ចូលទិន្នន័យចំនួន ${data.length} ចូលក្នុងមេរៀនមែនទេ?`;
+        if (!confirm(confirmMsg)) return;
+
+        let successCount = 0;
+        let failCount = 0;
+        
+        const lessonsRef = collection(db, 'lessons');
+        
+        for (const row of data as any[]) {
+           try {
+             if (!row['ចំណងជើង']) continue;
+             
+             const code = row['លេខកូដ (ID)'] || Math.floor(1000 + Math.random() * 9000).toString();
+             
+             await addDoc(lessonsRef, {
+               title: row['ចំណងជើង'],
+               content: row['ខ្លឹមសារ (HTML)'],
+               postCode: code,
+               editorMode: 'html',
+               tags: [],
+               author: typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Admin' : 'Admin',
+               timestamp: Date.now()
+             });
+             successCount++;
+           } catch (err) {
+             console.error(err);
+             failCount++;
+           }
+        }
+        
+        alert(`បញ្ចូលទិន្នន័យបានសម្រេច: ${successCount}\nបរាជ័យ: ${failCount}`);
+      },
+      error: (error) => {
+        alert("កំហុសក្នុងឯកសារ CSV: " + error.message);
+      }
+    });
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -239,10 +315,17 @@ export default function PostsManagementPage() {
           <h1>គ្រប់គ្រងផុស</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ទំព័រសម្រាប់ Admin គ្រប់គ្រងមេរៀន និង វិធីសាស្ត្រទាំងអស់</p>
         </div>
-        <button onClick={handleBackup} className="btn" style={{ background: 'var(--accent-primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          ទាញយក Backup
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <input type="file" accept=".csv" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImport} />
+          <button onClick={() => fileInputRef.current?.click()} className="btn" style={{ background: 'var(--main-bg)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            បញ្ចូល (Import)
+          </button>
+          <button onClick={handleBackup} className="btn" style={{ background: 'var(--accent-primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            ទាញយក Backup
+          </button>
+        </div>
       </div>
 
       <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -289,13 +372,13 @@ export default function PostsManagementPage() {
               <th style={thStyle} onClick={() => handleSort('postCode')}>
                 <div style={{display: 'flex', alignItems: 'center'}}>លេខកូដ {renderSortIcon('postCode')}</div>
               </th>
-              <th style={thStyle} onClick={() => handleSort('collectionName')}>
-                <div style={{display: 'flex', alignItems: 'center'}}>ប្រភេទ {renderSortIcon('collectionName')}</div>
-              </th>
               <th style={thStyle} onClick={() => handleSort('title')}>
                 <div style={{display: 'flex', alignItems: 'center'}}>ចំណងជើង {renderSortIcon('title')}</div>
               </th>
               <th style={{ ...thStyle, cursor: 'default' }}>ស្លាក (Tags)</th>
+              <th style={thStyle} onClick={() => handleSort('collectionName')}>
+                <div style={{display: 'flex', alignItems: 'center'}}>ប្រភេទ {renderSortIcon('collectionName')}</div>
+              </th>
               <th style={thStyle} onClick={() => handleSort('author')}>
                 <div style={{display: 'flex', alignItems: 'center'}}>អ្នកនិពន្ធ {renderSortIcon('author')}</div>
               </th>
@@ -333,18 +416,6 @@ export default function PostsManagementPage() {
                       <span style={{ marginLeft: '0.5rem', fontSize: '0.65rem', background: 'var(--danger)', color: 'white', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>ស្ទួន</span>
                     )}
                   </td>
-                  <td style={tdStyle}>
-                    <span style={{ 
-                      background: post.collectionName === 'lessons' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)', 
-                      color: post.collectionName === 'lessons' ? '#3b82f6' : '#ef4444', 
-                      padding: '0.15rem 0.4rem', 
-                      borderRadius: '4px', 
-                      fontSize: '0.75rem', 
-                      fontWeight: 600 
-                    }}>
-                      {post.collectionName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
-                    </span>
-                  </td>
                   <td style={{ ...tdStyle, fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {post.title}
                   </td>
@@ -360,6 +431,18 @@ export default function PostsManagementPage() {
                         );
                       })}
                     </div>
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={{ 
+                      background: post.collectionName === 'lessons' ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)', 
+                      color: post.collectionName === 'lessons' ? '#3b82f6' : '#ef4444', 
+                      padding: '0.15rem 0.4rem', 
+                      borderRadius: '4px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 600 
+                    }}>
+                      {post.collectionName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
+                    </span>
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>
                     {post.author}
