@@ -17,6 +17,7 @@ export default function PostsManagementPage() {
   const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
   const [methodsPosts, setMethodsPosts] = useState<any[]>([]);
   
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -222,8 +223,6 @@ export default function PostsManagementPage() {
     padding: '0.5rem 1rem',
     whiteSpace: 'nowrap',
   };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBackup = () => {
     // Only export ID, Title, Content
