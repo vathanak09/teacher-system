@@ -309,7 +309,7 @@ export default function PostsManagementPage() {
 
   return (
     <div className="page-container animate-fade-in">
-      <div className="flex-between" style={{ marginBottom: '2rem' }}>
+      <div className="flex-between" style={{ marginBottom: '1rem' }}>
         <div>
           <h1>គ្រប់គ្រងផុស</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ទំព័រសម្រាប់ Admin គ្រប់គ្រងមេរៀន និង វិធីសាស្ត្រទាំងអស់</p>
@@ -327,8 +327,8 @@ export default function PostsManagementPage() {
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+      <div className="glass-panel" style={{ padding: '0.5rem 0.75rem', marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
           <input 
             type="text" 
             className="input-field" 
@@ -338,7 +338,7 @@ export default function PostsManagementPage() {
             style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
           />
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <select 
             className="input-field" 
             value={filterType} 
@@ -599,3 +599,4 @@ export default function PostsManagementPage() {
     </div>
   );
 }
+

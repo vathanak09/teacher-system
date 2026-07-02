@@ -257,12 +257,12 @@ export default function MethodologiesPage() {
       </div>
 
       {/* Search, Filter, Sort Controls */}
-      <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+      <div className="glass-panel" style={{ padding: '0.5rem 0.75rem', marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
           <input 
             type="text" 
             className="input-field" 
-            placeholder="ស្វែងរកចំណងជើងអត្ថបទ..." 
+            placeholder="ស្វែងរកតាមចំណងជើង ឬ លេខកូដ..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
@@ -705,3 +705,4 @@ export default function MethodologiesPage() {
     </>
   );
 }
+

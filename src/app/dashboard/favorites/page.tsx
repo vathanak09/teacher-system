@@ -150,7 +150,7 @@ export default function FavoritesPage() {
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
           <input 
             type="text" 
@@ -354,4 +354,5 @@ export default function FavoritesPage() {
     </>
   );
 }
+
 

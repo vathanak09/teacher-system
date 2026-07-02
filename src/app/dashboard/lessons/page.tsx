@@ -257,8 +257,8 @@ export default function LessonsPage() {
       </div>
 
       {/* Search, Filter, Sort Controls */}
-      <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+      <div className="glass-panel" style={{ padding: '0.5rem 0.75rem', marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
           <input 
             type="text" 
             className="input-field" 
@@ -268,7 +268,7 @@ export default function LessonsPage() {
             style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
           />
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {/* Dynamic Tag Group Filters */}
           {tagGroups.map(group => {
             const groupTags = availableTags.filter(tag => tag.groupId === group.id);
@@ -712,3 +712,4 @@ export default function LessonsPage() {
     </>
   );
 }
+
