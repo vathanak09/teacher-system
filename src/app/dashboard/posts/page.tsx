@@ -222,6 +222,16 @@ export default function PostsManagementPage() {
     whiteSpace: 'nowrap',
   };
 
+  const handleBackup = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allPosts, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `backup_posts_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '2rem' }}>
@@ -229,6 +239,10 @@ export default function PostsManagementPage() {
           <h1>គ្រប់គ្រងផុស</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>ទំព័រសម្រាប់ Admin គ្រប់គ្រងមេរៀន និង វិធីសាស្ត្រទាំងអស់</p>
         </div>
+        <button onClick={handleBackup} className="btn" style={{ background: 'var(--accent-primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          ទាញយក Backup
+        </button>
       </div>
 
       <div className="glass-panel" style={{ padding: '1.25rem', marginBottom: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
