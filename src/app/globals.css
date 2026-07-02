@@ -392,7 +392,12 @@ body {
     left: -300px;
     transition: left 0.3s ease;
     z-index: 50;
+    /* Restore sidebar font sizes against the 13px base */
+    font-size: 16px; 
   }
+  .desktop-sidebar .nav-link { font-size: 16px; }
+  .desktop-sidebar h2 { font-size: 17px !important; }
+  .desktop-sidebar p, .desktop-sidebar .user-profile div { font-size: 14px !important; }
   .desktop-sidebar.open { left: 0; }
   .mobile-header {
     display: flex;
