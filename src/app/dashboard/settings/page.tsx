@@ -11,12 +11,19 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'tags' | 'users' | 'school' | 'studentOptions'>('tags');
 
   // Student Options States
-  const [levels, setLevels] = useState<string[]>(['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
-  const [shifts, setShifts] = useState<string[]>(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
-  const [addresses, setAddresses] = useState<string[]>(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
-  const [transports, setTransports] = useState<string[]>(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+  type StudentOption = { id: string; detail1?: string; detail2?: string };
+  const normalizeOptions = (arr: any[]): StudentOption[] => (arr || []).map(item => typeof item === 'string' ? { id: item } : item);
+  
+  const [levels, setLevels] = useState<StudentOption[]>([]);
+  const [shifts, setShifts] = useState<StudentOption[]>([]);
+  const [addresses, setAddresses] = useState<StudentOption[]>([]);
+  const [transports, setTransports] = useState<StudentOption[]>([]);
+  const [genders, setGenders] = useState<StudentOption[]>([]);
+  const [statuses, setStatuses] = useState<StudentOption[]>([]);
   const [editingOptionType, setEditingOptionType] = useState<string | null>(null);
   const [newOptionValue, setNewOptionValue] = useState('');
+  const [newOptionDetail1, setNewOptionDetail1] = useState('');
+  const [newOptionDetail2, setNewOptionDetail2] = useState('');
 
   // Tag Group States
   const [tagGroups, setTagGroups] = useState<any[]>([]);
@@ -77,10 +84,12 @@ export default function SettingsPage() {
         ]);
         setUsers(data.appUsers || []);
         setSchoolName(data.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម');
-        setLevels(data.appStudentLevels || ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
-        setShifts(data.appStudentShifts || ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
-        setAddresses(data.appStudentAddresses || ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
-        setTransports(data.appStudentTransports || ['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+        setLevels(normalizeOptions(data.appStudentLevels || ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']));
+        setShifts(normalizeOptions(data.appStudentShifts || ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']));
+        setAddresses(normalizeOptions(data.appStudentAddresses || ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']));
+        setTransports(normalizeOptions(data.appStudentTransports || ['Bus', 'Personal', 'ម៉ូតូ', 'កង់']));
+        setGenders(normalizeOptions(data.appStudentGenders || ['ប្រុស', 'ស្រី']));
+        setStatuses(normalizeOptions(data.appStudentStatuses || ['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'បោះបង់ការសិក្សា']));
       } else {
         // Initialize defaults in Firebase
         setDoc(doc(db, 'settings', 'global'), {
@@ -95,10 +104,12 @@ export default function SettingsPage() {
           ],
           appUsers: [],
           schoolName: 'សាលាអន្តរជាតិប្រេនស្តម',
-          appStudentLevels: ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ'],
-          appStudentShifts: ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ'],
-          appStudentAddresses: ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម'],
-          appStudentTransports: ['Bus', 'Personal', 'ម៉ូតូ', 'កង់']
+          appStudentLevels: normalizeOptions(['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']),
+          appStudentShifts: normalizeOptions(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']),
+          appStudentAddresses: normalizeOptions(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']),
+          appStudentTransports: normalizeOptions(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']),
+          appStudentGenders: normalizeOptions(['ប្រុស', 'ស្រី']),
+          appStudentStatuses: normalizeOptions(['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'បោះបង់ការសិក្សា'])
         });
       }
     });
@@ -250,44 +261,62 @@ export default function SettingsPage() {
   const handleSaveOption = () => {
     if (!newOptionValue.trim() || !editingOptionType) return;
     const val = newOptionValue.trim();
-    if (editingOptionType === 'level' && !levels.includes(val)) {
-      const updated = [...levels, val];
-      setLevels(updated);
-      updateSettings({ appStudentLevels: updated });
-    } else if (editingOptionType === 'shift' && !shifts.includes(val)) {
-      const updated = [...shifts, val];
-      setShifts(updated);
-      updateSettings({ appStudentShifts: updated });
-    } else if (editingOptionType === 'address' && !addresses.includes(val)) {
-      const updated = [...addresses, val];
-      setAddresses(updated);
-      updateSettings({ appStudentAddresses: updated });
-    } else if (editingOptionType === 'transport' && !transports.includes(val)) {
-      const updated = [...transports, val];
-      setTransports(updated);
-      updateSettings({ appStudentTransports: updated });
+    const newObj = { id: val, detail1: newOptionDetail1.trim(), detail2: newOptionDetail2.trim() };
+    
+    if (editingOptionType === 'level') {
+      const updated = levels.find(x => x.id === val) ? levels.map(x => x.id === val ? newObj : x) : [...levels, newObj];
+      setLevels(updated); updateSettings({ appStudentLevels: updated });
+    } else if (editingOptionType === 'shift') {
+      const updated = shifts.find(x => x.id === val) ? shifts.map(x => x.id === val ? newObj : x) : [...shifts, newObj];
+      setShifts(updated); updateSettings({ appStudentShifts: updated });
+    } else if (editingOptionType === 'address') {
+      const updated = addresses.find(x => x.id === val) ? addresses.map(x => x.id === val ? newObj : x) : [...addresses, newObj];
+      setAddresses(updated); updateSettings({ appStudentAddresses: updated });
+    } else if (editingOptionType === 'transport') {
+      const updated = transports.find(x => x.id === val) ? transports.map(x => x.id === val ? newObj : x) : [...transports, newObj];
+      setTransports(updated); updateSettings({ appStudentTransports: updated });
+    } else if (editingOptionType === 'gender') {
+      const updated = genders.find(x => x.id === val) ? genders.map(x => x.id === val ? newObj : x) : [...genders, newObj];
+      setGenders(updated); updateSettings({ appStudentGenders: updated });
+    } else if (editingOptionType === 'status') {
+      const updated = statuses.find(x => x.id === val) ? statuses.map(x => x.id === val ? newObj : x) : [...statuses, newObj];
+      setStatuses(updated); updateSettings({ appStudentStatuses: updated });
     }
     setNewOptionValue('');
+    setNewOptionDetail1('');
+    setNewOptionDetail2('');
+  };
+
+  const handleEditOption = (type: string, opt: StudentOption) => {
+    setEditingOptionType(type);
+    setNewOptionValue(opt.id);
+    setNewOptionDetail1(opt.detail1 || '');
+    setNewOptionDetail2(opt.detail2 || '');
+    
+    // Scroll to top where the form is
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteOption = (type: string, val: string) => {
     if (!confirm(`តើអ្នកពិតជាចង់លុប "${val}" មែនទេ?`)) return;
     if (type === 'level') {
-      const updated = levels.filter(x => x !== val);
-      setLevels(updated);
-      updateSettings({ appStudentLevels: updated });
+      const updated = levels.filter(x => x.id !== val);
+      setLevels(updated); updateSettings({ appStudentLevels: updated });
     } else if (type === 'shift') {
-      const updated = shifts.filter(x => x !== val);
-      setShifts(updated);
-      updateSettings({ appStudentShifts: updated });
+      const updated = shifts.filter(x => x.id !== val);
+      setShifts(updated); updateSettings({ appStudentShifts: updated });
     } else if (type === 'address') {
-      const updated = addresses.filter(x => x !== val);
-      setAddresses(updated);
-      updateSettings({ appStudentAddresses: updated });
+      const updated = addresses.filter(x => x.id !== val);
+      setAddresses(updated); updateSettings({ appStudentAddresses: updated });
     } else if (type === 'transport') {
-      const updated = transports.filter(x => x !== val);
-      setTransports(updated);
-      updateSettings({ appStudentTransports: updated });
+      const updated = transports.filter(x => x.id !== val);
+      setTransports(updated); updateSettings({ appStudentTransports: updated });
+    } else if (type === 'gender') {
+      const updated = genders.filter(x => x.id !== val);
+      setGenders(updated); updateSettings({ appStudentGenders: updated });
+    } else if (type === 'status') {
+      const updated = statuses.filter(x => x.id !== val);
+      setStatuses(updated); updateSettings({ appStudentStatuses: updated });
     }
   };
 
@@ -536,15 +565,25 @@ export default function SettingsPage() {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ប្រភេទជម្រើស</label>
               <select className="input-field" value={editingOptionType || ''} onChange={(e) => setEditingOptionType(e.target.value)}>
                 <option value="" disabled>-- ជ្រើសរើសប្រភេទ --</option>
+                <option value="gender">ភេទ (Gender)</option>
                 <option value="level">កម្រិតសិក្សា (Level)</option>
                 <option value="shift">វេនសិក្សា (Shift)</option>
+                <option value="status">ស្ថានភាព (Status)</option>
                 <option value="address">អាសយដ្ឋាន (Address)</option>
                 <option value="transport">មធ្យោបាយ (Transport)</option>
               </select>
             </div>
-            <div style={{ flex: 2, minWidth: '200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>តម្លៃថ្មី</label>
-              <input type="text" className="input-field" value={newOptionValue} onChange={e => setNewOptionValue(e.target.value)} placeholder="បញ្ចូលតម្លៃថ្មី..." onKeyDown={(e) => e.key === 'Enter' && handleSaveOption()} />
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>តម្លៃថ្មី (Main)</label>
+              <input type="text" className="input-field" value={newOptionValue} onChange={e => setNewOptionValue(e.target.value)} placeholder="តម្លៃគោល/អក្សរកាត់" onKeyDown={(e) => e.key === 'Enter' && handleSaveOption()} />
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ព័ត៌មានលម្អិត ១ (ស្រេចចិត្ត)</label>
+              <input type="text" className="input-field" value={newOptionDetail1} onChange={e => setNewOptionDetail1(e.target.value)} placeholder="ឧ. អត្ថន័យពេញ" onKeyDown={(e) => e.key === 'Enter' && handleSaveOption()} />
+            </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ព័ត៌មានលម្អិត ២ (ស្រេចចិត្ត)</label>
+              <input type="text" className="input-field" value={newOptionDetail2} onChange={e => setNewOptionDetail2(e.target.value)} placeholder="ឧ. ផ្សេងៗ" onKeyDown={(e) => e.key === 'Enter' && handleSaveOption()} />
             </div>
             <button className="btn btn-primary" onClick={handleSaveOption} disabled={!editingOptionType || !newOptionValue.trim()} style={{ padding: '0.8rem 1.5rem', height: 'max-content' }}>
               បន្ថែម
@@ -552,61 +591,152 @@ export default function SettingsPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
-            {/* Level List */}
+                        <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>ភេទ (Gender) ({genders.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {genders.map(val => (
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('gender', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('gender', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div>
-              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>កម្រិតសិក្សា ({levels.length})</h3>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>កម្រិតសិក្សា (Level) ({levels.length})</h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {levels.map(val => (
-                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
-                    <span>{val}</span>
-                    <button onClick={() => handleDeleteOption('level', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('level', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('level', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Shift List */}
             <div>
-              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>វេនសិក្សា ({shifts.length})</h3>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>វេនសិក្សា (Shift) ({shifts.length})</h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {shifts.map(val => (
-                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
-                    <span>{val}</span>
-                    <button onClick={() => handleDeleteOption('shift', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('shift', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('shift', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Address List */}
             <div>
-              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>អាសយដ្ឋាន ({addresses.length})</h3>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>ស្ថានភាព (Status) ({statuses.length})</h3>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {statuses.map(val => (
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('status', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('status', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>អាសយដ្ឋាន (Address) ({addresses.length})</h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {addresses.map(val => (
-                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
-                    <span>{val}</span>
-                    <button onClick={() => handleDeleteOption('address', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('address', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('address', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Transport List */}
             <div>
-              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>មធ្យោបាយ ({transports.length})</h3>
+              <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', color: 'var(--accent-primary)' }}>មធ្យោបាយ (Transport) ({transports.length})</h3>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {transports.map(val => (
-                  <li key={val} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed var(--border-color)' }}>
-                    <span>{val}</span>
-                    <button onClick={() => handleDeleteOption('transport', val)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.2rem', border: 'none' }} title="លុប">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <li key={val.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px dashed var(--border-color)', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong style={{ fontSize: '1.05rem' }}>{val.id}</strong>
+                      {(val.detail1 || val.detail2) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {val.detail1} {val.detail1 && val.detail2 ? '•' : ''} {val.detail2}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                      <button onClick={() => handleEditOption('transport', val)} className="btn" style={{ color: '#3b82f6', background: 'transparent', padding: '0.4rem', border: 'none' }} title="កែប្រែ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      <button onClick={() => handleDeleteOption('transport', val.id)} className="btn" style={{ color: 'var(--danger)', background: 'transparent', padding: '0.4rem', border: 'none' }} title="លុប">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
+                    </div>
                   </li>
                 ))}
               </ul>

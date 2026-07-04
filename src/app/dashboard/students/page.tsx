@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebaseClient';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
@@ -12,6 +13,132 @@ export default function StudentsPage() {
   // Student States
   const [students, setStudents] = useState<any[]>([]);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  // Inline Editing & Column Visibility
+  const AVAILABLE_COLUMNS = [
+    { id: 'photo', label: 'រូបថត' },
+    { id: 'photoLink', label: 'តំណភ្ជាប់រូបថត' },
+    { id: 'studentId', label: 'អត្តលេខ' },
+    { id: 'fullName', label: 'ឈ្មោះពេញ' },
+    { id: 'englishName', label: 'ឈ្មោះអង់គ្លេស' },
+    { id: 'gender', label: 'ភេទ' },
+    { id: 'level', label: 'កម្រិតសិក្សា' },
+    { id: 'shift', label: 'វេន' },
+    { id: 'enrollDate', label: 'ថ្ងៃចូលរៀន' },
+    { id: 'fee', label: 'ថ្លៃសិក្សា (Fee)' },
+    { id: 'status', label: 'ស្ថានភាពសិក្សា' },
+    { id: 'className', label: 'ថ្នាក់' },
+    { id: 'teacherName', label: 'គ្រូ' },
+    { id: 'dob', label: 'ថ្ងៃកំណើត (DOB)' },
+    { id: 'address', label: 'អាសយដ្ឋាន' },
+    { id: 'location', label: 'ទីតាំង' },
+    { id: 'transport', label: 'មធ្យោបាយ' },
+    { id: 'contact', label: 'អ្នកទំនាក់ទំនង' },
+    { id: 'father', label: 'ឪពុក' },
+    { id: 'mother', label: 'ម្តាយ' },
+    { id: 'phoneNum', label: 'លេខទូរស័ព្ទ' }
+  ];
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ id: string, field: string, value: string } | null>(null);
+  const [hoveredPhotoId, setHoveredPhotoId] = useState<string | null>(null);
+  const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnterPhoto = (id: string) => {
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    setHoveredPhotoId(id);
+  };
+
+  const handleMouseLeavePhoto = () => {
+    hoverTimeout.current = setTimeout(() => setHoveredPhotoId(null), 400);
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem('studentTableColumns');
+    if (saved) {
+      setVisibleColumns(JSON.parse(saved));
+    } else {
+      setVisibleColumns(AVAILABLE_COLUMNS.map(c => c.id).filter(id => id !== 'photoLink')); 
+    }
+  }, []);
+
+  const toggleColumn = (colId: string) => {
+    let updated;
+    if (visibleColumns.includes(colId)) {
+      updated = visibleColumns.filter(c => c !== colId);
+    } else {
+      updated = [...visibleColumns, colId];
+    }
+    setVisibleColumns(updated);
+    localStorage.setItem('studentTableColumns', JSON.stringify(updated));
+  };
+
+  const handleCellClick = (e: React.MouseEvent, student: any, field: string) => {
+    e.stopPropagation();
+    if (role !== 'admin' || isStudentTableLocked) return;
+    setEditingCell({ id: student.id, field, value: student[field] || '' });
+  };
+
+  const handleCellSave = async () => {
+    if (!editingCell) return;
+    try {
+      await updateDoc(doc(db, 'students', editingCell.id), { [editingCell.field]: editingCell.field === 'fee' ? Number(editingCell.value) || 0 : editingCell.value });
+      setEditingCell(null);
+    } catch (error) {
+      console.error('Error updating cell', error);
+    }
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleCellSave();
+    if (e.key === 'Escape') setEditingCell(null);
+  };
+  
+  const renderCell = (student: any, field: string, defaultRender: React.ReactNode) => {
+    if (editingCell && editingCell.id === student.id && editingCell.field === field) {
+      const selectFields = ['gender', 'level', 'shift', 'status', 'address', 'transport'];
+      if (selectFields.includes(field)) {
+        let options: string[] = [];
+        if (field === 'gender') options = ['ប្រុស', 'ស្រី'];
+        else if (field === 'level') options = levelOptions;
+        else if (field === 'shift') options = shiftOptions;
+        else if (field === 'status') options = ['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន'];
+        else if (field === 'address') options = addressOptions;
+        else if (field === 'transport') options = transportOptions;
+        
+        return (
+          <select
+            autoFocus
+            value={editingCell.value}
+            onChange={e => setEditingCell({ ...editingCell, value: e.target.value })}
+            onBlur={handleCellSave}
+            onKeyDown={handleCellKeyDown}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', minWidth: '80px', padding: '0.25rem', border: '1px solid var(--accent)', borderRadius: '4px', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+          >
+            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        );
+      }
+      return (
+        <input
+          autoFocus
+          type={field === 'fee' ? 'number' : 'text'}
+          value={editingCell.value}
+          onChange={e => setEditingCell({ ...editingCell, value: e.target.value })}
+          onBlur={handleCellSave}
+          onKeyDown={handleCellKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          style={{ width: '100%', minWidth: '80px', padding: '0.25rem', border: '1px solid var(--accent)', borderRadius: '4px', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+        />
+      );
+    }
+    return (
+      <div onClick={(e) => handleCellClick(e, student, field)} style={{ cursor: role === 'admin' && !isStudentTableLocked ? 'text' : 'default', minHeight: '1.5rem', display: 'flex', alignItems: 'center' }}>
+        {defaultRender}
+      </div>
+    );
+  };
+
   const [studentEditId, setStudentEditId] = useState<string | null>(null);
   const [isStudentTableLocked, setIsStudentTableLocked] = useState(true);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -56,6 +183,8 @@ export default function StudentsPage() {
   const [shiftOptions, setShiftOptions] = useState<string[]>(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
   const [addressOptions, setAddressOptions] = useState<string[]>(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
   const [transportOptions, setTransportOptions] = useState<string[]>(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
+  const [genderOptions, setGenderOptions] = useState<string[]>(['ប្រុស', 'ស្រី']);
+  const [statusOptions, setStatusOptions] = useState<string[]>(['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន']);
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
@@ -68,10 +197,12 @@ export default function StudentsPage() {
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data.appStudentLevels) setLevelOptions(data.appStudentLevels);
-        if (data.appStudentShifts) setShiftOptions(data.appStudentShifts);
-        if (data.appStudentAddresses) setAddressOptions(data.appStudentAddresses);
-        if (data.appStudentTransports) setTransportOptions(data.appStudentTransports);
+        if (data.appStudentLevels) setLevelOptions(data.appStudentLevels.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
+        if (data.appStudentShifts) setShiftOptions(data.appStudentShifts.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
+        if (data.appStudentAddresses) setAddressOptions(data.appStudentAddresses.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
+        if (data.appStudentTransports) setTransportOptions(data.appStudentTransports.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
+        if (data.appStudentGenders) setGenderOptions(data.appStudentGenders.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
+        if (data.appStudentStatuses) setStatusOptions(data.appStudentStatuses.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
       }
     });
 
@@ -96,8 +227,8 @@ export default function StudentsPage() {
     setStudentIdField('');
     setStudentFullNameField('');
     setStudentEnglishNameField('');
-    setStudentGenderField('ស្រី');
-    setStudentLevelField(levelOptions.length > 0 ? levelOptions[0] : '');
+    setStudentGenderField(genderOptions.length > 0 ? genderOptions[0] : '');
+      setStudentLevelField(levelOptions.length > 0 ? levelOptions[0] : '');
     setStudentShiftField(shiftOptions.length > 0 ? shiftOptions[0] : '');
     setStudentEnrollDateField(new Date().toISOString().slice(0, 10));
     setStudentFeeField('120');
@@ -122,7 +253,7 @@ export default function StudentsPage() {
     setStudentIdField(student.studentId || '');
     setStudentFullNameField(student.fullName || '');
     setStudentEnglishNameField(student.englishName || '');
-    setStudentGenderField(student.gender || 'ស្រី');
+    setStudentGenderField(student.gender || (genderOptions.length > 0 ? genderOptions[0] : ''));
     setStudentLevelField(student.level || 'កម្រិតមធ្យមសិក្សា');
     setStudentShiftField(student.shift || 'វេនព្រឹក');
     setStudentEnrollDateField(student.enrollDate || '');
@@ -330,6 +461,22 @@ export default function StudentsPage() {
     return lastPart.charAt(0);
   };
 
+  const formatDOBToYear = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.includes('-') ? dateStr.split('-') : dateStr.split('/');
+    const year = parts.find(p => p.length === 4);
+    return year || dateStr;
+  };
+
+  const formatEnrollToDay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.includes('-') ? dateStr.split('-') : dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    const year = parts.find(p => p.length === 4);
+    if (parts[0] === year) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return `${parts[0]}/${parts[1]}/${parts[2]}`;
+  };
+
   // Dynamic Class Options based on current students
   const classOptions = Array.from(new Set(students.map(s => s.className).filter(Boolean)));
 
@@ -445,6 +592,24 @@ export default function StudentsPage() {
             style={{ width: '160px', padding: '0.4rem 0.75rem', background: 'var(--main-bg)', fontSize: '0.9rem' }} 
           />
 
+          {/* Column Visibility Toggle */}
+          <div style={{ position: 'relative' }}>
+            <button className="btn" onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} style={{ background: 'var(--main-bg)', padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', height: '100%' }} title="លាក់/បង្ហាញ ជួរឈរ">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            </button>
+            {isColumnMenuOpen && (
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', zIndex: 50, width: '250px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxHeight: '400px', overflowY: 'auto' }}>
+                <div style={{ fontWeight: 600, marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>បង្ហាញ/លាក់ ជួរឈរ</div>
+                {AVAILABLE_COLUMNS.map(col => (
+                  <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={visibleColumns.includes(col.id)} onChange={() => toggleColumn(col.id)} />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Action SVGs (Stop using Emojis) */}
           <button onClick={handleOpenAddStudent} className="btn btn-primary" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="បន្ថែមសិស្ស">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -528,7 +693,7 @@ export default function StudentsPage() {
         <div className="table-responsive">
 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1800px', fontSize: '0.95rem' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
               <th style={{ padding: '0.85rem 1.25rem', width: '40px' }}>
                 <input 
                   type="checkbox" 
@@ -537,25 +702,7 @@ export default function StudentsPage() {
                 />
               </th>
               <th style={{ padding: '0.85rem 1.25rem', width: '60px' }}>ល.រ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>រូបថត</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>អត្តលេខ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ឈ្មោះពេញ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ឈ្មោះអង់គ្លេស</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ភេទ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>កម្រិតសិក្សា</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>វេន</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្ងៃចូលរៀន</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្លៃសិក្សា (Fee)</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្នាក់</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>គ្រូ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ថ្ងៃកំណើត (DOB)</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>អាសយដ្ឋាន</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ទីតាំង</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>មធ្យោបាយ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>អ្នកទំនាក់ទំនង</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ឪពុក</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>ម្តាយ</th>
-              <th style={{ padding: '0.85rem 1.25rem' }}>លេខទូរស័ព្ទ</th>
+              {AVAILABLE_COLUMNS.map(col => visibleColumns.includes(col.id) && <th key={col.id} style={{ padding: '0.85rem 1.25rem' }}>{col.label}</th>)}
               <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right', width: '120px' }}>ជម្រើស</th>
             </tr>
           </thead>
@@ -563,7 +710,7 @@ export default function StudentsPage() {
             {filteredAndSortedStudents.map((student, index) => (
               <tr 
                 key={student.id} 
-                onClick={() => handleOpenEditStudent(student)}
+                onDoubleClick={() => handleOpenEditStudent(student)}
                 style={{ 
                   borderBottom: '1px solid var(--border-color)', 
                   background: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
@@ -572,7 +719,7 @@ export default function StudentsPage() {
                 }}
                 className={!isStudentTableLocked ? 'hover:bg-black/5' : ''}
               >
-                <td style={{ padding: '0.75rem 1.25rem' }} onClick={(e) => e.stopPropagation()}>
+                                <td style={{ padding: '0.75rem 1.25rem' }} onClick={(e) => e.stopPropagation()}>
                   <input 
                     type="checkbox" 
                     checked={selectedStudentIds.includes(student.id)} 
@@ -581,79 +728,179 @@ export default function StudentsPage() {
                 </td>
                 <td style={{ padding: '0.75rem 1.25rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
                 
-                {/* Photo / Avatar */}
-                <td style={{ padding: '0.75rem 1.25rem' }}>
+                {visibleColumns.includes('photo') && <td style={{ padding: '0.75rem 1.25rem', position: 'relative' }} onMouseEnter={() => handleMouseEnterPhoto(student.id)} onMouseLeave={handleMouseLeavePhoto}>
                   {student.photo ? (
-                    <img src={student.photo} alt={student.fullName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                    <img src={student.photo} alt={student.fullName} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} />
                   ) : (
                     <div style={{ 
-                      width: '32px', height: '32px', borderRadius: '50%', 
+                      width: '48px', height: '48px', borderRadius: '12px', 
                       background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.85rem'
+                      color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                     }}>
                       {getFirstLetter(student.fullName)}
                     </div>
                   )}
-                </td>
+                  {/* Hover Profile Popup (Centered on Screen using Portal) */}
+                  {hoveredPhotoId === student.id && typeof window !== 'undefined' && createPortal(
+                    <div style={{
+                      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      zIndex: 99999, pointerEvents: 'none'
+                    }}>
+                      <div style={{
+                        background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '24px',
+                        padding: '2rem', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', 
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', pointerEvents: 'auto',
+                        display: 'flex', flexDirection: 'column', gap: '1.5rem', cursor: 'default',
+                        backdropFilter: 'blur(10px)'
+                      }} 
+                      onMouseEnter={() => handleMouseEnterPhoto(student.id)} 
+                      onMouseLeave={handleMouseLeavePhoto}
+                      onClick={e => e.stopPropagation()}>
+                      {/* Header Section */}
+                      <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1.5rem' }}>
+                        {student.photo ? (
+                          <img src={student.photo} alt={student.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
+                        ) : (
+                          <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
+                            {getFirstLetter(student.fullName)}
+                          </div>
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{student.fullName}</h2>
+                          <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{student.englishName || 'គ្មានឈ្មោះអង់គ្លេស'}</p>
+                          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 700 }}>ID: {student.studentId}</span>
+                            <span style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem', borderRadius: '8px', background: student.status === 'កំពុងសិក្សា' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: student.status === 'កំពុងសិក្សា' ? '#10b981' : '#ef4444', fontWeight: 700 }}>{student.status || 'កំពុងសិក្សា'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Detailed Info Sections */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        
+                        {/* Academic Info */}
+                        <div style={{ background: 'rgba(139, 92, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
+                          <h4 style={{ margin: '0 0 1rem 0', color: '#8b5cf6', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                            ព័ត៌មានសិក្សា
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្នាក់៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.className || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>កម្រិត៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.level || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>វេន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.shift || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>គ្រូបន្ទុកថ្នាក់៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.teacherName || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{formatEnrollToDay(student.enrollDate) || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្លៃសិក្សា៖</span> <strong style={{ color: '#10b981' }}>{student.fee ? `${student.fee} ពាន់រៀល` : 'N/A'}</strong></div>
+                          </div>
+                        </div>
 
-                <td style={{ padding: '0.75rem 1.25rem' }}><code>{student.studentId}</code></td>
-                <td style={{ padding: '0.75rem 1.25rem', fontWeight: 500 }}>{student.fullName}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.englishName}</td>
+                        {/* Personal & Contact Info */}
+                        <div style={{ background: 'rgba(236, 72, 153, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(236, 72, 153, 0.1)' }}>
+                          <h4 style={{ margin: '0 0 1rem 0', color: '#ec4899', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            ជីវប្រវត្តិ & ទំនាក់ទំនង
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ភេទ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.gender || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃកំណើត៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.dob || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ឪពុក៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.father || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ម្តាយ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.mother || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>លេខទូរស័ព្ទ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.phoneNum || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>មធ្យោបាយ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.transport || 'N/A'}</strong></div>
+                          </div>
+                        </div>
+
+                        {/* Extra Details spanning full width */}
+                        <div style={{ gridColumn: '1 / -1', background: 'rgba(59, 130, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>អាសយដ្ឋាន៖</span> <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{student.address || 'N/A'}</strong></div>
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>បណ្តាញសង្គម៖</span> 
+                               {student.contact ? (student.contact.startsWith('http') ? <a href={student.contact} target="_blank" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'underline' }}>ចុចទីនេះ 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.contact}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>ទីតាំងផ្ទះ៖</span> 
+                               {student.location ? (student.location.startsWith('http') ? <a href={student.location} target="_blank" style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline' }}>ផែនទី 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.location}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                             </div>
+                           </div>
+                        </div>
+                      </div>
+
+                      <button onClick={() => { setHoveredPhotoId(null); handleOpenEditStudent(student); }} className="btn btn-primary" disabled={isStudentTableLocked} style={{ width: '100%', padding: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', borderRadius: '14px', border: 'none', fontSize: '1.05rem', fontWeight: 700, marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        កែប្រែព័ត៌មានលម្អិតសិស្ស
+                      </button>
+                    </div>
+                  </div>,
+                  document.body
+                  )}
+                </td>}
                 
-                {/* Gender badge */}
-                <td style={{ padding: '0.75rem 1.25rem' }}>
-                  <span style={{ 
+                {visibleColumns.includes('photoLink') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {renderCell(student, 'photo', student.photo ? (
+                    <a href={student.photo} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link 📍</a>
+                  ) : <span style={{ color: 'var(--text-secondary)' }}>គ្មាន</span>)}
+                </td>}
+
+                {visibleColumns.includes('studentId') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'studentId', <code>{student.studentId}</code>)}</td>}
+                {visibleColumns.includes('fullName') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'fullName', student.fullName)}</td>}
+                {visibleColumns.includes('englishName') && <td style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'englishName', student.englishName)}</td>}
+                
+                {visibleColumns.includes('gender') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {renderCell(student, 'gender', <span style={{ 
                     fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
                     background: student.gender === 'ស្រី' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                     color: student.gender === 'ស្រី' ? '#ec4899' : '#3b82f6'
                   }}>
                     {student.gender}
-                  </span>
-                </td>
+                  </span>)}
+                </td>}
                 
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.level}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.shift}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.enrollDate}</td>
+                {visibleColumns.includes('level') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'level', student.level)}</td>}
+                {visibleColumns.includes('shift') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'shift', student.shift)}</td>}
+                {visibleColumns.includes('enrollDate') && <td style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'enrollDate', formatEnrollToDay(student.enrollDate))}</td>}
                 
-                {/* Fee (Value 1 = 1000 Riels) */}
-                <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
-                  {(student.fee * 1000).toLocaleString('km-KH')}៛
-                </td>
+                {visibleColumns.includes('fee') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
+                  {renderCell(student, 'fee', student.fee)}
+                </td>}
+
+                {visibleColumns.includes('status') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {renderCell(student, 'status', <span style={{ 
+                    fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
+                    background: student.status === 'កំពុងសិក្សា' ? 'rgba(16, 185, 129, 0.1)' : student.status === 'ព្យួរការសិក្សា' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: student.status === 'កំពុងសិក្សា' ? '#10b981' : student.status === 'ព្យួរការសិក្សា' ? '#f59e0b' : '#ef4444'
+                  }}>
+                    {student.status || 'កំពុងសិក្សា'}
+                  </span>)}
+                </td>}
                 
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.className}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.teacherName}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.dob}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.address}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>
-                  {student.location && (student.location.startsWith('http://') || student.location.startsWith('https://')) ? (
-                    <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>
+                {visibleColumns.includes('className') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'className', student.className)}</td>}
+                {visibleColumns.includes('teacherName') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'teacherName', student.teacherName)}</td>}
+                {visibleColumns.includes('dob') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'dob', formatDOBToYear(student.dob))}</td>}
+                {visibleColumns.includes('address') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'address', student.address)}</td>}
+                
+                {visibleColumns.includes('location') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {renderCell(student, 'location', student.location && (student.location.startsWith('http://') || student.location.startsWith('https://')) ? (
+                    <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
                       Link 📍
                     </a>
-                  ) : (
-                    student.location
-                  )}
-                </td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.transport}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>
-                  {student.contact ? (
+                  ) : student.location)}
+                </td>}
+                
+                {visibleColumns.includes('transport') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'transport', student.transport)}</td>}
+                
+                {visibleColumns.includes('contact') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  {renderCell(student, 'contact', student.contact ? (
                     student.contact.startsWith('http://') || student.contact.startsWith('https://') ? (
-                      <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }}>
-                        Link 🔗
+                      <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
+                        Link 📍
                       </a>
-                    ) : student.contact.startsWith('@') ? (
-                      <a href={`https://t.me/${student.contact.substring(1)}`} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }}>
-                        {student.contact} ✈️
-                      </a>
-                    ) : (
-                      student.contact
-                    )
-                  ) : (
-                    ''
-                  )}
-                </td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.father}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.mother}</td>
-                <td style={{ padding: '0.75rem 1.25rem' }}>{student.phoneNum}</td>
+                    ) : student.contact
+                  ) : '')}
+                </td>}
+                
+                {visibleColumns.includes('father') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'father', student.father)}</td>}
+                {visibleColumns.includes('mother') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'mother', student.mother)}</td>}
+                {visibleColumns.includes('phoneNum') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'phoneNum', student.phoneNum)}</td>}
                 
                 {/* Actions */}
                 <td style={{ padding: '0.75rem 1.25rem', textAlign: 'right' }}>
@@ -751,9 +998,9 @@ export default function StudentsPage() {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ភេទ (Gender) *</label>
                   <select className="input-field" value={studentGenderField} onChange={e => setStudentGenderField(e.target.value)}>
-                    <option value="ប្រុស">ប្រុស (Male)</option>
-                    <option value="ស្រី">ស្រី (Female)</option>
-                  </select>
+                      {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      {genderOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
+                    </select>
                 </div>
 
                 <div>
@@ -842,10 +1089,9 @@ export default function StudentsPage() {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ស្ថានភាពសិក្សា (Status)</label>
                   <select className="input-field" value={studentStatusField} onChange={e => setStudentStatusField(e.target.value)}>
-                    <option value="កំពុងសិក្សា">កំពុងសិក្សា (Active)</option>
-                    <option value="ព្យួរការសិក្សា">ព្យួរការសិក្សា (Suspended)</option>
-                    <option value="ឈប់រៀន">ឈប់រៀន (Dropped)</option>
-                  </select>
+                      {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      {statusOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
+                    </select>
                 </div>
 
                 <div>
