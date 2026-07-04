@@ -529,7 +529,7 @@ export default function ClassesPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {enrolledStudents.map((s) => (
+                      {enrolledStudents.map((s: any) => (
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="table-row-hover">
                           <td style={{ padding: '1rem', fontWeight: '500', color: 'var(--text-primary)' }}>{s.studentId}</td>
                           <td style={{ padding: '1rem', color: 'var(--text-primary)' }}>
