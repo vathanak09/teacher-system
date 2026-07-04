@@ -78,6 +78,7 @@ export default function ClassesPage() {
   // Class Management View
   const [viewingClass, setViewingClass] = useState<any | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('students');
 
   // Load Data
   useEffect(() => {
@@ -280,48 +281,7 @@ export default function ClassesPage() {
     }
   };
 
-  const handleImportStudents = () => {
-    if (!viewingClass) return;
-    const { targetLevels = [], targetShifts = [] } = viewingClass;
-    if (targetLevels.length === 0 && targetShifts.length === 0) {
-      alert("សូមកំណត់គោលដៅកម្រិតសិក្សា ឬវេនសិក្សានៅក្នុងថ្នាក់ (Edit Class) ជាមុនសិន។");
-      return;
-    }
-    
-    const matchingStudents = allStudents.filter(s => {
-      const matchLevel = targetLevels.length === 0 || targetLevels.includes(s.level);
-      const matchShift = targetShifts.length === 0 || targetShifts.includes(s.shift);
-      return matchLevel && matchShift;
-    });
 
-    if (matchingStudents.length === 0) {
-      alert("មិនមានសិស្សណាមួយត្រូវនឹងលក្ខខណ្ឌនេះទេ។");
-      return;
-    }
-
-    const existingData = viewingClass.studentsData && viewingClass.studentsData.length > 0
-      ? viewingClass.studentsData 
-      : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean);
-    
-    const merged = [...existingData];
-    let importedCount = 0;
-    matchingStudents.forEach(ms => {
-      if (!merged.find(m => m.id === ms.id)) {
-        merged.push(ms);
-        importedCount++;
-      }
-    });
-
-    if (importedCount === 0) {
-      alert("សិស្សដែលត្រូវលក្ខខណ្ឌ ត្រូវបានបញ្ចូលក្នុងថ្នាក់រួចរាល់អស់ហើយ។");
-      return;
-    }
-
-    const updatedClass = { ...viewingClass, studentsData: merged, studentIds: merged.map((m: any) => m.id) };
-    updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
-    setViewingClass(updatedClass);
-    alert(`បានទាញយកសិស្សចំនួន ${importedCount} នាក់ដោយជោគជ័យ!`);
-  };
 
   const searchResults = studentSearch.trim() === '' ? [] : allStudents.filter(s => {
     const existingIds = viewingClass?.studentsData && viewingClass.studentsData.length > 0 ? viewingClass.studentsData.map((ms: any) => ms.id) : (viewingClass?.studentIds || []);
@@ -477,7 +437,30 @@ export default function ClassesPage() {
                 {viewingClass.description && <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontStyle: 'italic' }}>{viewingClass.description}</p>}
               </div>
               
+              <div style={{ borderBottom: '1px solid var(--border-color)', display: 'flex' }}>
+                <button 
+                  onClick={() => setActiveTab('students')}
+                  style={{ padding: '1rem 1.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'students' ? '2px solid var(--primary-color)' : '2px solid transparent', color: activeTab === 'students' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'students' ? '600' : '500', cursor: 'pointer', outline: 'none' }}
+                >
+                  បញ្ជីសិស្ស
+                </button>
+                <button 
+                  onClick={() => setActiveTab('records')}
+                  style={{ padding: '1rem 1.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'records' ? '2px solid var(--primary-color)' : '2px solid transparent', color: activeTab === 'records' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'records' ? '600' : '500', cursor: 'pointer', outline: 'none' }}
+                >
+                  កំណត់ត្រាបង្រៀន
+                </button>
+                <button 
+                  onClick={() => setActiveTab('tasks')}
+                  style={{ padding: '1rem 1.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'tasks' ? '2px solid var(--primary-color)' : '2px solid transparent', color: activeTab === 'tasks' ? 'var(--primary-color)' : 'var(--text-secondary)', fontWeight: activeTab === 'tasks' ? '600' : '500', cursor: 'pointer', outline: 'none' }}
+                >
+                  កិច្ចការ
+                </button>
+              </div>
+
               <div style={{ padding: '1.5rem' }}>
+                {activeTab === 'students' && (
+                  <>
                 {/* Search & Add Students */}
                 <div style={{ marginBottom: '2rem', position: 'relative' }}>
                   <label style={{ fontSize: '1rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'block' }}>បន្ថែមសិស្សចូលថ្នាក់</label>
@@ -527,13 +510,6 @@ export default function ClassesPage() {
                 {/* Enrolled Students Table */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: '500', color: 'var(--text-primary)', margin: 0 }}>បញ្ជីសិស្សក្នុងថ្នាក់ ({enrolledStudents.length} នាក់)</h3>
-                  <button 
-                    onClick={handleImportStudents}
-                    style={{ padding: '0.5rem 1rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    ទាញយកសិស្ស (Import)
-                  </button>
                 </div>
                 
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
@@ -614,7 +590,20 @@ export default function ClassesPage() {
                   </table>
 </div>
                 </div>
+                  </>
+                )}
 
+                {activeTab === 'records' && (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                    កំណត់ត្រាបង្រៀននឹងបង្ហាញនៅទីនេះ។
+                  </div>
+                )}
+
+                {activeTab === 'tasks' && (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+                    កិច្ចការនឹងបង្ហាញនៅទីនេះ។
+                  </div>
+                )}
               </div>
             </div>
           ) : (
