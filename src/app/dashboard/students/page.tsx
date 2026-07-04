@@ -457,8 +457,24 @@ export default function StudentsPage() {
         const line = lines[i].trim();
         if (!line) continue;
 
-        const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-        const fields = matches.map(f => f.replace(/^"|"$/g, '').trim());
+        const fields: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+          if (char === '"' && line[j+1] === '"') {
+            current += '"';
+            j++;
+          } else if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            fields.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        fields.push(current.trim());
 
         if (fields.length >= 10) {
           imported.push({
