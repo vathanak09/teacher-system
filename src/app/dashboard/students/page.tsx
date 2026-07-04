@@ -26,6 +26,8 @@ export default function StudentsPage() {
     { id: 'shift', label: 'វេន' },
     { id: 'enrollDate', label: 'ថ្ងៃចូលរៀន' },
     { id: 'fee', label: 'ថ្លៃសិក្សា (Fee)' },
+    { id: 'nextPaymentDate', label: 'ថ្ងៃបង់បន្ទាប់' },
+    { id: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
     { id: 'status', label: 'ស្ថានភាពសិក្សា' },
     { id: 'className', label: 'ថ្នាក់' },
     { id: 'teacherName', label: 'គ្រូ' },
@@ -230,16 +232,35 @@ export default function StudentsPage() {
     };
   }, [router]);
 
+  const getStatusInfo = (nextDateStr: string | null) => {
+    if (!nextDateStr) return { label: 'មិនទាន់បង់ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextDate = new Date(nextDateStr);
+    nextDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = nextDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { label: 'ហួសកំណត់ / Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    if (diffDays === 0) return { label: 'ដល់ថ្ងៃបង់ / Due Today', color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' };
+    if (diffDays <= 5) return { label: 'ជិតដល់ថ្ងៃ / Due Soon', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+    return { label: 'បានបង់ / Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+  };
+
   const augmentedStudents = students.map(s => {
     const sClasses = classesData.filter(c => c.studentIds && c.studentIds.includes(s.id));
+    const statusInfo = getStatusInfo(s.nextPaymentDate);
     if (sClasses.length > 0) {
       return {
         ...s,
         className: sClasses.map(c => c.classCode || c.className).join(', '),
-        teacherName: sClasses.map(c => c.teacherName).filter(Boolean).join(', ')
+        teacherName: sClasses.map(c => c.teacherName).filter(Boolean).join(', '),
+        statusInfo
       };
     }
-    return s;
+    return { ...s, statusInfo };
   });
 
   // Student CRUD Functions
@@ -883,6 +904,18 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('fee') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
                   {renderCell(student, 'fee', student.fee)}
+                </td>}
+
+                {visibleColumns.includes('nextPaymentDate') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'nextPaymentDate', student.nextPaymentDate || 'N/A')}</td>}
+                
+                {visibleColumns.includes('paymentStatus') && <td style={{ padding: '0.75rem 1.25rem' }}>
+                  <span style={{ 
+                    fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
+                    background: student.statusInfo.bg,
+                    color: student.statusInfo.color
+                  }}>
+                    {student.statusInfo.label}
+                  </span>
                 </td>}
 
                 {visibleColumns.includes('status') && <td style={{ padding: '0.75rem 1.25rem' }}>
