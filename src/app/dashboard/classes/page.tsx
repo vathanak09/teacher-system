@@ -69,6 +69,7 @@ export default function ClassesPage() {
   const [colorField, setColorField] = useState('blue');
   const [targetLevelsField, setTargetLevelsField] = useState<string[]>([]);
   const [targetShiftsField, setTargetShiftsField] = useState<string[]>([]);
+  const [autoImportStudents, setAutoImportStudents] = useState(false);
 
   // Option dropdowns from settings
   const [shiftsOptions, setShiftsOptions] = useState<any[]>([]);
@@ -155,6 +156,7 @@ export default function ClassesPage() {
     setColorField('blue');
     setTargetLevelsField([]);
     setTargetShiftsField([]);
+    setAutoImportStudents(false);
     
     // Auto assign teacher if role is teacher
     if (role === 'teacher') {
@@ -182,6 +184,7 @@ export default function ClassesPage() {
     setTeacherNameField(c.teacherName || '');
     setTargetLevelsField(c.targetLevels || []);
     setTargetShiftsField(c.targetShifts || []);
+    setAutoImportStudents(false);
     setIsClassModalOpen(true);
   };
 
@@ -199,6 +202,22 @@ export default function ClassesPage() {
       return;
     }
 
+    let baseStudentsData = classEditId ? (classes.find(c => c.id === classEditId)?.studentsData || []) : [];
+    let baseStudentIds = classEditId ? (classes.find(c => c.id === classEditId)?.studentIds || []) : [];
+
+    if (autoImportStudents) {
+      const existingIds = baseStudentsData && baseStudentsData.length > 0 ? baseStudentsData.map((s: any) => s.id) : baseStudentIds;
+      const matchingStudents = allStudents.filter(s => {
+        const matchLevel = targetLevelsField.length === 0 || targetLevelsField.includes(s.level);
+        const matchShift = targetShiftsField.length === 0 || targetShiftsField.includes(s.shift);
+        return matchLevel && matchShift && !existingIds.includes(s.id);
+      });
+      if (matchingStudents.length > 0) {
+        baseStudentsData = [...baseStudentsData, ...matchingStudents];
+        baseStudentIds = baseStudentsData.map((s: any) => s.id);
+      }
+    }
+
     const newClass = {
       classCode: classCodeField,
       className: classNameField,
@@ -212,8 +231,8 @@ export default function ClassesPage() {
       description: descriptionField,
       targetLevels: targetLevelsField,
       targetShifts: targetShiftsField,
-      studentIds: classEditId ? (classes.find(c => c.id === classEditId)?.studentIds || []) : [],
-      studentsData: classEditId ? (classes.find(c => c.id === classEditId)?.studentsData || []) : [],
+      studentIds: baseStudentIds,
+      studentsData: baseStudentsData,
     };
 
     if (classEditId) {
@@ -722,6 +741,22 @@ export default function ClassesPage() {
                     )) : <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មិនទាន់មានទិន្នន័យ</span>}
                   </div>
                 </div>
+              </div>
+
+              {/* Auto Import Checkbox */}
+              <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--primary-color)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={autoImportStudents} 
+                    onChange={(e) => setAutoImportStudents(e.target.checked)} 
+                    style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--primary-color)', fontSize: '0.95rem' }}>ទាញយកសិស្សចូលថ្នាក់ដោយស្វ័យប្រវត្តិ (Import Students)</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ទាញយកសិស្សទាំងអស់ដែលត្រូវនឹងគោលដៅខាងលើ ចូលក្នុងថ្នាក់នេះពេលរក្សាទុក។</div>
+                  </div>
+                </label>
               </div>
 
               {/* Icon Selector */}
