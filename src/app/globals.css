@@ -368,6 +368,10 @@ body {
 .table-responsive table td {
   padding: 0.5rem 0.75rem !important;
   font-size: 0.85rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 /* By default, things flow naturally. Media queries change them below */

@@ -235,7 +235,7 @@ export default function StudentsPage() {
     if (sClasses.length > 0) {
       return {
         ...s,
-        className: sClasses.map(c => c.className).join(', '),
+        className: sClasses.map(c => c.classCode || c.className).join(', '),
         teacherName: sClasses.map(c => c.teacherName).filter(Boolean).join(', ')
       };
     }
@@ -864,7 +864,7 @@ export default function StudentsPage() {
                 </td>}
 
                 {visibleColumns.includes('studentId') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'studentId', <code>{student.studentId}</code>)}</td>}
-                {visibleColumns.includes('fullName') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '1.05rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'fullName', student.fullName)}</td>}
+                {visibleColumns.includes('fullName') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'fullName', <span style={{ fontSize: '1.25rem' }}>{student.fullName}</span>)}</td>}
                 {visibleColumns.includes('englishName') && <td style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'englishName', student.englishName)}</td>}
                 
                 {visibleColumns.includes('gender') && <td style={{ padding: '0.75rem 1.25rem' }}>
