@@ -231,7 +231,7 @@ export default function ClassesPage() {
   // Manage Students in Class
   const handleAddStudentToClass = (studentId: string) => {
     if (!viewingClass) return;
-    const existingIds = viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : (viewingClass.studentIds || []);
+    const existingIds = viewingClass.studentsData && viewingClass.studentsData.length > 0 ? viewingClass.studentsData.map((s: any) => s.id) : (viewingClass.studentIds || []);
     if (existingIds.includes(studentId)) return;
 
     const studentObj = allStudents.find(s => s.id === studentId);
@@ -305,7 +305,7 @@ export default function ClassesPage() {
   };
 
   const searchResults = studentSearch.trim() === '' ? [] : allStudents.filter(s => {
-    const existingIds = viewingClass?.studentsData ? viewingClass.studentsData.map((ms: any) => ms.id) : (viewingClass?.studentIds || []);
+    const existingIds = viewingClass?.studentsData && viewingClass.studentsData.length > 0 ? viewingClass.studentsData.map((ms: any) => ms.id) : (viewingClass?.studentIds || []);
     return !existingIds.includes(s.id) && 
            (s.fullName.includes(studentSearch) || s.studentId.includes(studentSearch) || (s.englishName || '').toLowerCase().includes(studentSearch.toLowerCase()));
   }).slice(0, 5);
@@ -413,7 +413,7 @@ export default function ClassesPage() {
                            </div>
                            <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{c.teacherName || 'មិនទាន់កំណត់'}</span>
                            <span style={{ margin: '0 0.25rem', color: 'var(--text-secondary)' }}>•</span>
-                           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData?.length || c.studentIds?.length || 0} នាក់</span>
+                           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData && c.studentsData.length > 0 ? c.studentsData.length : (c.studentIds?.length || 0)} នាក់</span>
                         </div>
                       </div>
                     </div>
