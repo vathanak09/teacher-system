@@ -12,6 +12,7 @@ export default function StudentsPage() {
   
   // Student States
   const [students, setStudents] = useState<any[]>([]);
+  const [classesData, setClassesData] = useState<any[]>([]);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   // Inline Editing & Column Visibility
   const AVAILABLE_COLUMNS = [
@@ -214,11 +215,32 @@ export default function StudentsPage() {
       setStudents(studentsData);
     });
 
+    const unsubClasses = onSnapshot(collection(db, 'classes'), (snapshot) => {
+      const cData: any[] = [];
+      snapshot.forEach((doc) => {
+        cData.push({ id: doc.id, ...doc.data() });
+      });
+      setClassesData(cData);
+    });
+
     return () => {
       unsubscribe();
       unsubSettings();
+      unsubClasses();
     };
   }, [router]);
+
+  const augmentedStudents = students.map(s => {
+    const sClasses = classesData.filter(c => c.studentIds && c.studentIds.includes(s.id));
+    if (sClasses.length > 0) {
+      return {
+        ...s,
+        className: sClasses.map(c => c.className).join(', '),
+        teacherName: sClasses.map(c => c.teacherName).filter(Boolean).join(', ')
+      };
+    }
+    return s;
+  });
 
   // Student CRUD Functions
   const handleOpenAddStudent = () => {
@@ -380,7 +402,7 @@ export default function StudentsPage() {
       "Enroll Date", "Fee", "Class", "Teacher", "DOB", "Address", 
       "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
     ];
-    const rows = students.map(s => [
+    const rows = augmentedStudents.map(s => [
       s.studentId, s.fullName, s.englishName, s.gender, s.level, s.shift,
       s.enrollDate, s.fee, s.className, s.teacherName, s.dob, s.address,
       s.location, s.transport, s.photo, s.status || 'កំពុងសិក្សា',
@@ -478,7 +500,7 @@ export default function StudentsPage() {
   };
 
   // Dynamic Class Options based on current students
-  const classOptions = Array.from(new Set(students.map(s => s.className).filter(Boolean)));
+  const classOptions = Array.from(new Set(augmentedStudents.map(s => s.className).filter(Boolean)));
 
   // Selection Checkbox Logic
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -498,7 +520,7 @@ export default function StudentsPage() {
   };
 
   // Filter & Sort Logic
-  const filteredAndSortedStudents = students
+  const filteredAndSortedStudents = augmentedStudents
     .filter(s => {
       const matchesSearch = 
         s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) || 
