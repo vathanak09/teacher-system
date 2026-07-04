@@ -787,7 +787,7 @@ export default function StudentsPage() {
                 <td style={{ padding: '0.75rem 1.25rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
                 
                 {visibleColumns.includes('photo') && <td style={{ padding: '0.75rem 1.25rem', position: 'relative' }} onMouseEnter={() => handleMouseEnterPhoto(student.id)} onMouseLeave={handleMouseLeavePhoto}>
-                  {student.photo ? (
+                  {student.photo && String(student.photo).trim() !== '' ? (
                     <img src={student.photo} alt={student.fullName} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} />
                   ) : (
                     <div style={{ 
@@ -817,7 +817,7 @@ export default function StudentsPage() {
                       onClick={e => e.stopPropagation()}>
                       {/* Header Section */}
                       <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1.5rem' }}>
-                        {student.photo ? (
+                        {student.photo && String(student.photo).trim() !== '' ? (
                           <img src={student.photo} alt={student.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
                         ) : (
                           <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
