@@ -51,6 +51,11 @@ export default function ClassesPage() {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [classEditId, setClassEditId] = useState<string | null>(null);
 
+  // Student interaction states
+  const [hoveredStudent, setHoveredStudent] = useState<any | null>(null);
+  const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
+  const [editStudentData, setEditStudentData] = useState<any | null>(null);
+
   // Form Fields
   const [classCodeField, setClassCodeField] = useState('');
   const [classNameField, setClassNameField] = useState('');
@@ -62,9 +67,12 @@ export default function ClassesPage() {
   const [descriptionField, setDescriptionField] = useState('');
   const [iconField, setIconField] = useState('book');
   const [colorField, setColorField] = useState('blue');
+  const [targetLevelsField, setTargetLevelsField] = useState<string[]>([]);
+  const [targetShiftsField, setTargetShiftsField] = useState<string[]>([]);
 
   // Option dropdowns from settings
   const [shiftsOptions, setShiftsOptions] = useState<any[]>([]);
+  const [levelsOptions, setLevelsOptions] = useState<any[]>([]);
 
   // Class Management View
   const [viewingClass, setViewingClass] = useState<any | null>(null);
@@ -92,6 +100,7 @@ export default function ClassesPage() {
            const d = doc.data();
            const norm = (arr: any[]) => (arr||[]).map(x => typeof x === 'string' ? {id: x} : x);
            setShiftsOptions(norm(d.appStudentShifts || []));
+           setLevelsOptions(norm(d.appStudentLevels || []));
         }
       });
     };
@@ -144,6 +153,8 @@ export default function ClassesPage() {
     setDescriptionField('');
     setIconField('book');
     setColorField('blue');
+    setTargetLevelsField([]);
+    setTargetShiftsField([]);
     
     // Auto assign teacher if role is teacher
     if (role === 'teacher') {
@@ -160,15 +171,17 @@ export default function ClassesPage() {
   const handleOpenEditClass = (c: any) => {
     setClassEditId(c.id);
     setClassCodeField(c.classCode || '');
-    setClassNameField(c.className);
-    setAcademicYearField(c.academicYear);
-    setShiftField(c.shift);
+    setClassNameField(c.className || '');
+    setAcademicYearField(c.academicYear || '');
+    setShiftField(c.shift || '');
     setTimeField(c.time || '');
-    setDescriptionField(c.description);
+    setDescriptionField(c.description || '');
     setIconField(c.icon || 'book');
     setColorField(c.color || 'blue');
     setTeacherIdField(c.teacherId || '');
     setTeacherNameField(c.teacherName || '');
+    setTargetLevelsField(c.targetLevels || []);
+    setTargetShiftsField(c.targetShifts || []);
     setIsClassModalOpen(true);
   };
 
@@ -179,7 +192,7 @@ export default function ClassesPage() {
     }
   };
 
-  const handleSaveClass = (e: React.FormEvent) => {
+  const handleSaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!classNameField || !academicYearField) {
       alert('សូមបំពេញឈ្មោះថ្នាក់ និងឆ្នាំសិក្សា!');
@@ -197,7 +210,10 @@ export default function ClassesPage() {
       icon: iconField,
       color: colorField,
       description: descriptionField,
+      targetLevels: targetLevelsField,
+      targetShifts: targetShiftsField,
       studentIds: classEditId ? (classes.find(c => c.id === classEditId)?.studentIds || []) : [],
+      studentsData: classEditId ? (classes.find(c => c.id === classEditId)?.studentsData || []) : [],
     };
 
     if (classEditId) {
@@ -215,9 +231,18 @@ export default function ClassesPage() {
   // Manage Students in Class
   const handleAddStudentToClass = (studentId: string) => {
     if (!viewingClass) return;
-    if (viewingClass.studentIds.includes(studentId)) return; // Already in class
+    const existingIds = viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : (viewingClass.studentIds || []);
+    if (existingIds.includes(studentId)) return;
 
-    const updatedClass = { ...viewingClass, studentIds: [...viewingClass.studentIds, studentId] };
+    const studentObj = allStudents.find(s => s.id === studentId);
+    if (!studentObj) return;
+
+    const existingData = viewingClass.studentsData && viewingClass.studentsData.length > 0
+      ? viewingClass.studentsData 
+      : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean);
+
+    const merged = [...existingData, studentObj];
+    const updatedClass = { ...viewingClass, studentsData: merged, studentIds: merged.map((m: any) => m.id) };
     updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
     setViewingClass(updatedClass);
   };
@@ -225,18 +250,106 @@ export default function ClassesPage() {
   const handleRemoveStudentFromClass = (studentId: string) => {
     if (!viewingClass) return;
     if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
-      const updatedClass = { ...viewingClass, studentIds: viewingClass.studentIds.filter((id: string) => id !== studentId) };
+      const existingData = viewingClass.studentsData && viewingClass.studentsData.length > 0
+        ? viewingClass.studentsData 
+        : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean);
+      
+      const filtered = existingData.filter((s: any) => s.id !== studentId);
+      const updatedClass = { ...viewingClass, studentsData: filtered, studentIds: filtered.map((m: any) => m.id) };
       updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
       setViewingClass(updatedClass);
     }
   };
 
-  const searchResults = studentSearch.trim() === '' ? [] : allStudents.filter(s => 
-    !viewingClass?.studentIds.includes(s.id) && 
-    (s.fullName.includes(studentSearch) || s.studentId.includes(studentSearch) || (s.englishName || '').toLowerCase().includes(studentSearch.toLowerCase()))
-  ).slice(0, 5); // Show max 5 results
+  const handleImportStudents = () => {
+    if (!viewingClass) return;
+    const { targetLevels = [], targetShifts = [] } = viewingClass;
+    if (targetLevels.length === 0 && targetShifts.length === 0) {
+      alert("សូមកំណត់គោលដៅកម្រិតសិក្សា ឬវេនសិក្សានៅក្នុងថ្នាក់ (Edit Class) ជាមុនសិន។");
+      return;
+    }
+    
+    const matchingStudents = allStudents.filter(s => {
+      const matchLevel = targetLevels.length === 0 || targetLevels.includes(s.level);
+      const matchShift = targetShifts.length === 0 || targetShifts.includes(s.shift);
+      return matchLevel && matchShift;
+    });
 
-  const enrolledStudents = viewingClass ? allStudents.filter(s => viewingClass.studentIds.includes(s.id)) : [];
+    if (matchingStudents.length === 0) {
+      alert("មិនមានសិស្សណាមួយត្រូវនឹងលក្ខខណ្ឌនេះទេ។");
+      return;
+    }
+
+    const existingData = viewingClass.studentsData && viewingClass.studentsData.length > 0
+      ? viewingClass.studentsData 
+      : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean);
+    
+    const merged = [...existingData];
+    let importedCount = 0;
+    matchingStudents.forEach(ms => {
+      if (!merged.find(m => m.id === ms.id)) {
+        merged.push(ms);
+        importedCount++;
+      }
+    });
+
+    if (importedCount === 0) {
+      alert("សិស្សដែលត្រូវលក្ខខណ្ឌ ត្រូវបានបញ្ចូលក្នុងថ្នាក់រួចរាល់អស់ហើយ។");
+      return;
+    }
+
+    const updatedClass = { ...viewingClass, studentsData: merged, studentIds: merged.map((m: any) => m.id) };
+    updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
+    setViewingClass(updatedClass);
+    alert(`បានទាញយកសិស្សចំនួន ${importedCount} នាក់ដោយជោគជ័យ!`);
+  };
+
+  const searchResults = studentSearch.trim() === '' ? [] : allStudents.filter(s => {
+    const existingIds = viewingClass?.studentsData ? viewingClass.studentsData.map((ms: any) => ms.id) : (viewingClass?.studentIds || []);
+    return !existingIds.includes(s.id) && 
+           (s.fullName.includes(studentSearch) || s.studentId.includes(studentSearch) || (s.englishName || '').toLowerCase().includes(studentSearch.toLowerCase()));
+  }).slice(0, 5);
+
+  const enrolledStudents = viewingClass ? (
+    viewingClass.studentsData && viewingClass.studentsData.length > 0 
+      ? viewingClass.studentsData 
+      : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean)
+  ) : [];
+
+  const handleSaveStudentEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingClass || !editStudentData) return;
+    
+    const existingData = viewingClass.studentsData && viewingClass.studentsData.length > 0
+      ? viewingClass.studentsData 
+      : (viewingClass.studentIds || []).map((id: string) => allStudents.find(s => s.id === id)).filter(Boolean);
+    
+    const updatedData = existingData.map((s: any) => s.id === editStudentData.id ? editStudentData : s);
+    
+    const updatedClass = { ...viewingClass, studentsData: updatedData };
+    updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
+    setViewingClass(updatedClass);
+    setIsEditStudentModalOpen(false);
+    setEditStudentData(null);
+  };
+
+  const handleRequestStudentEdit = async () => {
+    if (!editStudentData) return;
+    
+    const msg = {
+      text: `សូម Admin ជួយកែប្រែទិន្នន័យសិស្សឈ្មោះ ${editStudentData.fullName} (អត្តលេខ: ${editStudentData.studentId})។\nព័ត៌មានដែលបានកែប្រែថ្មី៖\n- ឈ្មោះអង់គ្លេស: ${editStudentData.englishName}\n- ភេទ: ${editStudentData.gender}\n- ថ្ងៃកំណើត: ${editStudentData.dob}\n- លេខទូរស័ព្ទ: ${editStudentData.phoneNum}`,
+      senderId: userId,
+      senderName: userName,
+      senderRole: role,
+      receiverId: 'admin',
+      isRead: false,
+      createdAt: new Date().toISOString()
+    };
+    await addDoc(collection(db, 'messages'), msg);
+    alert('សំណើកែប្រែត្រូវបានបញ្ជូនទៅកាន់ Admin ដោយជោគជ័យ!');
+    setIsEditStudentModalOpen(false);
+    setEditStudentData(null);
+  };
 
   if (!role) return null;
 
@@ -265,7 +378,16 @@ export default function ClassesPage() {
                 <div 
                   key={c.id} 
                   className={`glass-panel ${viewingClass?.id === c.id ? 'active-class' : ''}`}
-                  style={{ padding: '1.25rem', cursor: 'pointer', border: viewingClass?.id === c.id ? `2px solid ${colorHex}` : '2px solid transparent', borderLeft: `6px solid ${colorHex}`, transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden' }}
+                  style={{ 
+                    padding: '1.25rem', 
+                    cursor: 'pointer', 
+                    borderStyle: 'solid',
+                    borderWidth: '2px 2px 2px 6px',
+                    borderColor: viewingClass?.id === c.id ? `${colorHex} ${colorHex} ${colorHex} ${colorHex}` : `transparent transparent transparent ${colorHex}`,
+                    transition: 'all 0.2s ease', 
+                    position: 'relative', 
+                    overflow: 'hidden' 
+                  }}
                   onClick={() => setViewingClass(c)}
                 >
                   {/* Subtle Background Icon */}
@@ -291,7 +413,7 @@ export default function ClassesPage() {
                            </div>
                            <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{c.teacherName || 'មិនទាន់កំណត់'}</span>
                            <span style={{ margin: '0 0.25rem', color: 'var(--text-secondary)' }}>•</span>
-                           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentIds?.length || 0} នាក់</span>
+                           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData?.length || c.studentIds?.length || 0} នាក់</span>
                         </div>
                       </div>
                     </div>
@@ -384,7 +506,16 @@ export default function ClassesPage() {
                 </div>
 
                 {/* Enrolled Students Table */}
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '500', color: 'var(--text-primary)', marginBottom: '1rem' }}>បញ្ជីសិស្សក្នុងថ្នាក់ ({enrolledStudents.length} នាក់)</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: '500', color: 'var(--text-primary)', margin: 0 }}>បញ្ជីសិស្សក្នុងថ្នាក់ ({enrolledStudents.length} នាក់)</h3>
+                  <button 
+                    onClick={handleImportStudents}
+                    style={{ padding: '0.5rem 1rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid #10b981', borderRadius: '8px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    ទាញយកសិស្ស (Import)
+                  </button>
+                </div>
                 
                 <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                   <div className="table-responsive">
@@ -402,22 +533,51 @@ export default function ClassesPage() {
                         <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="table-row-hover">
                           <td style={{ padding: '1rem', fontWeight: '500', color: 'var(--text-primary)' }}>{s.studentId}</td>
                           <td style={{ padding: '1rem', color: 'var(--text-primary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', position: 'relative' }}>
+                              <div 
+                                onMouseEnter={() => setHoveredStudent(s.id)}
+                                onMouseLeave={() => setHoveredStudent(null)}
+                                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'help' }}
+                              >
                                 {s.photo ? <img src={s.photo} alt={s.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
                               </div>
+                              
+                              {hoveredStudent === s.id && (
+                                <div 
+                                  style={{ position: 'absolute', top: '100%', left: '0', zIndex: 100, background: 'var(--bg-primary)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 10px 25px rgba(0,0,0,0.15)', minWidth: '250px', pointerEvents: 'none' }}
+                                >
+                                  <p style={{ margin: 0, fontWeight: 'bold' }}>{s.fullName} ({s.englishName})</p>
+                                  <p style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>អត្តលេខ៖ {s.studentId}</p>
+                                  <p style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>ថ្ងៃខែឆ្នាំកំណើត៖ {s.dob}</p>
+                                  <p style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>កម្រិត៖ {s.level} - {s.shift}</p>
+                                  <p style={{ margin: 0, fontSize: '0.85rem' }}>លេខទូរស័ព្ទ៖ {s.phoneNum || 'គ្មាន'}</p>
+                                </div>
+                              )}
+                              
                               {s.fullName}
                             </div>
                           </td>
                           <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{s.gender}</td>
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <button 
-                              onClick={() => handleRemoveStudentFromClass(s.id)} 
-                              style={{ padding: '0.4rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem' }} 
-                              title="ដកចេញពីថ្នាក់"
-                            >
-                              ដកចេញ
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                              <button 
+                                onClick={() => {
+                                  setEditStudentData(s);
+                                  setIsEditStudentModalOpen(true);
+                                }} 
+                                style={{ padding: '0.4rem 0.75rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem' }} 
+                                title="កែប្រែទិន្នន័យសិស្សក្នុងថ្នាក់"
+                              >
+                                កែប្រែ
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveStudentFromClass(s.id)} 
+                                style={{ padding: '0.4rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.875rem' }} 
+                                title="ដកចេញពីថ្នាក់"
+                              >
+                                ដកចេញ
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -525,6 +685,45 @@ export default function ClassesPage() {
                 </div>
               </div>
 
+              {/* Target Criteria for importing students */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅកម្រិតសិក្សា (Target Levels)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-secondary)', maxHeight: '120px', overflowY: 'auto' }}>
+                    {levelsOptions.length > 0 ? levelsOptions.map(opt => (
+                      <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: 'var(--bg-primary)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={targetLevelsField.includes(opt.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setTargetLevelsField([...targetLevelsField, opt.id]);
+                            else setTargetLevelsField(targetLevelsField.filter(l => l !== opt.id));
+                          }}
+                        /> {opt.id}
+                      </label>
+                    )) : <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មិនទាន់មានទិន្នន័យ</span>}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅវេនសិក្សា (Target Shifts)</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-secondary)', maxHeight: '120px', overflowY: 'auto' }}>
+                    {shiftsOptions.length > 0 ? shiftsOptions.map(opt => (
+                      <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: 'var(--bg-primary)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={targetShiftsField.includes(opt.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setTargetShiftsField([...targetShiftsField, opt.id]);
+                            else setTargetShiftsField(targetShiftsField.filter(s => s !== opt.id));
+                          }}
+                        /> {opt.id}
+                      </label>
+                    )) : <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មិនទាន់មានទិន្នន័យ</span>}
+                  </div>
+                </div>
+              </div>
+
               {/* Icon Selector */}
               <div>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.75rem' }}>រូបតំណាង (Icon)</label>
@@ -577,6 +776,69 @@ export default function ClassesPage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setIsClassModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
                 <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {isEditStudentModalOpen && editStudentData && (
+        <div 
+          onClick={() => { setIsEditStudentModalOpen(false); setEditStudentData(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-scale-in" 
+            style={{ width: '100%', maxWidth: '500px', background: 'var(--modal-bg)', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--modal-bg)', zIndex: 10 }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>កែប្រែព័ត៌មានសិស្ស</h2>
+              <button onClick={() => { setIsEditStudentModalOpen(false); setEditStudentData(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveStudentEdit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អត្តលេខសិស្ស</label>
+                <input type="text" value={editStudentData.studentId} readOnly style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', opacity: 0.7 }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះពេញ (ខ្មែរ)</label>
+                <input type="text" value={editStudentData.fullName} onChange={e => setEditStudentData({...editStudentData, fullName: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} required />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភេទ</label>
+                  <select value={editStudentData.gender} onChange={e => setEditStudentData({...editStudentData, gender: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                    <option value="ប្រុស">ប្រុស</option>
+                    <option value="ស្រី">ស្រី</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃខែឆ្នាំកំណើត</label>
+                  <input type="text" value={editStudentData.dob || ''} onChange={e => setEditStudentData({...editStudentData, dob: e.target.value})} placeholder="DD/MM/YYYY" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>លេខទូរស័ព្ទ</label>
+                <input type="text" value={editStudentData.phoneNum || ''} onChange={e => setEditStudentData({...editStudentData, phoneNum: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={handleRequestStudentEdit} style={{ padding: '0.75rem 1.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: '8px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  ស្នើសុំកែប្រែទៅ Admin
+                </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                  <button type="button" onClick={() => { setIsEditStudentModalOpen(false); setEditStudentData(null); }} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
+                  <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុកក្នុងថ្នាក់</button>
+                </div>
               </div>
             </form>
           </div>
