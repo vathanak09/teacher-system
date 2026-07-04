@@ -1,4 +1,5 @@
 "use client";
+import { convertDriveImageLink } from '../../../utils/driveLink';
 
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -788,7 +789,7 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('photo') && <td style={{ padding: '0.75rem 1.25rem', position: 'relative' }} onMouseEnter={() => handleMouseEnterPhoto(student.id)} onMouseLeave={handleMouseLeavePhoto}>
                   {student.photo && String(student.photo).trim() !== '' ? (
-                    <img src={student.photo} alt={student.fullName} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} />
+                    <img src={convertDriveImageLink(student.photo)} alt={student.fullName} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} />
                   ) : (
                     <div style={{ 
                       width: '48px', height: '48px', borderRadius: '12px', 
@@ -818,7 +819,7 @@ export default function StudentsPage() {
                       {/* Header Section */}
                       <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1.5rem' }}>
                         {student.photo && String(student.photo).trim() !== '' ? (
-                          <img src={student.photo} alt={student.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
+                          <img src={convertDriveImageLink(student.photo)} alt={student.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
                         ) : (
                           <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
                             {getFirstLetter(student.fullName)}
@@ -895,7 +896,7 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('photoLink') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'photo', student.photo ? (
-                    <a href={student.photo} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link 📍</a>
+                    <a href={convertDriveImageLink(student.photo)} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link 📍</a>
                   ) : <span style={{ color: 'var(--text-secondary)' }}>គ្មាន</span>)}
                 </td>}
 

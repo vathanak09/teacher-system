@@ -1,4 +1,5 @@
 "use client";
+import { convertDriveImageLink } from '../../utils/driveLink';
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
@@ -143,7 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="user-profile" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
             <Link href="/dashboard/teachers" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', color: 'inherit' }}>
               {userPhoto ? (
-                <img src={userPhoto} alt={userName || ''} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={convertDriveImageLink(userPhoto)} alt={userName || ''} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
                 <div className="avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', fontWeight: 'bold' }}>{userName?.charAt(0).toUpperCase()}</div>
               )}
