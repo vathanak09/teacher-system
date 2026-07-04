@@ -20,7 +20,7 @@ export default function CoursesPage() {
     const unsubscribe = onSnapshot(collection(db, 'courses'), (snapshot) => {
       const coursesData: any[] = [];
       snapshot.forEach((doc) => {
-        coursesData.push({ id: doc.id, ...doc.data() });
+        coursesData.push({ ...doc.data(), id: doc.id });
       });
       setCourses(coursesData);
     });
@@ -161,3 +161,4 @@ export default function CoursesPage() {
     </div>
   );
 }
+

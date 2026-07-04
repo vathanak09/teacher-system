@@ -81,7 +81,7 @@ export default function MethodologiesPage() {
     const unsubscribe = onSnapshot(collection(db, 'methodologies'), (snapshot) => {
       const postsData: any[] = [];
       snapshot.forEach((doc) => {
-        postsData.push({ id: doc.id, ...doc.data() });
+        postsData.push({ ...doc.data(), id: doc.id });
       });
       setPosts(postsData);
     });
@@ -705,4 +705,5 @@ export default function MethodologiesPage() {
     </>
   );
 }
+
 

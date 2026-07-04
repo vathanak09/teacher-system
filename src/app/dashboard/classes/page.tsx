@@ -110,7 +110,7 @@ export default function ClassesPage() {
     const unsubscribeTeachers = onSnapshot(collection(db, 'teachers'), (snapshot) => {
       const td: any[] = [];
       snapshot.forEach((doc) => {
-        td.push({ id: doc.id, ...doc.data() });
+        td.push({ ...doc.data(), id: doc.id });
       });
       setAllTeachers(td);
     });
@@ -130,7 +130,7 @@ export default function ClassesPage() {
     const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
       const studentsData: any[] = [];
       snapshot.forEach((doc) => {
-        studentsData.push({ id: doc.id, ...doc.data() });
+        studentsData.push({ ...doc.data(), id: doc.id });
       });
       setAllStudents(studentsData);
     });
@@ -847,3 +847,4 @@ export default function ClassesPage() {
     </>
   );
 }
+
