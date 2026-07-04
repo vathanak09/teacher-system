@@ -4,13 +4,13 @@ export function convertDriveImageLink(url: string | null | undefined): string {
   // Try to match standard file ID: /file/d/ID/...
   const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (match1 && match1[1]) {
-    return `https://drive.google.com/uc?export=view&id=${match1[1]}`;
+    return `https://drive.google.com/thumbnail?id=${match1[1]}&sz=w1000`;
   }
   
   // Try to match open?id=ID
   const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (match2 && match2[1]) {
-    return `https://drive.google.com/uc?export=view&id=${match2[1]}`;
+    return `https://drive.google.com/thumbnail?id=${match2[1]}&sz=w1000`;
   }
   
   return url;

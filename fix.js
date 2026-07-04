@@ -1,1 +1,36 @@
-const fs = require('fs'); const path = require('path'); function walk(dir) { let results = []; const list = fs.readdirSync(dir); list.forEach(file => { file = path.join(dir, file); const stat = fs.statSync(file); if (stat && stat.isDirectory()) { results = results.concat(walk(file)); } else if(file.endsWith('page.tsx')) { results.push(file); } }); return results; } walk('src/app/dashboard').forEach(file => { let content = fs.readFileSync(file, 'utf8'); let original = content; content = content.replace(/padding: '1\\.25rem', marginBottom: '2rem'/g, 'padding: \\'0.75rem 1rem\\', marginBottom: \\'1rem\\''); content = content.replace(/marginBottom: '2rem'/g, marginBottom: '1rem'); if(content !== original) { fs.writeFileSync(file, content); console.log('Updated ' + file); } });
+const fs = require('fs');
+
+const fixFile = (filePath, depth) => {
+    let content = fs.readFileSync(filePath, 'utf8');
+    let changed = false;
+    
+    let regexes = [
+        { find: /src=\{student\.photo\}/g, replace: 'src={convertDriveImageLink(student.photo)}' },
+        { find: /src=\{s\.photo\}/g, replace: 'src={convertDriveImageLink(s.photo)}' },
+        { find: /src=\{teacher\.photo\}/g, replace: 'src={convertDriveImageLink(teacher.photo)}' },
+        { find: /src=\{userPhoto\}/g, replace: 'src={convertDriveImageLink(userPhoto)}' },
+        { find: /src=\{photoField\}/g, replace: 'src={convertDriveImageLink(photoField)}' },
+        { find: /href=\{student\.photo\}/g, replace: 'href={convertDriveImageLink(student.photo)}' }
+    ];
+
+    for (let r of regexes) {
+        if (content.match(r.find)) {
+            content = content.replace(r.find, r.replace);
+            changed = true;
+        }
+    }
+
+    if (changed) {
+        let relPath = '../'.repeat(depth) + 'utils/driveLink';
+        let importStmt = 'import { convertDriveImageLink } from \'' + relPath + '\';\n';
+        content = importStmt + content;
+        fs.writeFileSync(filePath, content, 'utf8');
+        console.log('Fixed ' + filePath);
+    }
+}
+
+fixFile('./src/app/dashboard/students/page.tsx', 3);
+fixFile('./src/app/dashboard/classes/page.tsx', 3);
+fixFile('./src/app/dashboard/teachers/page.tsx', 3);
+fixFile('./src/app/dashboard/layout.tsx', 2);
+console.log('Done!');
