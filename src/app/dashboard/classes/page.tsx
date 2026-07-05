@@ -321,8 +321,20 @@ export default function ClassesPage() {
 
   const enrolledStudents = viewingClass ? (
     (viewingClass.studentIds || (viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : []))
-      .map((id: string) => allStudents.find(s => s.id === id))
-      .filter(Boolean)
+      .map((id: string) => {
+        const student = allStudents.find(s => s.id === id);
+        if (student) return student;
+        return {
+          id: id,
+          isDeleted: true,
+          fullName: 'សិស្សត្រូវបានលុប',
+          studentId: 'N/A',
+          gender: '-',
+          level: '-',
+          shift: '-',
+          status: 'លុបចេញ'
+        };
+      })
   ) : [];
 
 
@@ -333,7 +345,8 @@ export default function ClassesPage() {
       
       const originalStudent = allStudents.find(s => s.id === editStudentData.id);
       
-      let changedFields = [];
+      let changedFieldsText = [];
+      let changesData = [];
       if (originalStudent) {
         const fieldsToCheck = [
           { key: 'fullName', label: 'ឈ្មោះពេញ' }, { key: 'englishName', label: 'ឈ្មោះអង់គ្លេស' },
@@ -348,13 +361,19 @@ export default function ClassesPage() {
         
         for (const field of fieldsToCheck) {
           if (String(originalStudent[field.key] || '') !== String(editStudentData[field.key] || '')) {
-            changedFields.push(`- ${field.label}: [ចាស់]: ${originalStudent[field.key] || 'ទទេ'} -> [ថ្មី]: **${editStudentData[field.key] || 'ទទេ'}**`);
+            changedFieldsText.push(`- ${field.label}: [ចាស់]: ${originalStudent[field.key] || 'ទទេ'} -> [ថ្មី]: **${editStudentData[field.key] || 'ទទេ'}**`);
+            changesData.push({
+              key: field.key,
+              label: field.label,
+              oldVal: originalStudent[field.key] || '',
+              newVal: editStudentData[field.key] || ''
+            });
           }
         }
       }
       
-      const changesText = changedFields.length > 0 
-        ? `មានព័ត៌មានដែលបានកែប្រែ៖\n${changedFields.join('\n')}`
+      const changesText = changedFieldsText.length > 0 
+        ? `មានព័ត៌មានដែលបានកែប្រែ៖\n${changedFieldsText.join('\n')}`
         : 'មិនមានព័ត៌មានត្រូវបានកែប្រែទេប៉ុន្តែបានស្នើសុំពិនិត្យមើល។';
 
       const msg = {
@@ -364,7 +383,14 @@ export default function ClassesPage() {
         senderRole: role,
         receiverId: 'admin',
         isRead: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        type: 'student_edit_request',
+        editRequestData: {
+          studentId: editStudentData.id,
+          studentName: editStudentData.fullName,
+          studentIdCode: editStudentData.studentId,
+          changes: changesData
+        }
       };
       
       try {
@@ -719,37 +745,40 @@ export default function ClassesPage() {
                       {/* Enrolled Students Table */}
                       <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                         <div className="table-responsive">
-                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px', textAlign: 'left' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 'max-content', textAlign: 'left' }}>
                             <thead>
                               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ល.រ</th>
-                                {classVisibleColumns.includes('photo') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>}
-                                {classVisibleColumns.includes('studentId') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្តលេខ</th>}
-                                {classVisibleColumns.includes('fullName') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះ</th>}
-                                {classVisibleColumns.includes('englishName') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះអង់គ្លេស</th>}
-                                {classVisibleColumns.includes('gender') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ភេទ</th>}
-                                {classVisibleColumns.includes('level') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>កម្រិត</th>}
-                                {classVisibleColumns.includes('shift') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>វេន</th>}
-                                {classVisibleColumns.includes('enrollDate') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ថ្ងៃចូលរៀន</th>}
-                                {classVisibleColumns.includes('phoneNum') && <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>លេខទូរស័ព្ទ</th>}
-                                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>សកម្មភាព</th>
+                                <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ល.រ</th>
+                                {classVisibleColumns.includes('photo') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>}
+                                {classVisibleColumns.includes('studentId') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្តលេខ</th>}
+                                {classVisibleColumns.includes('fullName') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះ</th>}
+                                {classVisibleColumns.includes('englishName') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះអង់គ្លេស</th>}
+                                {classVisibleColumns.includes('gender') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ភេទ</th>}
+                                {classVisibleColumns.includes('level') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>កម្រិត</th>}
+                                {classVisibleColumns.includes('shift') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>វេន</th>}
+                                {classVisibleColumns.includes('enrollDate') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ថ្ងៃចូលរៀន</th>}
+                                {classVisibleColumns.includes('phoneNum') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>លេខទូរស័ព្ទ</th>}
+                                <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>សកម្មភាព</th>
                               </tr>
                             </thead>
                             <tbody>
                               {sortedEnrolledStudents.map((s: any, index: number) => (
-                                <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="table-row-hover">
-                                  <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
+                                <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: s.isDeleted ? 'rgba(239, 68, 68, 0.1)' : (s.status === 'ឈប់រៀន' || s.status === 'ព្យួរការសិក្សា') ? 'rgba(245, 158, 11, 0.1)' : 'transparent' }} className="table-row-hover">
+                                  <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
                                   
                                   {classVisibleColumns.includes('photo') && (
-                                    <td style={{ padding: '1rem', position: 'relative' }} onMouseEnter={() => setHoveredStudent(s.id)} onMouseLeave={() => setHoveredStudent(null)}>
+                                    <td style={{ padding: '0.5rem', position: 'relative' }} onMouseEnter={() => setHoveredStudent(s.id)} onMouseLeave={() => setHoveredStudent(null)}>
                                       <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'help' }}>
                                         {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>{getFirstLetter(s.fullName)}</div>}
                                       </div>
                                       
                                       {/* Centered Hover Profile Popup */}
                                         {hoveredStudent === s.id && typeof window !== 'undefined' && createPortal(
-                                          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, pointerEvents: 'none' }}>
-                                            <div style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '2rem', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem', backdropFilter: 'blur(10px)' }} onMouseEnter={() => setHoveredStudent(s.id)} onMouseLeave={() => setHoveredStudent(null)} onClick={e => e.stopPropagation()}>
+                                          <div onClick={() => setHoveredStudent(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, pointerEvents: 'auto', background: 'rgba(0,0,0,0.2)' }}>
+                                            <div style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '2rem', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '1.5rem', backdropFilter: 'blur(10px)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                                              <button onClick={() => setHoveredStudent(null)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10 }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                              </button>
                                               {/* Header */}
                                               <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1.5rem' }}>
                                                 {s.photo && String(s.photo).trim() !== '' ? (
@@ -768,8 +797,8 @@ export default function ClassesPage() {
                                               </div>
                                               
                                               {/* Details */}
-                                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                                <div style={{ background: 'rgba(139, 92, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
+                                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                                                <div style={{ flex: '1 1 200px', background: 'rgba(139, 92, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
                                                   <h4 style={{ margin: '0 0 1rem 0', color: '#8b5cf6', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
                                                     ព័ត៌មានសិក្សា
@@ -822,10 +851,10 @@ export default function ClassesPage() {
                                     </td>
                                   )}
                                   
-                                  {classVisibleColumns.includes('studentId') && <td style={{ padding: '1rem', fontWeight: '500' }}>{s.studentId}</td>}
-                                  {classVisibleColumns.includes('fullName') && <td style={{ padding: '1rem', fontWeight: '500', color: 'var(--text-primary)' }}>{s.fullName}</td>}
+                                  {classVisibleColumns.includes('studentId') && <td style={{ padding: '0.5rem', fontWeight: '500' }}>{s.studentId}</td>}
+                                  {classVisibleColumns.includes('fullName') && <td style={{ padding: '0.5rem', fontWeight: '500', color: 'var(--text-primary)' }}>{s.fullName}</td>}
                                   {classVisibleColumns.includes('englishName') && <td style={{ padding: '1rem' }}>{s.englishName}</td>}
-                                  {classVisibleColumns.includes('gender') && <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{s.gender}</td>}
+                                  {classVisibleColumns.includes('gender') && <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{s.gender}</td>}
                                   {classVisibleColumns.includes('level') && <td style={{ padding: '1rem' }}>{s.level}</td>}
                                   {classVisibleColumns.includes('shift') && <td style={{ padding: '1rem' }}>{s.shift}</td>}
                                   {classVisibleColumns.includes('enrollDate') && <td style={{ padding: '1rem' }}>{s.enrollDate}</td>}
@@ -846,7 +875,7 @@ export default function ClassesPage() {
                                   {classVisibleColumns.includes('mother') && <td style={{ padding: '1rem' }}>{s.mother}</td>}
                                   {classVisibleColumns.includes('phoneNum') && <td style={{ padding: '1rem' }}>{s.phoneNum}</td>}
 
-                                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                  <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                       <button onClick={() => { setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
@@ -922,19 +951,19 @@ export default function ClassesPage() {
             <form onSubmit={handleSaveClass} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>លេខកូដថ្នាក់ (ID)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>លេខកូដថ្នាក់ (ID)</label>
                   <input type="text" value={classCodeField} onChange={e => setClassCodeField(e.target.value)} placeholder="ឧ. C-101" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះថ្នាក់ *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះថ្នាក់ *</label>
                   <input type="text" value={classNameField} onChange={e => setClassNameField(e.target.value)} required placeholder="ឧ. 10A" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះគ្រូ</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះគ្រូ</label>
                   {role === 'admin' ? (
                     <select value={teacherIdField} onChange={(e) => {
                        const t = allTeachers.find(x => x.id === e.target.value);
@@ -950,15 +979,15 @@ export default function ClassesPage() {
                     <input type="text" value={teacherNameField} readOnly style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', opacity: 0.7, cursor: 'not-allowed' }} />
                   )}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឆ្នាំសិក្សា *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឆ្នាំសិក្សា *</label>
                   <input type="text" value={academicYearField} onChange={e => setAcademicYearField(e.target.value)} required placeholder="ឧ. 2026-2027" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>វេនសិក្សា</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>វេនសិក្សា</label>
                   <select value={shiftField} onChange={e => setShiftField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
                     {shiftsOptions.length > 0 ? shiftsOptions.map(opt => (
                        <option key={opt.id} value={opt.id}>{opt.id}</option>
@@ -972,16 +1001,16 @@ export default function ClassesPage() {
                     )}
                   </select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ពេលសិក្សា (ម៉ោង)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ពេលសិក្សា (ម៉ោង)</label>
                   <input type="text" value={timeField} onChange={e => setTimeField(e.target.value)} placeholder="ឧ. 07:00 AM - 09:00 AM" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
               </div>
 
               {/* Target Criteria for importing students */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅកម្រិតសិក្សា (Target Levels)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅកម្រិតសិក្សា (Target Levels)</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-secondary)', maxHeight: '120px', overflowY: 'auto' }}>
                     {levelsOptions.length > 0 ? levelsOptions.map(opt => (
                       <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: 'var(--modal-bg)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
@@ -998,8 +1027,8 @@ export default function ClassesPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅវេនសិក្សា (Target Shifts)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>គោលដៅវេនសិក្សា (Target Shifts)</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-secondary)', maxHeight: '120px', overflowY: 'auto' }}>
                     {shiftsOptions.length > 0 ? shiftsOptions.map(opt => (
                       <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', background: 'var(--modal-bg)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
@@ -1077,8 +1106,8 @@ export default function ClassesPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ពិពណ៌នា</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
+                      <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ពិពណ៌នា</label>
                 <textarea value={descriptionField} onChange={e => setDescriptionField(e.target.value)} rows={2} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', resize: 'vertical' }}></textarea>
               </div>
 
@@ -1118,41 +1147,41 @@ export default function ClassesPage() {
                     <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{isSection1Open ? '▼ លាក់ (Hide)' : '▶ បង្ហាញ (Show)'}</span>
                   </div>
                   {isSection1Open && (
-                  <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>អត្តលេខ (Student ID) *</label>
                       <input type="text" value={editStudentData.studentId} readOnly style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', opacity: 0.7 }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ឈ្មោះពេញ (Khmer Name) *</label>
                       <input type="text" value={editStudentData.fullName} onChange={e => setEditStudentData({...editStudentData, fullName: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ឈ្មោះឡាតាំង (English Name) *</label>
                       <input type="text" value={editStudentData.englishName || ''} onChange={e => setEditStudentData({...editStudentData, englishName: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ភេទ (Gender) *</label>
                       <select value={editStudentData.gender} onChange={e => setEditStudentData({...editStudentData, gender: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
                         <option value="">ជ្រើសរើស</option>
                         {genderOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
                       </select>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>កម្រិតសិក្សា (Level) *</label>
                       <select value={editStudentData.level || ''} onChange={e => setEditStudentData({...editStudentData, level: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required>
                         <option value="">ជ្រើសរើសកម្រិត</option>
                         {levelsOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.id}</option>)}
                       </select>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>វេនសិក្សា (Shift) *</label>
                       <select value={editStudentData.shift || ''} onChange={e => setEditStudentData({...editStudentData, shift: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required>
                         <option value="">ជ្រើសរើសវេន</option>
                         {shiftsOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.id}</option>)}
                       </select>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
                       <input type="date" value={editStudentData.enrollDate || ''} onChange={e => setEditStudentData({...editStudentData, enrollDate: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required />
                     </div>
@@ -1168,23 +1197,23 @@ export default function ClassesPage() {
                     <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{isSection2Open ? '▼ លាក់ (Hide)' : '▶ បង្ហាញ (Show)'}</span>
                   </div>
                   {isSection2Open && (
-                  <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ថ្ងៃខែឆ្នាំកំណើត (DOB)</label>
                       <input type="text" placeholder="ឧ. 27-06-2012" value={editStudentData.dob || ''} onChange={e => setEditStudentData({...editStudentData, dob: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>អាសយដ្ឋាន (Address)</label>
                       <select value={editStudentData.address || ''} onChange={e => setEditStudentData({...editStudentData, address: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
                         <option value="">ជ្រើសរើស</option>
                         {addressOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
                       </select>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ទីតាំង (Google Maps Link)</label>
                       <input type="text" placeholder="https://maps.google.com/..." value={editStudentData.location || ''} onChange={e => setEditStudentData({...editStudentData, location: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មធ្យោបាយធ្វើដំណើរ (Transport)</label>
                       <select value={editStudentData.transport || ''} onChange={e => setEditStudentData({...editStudentData, transport: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
                         <option value="">ជ្រើសរើស</option>
@@ -1195,7 +1224,7 @@ export default function ClassesPage() {
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>តំណភ្ជាប់រូបថត (Photo URL / Google Drive)</label>
                       <input type="text" placeholder="https://drive.google.com/file/d/..." value={editStudentData.photo || ''} onChange={e => setEditStudentData({...editStudentData, photo: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ស្ថានភាពសិក្សា (Status)</label>
                       <select value={editStudentData.status || ''} onChange={e => setEditStudentData({...editStudentData, status: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
                         <option value="">ជ្រើសរើស</option>
@@ -1206,15 +1235,15 @@ export default function ClassesPage() {
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>អ្នកទំនាក់ទំនង (Social Media Link)</label>
                       <input type="text" placeholder="https://t.me/username ឬ Link ផ្សេងៗ" value={editStudentData.contact || ''} onChange={e => setEditStudentData({...editStudentData, contact: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ឈ្មោះឪពុក (Father Name)</label>
                       <input type="text" placeholder="ឧ. លី សុវណ្ណ" value={editStudentData.father || ''} onChange={e => setEditStudentData({...editStudentData, father: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ឈ្មោះម្តាយ (Mother Name)</label>
                       <input type="text" placeholder="ឧ. មាស សុខ" value={editStudentData.mother || ''} onChange={e => setEditStudentData({...editStudentData, mother: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>លេខទូរស័ព្ទ (Phone Num)</label>
                       <input type="text" placeholder="ឧ. 012345678" value={editStudentData.phoneNum || ''} onChange={e => setEditStudentData({...editStudentData, phoneNum: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
                     </div>
