@@ -371,7 +371,7 @@ export default function MethodologiesPage() {
                       </div>
                     </td>
                     <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
                         {post.tags && post.tags.map((tagId: number) => {
                           const t = availableTags.find((tg: any) => tg.id === tagId);
                           if (!t) return null;
