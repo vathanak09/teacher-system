@@ -358,12 +358,9 @@ export default function LessonsPage() {
                 </tr>
               ) : (
                 filteredAndSortedPosts.map(post => (
-                  <tr key={post.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="hover-row">
+                  <tr key={post.id} onClick={() => openReadModal(post)} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s', cursor: 'pointer' }} className="hover-row">
                     <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                        <button onClick={() => openReadModal(post)} className="btn" style={{ padding: '0.35rem', background: 'var(--main-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }} title="មើល">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        </button>
                         {(role === 'admin' || post.author === authorName) ? (
                           <>
                             <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">

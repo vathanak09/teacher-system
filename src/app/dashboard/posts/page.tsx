@@ -395,13 +395,10 @@ export default function PostsManagementPage() {
               </tr>
             ) : (
               filteredAndSortedPosts.map(post => (
-                <tr key={post.id + post.collectionName} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} className="hover-row">
+                <tr key={post.id + post.collectionName} onClick={() => openReadModal(post)} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s', cursor: 'pointer' }} className="hover-row">
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                      <button onClick={() => openReadModal(post)} className="btn" style={{ padding: '0.35rem', background: 'var(--main-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }} title="មើល">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                      </button>
-                      <button onClick={() => openEditModal(post)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
+                      <button onClick={(e) => { e.stopPropagation(); openEditModal(post); }} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                       </button>
                       <button onClick={(e) => handleDelete(post.id, post.collectionName, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
