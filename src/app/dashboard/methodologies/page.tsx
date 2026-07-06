@@ -234,6 +234,7 @@ export default function MethodologiesPage() {
       return matchesSearch && matchesFilter && matchesGroupTags;
     })
     .sort((a, b) => {
+      if (sortBy === 'popular') return ((b.views || 0) + (b.likes?.length || 0)) - ((a.views || 0) + (a.likes?.length || 0));
       if (sortBy === 'newest') return (b.timestamp || 0) - (a.timestamp || 0);
       if (sortBy === 'oldest') return (a.timestamp || 0) - (b.timestamp || 0);
       if (sortBy === 'title') return a.title.localeCompare(b.title, 'km-KH');
@@ -306,6 +307,7 @@ export default function MethodologiesPage() {
             onChange={e => setSortBy(e.target.value)}
             style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
           >
+            <option value="popular">ពេញនិយមជាងគេ</option>
             <option value="newest">ថ្មីបំផុត</option>
             <option value="oldest">ចាស់បំផុត</option>
             <option value="title">តាមចំណងជើង (ក-ខ)</option>
@@ -375,6 +377,14 @@ export default function MethodologiesPage() {
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                       {post.date}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      {post.views || 0}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                      {post.likes?.length || 0}
                     </span>
                   </div>
                   

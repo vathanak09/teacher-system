@@ -69,6 +69,10 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
 
         if (foundPost) {
           setPost(foundPost);
+          // Increment views
+          updateDoc(doc(db, foundPost.collectionName, foundPost.id), {
+            views: (foundPost.views || 0) + 1
+          }).catch(console.error);
         } else {
           setError("មិនអាចស្វែងរកទិន្នន័យឃើញទេ។ ផុសប្រហែលជាត្រូវបានលុប ឬលេខកូដមិនត្រឹមត្រូវ។");
         }
