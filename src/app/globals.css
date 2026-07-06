@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Moul&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&family=Chenla&family=Fasthand&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;700&display=swap');
 
 :root {
   --sidebar-bg: #1e3a8a; 
@@ -491,3 +491,60 @@ body {
 
 .dashboard-header-panel { padding: 2rem; border-radius: 16px; margin-bottom: 2rem; }
 @media (max-width: 768px) { .dashboard-header-panel { padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem; } }
+
+
+/* Quill Editor Custom Fonts */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="battambang"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="battambang"]::before { content: 'Battambang'; font-family: 'Battambang', sans-serif; }
+.ql-font-battambang { font-family: 'Battambang', sans-serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="kantumruy-pro"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="kantumruy-pro"]::before { content: 'Kantumruy Pro'; font-family: 'Kantumruy Pro', sans-serif; }
+.ql-font-kantumruy-pro { font-family: 'Kantumruy Pro', sans-serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="moul"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="moul"]::before { content: 'Moul'; font-family: 'Moul', cursive; }
+.ql-font-moul { font-family: 'Moul', cursive; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="suwannaphum"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="suwannaphum"]::before { content: 'Suwannaphum'; font-family: 'Suwannaphum', serif; }
+.ql-font-suwannaphum { font-family: 'Suwannaphum', serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="hanuman"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="hanuman"]::before { content: 'Hanuman'; font-family: 'Hanuman', serif; }
+.ql-font-hanuman { font-family: 'Hanuman', serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="chenla"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="chenla"]::before { content: 'Chenla'; font-family: 'Chenla', sans-serif; }
+.ql-font-chenla { font-family: 'Chenla', sans-serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="fasthand"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="fasthand"]::before { content: 'Fasthand'; font-family: 'Fasthand', cursive; }
+.ql-font-fasthand { font-family: 'Fasthand', cursive; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before { content: 'Inter'; font-family: 'Inter', sans-serif; }
+.ql-font-inter { font-family: 'Inter', sans-serif; }
+
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="roboto"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="roboto"]::before { content: 'Roboto'; font-family: 'Roboto', sans-serif; }
+.ql-font-roboto { font-family: 'Roboto', sans-serif; }
+
+/* Custom Font Sizes */
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before { content: '12px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before { content: '14px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before { content: '16px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before { content: '18px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before { content: '20px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before { content: '24px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="30px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="30px"]::before { content: '30px'; }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="36px"]::before, .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="36px"]::before { content: '36px'; }
+.ql-size-12px { font-size: 12px; }
+.ql-size-14px { font-size: 14px; }
+.ql-size-16px { font-size: 16px; }
+.ql-size-18px { font-size: 18px; }
+.ql-size-20px { font-size: 20px; }
+.ql-size-24px { font-size: 24px; }
+.ql-size-30px { font-size: 30px; }
+.ql-size-36px { font-size: 36px; }
+

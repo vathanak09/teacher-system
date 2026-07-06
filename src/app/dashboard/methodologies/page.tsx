@@ -4,11 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebaseClient';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
-import dynamic from 'next/dynamic';
-import 'react-quill-new/dist/quill.snow.css';
-
-// Dynamically import Quill to avoid SSR issues
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import AdvancedEditor from '@/components/AdvancedEditor';
 
 export default function MethodologiesPage() {
   const router = useRouter();
@@ -40,7 +36,7 @@ export default function MethodologiesPage() {
   // Editor states
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [editorMode, setEditorMode] = useState<'word' | 'html'>('word');
+  const [embeddedCodes, setEmbeddedCodes] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Read post state
@@ -98,7 +94,7 @@ export default function MethodologiesPage() {
     setSelectedTags([]);
     setPostCodeField(generatePostCode());
     setEditingId(null);
-    setEditorMode('word');
+    
     setIsEditorOpen(true);
   };
 
@@ -106,10 +102,11 @@ export default function MethodologiesPage() {
     e.stopPropagation();
     setTitle(post.title);
     setContent(post.content);
+    setEmbeddedCodes(post.embeddedCodes || []);
     setSelectedTags(post.tags || []);
     setPostCodeField(post.postCode || '');
     setEditingId(post.id);
-    setEditorMode(post.editorMode || 'word');
+    
     setIsEditorOpen(true);
   };
 
@@ -142,7 +139,9 @@ export default function MethodologiesPage() {
       author: authorName,
       date: new Date().toLocaleDateString('km-KH'),
       timestamp: Date.now(),
-      editorMode,
+      embeddedCodes,
+      authorId: userId,
+      authorRole: role,
       tags: selectedTags,
       postCode: postCodeField
     };
@@ -409,28 +408,7 @@ export default function MethodologiesPage() {
           <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
             <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{editingId ? 'កែប្រែអត្ថបទ' : 'សរសេរអត្ថបទថ្មី'}</h2>
             
-            {!editingId ? (
-              <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--main-bg)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                 <button 
-                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'word' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'word' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.35rem' }} 
-                    onClick={() => setEditorMode('word')}
-                 >
-                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                   Word Style
-                 </button>
-                 <button 
-                    style={{ padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', background: editorMode === 'html' ? 'var(--accent-primary)' : 'transparent', color: editorMode === 'html' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 500, transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.35rem' }} 
-                    onClick={() => setEditorMode('html')}
-                 >
-                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                   HTML Style
-                 </button>
-              </div>
-            ) : (
-              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '8px', background: 'rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                របៀបសរសេរ៖ {editorMode === 'word' ? 'Word Style' : 'HTML Style'}
-              </span>
-            )}
+            
           </div>
           
           <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -558,26 +536,13 @@ export default function MethodologiesPage() {
             
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ខ្លឹមសារអត្ថបទ</label>
-              {editorMode === 'html' ? (
-                <textarea 
-                  className="input-field" 
-                  style={{ flex: 1, fontFamily: 'monospace', resize: 'none', background: '#1e293b', color: '#e2e8f0', padding: '1rem', lineHeight: '1.6' }} 
-                  value={content} 
-                  onChange={e => setContent(e.target.value)}
-                  placeholder="<h2>សរសេរ HTML របស់អ្នកនៅទីនេះ...</h2>"
-                />
-              ) : (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'white', color: 'black', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                  <ReactQuill 
-                    theme="snow" 
-                    value={content} 
-                    onChange={setContent} 
-                    modules={modules}
-                    placeholder="ចាប់ផ្តើមសរសេរអត្ថបទរបស់អ្នក..."
-                    style={{ height: 'calc(100% - 42px)', display: 'flex', flexDirection: 'column' }} 
-                  />
-                </div>
-              )}
+              <AdvancedEditor 
+                content={content} 
+                onChange={setContent} 
+                embeddedCodes={embeddedCodes} 
+                onEmbeddedCodesChange={setEmbeddedCodes} 
+                placeholder="សរសេរទីនេះ..." 
+              />
             </div>
           </div>
 
