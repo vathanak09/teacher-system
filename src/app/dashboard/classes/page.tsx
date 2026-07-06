@@ -763,12 +763,12 @@ export default function ClassesPage() {
                             </thead>
                             <tbody>
                               {sortedEnrolledStudents.map((s: any, index: number) => (
-                                <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: s.isDeleted ? 'rgba(239, 68, 68, 0.1)' : (s.status === 'ឈប់រៀន' || s.status === 'ព្យួរការសិក្សា') ? 'rgba(245, 158, 11, 0.1)' : 'transparent' }} className="table-row-hover">
+                                <tr key={s.id} onClick={() => setHoveredStudent(hoveredStudent === s.id ? null : s.id)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)', backgroundColor: s.isDeleted ? 'rgba(239, 68, 68, 0.1)' : (s.status === 'ឈប់រៀន' || s.status === 'ព្យួរការសិក្សា') ? 'rgba(245, 158, 11, 0.1)' : 'transparent' }} className="table-row-hover">
                                   <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
                                   
                                   {classVisibleColumns.includes('photo') && (
-                                    <td style={{ padding: '0.5rem', position: 'relative' }} onMouseEnter={() => setHoveredStudent(s.id)} onMouseLeave={() => setHoveredStudent(null)}>
-                                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'help' }}>
+                                    <td style={{ padding: '0.5rem', position: 'relative' }} >
+                                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', /* cursor: 'help' removed */ }}>
                                         {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>{getFirstLetter(s.fullName)}</div>}
                                       </div>
                                       
@@ -877,10 +877,10 @@ export default function ClassesPage() {
 
                                   <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                      <button onClick={() => { setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
+                                      <button onClick={(e) => { e.stopPropagation(); setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                       </button>
-                                      <button onClick={() => handleRemoveStudentFromClass(s.id)} style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="ដកចេញ">
+                                      <button onClick={(e) => { e.stopPropagation(); handleRemoveStudentFromClass(s.id); }} style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="ដកចេញ">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                       </button>
                                     </div>
