@@ -1,4 +1,14 @@
 "use client";
+function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
+  if (!html) return '';
+  let result = html;
+  if (embeddedCodes && embeddedCodes.length > 0) {
+    embeddedCodes.forEach((code, i) => {
+      result = result.replace(`[EMBED_${i}]`, `<div class="embed-wrapper" style="margin: 1.5rem 0; width: 100%; overflow: hidden;">${code}</div>`);
+    });
+  }
+  return result;
+}
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -687,5 +697,3 @@ export default function LessonsPage() {
     </>
   );
 }
-
-

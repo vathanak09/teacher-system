@@ -1,10 +1,20 @@
 "use client";
-
 import { useEffect, useState, use } from 'react';
 import { db } from '@/lib/firebaseClient';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import 'react-quill-new/dist/quill.snow.css';
+
+function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
+  if (!html) return '';
+  let result = html;
+  if (embeddedCodes && embeddedCodes.length > 0) {
+    embeddedCodes.forEach((code, i) => {
+      result = result.replace(`[EMBED_${i}]`, `<div class="embed-wrapper" style="margin: 1.5rem 0; width: 100%; overflow: hidden;">${code}</div>`);
+    });
+  }
+  return result;
+}
 
 export default function DashboardPostViewPage(props: { params: Promise<{ code: string }> }) {
   const params = use(props.params);
@@ -71,7 +81,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
           setPost(foundPost);
           // Increment views
           updateDoc(doc(db, foundPost.collectionName, foundPost.id), {
-            views: (foundPost.views || 0) + 1
+            views: ((foundPost as any).views || 0) + 1
           }).catch(console.error);
         } else {
           setError("មិនអាចស្វែងរកទិន្នន័យឃើញទេ។ ផុសប្រហែលជាត្រូវបានលុប ឬលេខកូដមិនត្រឹមត្រូវ។");
@@ -220,7 +230,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
         ) : (
           <div 
             className="ql-editor rich-text-content" 
-            dangerouslySetInnerHTML={{ __html: post.content }} 
+            dangerouslySetInnerHTML={{ __html: renderContentWithEmbeds(post.content, post.embeddedCodes) }} 
             style={{ padding: 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} 
           />
         )}

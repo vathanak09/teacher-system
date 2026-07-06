@@ -50,20 +50,34 @@ export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmb
   const handleInsertCode = () => {
     if (!codeToEmbed.trim()) return;
     
+    let finalCode = codeToEmbed.trim();
+    // Auto wrap bare youtube links
+    if (finalCode.startsWith('http') && !finalCode.includes('<')) {
+        if (finalCode.includes('youtube.com/embed') || finalCode.includes('youtu.be/')) {
+            let src = finalCode;
+            if (finalCode.includes('youtu.be/')) {
+                const id = finalCode.split('youtu.be/')[1].split('?')[0];
+                src = `https://www.youtube.com/embed/${id}`;
+            }
+            finalCode = `<iframe width="100%" height="450" src="${src}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius: 12px; margin: 1rem 0;"></iframe>`;
+        }
+    }
+
     // Add to embedded codes array so it's not lost
-    const newCodes = [...(embeddedCodes || []), codeToEmbed.trim()];
+    const newCodes = [...(embeddedCodes || []), finalCode];
     onEmbeddedCodesChange(newCodes);
+    const embedIndex = newCodes.length - 1;
+    const placeholder = `[EMBED_${embedIndex}]`;
 
     // Insert into editor
     if (quillRef.current) {
       const editor = quillRef.current.getEditor();
       const range = editor.getSelection(true);
-      editor.clipboard.dangerouslyPasteHTML(range.index, codeToEmbed.trim());
-      // Move cursor past the embedded code
-      editor.setSelection(range.index + 1);
+      editor.insertText(range.index, `\n${placeholder}\n`);
+      editor.setSelection(range.index + placeholder.length + 2);
     } else {
       // Fallback if not in word mode
-      onChange(content + '\\n' + codeToEmbed.trim());
+      onChange(content + '\n' + placeholder + '\n');
     }
 
     setCodeToEmbed('');
