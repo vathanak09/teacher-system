@@ -1188,7 +1188,7 @@ export default function ClassesPage() {
             
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (!taskTitleField || !taskSourceValueField || !taskDurationValueField) {
+              if (!taskTitleField || !taskDurationValueField) {
                 alert('សូមបំពេញព័ត៌មានដែលចាំបាច់!');
                 return;
               }
@@ -1234,9 +1234,7 @@ export default function ClassesPage() {
                     <input 
                       type="text" 
                       value={taskSourceValueField} 
-                      onChange={e => setTaskSourceValueField(e.target.value)}
-                      required
-                      placeholder="វាយលេខកូដ Post ឬចំណងជើង ដើម្បីស្វែងរក..." 
+                      onChange={e => setTaskSourceValueField(e.target.value)} placeholder="វាយលេខកូដ Post ឬចំណងជើង ដើម្បីស្វែងរក..." 
                       style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: '100%', boxSizing: 'border-box' }} 
                     />
                     {!posts.find(p => p.postCode === taskSourceValueField) && (
@@ -1254,7 +1252,7 @@ export default function ClassesPage() {
                     )}
                   </div>
                 ) : (
-                  <input type="text" value={taskSourceValueField} onChange={e => setTaskSourceValueField(e.target.value)} required placeholder="https://example.com" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  <input type="text" value={taskSourceValueField} onChange={e => setTaskSourceValueField(e.target.value)} placeholder="https://example.com" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 )}
               </div>
 
