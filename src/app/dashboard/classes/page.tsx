@@ -1237,7 +1237,7 @@ export default function ClassesPage() {
                       onChange={e => setTaskSourceValueField(e.target.value)} placeholder="វាយលេខកូដ Post ឬចំណងជើង ដើម្បីស្វែងរក..." 
                       style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: '100%', boxSizing: 'border-box' }} 
                     />
-                    {!posts.find(p => p.postCode === taskSourceValueField) && (
+                    {(!taskSourceValueField || !posts.find(p => p.postCode && p.postCode === taskSourceValueField)) && (
                       <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                         {posts.filter(p => !taskSourceValueField || (p.postCode && p.postCode.toLowerCase().includes(taskSourceValueField.toLowerCase())) || (p.title && p.title.toLowerCase().includes(taskSourceValueField.toLowerCase()))).map(p => (
                           <div key={p.id} onClick={() => setTaskSourceValueField(p.postCode)} style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--main-bg)' }}>
