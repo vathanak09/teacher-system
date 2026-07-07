@@ -150,7 +150,7 @@ export default function ClassesPage() {
     const unsubscribeClasses = classService.subscribeAll((classesData) => {
       const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === currentUserId || data.teacherName === currentUserName);
       setClasses(filtered);
-      setViewingClass(prev => {
+      setViewingClass((prev: any) => {
         if (!prev) return prev;
         const updated = filtered.find(c => c.id === prev.id);
         return updated || prev;
