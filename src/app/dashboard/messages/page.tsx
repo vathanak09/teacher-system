@@ -20,6 +20,7 @@ export default function MessagesPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isMsgModalOpen, setIsMsgModalOpen] = useState(false);
+  const [msgTitleField, setMsgTitleField] = useState('');
   const [msgTextField, setMsgTextField] = useState('');
   const [msgTargetAccounts, setMsgTargetAccounts] = useState<string[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -139,12 +140,12 @@ export default function MessagesPage() {
     <div className="page-container animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>សារ និងការជូនដំណឹង (Messages)</h1>
-        {role === 'admin' && (
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={() => { setMsgTextField(''); setMsgTargetAccounts([]); setIsMsgModalOpen(true); }} style={{ padding: '0.75rem 1.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>+ សរសេរសារ/ជូនដំណឹង</button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+            <button onClick={() => { setMsgTitleField(''); setMsgTextField(''); setMsgTargetAccounts([]); setIsMsgModalOpen(true); }} style={{ padding: '0.75rem 1.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>+ សរសេរសារ/ជូនដំណឹង</button>
+            {role === 'admin' && (
             <button onClick={() => { setSelectedClassIds([]); setTaskTitleField(''); setTaskSourceTypeField('post'); setTaskSourceValueField(''); setTaskDetailField(''); setTaskDurationTypeField('date'); setTaskDurationValueField(''); setIsTaskModalOpen(true); }} style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>+ ដាក់កិច្ចការ</button>
+            )}
           </div>
-        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -226,7 +227,7 @@ export default function MessagesPage() {
                   )}
                 </div>
               ) : (
-                <>{msg.text}</>
+                <>{msg.title && <div style={{fontWeight: 'bold', marginBottom: '0.5rem'}}>{msg.title}</div>}{msg.text}</>
               )}
             </div>
 
@@ -239,7 +240,7 @@ export default function MessagesPage() {
                       value={replyText} 
                       onChange={e => setReplyText(e.target.value)} 
                       placeholder="វាយសារតបត..." 
-                      style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--primary-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} 
+                      style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--primary-color)', background: 'var(--modal-bg)', color: 'var(--text-primary)' }} 
                       required 
                     />
                     <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>ផ្ញើ</button>
@@ -273,7 +274,7 @@ export default function MessagesPage() {
           <div 
             onClick={(e) => e.stopPropagation()}
             className="animate-scale-in" 
-            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--modal-bg)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>ដាក់កិច្ចការថ្មី (Assign Task)</h2>
@@ -315,20 +316,48 @@ export default function MessagesPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ជ្រើសរើសថ្នាក់ (Assign to Classes)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto', padding: '0.5rem', border: '1px solid var(--border-color)', borderRadius: '8px', background: 'var(--bg-secondary)' }}>
-                  {classes.map(c => (
-                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                  {role === 'admin' ? (
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={msgTargetAccounts.includes('all_teachers')} 
+                          onChange={(e) => {
+                            if (e.target.checked) setMsgTargetAccounts(['all_teachers']);
+                            else setMsgTargetAccounts([]);
+                          }} 
+                        />
+                        <span>គ្រូបង្រៀនទាំងអស់</span>
+                      </label>
+                      <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }} />
+                      {teachers.map(t => (
+                        <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                          <input 
+                            type="checkbox" 
+                            disabled={msgTargetAccounts.includes('all_teachers')}
+                            checked={msgTargetAccounts.includes('all_teachers') || msgTargetAccounts.includes(t.id)} 
+                            onChange={(e) => {
+                              if (e.target.checked) setMsgTargetAccounts([...msgTargetAccounts.filter(id => id !== 'all_teachers'), t.id]);
+                              else setMsgTargetAccounts(msgTargetAccounts.filter(id => id !== t.id));
+                            }} 
+                          />
+                          <span>{t.fullName || t.name} {t.subject ? `(${t.subject})` : ''}</span>
+                        </label>
+                      ))}
+                    </>
+                  ) : (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 'bold' }}>
                       <input 
                         type="checkbox" 
-                        checked={selectedClassIds.includes(c.id)} 
+                        checked={msgTargetAccounts.includes('admin')} 
                         onChange={(e) => {
-                          if (e.target.checked) setSelectedClassIds([...selectedClassIds, c.id]);
-                          else setSelectedClassIds(selectedClassIds.filter(id => id !== c.id));
+                          if (e.target.checked) setMsgTargetAccounts(['admin']);
+                          else setMsgTargetAccounts([]);
                         }} 
                       />
-                      <span>{c.classCode ? `[${c.classCode}] ` : ''}{c.className} - {c.teacherName || 'គ្មានគ្រូ'}</span>
+                      <span>អ្នកគ្រប់គ្រង (Admin)</span>
                     </label>
-                  ))}
-                  {classes.length === 0 && <span style={{ color: 'var(--text-secondary)' }}>មិនទាន់មានថ្នាក់ទេ</span>}
+                  )}
                 </div>
               </div>
 
@@ -357,7 +386,7 @@ export default function MessagesPage() {
                       style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: '100%', boxSizing: 'border-box' }} 
                     />
                     {(!taskSourceValueField || !posts.find(p => p.postCode && p.postCode === taskSourceValueField)) && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--modal-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
                         {posts.filter(p => !taskSourceValueField || (p.postCode && p.postCode.toLowerCase().includes(taskSourceValueField.toLowerCase())) || (p.title && p.title.toLowerCase().includes(taskSourceValueField.toLowerCase()))).map(p => (
                           <div key={p.id} onClick={() => setTaskSourceValueField(p.postCode)} style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--main-bg)' }}>
                             <div>
@@ -404,7 +433,7 @@ export default function MessagesPage() {
           <div 
             onClick={(e) => e.stopPropagation()}
             className="animate-scale-in" 
-            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--modal-bg)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>សរសេរសារ ឬសេចក្តីជូនដំណឹង</h2>
@@ -419,31 +448,32 @@ export default function MessagesPage() {
                 alert('សូមជ្រើសរើសអ្នកទទួលយ៉ាងហោចណាស់១នាក់!');
                 return;
               }
-              if (!msgTextField.trim()) {
-                alert('សូមសរសេរសាររបស់អ្នក!');
-                return;
-              }
+              if (!msgTitleField.trim()) { alert('សូមសរសេរចំណងជើង!'); return; }
+              if (!msgTextField.trim()) { alert('សូមសរសេរសាររបស់អ្នក!'); return; }
               
               if (msgTargetAccounts.includes('all_teachers')) {
                  for (const t of teachers) {
                    await messageService.add({
+                     title: msgTitleField,
                      text: msgTextField,
                      senderId: userId,
                      senderName: userName,
                      senderRole: role,
-                     receiverId: t.id,
+                     receiverId: t.linkedUserId || t.id,
                      isRead: false,
                      createdAt: new Date().toISOString()
                    });
                  }
               } else {
                  for (const targetId of msgTargetAccounts) {
+                   const receiver = targetId === 'admin' ? 'admin' : (teachers.find(t => t.id === targetId)?.linkedUserId || targetId);
                    await messageService.add({
+                     title: msgTitleField,
                      text: msgTextField,
                      senderId: userId,
                      senderName: userName,
                      senderRole: role,
-                     receiverId: targetId,
+                     receiverId: receiver,
                      isRead: false,
                      createdAt: new Date().toISOString()
                    });
