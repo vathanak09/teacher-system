@@ -325,7 +325,7 @@ export default function StudentsPage() {
 
   const handleSaveStudent = () => {
     // Validate all Part 1 fields (Mandatory)
-    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
+    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentFeeField) {
       alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
       return;
     }
@@ -340,8 +340,8 @@ export default function StudentsPage() {
       gender: studentGenderField,
       level: studentLevelField,
       shift: studentShiftField,
-      enrollDate: studentEnrollDateField,
       fee: Number(studentFeeField) || 0,
+      ...(studentEditId ? {} : { enrollDate: new Date().toISOString().split('T')[0] }),
       className: studentClassNameField,
       teacherName: studentTeacherField,
       dob: studentDobField,

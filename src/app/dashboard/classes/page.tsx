@@ -149,6 +149,11 @@ export default function ClassesPage() {
     const unsubscribeClasses = classService.subscribeAll((classesData) => {
       const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === currentUserId || data.teacherName === currentUserName);
       setClasses(filtered);
+      setViewingClass(prev => {
+        if (!prev) return prev;
+        const updated = filtered.find(c => c.id === prev.id);
+        return updated || prev;
+      });
     });
 
     const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
@@ -326,7 +331,7 @@ export default function ClassesPage() {
       
       const originalStudent = allStudents.find(s => s.id === editStudentData.id);
 
-      if (role === 'admin' || viewingClass.allowTeacherEditStudent) {
+      if (role === 'admin' || viewingClass?.allowTeacherEditStudent) {
          try {
            const { isDeleted, ...dataToUpdate } = editStudentData; // Remove UI-specific fields if any
            await studentService.update(editStudentData.id, dataToUpdate);
