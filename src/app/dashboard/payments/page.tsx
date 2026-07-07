@@ -242,8 +242,8 @@ export default function PaymentsPage() {
                 <td style={{ padding: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>{student.fullName}</td>
                 <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.computedClass}</td>
                 <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? `${student.fee} K` : 'N/A'}</td>
-                <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.lastPaymentDate || 'N/A'}</td>
-                <td style={{ padding: '1rem', fontWeight: 600 }}>{student.nextPaymentDate || 'N/A'}</td>
+                <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{formatDateToDMY(student.lastPaymentDate) || 'N/A'}</td>
+                <td style={{ padding: '1rem', fontWeight: 600 }}>{formatDateToDMY(student.nextPaymentDate) || 'N/A'}</td>
                 <td style={{ padding: '1rem' }}>
                   <span style={{ 
                     padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
@@ -350,7 +350,7 @@ export default function PaymentsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {payments.filter(p => p.studentId === historyStudentId).sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map(p => (
                 <div key={p.id} style={{ background: 'var(--main-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
-                  <div style={{ color: 'var(--text-secondary)' }}>ថ្ងៃបង់៖ <strong style={{ color: 'var(--text-primary)' }}>{p.paymentDate}</strong></div>
+                  <div style={{ color: 'var(--text-secondary)' }}>ថ្ងៃបង់៖ <strong style={{ color: 'var(--text-primary)' }}>{formatDateToDMY(p.paymentDate)}</strong></div>
                   <div style={{ color: 'var(--text-secondary)' }}>ទឹកប្រាក់៖ <strong style={{ color: '#10b981' }}>{p.amount} K</strong></div>
                   <div style={{ color: 'var(--text-secondary)' }}>វិធីសាស្ត្រ៖ <strong style={{ color: 'var(--text-primary)' }}>{p.paymentMethod}</strong></div>
                   <div style={{ color: 'var(--text-secondary)' }}>សុពលភាព៖ <strong style={{ color: 'var(--accent-primary)' }}>{p.validUntil || 'N/A'}</strong></div>

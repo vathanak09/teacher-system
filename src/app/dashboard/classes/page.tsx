@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { teacherService, classService, studentService, messageService, settingsService } from '@/services/db';
+import { formatDateToDMY } from '@/utils/dateFormatter';
 
 // 15 Icons
 const ICONS = [
@@ -808,7 +809,7 @@ export default function ClassesPage() {
                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>គ្រូបង្រៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{viewingClass?.teacherName || 'N/A'}</strong></div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>កម្រិត៖</span> <strong style={{ color: 'var(--text-primary)' }}>{s.level || 'N/A'}</strong></div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>វេន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{s.shift || 'N/A'}</strong></div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{s.enrollDate || 'N/A'}</strong></div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{formatDateToDMY(s.enrollDate) || 'N/A'}</strong></div>
                                                   </div>
                                                 </div>
 
@@ -857,7 +858,7 @@ export default function ClassesPage() {
                                   {classVisibleColumns.includes('gender') && <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{s.gender}</td>}
                                   {classVisibleColumns.includes('level') && <td style={{ padding: '1rem' }}>{s.level}</td>}
                                   {classVisibleColumns.includes('shift') && <td style={{ padding: '1rem' }}>{s.shift}</td>}
-                                  {classVisibleColumns.includes('enrollDate') && <td style={{ padding: '1rem' }}>{s.enrollDate}</td>}
+                                  {classVisibleColumns.includes('enrollDate') && <td style={{ padding: '1rem' }}>{formatDateToDMY(s.enrollDate)}</td>}
                                   {classVisibleColumns.includes('nextPaymentDate') && <td style={{ padding: '1rem' }}>{s.nextPaymentDate}</td>}
                                   {classVisibleColumns.includes('paymentStatus') && <td style={{ padding: '1rem' }}>
                                     {s.paymentStatus === 'បានបង់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ជំពាក់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ផុតកំណត់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus}

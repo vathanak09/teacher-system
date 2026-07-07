@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { settingsService, studentService, classService } from '@/services/db';
+import { formatDateToDMY } from '@/utils/dateFormatter';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -543,12 +544,7 @@ export default function StudentsPage() {
   };
 
   const formatEnrollToDay = (dateStr: string) => {
-    if (!dateStr) return '';
-    const parts = dateStr.includes('-') ? dateStr.split('-') : dateStr.split('/');
-    if (parts.length !== 3) return dateStr;
-    const year = parts.find(p => p.length === 4);
-    if (parts[0] === year) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    return `${parts[0]}/${parts[1]}/${parts[2]}`;
+    return formatDateToDMY(dateStr);
   };
 
   // Dynamic Class Options based on current students
