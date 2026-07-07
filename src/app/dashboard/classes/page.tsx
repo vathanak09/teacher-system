@@ -71,6 +71,7 @@ export default function ClassesPage() {
   const [targetLevelsField, setTargetLevelsField] = useState<string[]>([]);
   const [targetShiftsField, setTargetShiftsField] = useState<string[]>([]);
   const [autoImportStudents, setAutoImportStudents] = useState(false);
+  const [allowTeacherEditStudent, setAllowTeacherEditStudent] = useState(false);
 
   // Option dropdowns from settings
   const [shiftsOptions, setShiftsOptions] = useState<any[]>([]);
@@ -173,6 +174,7 @@ export default function ClassesPage() {
     setTargetLevelsField([]);
     setTargetShiftsField([]);
     setAutoImportStudents(false);
+    setAllowTeacherEditStudent(false);
     
     // Auto assign teacher if role is teacher
     if (role === 'teacher') {
@@ -201,6 +203,7 @@ export default function ClassesPage() {
     setTargetLevelsField(c.targetLevels || []);
     setTargetShiftsField(c.targetShifts || []);
     setAutoImportStudents(false);
+    setAllowTeacherEditStudent(c?.allowTeacherEditStudent || false);
     setIsClassModalOpen(true);
   };
 
@@ -246,6 +249,7 @@ export default function ClassesPage() {
       targetLevels: targetLevelsField,
       targetShifts: targetShiftsField,
       studentIds: baseStudentIds,
+      allowTeacherEditStudent: allowTeacherEditStudent,
     };
 
     if (classEditId) {
@@ -321,6 +325,20 @@ export default function ClassesPage() {
       if (!editStudentData || !viewingClass) return;
       
       const originalStudent = allStudents.find(s => s.id === editStudentData.id);
+
+      if (role === 'admin' || viewingClass.allowTeacherEditStudent) {
+         try {
+           const { isDeleted, ...dataToUpdate } = editStudentData; // Remove UI-specific fields if any
+           await studentService.update(editStudentData.id, dataToUpdate);
+           alert('ព័ត៌មានសិស្សត្រូវបានកែប្រែដោយជោគជ័យ!');
+           setIsEditStudentModalOpen(false);
+           setEditStudentData(null);
+         } catch (error) {
+           console.error("Error updating student:", error);
+           alert("មានបញ្ហាក្នុងការកែប្រែព័ត៌មាន។");
+         }
+         return;
+      }
       
       let changedFieldsText = [];
       let changesData = [];
@@ -1023,6 +1041,24 @@ export default function ClassesPage() {
                 </div>
               </div>
 
+              {/* Allow Teacher Edit Checkbox */}
+              {role === 'admin' && (
+              <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--primary-color)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={allowTeacherEditStudent} 
+                    onChange={(e) => setAllowTeacherEditStudent(e.target.checked)} 
+                    style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--primary-color)', fontSize: '0.95rem' }}>អនុញ្ញាតឱ្យគ្រូកែប្រែព័ត៌មានសិស្ស</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>អនុញ្ញាតឱ្យគ្រូបង្រៀនកែប្រែព័ត៌មានសិស្សដោយមិនចាំបាច់ស្នើសុំមកកាន់ Admin។</div>
+                  </div>
+                </label>
+              </div>
+              )}
+              
               {/* Auto Import Checkbox */}
               <div style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--primary-color)' }}>
