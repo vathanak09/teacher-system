@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { messageService, studentService, classService, taskService, postService, teacherService } from '@/services/db';
 
@@ -14,6 +15,8 @@ export default function MessagesPage() {
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [selectedChanges, setSelectedChanges] = useState<{[msgId: string]: string[]}>({});
   const [classes, setClasses] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [posts, setPosts] = useState<any[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isMsgModalOpen, setIsMsgModalOpen] = useState(false);
@@ -262,15 +265,15 @@ export default function MessagesPage() {
       </div>
 
       {/* Assign Task Modal */}
-      {isTaskModalOpen && (
+      {isTaskModalOpen && mounted && createPortal(
         <div 
           onClick={() => setIsTaskModalOpen(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="glass-panel animate-scale-in" 
-            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}
+            className="animate-scale-in" 
+            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>ដាក់កិច្ចការថ្មី (Assign Task)</h2>
@@ -388,19 +391,20 @@ export default function MessagesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Compose Message/Announcement Modal */}
-      {isMsgModalOpen && (
+      {isMsgModalOpen && mounted && createPortal(
         <div 
           onClick={() => setIsMsgModalOpen(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="glass-panel animate-scale-in" 
-            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}
+            className="animate-scale-in" 
+            style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>សរសេរសារ ឬសេចក្តីជូនដំណឹង</h2>
@@ -493,9 +497,9 @@ export default function MessagesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-
     </div>
   );
 }
