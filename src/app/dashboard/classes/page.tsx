@@ -4,7 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService } from '@/services/db';
+import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 
 // 15 Icons
@@ -101,6 +101,19 @@ export default function ClassesPage() {
   const [recordContentField, setRecordContentField] = useState('');
   const [recordOtherField, setRecordOtherField] = useState('');
 
+  // Class Tasks State
+  const [classTasks, setClassTasks] = useState<any[]>([]);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [taskEditId, setTaskEditId] = useState<string | null>(null);
+  const [taskTitleField, setTaskTitleField] = useState('');
+  const [taskSourceTypeField, setTaskSourceTypeField] = useState<'post' | 'link'>('post');
+  const [taskSourceValueField, setTaskSourceValueField] = useState('');
+  const [taskDetailField, setTaskDetailField] = useState('');
+  const [taskDurationTypeField, setTaskDurationTypeField] = useState<'date' | 'days'>('date');
+  const [taskDurationValueField, setTaskDurationValueField] = useState('');
+  const [taskProgressField, setTaskProgressField] = useState(0);
+  const [taskSuccessField, setTaskSuccessField] = useState(false);
+
   const [isAddStudentVisible, setIsAddStudentVisible] = useState(false);
   const [classSortConfig, setClassSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [classVisibleColumns, setClassVisibleColumns] = useState<string[]>(['photo', 'studentId', 'fullName', 'gender', 'level', 'shift']);
@@ -170,11 +183,13 @@ export default function ClassesPage() {
 
     const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
     const unsubscribeRecords = teachingRecordService.subscribeAll(setTeachingRecords);
+    const unsubscribeTasks = taskService.subscribeAll(setClassTasks);
 
     return () => {
       unsubscribeClasses();
       unsubscribeStudents();
       unsubscribeRecords();
+      unsubscribeTasks();
       unsubscribeTeachers();
     };
   }, [router]);
@@ -1011,9 +1026,58 @@ export default function ClassesPage() {
                   </div>
                 )}
 
-                {activeTab === 'tasks' && (
-                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-                    កិច្ចការនឹងបង្ហាញនៅទីនេះ។
+                                {activeTab === 'tasks' && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-primary)' }}>កិច្ចការសម្រាប់ថ្នាក់ (Tasks)</h3>
+                      <button onClick={() => { setTaskEditId(null); setTaskTitleField(''); setTaskSourceTypeField('post'); setTaskSourceValueField(''); setTaskDetailField(''); setTaskDurationTypeField('date'); setTaskDurationValueField(''); setTaskProgressField(0); setTaskSuccessField(false); setIsTaskModalOpen(true); }} style={{ padding: '0.6rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>+ បន្ថែមកិច្ចការ</button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                      {classTasks.filter(t => t.classId === viewingClass.id).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(task => (
+                        <div key={task.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
+                          <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: 'bold', paddingRight: '3rem' }}>{task.title}</h4>
+                          
+                          <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem' }}>
+                             <span style={{ color: 'var(--text-secondary)' }}>ប្រភព៖</span>
+                             {task.sourceType === 'post' ? (
+                                <a href={`/p/${task.sourceValue}`} target="_blank" style={{ color: 'var(--primary-color)', fontWeight: 'bold', textDecoration: 'none' }}>{task.sourceValue}</a>
+                             ) : (
+                                <a href={task.sourceValue.startsWith('http') ? task.sourceValue : `https://${task.sourceValue}`} target="_blank" style={{ color: 'var(--primary-color)', fontWeight: 'bold', textDecoration: 'none' }}>
+                                  {task.sourceValue.length > 25 ? task.sourceValue.substring(0,25) + '...' : task.sourceValue}
+                                </a>
+                             )}
+                          </div>
+
+                          {task.detail && <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap', flex: 1 }}>{task.detail}</p>}
+
+                          <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                             <span>{task.durationType === 'date' ? formatDateToDMY(task.durationValue) : `${task.durationValue} ថ្ងៃ`}</span>
+                          </div>
+
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>វឌ្ឍនភាព</span>
+                              {task.success ? <span style={{ color: '#10b981', fontWeight: 'bold' }}>ជោគជ័យ</span> : <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{task.progress}%</span>}
+                            </div>
+                            <div style={{ width: '100%', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: task.success ? '100%' : `${task.progress}%`, background: task.success ? '#10b981' : 'var(--primary-color)', transition: 'width 0.3s ease' }}></div>
+                            </div>
+                          </div>
+
+                          <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem' }}>
+                             <button onClick={() => { setTaskEditId(task.id); setTaskTitleField(task.title); setTaskSourceTypeField(task.sourceType); setTaskSourceValueField(task.sourceValue); setTaskDetailField(task.detail || ''); setTaskDurationTypeField(task.durationType); setTaskDurationValueField(task.durationValue); setTaskProgressField(task.progress || 0); setTaskSuccessField(task.success || false); setIsTaskModalOpen(true); }} style={{ background: 'rgba(59, 130, 246, 0.1)', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+                             <button onClick={() => { if(confirm('តើអ្នកចង់លុបកិច្ចការនេះទេ?')) taskService.delete(task.id); }} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                          </div>
+                        </div>
+                      ))}
+                      {classTasks.filter(t => t.classId === viewingClass.id).length === 0 && (
+                        <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                          មិនទាន់មានកិច្ចការសម្រាប់ថ្នាក់នេះទេ
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1094,6 +1158,109 @@ export default function ClassesPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setIsRecordModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
+                <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+            {/* Task Modal */}
+      {isTaskModalOpen && (
+        <div 
+          onClick={() => setIsTaskModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-scale-in" 
+            style={{ width: '100%', maxWidth: '500px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>{taskEditId ? 'កែប្រែកិច្ចការ' : 'បន្ថែមកិច្ចការថ្មី'}</h2>
+              <button onClick={() => setIsTaskModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!taskTitleField || !taskSourceValueField || !taskDurationValueField) {
+                alert('សូមបំពេញព័ត៌មានដែលចាំបាច់!');
+                return;
+              }
+              const data = {
+                classId: viewingClass.id,
+                title: taskTitleField,
+                sourceType: taskSourceTypeField,
+                sourceValue: taskSourceValueField,
+                detail: taskDetailField,
+                durationType: taskDurationTypeField,
+                durationValue: taskDurationValueField,
+                progress: taskProgressField,
+                success: taskSuccessField,
+                createdAt: taskEditId ? undefined : new Date().toISOString()
+              };
+              if (taskEditId) {
+                taskService.update(taskEditId, data);
+              } else {
+                taskService.add(data);
+              }
+              setIsTaskModalOpen(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ចំណងជើង</label>
+                <input type="text" value={taskTitleField} onChange={e => setTaskTitleField(e.target.value)} required placeholder="បំពេញចំណងជើង..." style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ប្រភព / យោង</label>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <input type="radio" checked={taskSourceTypeField === 'post'} onChange={() => setTaskSourceTypeField('post')} /> លេខកូដ Post
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <input type="radio" checked={taskSourceTypeField === 'link'} onChange={() => setTaskSourceTypeField('link')} /> តំណភ្ជាប់ (Link)
+                  </label>
+                </div>
+                <input type="text" value={taskSourceValueField} onChange={e => setTaskSourceValueField(e.target.value)} required placeholder={taskSourceTypeField === 'post' ? "លេខកូដ Post (ឧ. P001)" : "https://example.com"} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ព័ត៌មានលម្អិត</label>
+                <textarea value={taskDetailField} onChange={e => setTaskDetailField(e.target.value)} rows={3} placeholder="ពណ៌នាអំពីកិច្ចការ..." style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', resize: 'vertical' }}></textarea>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>រយៈពេលអនុវត្ត</label>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <input type="radio" checked={taskDurationTypeField === 'date'} onChange={() => setTaskDurationTypeField('date')} /> កាលបរិច្ឆេទ
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <input type="radio" checked={taskDurationTypeField === 'days'} onChange={() => setTaskDurationTypeField('days')} /> ចំនួនថ្ងៃ
+                  </label>
+                </div>
+                <input type={taskDurationTypeField === 'date' ? "date" : "number"} value={taskDurationValueField} onChange={e => setTaskDurationValueField(e.target.value)} required placeholder={taskDurationTypeField === 'days' ? "ចំនួនថ្ងៃ (ឧ. ៧)" : ""} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>វឌ្ឍនភាព</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                    <input type="range" min="0" max="100" value={taskProgressField} onChange={e => setTaskProgressField(Number(e.target.value))} disabled={taskSuccessField} style={{ flex: 1 }} />
+                    <span style={{ width: '40px', color: 'var(--text-primary)' }}>{taskProgressField}%</span>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                    <input type="checkbox" checked={taskSuccessField} onChange={e => setTaskSuccessField(e.target.checked)} />
+                    ជោគជ័យពេញលេញ
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setIsTaskModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
                 <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
               </div>
             </form>

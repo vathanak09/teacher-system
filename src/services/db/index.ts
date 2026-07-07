@@ -11,3 +11,4 @@ export const messageService = new FirebaseDataService<any>('messages');
 export const paymentService = new FirebaseDataService<any>('payments');
 export const settingsService = new FirebaseDataService<any>('settings');
 export const teachingRecordService = new FirebaseDataService<any>('teachingRecords');
+export const taskService = new FirebaseDataService<any>('tasks');

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { messageService, studentService } from '@/services/db';
+import { messageService, studentService, classService, taskService } from '@/services/db';
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -13,6 +13,15 @@ export default function MessagesPage() {
   const [replyText, setReplyText] = useState('');
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [selectedChanges, setSelectedChanges] = useState<{[msgId: string]: string[]}>({});
+  const [classes, setClasses] = useState<any[]>([]);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [taskTitleField, setTaskTitleField] = useState('');
+  const [taskSourceTypeField, setTaskSourceTypeField] = useState<'post' | 'link'>('post');
+  const [taskSourceValueField, setTaskSourceValueField] = useState('');
+  const [taskDetailField, setTaskDetailField] = useState('');
+  const [taskDurationTypeField, setTaskDurationTypeField] = useState<'date' | 'days'>('date');
+  const [taskDurationValueField, setTaskDurationValueField] = useState('');
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
@@ -27,6 +36,7 @@ export default function MessagesPage() {
       return;
     }
 
+    const unsubscribeClasses = classService.subscribeAll(setClasses);
     const unsubscribe = messageService.subscribeAll((data) => {
       const filtered = data.filter((d: any) => currentRole === 'admin' || d.senderId === currentUserId || d.receiverId === currentUserId || d.receiverId === currentRole);
       const sorted = filtered.sort((a: any, b: any) => {
@@ -37,7 +47,7 @@ export default function MessagesPage() {
       setMessages(sorted);
     });
 
-    return () => unsubscribe();
+    return () => { unsubscribe(); unsubscribeClasses(); };
   }, [router]);
 
   const handleMarkAsRead = async (msgId: string) => {
@@ -117,6 +127,9 @@ export default function MessagesPage() {
     <div className="page-container animate-fade-in" style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>សារ និងការជូនដំណឹង (Messages)</h1>
+        {role === 'admin' && (
+          <button onClick={() => { setSelectedClassIds([]); setTaskTitleField(''); setTaskSourceTypeField('post'); setTaskSourceValueField(''); setTaskDetailField(''); setTaskDurationTypeField('date'); setTaskDurationValueField(''); setIsTaskModalOpen(true); }} style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>+ ដាក់កិច្ចការ (Assign Task)</button>
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
