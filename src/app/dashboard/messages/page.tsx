@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { messageService, studentService, classService, taskService } from '@/services/db';
+import { messageService, studentService, classService, taskService, postService } from '@/services/db';
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -14,6 +14,7 @@ export default function MessagesPage() {
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const [selectedChanges, setSelectedChanges] = useState<{[msgId: string]: string[]}>({});
   const [classes, setClasses] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [taskTitleField, setTaskTitleField] = useState('');
@@ -37,6 +38,7 @@ export default function MessagesPage() {
     }
 
     const unsubscribeClasses = classService.subscribeAll(setClasses);
+    const unsubscribePosts = postService.subscribeAll(setPosts);
     const unsubscribe = messageService.subscribeAll((data) => {
       const filtered = data.filter((d: any) => currentRole === 'admin' || d.senderId === currentUserId || d.receiverId === currentUserId || d.receiverId === currentRole);
       const sorted = filtered.sort((a: any, b: any) => {
@@ -47,7 +49,8 @@ export default function MessagesPage() {
       setMessages(sorted);
     });
 
-    return () => { unsubscribe(); unsubscribeClasses(); };
+    return () => { unsubscribe(); unsubscribeClasses();
+      unsubscribePosts(); };
   }, [router]);
 
   const handleMarkAsRead = async (msgId: string) => {

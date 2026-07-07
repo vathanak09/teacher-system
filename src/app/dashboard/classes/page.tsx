@@ -4,7 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService } from '@/services/db';
+import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 
 // 15 Icons
@@ -103,6 +103,7 @@ export default function ClassesPage() {
 
   // Class Tasks State
   const [classTasks, setClassTasks] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [taskEditId, setTaskEditId] = useState<string | null>(null);
   const [taskTitleField, setTaskTitleField] = useState('');
@@ -184,12 +185,14 @@ export default function ClassesPage() {
     const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
     const unsubscribeRecords = teachingRecordService.subscribeAll(setTeachingRecords);
     const unsubscribeTasks = taskService.subscribeAll(setClassTasks);
+    const unsubscribePosts = postService.subscribeAll(setPosts);
 
     return () => {
       unsubscribeClasses();
       unsubscribeStudents();
       unsubscribeRecords();
       unsubscribeTasks();
+      unsubscribePosts();
       unsubscribeTeachers();
     };
   }, [router]);
@@ -1224,7 +1227,33 @@ export default function ClassesPage() {
                     <input type="radio" checked={taskSourceTypeField === 'link'} onChange={() => setTaskSourceTypeField('link')} /> តំណភ្ជាប់ (Link)
                   </label>
                 </div>
-                <input type="text" value={taskSourceValueField} onChange={e => setTaskSourceValueField(e.target.value)} required placeholder={taskSourceTypeField === 'post' ? "លេខកូដ Post (ឧ. P001)" : "https://example.com"} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                {taskSourceTypeField === 'post' ? (
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="text" 
+                      value={taskSourceValueField} 
+                      onChange={e => setTaskSourceValueField(e.target.value)}
+                      required
+                      placeholder="វាយលេខកូដ Post ឬចំណងជើង ដើម្បីស្វែងរក..." 
+                      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: '100%', boxSizing: 'border-box' }} 
+                    />
+                    {taskSourceValueField && !posts.find(p => p.postCode === taskSourceValueField) && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                        {posts.filter(p => (p.postCode && p.postCode.toLowerCase().includes(taskSourceValueField.toLowerCase())) || (p.title && p.title.toLowerCase().includes(taskSourceValueField.toLowerCase()))).map(p => (
+                          <div key={p.id} onClick={() => setTaskSourceValueField(p.postCode)} style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--main-bg)' }}>
+                            <div>
+                              <span style={{ fontWeight: 'bold', color: 'var(--primary-color)' }}>{p.postCode}</span>
+                              <span style={{ marginLeft: '0.5rem', color: 'var(--text-primary)' }}>{p.title}</span>
+                            </div>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setTaskSourceValueField(p.postCode); }} style={{ padding: '0.25rem 0.75rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.8rem', cursor: 'pointer' }}>បញ្ចូល</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <input type="text" value={taskSourceValueField} onChange={e => setTaskSourceValueField(e.target.value)} required placeholder="https://example.com" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1233,16 +1262,8 @@ export default function ClassesPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>រយៈពេលអនុវត្ត</label>
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                    <input type="radio" checked={taskDurationTypeField === 'date'} onChange={() => setTaskDurationTypeField('date')} /> កាលបរិច្ឆេទ
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                    <input type="radio" checked={taskDurationTypeField === 'days'} onChange={() => setTaskDurationTypeField('days')} /> ចំនួនថ្ងៃ
-                  </label>
-                </div>
-                <input type={taskDurationTypeField === 'date' ? "date" : "number"} value={taskDurationValueField} onChange={e => setTaskDurationValueField(e.target.value)} required placeholder={taskDurationTypeField === 'days' ? "ចំនួនថ្ងៃ (ឧ. ៧)" : ""} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទអនុវត្ត</label>
+                <input type="date" value={taskDurationValueField} onChange={e => setTaskDurationValueField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
