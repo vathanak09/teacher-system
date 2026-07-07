@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { studentService, paymentService, classService } from '@/services/db';
+import { formatDateToDMY } from '@/utils/dateFormatter';
 
 export default function PaymentsPage() {
   const router = useRouter();
