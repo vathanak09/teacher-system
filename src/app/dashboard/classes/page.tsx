@@ -4,7 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, classService, studentService, messageService, settingsService } from '@/services/db';
+import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 
 // 15 Icons
@@ -73,6 +73,7 @@ export default function ClassesPage() {
   const [targetShiftsField, setTargetShiftsField] = useState<string[]>([]);
   const [autoImportStudents, setAutoImportStudents] = useState(false);
   const [allowTeacherEditStudent, setAllowTeacherEditStudent] = useState(false);
+  const [booksField, setBooksField] = useState<any[]>([]);
 
   // Option dropdowns from settings
   const [shiftsOptions, setShiftsOptions] = useState<any[]>([]);
@@ -89,6 +90,16 @@ export default function ClassesPage() {
   const [viewingClass, setViewingClass] = useState<any | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
   const [activeTab, setActiveTab] = useState('students');
+
+  // Teaching Records State
+  const [teachingRecords, setTeachingRecords] = useState<any[]>([]);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [recordEditId, setRecordEditId] = useState<string | null>(null);
+  const [recordDateField, setRecordDateField] = useState('');
+  const [recordBookField, setRecordBookField] = useState('');
+  const [recordPagesField, setRecordPagesField] = useState<number | ''>('');
+  const [recordContentField, setRecordContentField] = useState('');
+  const [recordOtherField, setRecordOtherField] = useState('');
 
   const [isAddStudentVisible, setIsAddStudentVisible] = useState(false);
   const [classSortConfig, setClassSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -158,10 +169,12 @@ export default function ClassesPage() {
     });
 
     const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
+    const unsubscribeRecords = teachingRecordService.subscribeAll(setTeachingRecords);
 
     return () => {
       unsubscribeClasses();
       unsubscribeStudents();
+      unsubscribeRecords();
       unsubscribeTeachers();
     };
   }, [router]);
@@ -181,6 +194,7 @@ export default function ClassesPage() {
     setTargetShiftsField([]);
     setAutoImportStudents(false);
     setAllowTeacherEditStudent(false);
+    setBooksField([]);
     
     // Auto assign teacher if role is teacher
     if (role === 'teacher') {
@@ -210,6 +224,7 @@ export default function ClassesPage() {
     setTargetShiftsField(c.targetShifts || []);
     setAutoImportStudents(false);
     setAllowTeacherEditStudent(c?.allowTeacherEditStudent || false);
+    setBooksField(c.books || []);
     setIsClassModalOpen(true);
   };
 
@@ -256,6 +271,7 @@ export default function ClassesPage() {
       targetShifts: targetShiftsField,
       studentIds: baseStudentIds,
       allowTeacherEditStudent: allowTeacherEditStudent,
+      books: booksField,
     };
 
     if (classEditId) {
@@ -469,6 +485,36 @@ export default function ClassesPage() {
                            <span style={{ margin: '0 0.25rem', color: 'var(--text-secondary)' }}>•</span>
                            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData && c.studentsData.length > 0 ? c.studentsData.length : (c.studentIds?.length || 0)} នាក់</span>
                         </div>
+                        {/* Book Progress */}
+                        {(() => {
+                          if (!c.books || c.books.length === 0) return null;
+                          const classRecords = teachingRecords.filter((r: any) => r.classId === c.id);
+                          let totalBookPages = 0;
+                          let totalTaughtPages = 0;
+                          c.books.forEach((b: any) => {
+                            if (b.totalPages > 0) {
+                              totalBookPages += b.totalPages;
+                              const bookRecords = classRecords.filter((r: any) => r.bookId === b.id);
+                              if (bookRecords.length > 0) {
+                                const maxPages = Math.max(...bookRecords.map((r: any) => Number(r.pages) || 0));
+                                totalTaughtPages += maxPages;
+                              }
+                            }
+                          });
+                          if (totalBookPages === 0) return null;
+                          const percent = Math.min(100, Math.round((totalTaughtPages / totalBookPages) * 100));
+                          return (
+                            <div style={{ marginTop: '0.75rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                                <span>វឌ្ឍនភាពបង្រៀន</span>
+                                <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{percent}%</span>
+                              </div>
+                              <div style={{ width: '100%', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${percent}%`, background: 'var(--primary-color)', borderRadius: '3px', transition: 'width 0.5s ease' }}></div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -908,9 +954,60 @@ export default function ClassesPage() {
                   </>
                 )}
 
-                {activeTab === 'records' && (
-                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
-                    កំណត់ត្រាបង្រៀននឹងបង្ហាញនៅទីនេះ។
+                                {activeTab === 'records' && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-primary)' }}>កំណត់ត្រាបង្រៀន</h3>
+                      <button onClick={() => { setRecordEditId(null); setRecordDateField(new Date().toISOString().split('T')[0]); setRecordBookField(''); setRecordPagesField(''); setRecordContentField(''); setRecordOtherField(''); setIsRecordModalOpen(true); }} style={{ padding: '0.6rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>+ បន្ថែមកំណត់ត្រា</button>
+                    </div>
+                    <div style={{ overflowX: 'auto', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>កាលបរិច្ឆេទ</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>សៀវភៅ/កម្រិត</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ទំព័រដែលបានរៀន</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ខ្លឹមសារបង្រៀន</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500', width: '100px' }}>សកម្មភាព</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teachingRecords.filter(r => r.classId === viewingClass.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(record => {
+                            const b = (viewingClass.books || []).find((bk: any) => bk.id === record.bookId);
+                            const percent = b && b.totalPages ? Math.min(100, Math.round((record.pages / b.totalPages) * 100)) : 0;
+                            return (
+                            <tr key={record.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '1rem' }}>{formatDateToDMY(record.date)}</td>
+                              <td style={{ padding: '1rem' }}>
+                                {b ? <span style={{ padding: '0.2rem 0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.85rem' }}>{b.name} ({b.level})</span> : 'N/A'}
+                              </td>
+                              <td style={{ padding: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontWeight: '500' }}>{record.pages}</span> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>/ {b?.totalPages || '?'}</span>
+                                  {b && b.totalPages > 0 && (
+                                    <div style={{ flex: 1, height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden', minWidth: '50px' }}>
+                                      <div style={{ height: '100%', background: 'var(--primary-color)', width: `${percent}%` }}></div>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '1rem', whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{record.content}</td>
+                              <td style={{ padding: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                  <button onClick={() => { setRecordEditId(record.id); setRecordDateField(record.date); setRecordBookField(record.bookId); setRecordPagesField(record.pages); setRecordContentField(record.content); setRecordOtherField(record.other || ''); setIsRecordModalOpen(true); }} style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer' }}>កែ</button>
+                                  <button onClick={() => { if(confirm('តើអ្នកចង់លុបកំណត់ត្រានេះទេ?')) teachingRecordService.delete(record.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}>លុប</button>
+                                </div>
+                              </td>
+                            </tr>
+                          )})}
+                          {teachingRecords.filter(r => r.classId === viewingClass.id).length === 0 && (
+                            <tr>
+                              <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>មិនទាន់មានកំណត់ត្រាបង្រៀនទេ</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 
@@ -930,6 +1027,79 @@ export default function ClassesPage() {
           )}
         </div>
       </div>
+
+            {/* Teaching Record Modal */}
+      {isRecordModalOpen && (
+        <div 
+          onClick={() => setIsRecordModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-panel animate-scale-in" 
+            style={{ width: '100%', maxWidth: '500px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0, color: 'var(--text-primary)' }}>{recordEditId ? 'កែប្រែកំណត់ត្រាបង្រៀន' : 'បន្ថែមថ្មី'}</h2>
+              <button onClick={() => setIsRecordModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!recordDateField || !recordBookField) {
+                alert('សូមបំពេញកាលបរិច្ឆេទ និងជ្រើសរើសសៀវភៅ!');
+                return;
+              }
+              const data = {
+                classId: viewingClass.id,
+                date: recordDateField,
+                bookId: recordBookField,
+                pages: Number(recordPagesField),
+                content: recordContentField,
+                other: recordOtherField
+              };
+              if (recordEditId) {
+                teachingRecordService.update(recordEditId, data);
+              } else {
+                teachingRecordService.add(data);
+              }
+              setIsRecordModalOpen(false);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទ</label>
+                <input type="date" value={recordDateField} onChange={e => setRecordDateField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សៀវភៅ / កម្រិតសិក្សា</label>
+                <select value={recordBookField} onChange={e => setRecordBookField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                  <option value="">-- ជ្រើសរើសសៀវភៅ --</option>
+                  {(viewingClass?.books || []).map((b: any) => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.level}) - {b.totalPages} ទំព័រ</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>បង្រៀនដល់ទំព័រទី</label>
+                <input type="number" value={recordPagesField} onChange={e => setRecordPagesField(e.target.value ? Number(e.target.value) : '')} placeholder="ឧ. ១៥" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ខ្លឹមសារបង្រៀន</label>
+                <textarea value={recordContentField} onChange={e => setRecordContentField(e.target.value)} rows={3} placeholder="សរសេរពីចំណុចសំខាន់ៗដែលបានបង្រៀន..." style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', resize: 'vertical' }}></textarea>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ផ្សេងៗ</label>
+                <input type="text" value={recordOtherField} onChange={e => setRecordOtherField(e.target.value)} placeholder="កំណត់សម្គាល់ផ្សេងៗ" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+                <button type="button" onClick={() => setIsRecordModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
+                <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Class Modal */}
       {isClassModalOpen && (
@@ -1123,6 +1293,29 @@ export default function ClassesPage() {
                     />
                   ))}
                 </div>
+              </div>
+
+              
+              {/* Books Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 100%', padding: '1rem', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)' }}>សៀវភៅសិក្សា (Books)</h3>
+                  <button type="button" onClick={() => setBooksField([...booksField, { id: Date.now().toString(), level: levelsOptions[0]?.id || '', name: '', totalPages: 0 }])} style={{ background: 'var(--accent-primary)', color: 'white', padding: '0.35rem 0.75rem', borderRadius: '4px', fontSize: '0.85rem', border: 'none', cursor: 'pointer', fontWeight: '500' }}>+ បន្ថែមសៀវភៅ</button>
+                </div>
+                {booksField.map((book, index) => (
+                  <div key={book.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                    <select value={book.level} onChange={e => { const newB = [...booksField]; newB[index].level = e.target.value; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', flex: '1' }}>
+                      <option value="">ជ្រើសរើសកម្រិត</option>
+                      {levelsOptions.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
+                    </select>
+                    <input type="text" placeholder="ឈ្មោះសៀវភៅ" value={book.name} onChange={e => { const newB = [...booksField]; newB[index].name = e.target.value; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', flex: '2' }} />
+                    <input type="number" placeholder="ទំព័រសរុប" value={book.totalPages || ''} onChange={e => { const newB = [...booksField]; newB[index].totalPages = parseInt(e.target.value) || 0; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', width: '100px' }} />
+                    <button type="button" onClick={() => setBooksField(booksField.filter(b => b.id !== book.id))} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                ))}
+                {booksField.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic', margin: 0, marginTop: '0.5rem' }}>មិនទាន់មានសៀវភៅនៅឡើយ។</p>}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
