@@ -325,7 +325,7 @@ export default function StudentsPage() {
 
   const handleSaveStudent = () => {
     // Validate all Part 1 fields (Mandatory)
-    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentFeeField) {
+    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
       alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
       return;
     }
@@ -340,8 +340,8 @@ export default function StudentsPage() {
       gender: studentGenderField,
       level: studentLevelField,
       shift: studentShiftField,
+      enrollDate: studentEnrollDateField,
       fee: Number(studentFeeField) || 0,
-      ...(studentEditId ? {} : { enrollDate: new Date().toISOString().split('T')[0] }),
       className: studentClassNameField,
       teacherName: studentTeacherField,
       dob: studentDobField,
@@ -1107,7 +1107,7 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
-                  <input type="date" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
+                  <input type="text" placeholder="ឧ. 2024-06-27" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
                 </div>
 
                 <div>
