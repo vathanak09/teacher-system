@@ -4,8 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { teacherService, classService, studentService, messageService, settingsService } from '@/services/db';
 
 // 15 Icons
 const ICONS = [
@@ -129,10 +128,8 @@ export default function ClassesPage() {
 
     // Load options from settings
     const loadSettings = async () => {
-      const snap = await getDocs(collection(db, 'settings'));
-      snap.forEach(doc => {
-        if (doc.id === 'global') {
-           const d = doc.data();
+      const d = await settingsService.getById('global');
+      if (d) {
            const norm = (arr: any[]) => (arr||[]).map(x => typeof x === 'string' ? {id: x} : x);
            setShiftsOptions(norm(d.appStudentShifts || []));
              setLevelsOptions(norm(d.appStudentLevels || []));
@@ -141,39 +138,19 @@ export default function ClassesPage() {
              if (d.appStudentTransports) setTransportOptions(normStr(d.appStudentTransports));
              if (d.appStudentGenders) setGenderOptions(normStr(d.appStudentGenders));
              if (d.appStudentStatuses) setStatusOptions(normStr(d.appStudentStatuses));
-        }
-      });
+      }
     };
     loadSettings();
 
     // Fetch teachers list for Admin to assign
-    const unsubscribeTeachers = onSnapshot(collection(db, 'teachers'), (snapshot) => {
-      const td: any[] = [];
-      snapshot.forEach((doc) => {
-        td.push({ ...doc.data(), id: doc.id });
-      });
-      setAllTeachers(td);
+    const unsubscribeTeachers = teacherService.subscribeAll(setAllTeachers);
+
+    const unsubscribeClasses = classService.subscribeAll((classesData) => {
+      const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === currentUserId || data.teacherName === currentUserName);
+      setClasses(filtered);
     });
 
-    const unsubscribeClasses = onSnapshot(collection(db, 'classes'), (snapshot) => {
-      const classesData: any[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Role based filtering: Admin sees all, Teacher sees only theirs
-        if (currentRole === 'admin' || data.teacherId === currentUserId || data.teacherName === currentUserName) {
-          classesData.push({ id: doc.id, ...data });
-        }
-      });
-      setClasses(classesData);
-    });
-
-    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
-      const studentsData: any[] = [];
-      snapshot.forEach((doc) => {
-        studentsData.push({ ...doc.data(), id: doc.id });
-      });
-      setAllStudents(studentsData);
-    });
+    const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
 
     return () => {
       unsubscribeClasses();
@@ -229,7 +206,7 @@ export default function ClassesPage() {
 
   const handleDeleteClass = (id: string) => {
     if (confirm('តើអ្នកពិតជាចង់លុបថ្នាក់រៀននេះមែនទេ? ទិន្នន័យសិស្សក្នុងថ្នាក់ក៏នឹងត្រូវលុបចេញពីថ្នាក់នេះដែរ។')) {
-      deleteDoc(doc(db, 'classes', id));
+      classService.delete(id);
       if (viewingClass?.id === id) setViewingClass(null);
     }
   };
@@ -272,9 +249,9 @@ export default function ClassesPage() {
     };
 
     if (classEditId) {
-      updateDoc(doc(db, 'classes', classEditId), newClass);
+      classService.update(classEditId, newClass);
     } else {
-      addDoc(collection(db, 'classes'), newClass);
+      classService.add(newClass);
     }
 
     setIsClassModalOpen(false);
@@ -293,7 +270,7 @@ export default function ClassesPage() {
     const updatedClass = { ...viewingClass, studentIds: mergedIds };
     delete updatedClass.studentsData;
     
-    updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
+    classService.update(viewingClass.id, updatedClass);
     setViewingClass(updatedClass);
   };
 
@@ -306,7 +283,7 @@ export default function ClassesPage() {
       const updatedClass = { ...viewingClass, studentIds: filteredIds };
       delete updatedClass.studentsData;
 
-      updateDoc(doc(db, 'classes', viewingClass.id), updatedClass);
+      classService.update(viewingClass.id, updatedClass);
       setViewingClass(updatedClass);
     }
   };
@@ -394,7 +371,7 @@ export default function ClassesPage() {
       };
       
       try {
-        await addDoc(collection(db, 'messages'), msg);
+        await messageService.add(msg);
         alert('សំណើកែប្រែព័ត៌មានសិស្សត្រូវបានបញ្ជូនទៅកាន់ Admin ដោយជោគជ័យ!');
         setIsEditStudentModalOpen(false);
         setEditStudentData(null);

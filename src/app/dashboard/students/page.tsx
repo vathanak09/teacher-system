@@ -4,8 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { settingsService, studentService, classService } from '@/services/db';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -85,7 +84,7 @@ export default function StudentsPage() {
   const handleCellSave = async () => {
     if (!editingCell) return;
     try {
-      await updateDoc(doc(db, 'students', editingCell.id), { [editingCell.field]: editingCell.field === 'fee' ? Number(editingCell.value) || 0 : editingCell.value });
+      await studentService.update(editingCell.id, { [editingCell.field]: editingCell.field === 'fee' ? Number(editingCell.value) || 0 : editingCell.value });
       setEditingCell(null);
     } catch (error) {
       console.error('Error updating cell', error);
@@ -198,9 +197,8 @@ export default function StudentsPage() {
       return;
     }
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsubSettings = settingsService.subscribeOne('global', (data) => {
+      if (data) {
         if (data.appStudentLevels) setLevelOptions(data.appStudentLevels.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
         if (data.appStudentShifts) setShiftOptions(data.appStudentShifts.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
         if (data.appStudentAddresses) setAddressOptions(data.appStudentAddresses.map((opt: any) => typeof opt === 'string' ? opt : opt.id));
@@ -210,21 +208,9 @@ export default function StudentsPage() {
       }
     });
 
-    const unsubscribe = onSnapshot(collection(db, 'students'), (snapshot) => {
-      const studentsData: any[] = [];
-      snapshot.forEach((doc) => {
-        studentsData.push({ ...doc.data(), id: doc.id });
-      });
-      setStudents(studentsData);
-    });
+    const unsubscribe = studentService.subscribeAll(setStudents);
 
-    const unsubClasses = onSnapshot(collection(db, 'classes'), (snapshot) => {
-      const cData: any[] = [];
-      snapshot.forEach((doc) => {
-        cData.push({ ...doc.data(), id: doc.id });
-      });
-      setClassesData(cData);
-    });
+    const unsubClasses = classService.subscribeAll(setClassesData);
 
     return () => {
       unsubscribe();
@@ -371,9 +357,9 @@ export default function StudentsPage() {
     };
 
     if (studentEditId) {
-      updateDoc(doc(db, 'students', studentEditId), studentData);
+      studentService.update(studentEditId, studentData);
     } else {
-      addDoc(collection(db, 'students'), studentData);
+      studentService.add(studentData);
     }
 
     setIsStudentModalOpen(false);
@@ -389,14 +375,14 @@ export default function StudentsPage() {
         if (c.studentIds && c.studentIds.includes(id)) {
           const deletedData = c.deletedStudentsData || [];
           if (studentToDelete) {
-            updateDoc(doc(db, 'classes', c.id), {
+            classService.update(c.id, {
               deletedStudentsData: [...deletedData, studentToDelete]
             });
           }
         }
       });
       
-      deleteDoc(doc(db, 'students', id));
+      studentService.delete(id);
     }
   };
 
@@ -411,14 +397,14 @@ export default function StudentsPage() {
           if (c.studentIds && c.studentIds.includes(id)) {
             const deletedData = c.deletedStudentsData || [];
             if (studentToDelete) {
-              updateDoc(doc(db, 'classes', c.id), {
+              classService.update(c.id, {
                 deletedStudentsData: [...deletedData, studentToDelete]
               });
             }
           }
         });
         
-        deleteDoc(doc(db, 'students', id));
+        studentService.delete(id);
       });
       setSelectedStudentIds([]);
     }
@@ -533,7 +519,7 @@ export default function StudentsPage() {
       }
 
       if (imported.length > 0) {
-        imported.forEach(student => addDoc(collection(db, 'students'), student));
+        imported.forEach(student => studentService.add(student));
         alert(`កំពុងនាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់...`);
       } else {
         alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');

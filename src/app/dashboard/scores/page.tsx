@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebaseClient';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { settingsService } from '@/services/db';
 
 const icons = [
   { id: 'book', svg: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> },
@@ -43,14 +42,11 @@ export default function ScoresPage() {
 
   useEffect(() => { 
     setRole(localStorage.getItem('userRole') || ''); 
-    const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.appScoreLinks) {
-          setLinks(data.appScoreLinks);
-        } else {
-          setLinks(defaultLinks);
-        }
+    const unsub = settingsService.subscribeOne('global', (data) => {
+      if (data && data.appScoreLinks) {
+        setLinks(data.appScoreLinks);
+      } else {
+        setLinks(defaultLinks);
       }
     });
     return () => unsub();
@@ -76,7 +72,7 @@ export default function ScoresPage() {
   };
 
   const updateFirebaseLinks = async (updatedLinks: any[]) => {
-    await setDoc(doc(db, 'settings', 'global'), { appScoreLinks: updatedLinks }, { merge: true });
+    await settingsService.add({ appScoreLinks: updatedLinks }, 'global');
   };
 
   const handleDelete = (e: React.MouseEvent, id: number) => {

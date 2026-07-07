@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from 'react';
-import { db } from '@/lib/firebaseClient';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { settingsService, lessonService, methodologyService } from '@/services/db';
 
 export default function PublicPostPage(props: { params: Promise<{ code: string }> }) {
   const params = use(props.params);
@@ -22,12 +21,8 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
     // 1. Fetch tags from settings
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'global');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.appTags) setAvailableTags(data.appTags);
-        }
+        const data = await settingsService.getById('global');
+        if (data && data.appTags) setAvailableTags(data.appTags);
       } catch (err) {
         console.error("Error fetching tags:", err);
       }
@@ -44,24 +39,17 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
       let foundPost = null;
 
       try {
-        for (const coll of collectionsToSearch) {
-          // First check by postCode
-          const q = query(collection(db, coll), where('postCode', '==', params.code));
-          const querySnapshot = await getDocs(q);
-          
-          if (!querySnapshot.empty) {
-            const docData = querySnapshot.docs[0];
-            foundPost = { id: docData.id, collectionName: coll, ...docData.data() };
-            break;
-          }
+        const checkColl = async (service: any, collName: string) => {
+          let docs = await service.getByQuery('postCode', '==', params.code as string);
+          if (docs.length > 0) return { ...docs[0], id: docs[0].id, collectionName: collName };
+          let d = await service.getById(params.code as string);
+          if (d) return { ...d, id: d.id, collectionName: collName };
+          return null;
+        };
 
-          // If not found by postCode, check if the code matches document ID
-          const docRef = doc(db, coll, params.code);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            foundPost = { id: docSnap.id, collectionName: coll, ...docSnap.data() };
-            break;
-          }
+        foundPost = await checkColl(lessonService, 'lessons');
+        if (!foundPost) {
+          foundPost = await checkColl(methodologyService, 'methodologies');
         }
 
         if (foundPost) {
@@ -96,7 +84,11 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
     
     // Update backend
     try {
-      await updateDoc(doc(db, post.collectionName, post.id), { likes: newLikes });
+      if (post.collectionName === 'lessons') {
+        await lessonService.update(post.id, { likes: newLikes });
+      } else {
+        await methodologyService.update(post.id, { likes: newLikes });
+      }
     } catch (err) {
       console.error("Error updating likes", err);
       setPost({ ...post, likes: currentLikes });

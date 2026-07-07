@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { settingsService } from '@/services/db';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -70,9 +69,8 @@ export default function SettingsPage() {
       return;
     }
 
-    const unsub = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsub = settingsService.subscribeOne('global', (data) => {
+      if (data) {
         setTagGroups(data.appTagGroups || [
           { id: 1, name: 'កម្រិតថ្នាក់' },
           { id: 2, name: 'មុខវិជ្ជា' }
@@ -92,7 +90,7 @@ export default function SettingsPage() {
         setStatuses(normalizeOptions(data.appStudentStatuses || ['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'បោះបង់ការសិក្សា']));
       } else {
         // Initialize defaults in Firebase
-        setDoc(doc(db, 'settings', 'global'), {
+        settingsService.add({
           appTagGroups: [
             { id: 1, name: 'កម្រិតថ្នាក់' },
             { id: 2, name: 'មុខវិជ្ជា' }
@@ -110,14 +108,14 @@ export default function SettingsPage() {
           appStudentTransports: normalizeOptions(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']),
           appStudentGenders: normalizeOptions(['ប្រុស', 'ស្រី']),
           appStudentStatuses: normalizeOptions(['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'បោះបង់ការសិក្សា'])
-        });
+        }, 'global');
       }
     });
     return () => unsub();
   }, [router]);
 
   const updateSettings = async (updates: any) => {
-    await setDoc(doc(db, 'settings', 'global'), updates, { merge: true });
+    await settingsService.add(updates, 'global');
   };
 
   // Tag Group CRUD Functions

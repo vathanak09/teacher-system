@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, deleteDoc, doc, updateDoc, getDocs, query, where, addDoc } from 'firebase/firestore';
+import { settingsService, lessonService, methodologyService } from '@/services/db';
 import Papa from 'papaparse';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
@@ -63,22 +62,19 @@ export default function PostsManagementPage() {
 
     if (currentRole !== 'admin') return; // Only admin can access
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsubSettings = settingsService.subscribeOne('global', (data) => {
+      if (data) {
         if (data.appTags) setAvailableTags(data.appTags);
         if (data.appTagGroups) setTagGroups(data.appTagGroups);
       }
     });
 
-    const unsubLessons = onSnapshot(collection(db, 'lessons'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, collectionName: 'lessons', ...doc.data() }));
-      setLessonsPosts(data);
+    const unsubLessons = lessonService.subscribeAll((data) => {
+      setLessonsPosts(data.map((d: any) => ({ ...d, collectionName: 'lessons' })));
     });
 
-    const unsubMethods = onSnapshot(collection(db, 'methodologies'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, collectionName: 'methodologies', ...doc.data() }));
-      setMethodsPosts(data);
+    const unsubMethods = methodologyService.subscribeAll((data) => {
+      setMethodsPosts(data.map((d: any) => ({ ...d, collectionName: 'methodologies' })));
     });
 
     return () => {
@@ -91,7 +87,8 @@ export default function PostsManagementPage() {
   const handleDelete = async (id: string, collName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm("តើអ្នកពិតជាចង់លុបផុសនេះមែនទេ?")) {
-      await deleteDoc(doc(db, collName, id));
+      if (collName === 'lessons') await lessonService.delete(id);
+      else await methodologyService.delete(id);
     }
   };
 
@@ -113,14 +110,12 @@ export default function PostsManagementPage() {
     if (!postCodeField) return alert("សូមបញ្ចូលលេខកូដ (ID)!");
     
     // Check uniqueness across collections
-    const lessonsRef = collection(db, 'lessons');
-    const methodsRef = collection(db, 'methodologies');
-    const q1 = query(lessonsRef, where('postCode', '==', postCodeField));
-    const q2 = query(methodsRef, where('postCode', '==', postCodeField));
-    
     try {
-      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-      const isDuplicate = [...snap1.docs, ...snap2.docs].some(doc => doc.id !== editingId);
+      const [res1, res2] = await Promise.all([
+        lessonService.getByQuery('postCode', '==', postCodeField),
+        methodologyService.getByQuery('postCode', '==', postCodeField)
+      ]);
+      const isDuplicate = [...res1, ...res2].some((d: any) => d.id !== editingId);
       if (isDuplicate) {
         return alert("លេខកូដនេះមានរួចហើយ សូមប្រើលេខកូដផ្សេង!");
       }
@@ -138,7 +133,8 @@ export default function PostsManagementPage() {
     };
 
     if (editingId) {
-      await updateDoc(doc(db, editingCollection, editingId), postData);
+      if (editingCollection === 'lessons') await lessonService.update(editingId, postData);
+      else await methodologyService.update(editingId, postData);
     }
     
     setIsEditorOpen(false);
@@ -273,15 +269,13 @@ export default function PostsManagementPage() {
         let successCount = 0;
         let failCount = 0;
         
-        const lessonsRef = collection(db, 'lessons');
-        
         for (const row of data as any[]) {
            try {
              if (!row['ចំណងជើង']) continue;
              
              const code = row['លេខកូដ (ID)'] || Math.floor(1000 + Math.random() * 9000).toString();
              
-             await addDoc(lessonsRef, {
+             await lessonService.add({
                title: row['ចំណងជើង'],
                content: row['ខ្លឹមសារ (HTML)'],
                postCode: code,

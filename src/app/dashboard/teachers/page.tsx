@@ -3,8 +3,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { settingsService, teacherService } from '@/services/db';
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -58,24 +57,15 @@ export default function TeachersPage() {
       return;
     }
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.appUsers) {
-          setAppUsers(data.appUsers.filter((u: any) => u.role === 'admin' || u.role === 'teacher'));
-        }
+    const unsubSettings = settingsService.subscribeOne('global', (data) => {
+      if (data && data.appUsers) {
+        setAppUsers(data.appUsers.filter((u: any) => u.role === 'admin' || u.role === 'teacher'));
       }
     });
 
-    const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
-      const teachersData: any[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (currentRole === 'admin' || data.linkedUserId === userId || data.fullName === userName) {
-          teachersData.push({ id: docSnap.id, ...data });
-        }
-      });
-      setTeachers(teachersData);
+    const unsubscribe = teacherService.subscribeAll((data) => {
+      const filtered = data.filter((t: any) => currentRole === 'admin' || t.linkedUserId === userId || t.fullName === userName);
+      setTeachers(filtered);
     });
 
     return () => {
@@ -134,7 +124,7 @@ export default function TeachersPage() {
 
   const handleDeleteTeacher = (id: string) => {
     if (confirm('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
-      deleteDoc(doc(db, 'teachers', id));
+      teacherService.delete(id);
     }
   };
 
@@ -165,9 +155,9 @@ export default function TeachersPage() {
     };
     
     if (teacherEditId) {
-      updateDoc(doc(db, 'teachers', teacherEditId), newTeacher);
+      teacherService.update(teacherEditId, newTeacher);
     } else {
-      addDoc(collection(db, 'teachers'), newTeacher);
+      teacherService.add(newTeacher);
     }
     
     setIsTeacherModalOpen(false);

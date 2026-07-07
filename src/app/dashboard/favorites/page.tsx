@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, updateDoc, doc, query, where } from 'firebase/firestore';
+import { settingsService, lessonService, methodologyService } from '@/services/db';
 
 export default function FavoritesPage() {
   const router = useRouter();
@@ -55,23 +54,18 @@ export default function FavoritesPage() {
 
     if (!currentUserId) return;
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.appTags) setAvailableTags(data.appTags);
+    const unsubSettings = settingsService.subscribeOne('global', (data) => {
+      if (data && data.appTags) {
+        setAvailableTags(data.appTags);
       }
     });
 
-    const lessonsQuery = query(collection(db, 'lessons'), where('likes', 'array-contains', currentUserId));
-    const unsubLessons = onSnapshot(lessonsQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, collectionName: 'lessons', ...doc.data() }));
-      setLessonsPosts(data);
+    const unsubLessons = lessonService.subscribeByQuery('likes', 'array-contains', currentUserId, (data) => {
+      setLessonsPosts(data.map((d: any) => ({ ...d, collectionName: 'lessons' })));
     });
 
-    const methodsQuery = query(collection(db, 'methodologies'), where('likes', 'array-contains', currentUserId));
-    const unsubMethods = onSnapshot(methodsQuery, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, collectionName: 'methodologies', ...doc.data() }));
-      setMethodsPosts(data);
+    const unsubMethods = methodologyService.subscribeByQuery('likes', 'array-contains', currentUserId, (data) => {
+      setMethodsPosts(data.map((d: any) => ({ ...d, collectionName: 'methodologies' })));
     });
 
     return () => {
@@ -92,7 +86,11 @@ export default function FavoritesPage() {
       ? currentLikes.filter((id: string) => id !== userId)
       : [...currentLikes, userId];
     
-    updateDoc(doc(db, post.collectionName, post.id), { likes: newLikes });
+    if (post.collectionName === 'lessons') {
+      lessonService.update(post.id, { likes: newLikes });
+    } else if (post.collectionName === 'methodologies') {
+      methodologyService.update(post.id, { likes: newLikes });
+    }
     
     if (selectedPost && selectedPost.id === post.id) {
       setSelectedPost({ ...selectedPost, likes: newLikes });

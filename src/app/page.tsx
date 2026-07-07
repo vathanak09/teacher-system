@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { doc, getDoc } from 'firebase/firestore';
+import { settingsService } from '@/services/db';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -22,10 +21,8 @@ export default function LoginPage() {
 
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'global');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        const data = await settingsService.getById('global');
+        if (data) {
           if (data.appUsers) setDbUsers(data.appUsers);
           if (data.schoolName) setSchoolName(data.schoolName);
         } else {

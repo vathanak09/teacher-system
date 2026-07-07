@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { messageService, studentService } from '@/services/db';
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -28,23 +27,21 @@ export default function MessagesPage() {
       return;
     }
 
-    const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs: any[] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (currentRole === 'admin' || data.senderId === currentUserId || data.receiverId === currentUserId || data.receiverId === currentRole) {
-          msgs.push({ id: doc.id, ...data });
-        }
+    const unsubscribe = messageService.subscribeAll((data) => {
+      const filtered = data.filter((d: any) => currentRole === 'admin' || d.senderId === currentUserId || d.receiverId === currentUserId || d.receiverId === currentRole);
+      const sorted = filtered.sort((a: any, b: any) => {
+        const d1 = new Date(a.createdAt).getTime();
+        const d2 = new Date(b.createdAt).getTime();
+        return d2 - d1;
       });
-      setMessages(msgs);
+      setMessages(sorted);
     });
 
     return () => unsubscribe();
   }, [router]);
 
   const handleMarkAsRead = async (msgId: string) => {
-    await updateDoc(doc(db, 'messages', msgId), { isRead: true });
+    await messageService.update(msgId, { isRead: true });
   };
 
   const handleToggleChange = (msgId: string, key: string) => {
@@ -74,10 +71,10 @@ export default function MessagesPage() {
     });
 
     try {
-      await updateDoc(doc(db, 'students', msg.editRequestData.studentId), updates);
+      await studentService.update(msg.editRequestData.studentId, updates);
       
       // Update the message to indicate it was approved
-      await updateDoc(doc(db, 'messages', msg.id), {
+      await messageService.update(msg.id, {
         isApproved: true,
         approvedAt: new Date().toISOString()
       });
@@ -91,7 +88,7 @@ export default function MessagesPage() {
 
   const handleDelete = async (msgId: string) => {
     if (confirm('តើអ្នកពិតជាចង់លុបសារនេះមែនទេ?')) {
-      await deleteDoc(doc(db, 'messages', msgId));
+      await messageService.delete(msgId);
     }
   };
 
@@ -108,7 +105,7 @@ export default function MessagesPage() {
       isRead: false,
       createdAt: new Date().toISOString()
     };
-    await addDoc(collection(db, 'messages'), replyMsg);
+    await messageService.add(replyMsg);
     setReplyText('');
     setReplyingTo(null);
     alert('បានផ្ញើសារតបតជោគជ័យ!');

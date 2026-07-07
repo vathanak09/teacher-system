@@ -4,8 +4,7 @@ import { convertDriveImageLink } from '../../utils/driveLink';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { teacherService } from '@/services/db';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
@@ -47,12 +46,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const userId = localStorage.getItem('userId');
     const role = localStorage.getItem('userRole');
     if (role === 'teacher' || role === 'admin') {
-      const unsubscribe = onSnapshot(collection(db, 'teachers'), (snapshot) => {
+      const unsubscribe = teacherService.subscribeAll((teachers) => {
         let foundProfile = null;
-        snapshot.forEach((doc) => {
-          const data = doc.data();
+        teachers.forEach((data: any) => {
           if (data.linkedUserId === userId || data.fullName === storedName) {
-            foundProfile = { id: doc.id, ...data };
+            foundProfile = data;
           }
         });
         if (foundProfile) {

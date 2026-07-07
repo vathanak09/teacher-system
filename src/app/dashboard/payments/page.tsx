@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { studentService, paymentService, classService } from '@/services/db';
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -35,23 +34,11 @@ export default function PaymentsPage() {
       return;
     }
 
-    const unsubStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-      setStudents(data);
-    });
+    const unsubStudents = studentService.subscribeAll(setStudents);
 
-    const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-      setPayments(data);
-    });
+    const unsubPayments = paymentService.subscribeAll(setPayments);
 
-    const unsubClasses = onSnapshot(collection(db, 'classes'), (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-      setClassesData(data);
-    });
+    const unsubClasses = classService.subscribeAll(setClassesData);
 
     return () => { unsubStudents(); unsubPayments(); unsubClasses(); };
   }, [router]);
@@ -168,8 +155,8 @@ export default function PaymentsPage() {
     };
 
     try {
-      await addDoc(collection(db, 'payments'), paymentRecord);
-      await updateDoc(doc(db, 'students', selectedStudentId), {
+      await paymentService.add(paymentRecord);
+      await studentService.update(selectedStudentId, {
         nextPaymentDate: nextDate
       });
       setIsPaymentModalOpen(false);

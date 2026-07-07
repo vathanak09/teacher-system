@@ -12,8 +12,7 @@ function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { settingsService, lessonService, methodologyService } from '@/services/db';
 import AdvancedEditor from '@/components/AdvancedEditor';
 
 export default function LessonsPage() {
@@ -75,22 +74,15 @@ export default function LessonsPage() {
     setAuthorName(localStorage.getItem('userName') || 'Admin');
     setUserId(localStorage.getItem('userId') || '');
 
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const unsubSettings = settingsService.subscribeOne('global', (data) => {
+      if (data) {
         if (data.appTags) setAvailableTags(data.appTags);
         if (data.appTagGroups) setTagGroups(data.appTagGroups);
       }
     });
 
     // Load Posts
-    const unsubscribe = onSnapshot(collection(db, 'lessons'), (snapshot) => {
-      const postsData: any[] = [];
-      snapshot.forEach((doc) => {
-        postsData.push({ ...doc.data(), id: doc.id });
-      });
-      setPosts(postsData);
-    });
+    const unsubscribe = lessonService.subscribeAll(setPosts);
 
     return () => {
       unsubscribe();
@@ -127,14 +119,12 @@ export default function LessonsPage() {
     if (!postCodeField) return alert("សូមបញ្ចូលលេខកូដ (ID)!");
     
     // Check for uniqueness across lessons and methodologies
-    const lessonsRef = collection(db, 'lessons');
-    const methodsRef = collection(db, 'methodologies');
-    const q1 = query(lessonsRef, where('postCode', '==', postCodeField));
-    const q2 = query(methodsRef, where('postCode', '==', postCodeField));
-    
     try {
-      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-      const isDuplicate = [...snap1.docs, ...snap2.docs].some(doc => doc.id !== editingId);
+      const [res1, res2] = await Promise.all([
+        lessonService.getByQuery('postCode', '==', postCodeField),
+        methodologyService.getByQuery('postCode', '==', postCodeField)
+      ]);
+      const isDuplicate = [...res1, ...res2].some((d: any) => d.id !== editingId);
       if (isDuplicate) {
         return alert("លេខកូដនេះមានរួចហើយ សូមប្រើលេខកូដផ្សេង!");
       }
@@ -156,10 +146,10 @@ export default function LessonsPage() {
       postCode: postCodeField
     };
     if (editingId) {
-      await updateDoc(doc(db, 'lessons', editingId.toString()), postData);
+      await lessonService.update(editingId.toString(), postData);
     } else {
       postData.likes = [];
-      await addDoc(collection(db, 'lessons'), postData);
+      await lessonService.add(postData);
     }
     setIsEditorOpen(false);
     setTitle('');
@@ -171,7 +161,7 @@ export default function LessonsPage() {
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if(confirm("តើអ្នកពិតជាចង់លុបមេរៀននេះមែនទេ?")) {
-      deleteDoc(doc(db, 'lessons', id));
+      lessonService.delete(id);
     }
   };
 
@@ -184,7 +174,7 @@ export default function LessonsPage() {
       ? currentLikes.filter((id: string) => id !== userId)
       : [...currentLikes, userId];
     
-    updateDoc(doc(db, 'lessons', post.id), { likes: newLikes });
+    lessonService.update(post.id, { likes: newLikes });
   };
 
   // Enhanced Quill Modules with size, color, background-color, alignment

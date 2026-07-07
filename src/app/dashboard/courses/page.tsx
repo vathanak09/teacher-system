@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebaseClient';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { courseService } from '@/services/db';
 
 export default function CoursesPage() {
   const [role, setRole] = useState('');
@@ -17,13 +16,7 @@ export default function CoursesPage() {
   useEffect(() => {
     setRole(localStorage.getItem('userRole') || '');
 
-    const unsubscribe = onSnapshot(collection(db, 'courses'), (snapshot) => {
-      const coursesData: any[] = [];
-      snapshot.forEach((doc) => {
-        coursesData.push({ ...doc.data(), id: doc.id });
-      });
-      setCourses(coursesData);
-    });
+    const unsubscribe = courseService.subscribeAll(setCourses);
 
     return () => unsubscribe();
   }, []);
@@ -48,7 +41,7 @@ export default function CoursesPage() {
 
   const handleDelete = (id: number) => {
     if (confirm('តើអ្នកពិតជាចង់លុបវគ្គសិក្សានេះមែនទេ?')) {
-      deleteDoc(doc(db, 'courses', id.toString()));
+      courseService.delete(id.toString());
     }
   };
 
@@ -59,9 +52,9 @@ export default function CoursesPage() {
     }
     const courseData = { name, teacher, progress: Number(progress), status };
     if (editId) {
-      updateDoc(doc(db, 'courses', editId.toString()), courseData);
+      courseService.update(editId.toString(), courseData);
     } else {
-      addDoc(collection(db, 'courses'), courseData);
+      courseService.add(courseData);
     }
     setIsModalOpen(false);
   };
