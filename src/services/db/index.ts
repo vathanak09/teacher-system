@@ -13,3 +13,4 @@ export const settingsService = new FirebaseDataService<any>('settings');
 export const teachingRecordService = new FirebaseDataService<any>('teachingRecords');
 export const taskService = new FirebaseDataService<any>('tasks');
 export const postService = new FirebaseDataService<any>('posts');
+export const attendanceService = new FirebaseDataService<any>('attendance');
