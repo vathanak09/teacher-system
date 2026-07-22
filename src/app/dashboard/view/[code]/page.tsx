@@ -214,11 +214,36 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
 
       {/* Content */}
       <div className="glass-panel post-content-container">
+        {post.editorMode === 'html' ? (
+          <iframe 
+            srcDoc={
+              post.content.includes('<html') 
+                ? post.content 
+                : `<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${post.content}</body>`
+            }
+            style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            title="HTML Content"
+            onLoad={(e) => {
+              const iframe = e.target as HTMLIFrameElement;
+              const setHeight = () => {
+                try {
+                  if (iframe.contentWindow?.document?.documentElement) {
+                    iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
+                  }
+                } catch(err) {}
+              };
+              setHeight();
+              setTimeout(setHeight, 1000);
+            }}
+          />
+        ) : (
           <div 
-            className={post.editorMode === 'html' ? "html-content" : "ql-editor rich-text-content"} 
+            className="ql-editor rich-text-content" 
             dangerouslySetInnerHTML={{ __html: renderContentWithEmbeds(post.content, post.embeddedCodes) }} 
             style={{ padding: 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} 
           />
+        )}
       </div>
       
     </div>
