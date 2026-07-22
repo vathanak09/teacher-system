@@ -205,8 +205,8 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
                     iframe.style.height = doc.documentElement.scrollHeight + 'px';
                   };
                   setHeight();
-                  if (iframe.contentWindow?.ResizeObserver) {
-                    new iframe.contentWindow.ResizeObserver(setHeight).observe(doc.body);
+                  if ((iframe.contentWindow as any)?.ResizeObserver) {
+                    new (iframe.contentWindow as any).ResizeObserver(setHeight).observe(doc.body);
                   } else {
                     setInterval(setHeight, 1500);
                   }

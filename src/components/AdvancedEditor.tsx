@@ -23,12 +23,13 @@ interface AdvancedEditorProps {
   embeddedCodes: string[];
   onEmbeddedCodesChange: (codes: string[]) => void;
   placeholder?: string;
+  editorMode?: 'word' | 'html';
+  onEditorModeChange?: (mode: 'word' | 'html') => void;
 }
 
-export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmbeddedCodesChange, placeholder }: AdvancedEditorProps) {
+export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmbeddedCodesChange, placeholder, editorMode = 'word', onEditorModeChange }: AdvancedEditorProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  const [viewMode, setViewMode] = useState<'word' | 'html' | 'both'>('word');
   const [codeToEmbed, setCodeToEmbed] = useState('');
   const quillRef = useRef<any>(null);
 
@@ -104,9 +105,8 @@ export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmb
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
         
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="button" onClick={() => setViewMode('html')} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: viewMode === 'html' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'html' ? 'white' : 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>HTML Style</button>
-          <button type="button" onClick={() => setViewMode('both')} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: viewMode === 'both' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'both' ? 'white' : 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>Both</button>
-          <button type="button" onClick={() => setViewMode('word')} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: viewMode === 'word' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'word' ? 'white' : 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>Word Style</button>
+          <button type="button" onClick={() => onEditorModeChange?.('html')} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: editorMode === 'html' ? 'var(--primary-color)' : 'transparent', color: editorMode === 'html' ? 'white' : 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>HTML Style</button>
+          <button type="button" onClick={() => onEditorModeChange?.('word')} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: editorMode === 'word' ? 'var(--primary-color)' : 'transparent', color: editorMode === 'word' ? 'white' : 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>Word Style</button>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flex: 1, minWidth: '250px' }}>
@@ -128,12 +128,11 @@ export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmb
       </div>
 
       {/* Editor Area */}
-      <div style={{ display: 'flex', gap: '1rem', flexDirection: viewMode === 'both' ? (typeof window !== 'undefined' && window.innerWidth < 768 ? 'column' : 'row') : 'column' }}>
+      <div style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
         
         {/* HTML Mode */}
-        {(viewMode === 'html' || viewMode === 'both') && (
+        {editorMode === 'html' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {viewMode === 'both' && <div style={{ marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>HTML Style</div>}
             <textarea 
               value={content} 
               onChange={(e) => onChange(e.target.value)}
@@ -144,9 +143,8 @@ export default function AdvancedEditor({ content, onChange, embeddedCodes, onEmb
         )}
 
         {/* Word Mode */}
-        {(viewMode === 'word' || viewMode === 'both') && (
+        {editorMode === 'word' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {viewMode === 'both' && <div style={{ marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Word Style</div>}
             <div style={{ background: 'var(--main-bg)', borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
               <ReactQuill 
                 ref={quillRef}

@@ -47,6 +47,7 @@ export default function MethodologiesPage() {
   const [content, setContent] = useState('');
   const [embeddedCodes, setEmbeddedCodes] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<'word' | 'html'>('word');
 
   // Read post state
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -96,6 +97,7 @@ export default function MethodologiesPage() {
     setSelectedTags([]);
     setPostCodeField(generatePostCode());
     setEditingId(null);
+    setEditorMode('word');
     
     setIsEditorOpen(true);
   };
@@ -108,6 +110,7 @@ export default function MethodologiesPage() {
     setSelectedTags(post.tags || []);
     setPostCodeField(post.postCode || '');
     setEditingId(post.id);
+    setEditorMode(post.editorMode || 'word');
     
     setIsEditorOpen(true);
   };
@@ -143,7 +146,8 @@ export default function MethodologiesPage() {
       authorId: userId,
       authorRole: role,
       tags: selectedTags,
-      postCode: postCodeField
+      postCode: postCodeField,
+      editorMode
     };
     if (editingId) {
       await methodologyService.update(editingId.toString(), postData);
@@ -632,6 +636,8 @@ export default function MethodologiesPage() {
                 embeddedCodes={embeddedCodes} 
                 onEmbeddedCodesChange={setEmbeddedCodes} 
                 placeholder="សរសេរទីនេះ..." 
+                editorMode={editorMode}
+                onEditorModeChange={setEditorMode}
               />
             </div>
           </div>
