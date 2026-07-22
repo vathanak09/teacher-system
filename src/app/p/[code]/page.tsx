@@ -193,20 +193,24 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
                   ? post.content 
                   : `<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${post.content}</body>`
               }
-              style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
+              style={{ width: '100%', minHeight: '100px', border: 'none', background: 'transparent' }} 
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
               title="HTML Content"
               onLoad={(e) => {
                 const iframe = e.target as HTMLIFrameElement;
-                const setHeight = () => {
-                  try {
-                    if (iframe.contentWindow?.document?.documentElement) {
-                      iframe.style.height = iframe.contentWindow.document.documentElement.scrollHeight + 'px';
-                    }
-                  } catch(err) {}
-                };
-                setHeight();
-                setTimeout(setHeight, 1000);
+                try {
+                  const doc = iframe.contentWindow?.document;
+                  if (!doc) return;
+                  const setHeight = () => {
+                    iframe.style.height = doc.documentElement.scrollHeight + 'px';
+                  };
+                  setHeight();
+                  if (iframe.contentWindow?.ResizeObserver) {
+                    new iframe.contentWindow.ResizeObserver(setHeight).observe(doc.body);
+                  } else {
+                    setInterval(setHeight, 1500);
+                  }
+                } catch(err) {}
               }}
             />
           ) : (
