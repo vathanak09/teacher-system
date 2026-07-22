@@ -186,16 +186,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
 
         {/* Content */}
         <div className="post-content-container" style={{ background: 'var(--bg-secondary)', boxShadow: 'var(--shadow-sm)' }}>
-          {post.editorMode === 'html' ? (
-            <iframe 
-              srcDoc={`<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; }</style></head>${post.content}`}
-              style={{ width: '100%', minHeight: '85vh', border: 'none', background: 'transparent' }} 
-              sandbox="allow-scripts allow-same-origin allow-popups"
-              title="HTML Content"
-            />
-          ) : (
-            <div className="ql-editor rich-text-content" dangerouslySetInnerHTML={{ __html: post.content }} />
-          )}
+          <div className={post.editorMode === 'html' ? "html-content" : "ql-editor rich-text-content"} dangerouslySetInnerHTML={{ __html: post.content }} />
         </div>
         
       </div>
