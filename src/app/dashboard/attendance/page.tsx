@@ -37,10 +37,11 @@ export default function AttendancePage() {
     }
 
     const unsubscribeClasses = classService.subscribeAll(data => {
+      const teacherProfileId = localStorage.getItem('teacherProfileId') || '';
       if (currentRole === 'admin') {
         setClasses(data);
       } else {
-        setClasses(data.filter((c: any) => c.teacherId === currentUserId || c.teacherName === currentUserName));
+        setClasses(data.filter((c: any) => c.teacherId === teacherProfileId || c.teacherId === currentUserId || c.teacherName === currentUserName));
       }
     });
 

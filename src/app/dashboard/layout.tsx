@@ -56,9 +56,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (foundProfile) {
           setUserPhoto((foundProfile as any).photo || null);
           setProfileId((foundProfile as any).id);
+          localStorage.setItem('teacherProfileId', (foundProfile as any).id);
         } else {
           setUserPhoto(null);
           setProfileId(null);
+          localStorage.removeItem('teacherProfileId');
         }
       });
       return () => unsubscribe();

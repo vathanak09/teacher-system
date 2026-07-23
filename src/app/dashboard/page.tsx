@@ -25,8 +25,9 @@ export default function DashboardPage() {
     
     // Subscriptions
     const unsubClasses = classService.subscribeAll(data => {
+      const teacherProfileId = localStorage.getItem('teacherProfileId') || '';
       if (currentRole === 'admin') setClasses(data);
-      else setClasses(data.filter((c: any) => c.teacherId === currentUserId || c.teacherName === currentUserName));
+      else setClasses(data.filter((c: any) => c.teacherId === teacherProfileId || c.teacherId === currentUserId || c.teacherName === currentUserName));
     });
     
     const unsubStudents = studentService.subscribeAll(data => {

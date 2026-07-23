@@ -173,7 +173,8 @@ export default function ClassesPage() {
     const unsubscribeTeachers = teacherService.subscribeAll(setAllTeachers);
 
     const unsubscribeClasses = classService.subscribeAll((classesData) => {
-      const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === currentUserId || data.teacherName === currentUserName);
+      const teacherProfileId = localStorage.getItem('teacherProfileId') || '';
+      const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === teacherProfileId || data.teacherId === currentUserId || data.teacherName === currentUserName);
       setClasses(filtered);
       setViewingClass((prev: any) => {
         if (!prev) return prev;
