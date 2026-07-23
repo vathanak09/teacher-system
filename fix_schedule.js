@@ -1,4 +1,5 @@
-"use client";
+﻿const fs = require('fs');
+const content = "use client";
 export default function SchedulePage() {
   return (
     <div className="page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -8,3 +9,5 @@ export default function SchedulePage() {
     </div>
   );
 }
+;
+fs.writeFileSync('src/app/dashboard/schedule/page.tsx', content, 'utf8');
