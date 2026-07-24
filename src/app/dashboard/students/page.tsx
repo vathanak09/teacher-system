@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { settingsService, studentService, classService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
+import SortDropdown from '@/components/SortDropdown';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -179,7 +180,8 @@ export default function StudentsPage() {
   const [studentLevelFilter, setStudentLevelFilter] = useState('all');
   const [studentShiftFilter, setStudentShiftFilter] = useState('all');
   const [studentStatusFilter, setStudentStatusFilter] = useState('កំពុងសិក្សា');
-  const [studentSortBy, setStudentSortBy] = useState('id'); // 'id' | 'name' | 'dob'
+  const [studentSortBy, setStudentSortBy] = useState('studentId');
+  const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic Options States
@@ -581,10 +583,18 @@ export default function StudentsPage() {
       return matchesSearch && matchesClass && matchesLevel && matchesShift && matchesStatus;
     })
     .sort((a, b) => {
-      if (studentSortBy === 'id') return a.studentId.localeCompare(b.studentId);
-      if (studentSortBy === 'name') return a.fullName.localeCompare(b.fullName, 'km-KH');
-      if (studentSortBy === 'dob') return a.dob.localeCompare(b.dob);
-      return 0;
+      let comparison = 0;
+      const valA = (a[studentSortBy] || '').toString();
+      const valB = (b[studentSortBy] || '').toString();
+      
+      // Try numeric sort if both are numbers (like fee), else localeCompare
+      if (!isNaN(Number(valA)) && !isNaN(Number(valB)) && valA !== '' && valB !== '') {
+        comparison = Number(valA) - Number(valB);
+      } else {
+        comparison = valA.localeCompare(valB, 'km-KH');
+      }
+      
+      return studentSortOrder === 'asc' ? comparison : -comparison;
     });
 
   const totalInFilter = filteredAndSortedStudents.length;
@@ -705,9 +715,30 @@ export default function StudentsPage() {
             </button>
           )}
 
-          <button onClick={() => setStudentSortBy(studentSortBy === 'id' ? 'name' : studentSortBy === 'name' ? 'dob' : 'id')} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="តម្រៀប">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 9 17 9 17 21 13 21 13 9 9 9 15 3"></polyline><polyline points="9 21 3 15 7 15 7 3 11 3 11 15 15 15 9 21"></polyline></svg>
-          </button>
+          <SortDropdown 
+            options={[
+              { value: 'studentId', label: 'អត្តលេខ' },
+              { value: 'fullName', label: 'ឈ្មោះ' },
+              { value: 'englishName', label: 'ឈ្មោះឡាតាំង' },
+              { value: 'gender', label: 'ភេទ' },
+              { value: 'level', label: 'កម្រិតសិក្សា' },
+              { value: 'shift', label: 'វេន' },
+              { value: 'enrollDate', label: 'ថ្ងៃខែចុះឈ្មោះ' },
+              { value: 'fee', label: 'តម្លៃសិក្សា' },
+              { value: 'nextPaymentDate', label: 'ថ្ងៃបង់ប្រាក់បន្ទាប់' },
+              { value: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
+              { value: 'status', label: 'ស្ថានភាពសិក្សា' },
+              { value: 'className', label: 'ថ្នាក់រៀន' },
+              { value: 'teacherName', label: 'គ្រូបង្រៀន' },
+              { value: 'dob', label: 'ថ្ងៃខែឆ្នាំកំណើត' }
+            ]}
+            sortBy={studentSortBy}
+            sortOrder={studentSortOrder}
+            onSortChange={(by, order) => {
+              setStudentSortBy(by);
+              setStudentSortOrder(order);
+            }}
+          />
           
           <button onClick={() => { setStudentSearch(''); setStudentClassFilter('all'); setStudentLevelFilter('all'); setStudentShiftFilter('all'); setStudentStatusFilter('កំពុងសិក្សា'); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>

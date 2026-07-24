@@ -34,7 +34,7 @@ export default function DashboardPage() {
        setStudents(data);
     });
     
-    const unsubMessages = messageService.subscribeAll(data => {
+    const unsubMessages = messageService.listenAll(data => {
       if (currentRole === 'admin') {
          setMessages(data.filter((m: any) => m.receiverId === 'admin' || m.receiverId === 'all_teachers'));
       } else {

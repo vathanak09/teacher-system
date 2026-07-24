@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
 import AdvancedEditor from '@/components/AdvancedEditor';
+import SortDropdown from '@/components/SortDropdown';
 
 export default function LessonsPage() {
   const router = useRouter();
@@ -34,7 +35,8 @@ export default function LessonsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [postCodeField, setPostCodeField] = useState('');
   const [filterAuthor, setFilterAuthor] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterTagsByGroup, setFilterTagsByGroup] = useState<Record<number, string>>({});
 
   // Tag & Tag Group lists
@@ -61,13 +63,18 @@ export default function LessonsPage() {
     const cached_filterAuthor = sessionStorage.getItem('lessons_filterAuthor');
     if (cached_filterAuthor !== null) setFilterAuthor(cached_filterAuthor as any);
     const cached_sortBy = sessionStorage.getItem('lessons_sortBy');
+    const cached_sortOrder = sessionStorage.getItem('lessons_sortOrder');
     if (cached_sortBy !== null) setSortBy(cached_sortBy as any);
+    if (cached_sortOrder !== null) setSortOrder(cached_sortOrder as any);
   }, []);
 
   useEffect(() => { sessionStorage.setItem('lessons_searchQuery', searchQuery); }, [searchQuery]);
   useEffect(() => { sessionStorage.setItem('lessons_viewMode', viewMode); }, [viewMode]);
   useEffect(() => { sessionStorage.setItem('lessons_filterAuthor', filterAuthor); }, [filterAuthor]);
-  useEffect(() => { sessionStorage.setItem('lessons_sortBy', sortBy); }, [sortBy]);
+  useEffect(() => { 
+    sessionStorage.setItem('lessons_sortBy', sortBy); 
+    sessionStorage.setItem('lessons_sortOrder', sortOrder); 
+  }, [sortBy, sortOrder]);
   // ----------------------
 
   useEffect(() => {
@@ -237,13 +244,21 @@ export default function LessonsPage() {
       
       return matchesSearch && matchesFilter && matchesGroupTags;
     })
-    .sort((a, b) => {
-      if (sortBy === 'popular') return ((b.views || 0) + (b.likes?.length || 0)) - ((a.views || 0) + (a.likes?.length || 0));
-      if (sortBy === 'newest') return (b.timestamp || 0) - (a.timestamp || 0);
-      if (sortBy === 'oldest') return (a.timestamp || 0) - (b.timestamp || 0);
-      if (sortBy === 'title') return a.title.localeCompare(b.title, 'km-KH');
-      return 0;
-    });
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === 'popular') {
+          comparison = ((a.views || 0) + (a.likes?.length || 0)) - ((b.views || 0) + (b.likes?.length || 0));
+        } else if (sortBy === 'views') {
+          comparison = (a.views || 0) - (b.views || 0);
+        } else if (sortBy === 'title') {
+          comparison = (a.title || '').localeCompare(b.title || '', 'km-KH');
+        } else if (sortBy === 'postCode') {
+          comparison = (a.postCode || '').localeCompare(b.postCode || '');
+        } else {
+          comparison = (a.timestamp || 0) - (b.timestamp || 0);
+        }
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
 
   return (
     <>
@@ -305,17 +320,21 @@ export default function LessonsPage() {
             <option value="others">មេរៀនអ្នកដទៃ</option>
           </select>
 
-          <select 
-            className="input-field" 
-            value={sortBy} 
-            onChange={e => setSortBy(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
-          >
-            <option value="popular">ពេញនិយមជាងគេ</option>
-            <option value="newest">ថ្មីបំផុត</option>
-            <option value="oldest">ចាស់បំផុត</option>
-            <option value="title">តាមចំណងជើង (ក-ខ)</option>
-          </select>
+          <SortDropdown 
+            options={[
+              { value: 'popular', label: 'ពេញនិយមជាងគេ' },
+              { value: 'views', label: 'អ្នកចូលមើល' },
+              { value: 'date', label: 'កាលបរិច្ឆេទ' },
+              { value: 'title', label: 'ចំណងជើង' },
+              { value: 'postCode', label: 'លេខកូដ' }
+            ]}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={(by, order) => {
+              setSortBy(by);
+              setSortOrder(order);
+            }}
+          />
           <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
             <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'grid' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'grid' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="Grid View">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>

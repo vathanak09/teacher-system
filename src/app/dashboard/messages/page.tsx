@@ -48,7 +48,7 @@ export default function MessagesPage() {
     const unsubscribeClasses = classService.subscribeAll(setClasses);
     const unsubscribeTeachers = teacherService.subscribeAll(setTeachers);
     const unsubscribePosts = postService.subscribeAll(setPosts);
-    const unsubscribe = messageService.subscribeAll((data) => {
+    const unsubscribe = messageService.listenAll((data) => {
       const filtered = data.filter((d: any) => currentRole === 'admin' || d.senderId === currentUserId || d.receiverId === currentUserId || d.receiverId === currentRole);
       const sorted = filtered.sort((a: any, b: any) => {
         const d1 = new Date(a.createdAt).getTime();

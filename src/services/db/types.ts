@@ -34,6 +34,16 @@ export interface IDataService<T> {
   getAll(): Promise<T[]>;
 
   /**
+   * Get the total count of documents in the collection without downloading them.
+   */
+  getCount(): Promise<number>;
+
+  /**
+   * Get the total count of documents based on a query without downloading them.
+   */
+  getCountByQuery(field: string, op: WhereFilterOp, value: any): Promise<number>;
+
+  /**
    * Get a single document by ID once.
    */
   getById(id: string): Promise<T | null>;

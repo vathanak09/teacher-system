@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
+import SortDropdown from '@/components/SortDropdown';
 
 // 15 Icons
 const ICONS = [
@@ -662,20 +663,18 @@ export default function ClassesPage() {
                   const sortedEnrolledStudents = [...enrolledStudents].sort((a: any, b: any) => {
                     if (!classSortConfig) return 0;
                     const { key, direction } = classSortConfig;
-                    let aVal = a[key] || '';
-                    let bVal = b[key] || '';
-                    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-                    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
-                    return 0;
-                  });
-
-                  const handleClassSort = (key: string) => {
-                    let direction: 'asc' | 'desc' = 'asc';
-                    if (classSortConfig && classSortConfig.key === key && classSortConfig.direction === 'asc') {
-                      direction = 'desc';
+                    const aVal = (a[key] || '').toString();
+                    const bVal = (b[key] || '').toString();
+                    
+                    let comparison = 0;
+                    if (!isNaN(Number(aVal)) && !isNaN(Number(bVal)) && aVal !== '' && bVal !== '') {
+                      comparison = Number(aVal) - Number(bVal);
+                    } else {
+                      comparison = aVal.localeCompare(bVal, 'km-KH');
                     }
-                    setClassSortConfig({ key, direction });
-                  };
+                    
+                    return direction === 'asc' ? comparison : -comparison;
+                  });
 
                   const toggleClassColumn = (colId: string) => {
                     if (classVisibleColumns.includes(colId)) {
@@ -741,13 +740,23 @@ export default function ClassesPage() {
                           </button>
 
                           {/* Sort Button */}
-                          <button 
-                            onClick={() => handleClassSort(classSortConfig?.key === 'fullName' ? 'gender' : classSortConfig?.key === 'gender' ? 'shift' : 'fullName')}
-                            style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-                            តម្រៀប
-                          </button>
+                          <SortDropdown 
+                            options={[
+                              { value: 'studentId', label: 'អត្តលេខ' },
+                              { value: 'fullName', label: 'ឈ្មោះ' },
+                              { value: 'englishName', label: 'ឈ្មោះឡាតាំង' },
+                              { value: 'gender', label: 'ភេទ' },
+                              { value: 'level', label: 'កម្រិតសិក្សា' },
+                              { value: 'shift', label: 'វេន' },
+                              { value: 'enrollDate', label: 'ថ្ងៃខែចុះឈ្មោះ' },
+                              { value: 'phoneNum', label: 'លេខទូរស័ព្ទ' }
+                            ]}
+                            sortBy={classSortConfig?.key || 'fullName'}
+                            sortOrder={classSortConfig?.direction || 'asc'}
+                            onSortChange={(by, order) => {
+                              setClassSortConfig({ key: by, direction: order });
+                            }}
+                          />
 
                           {/* Columns Dropdown */}
                           <div style={{ position: 'relative' }} ref={classColumnDropdownRef}>

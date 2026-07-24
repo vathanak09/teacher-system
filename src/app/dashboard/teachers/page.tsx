@@ -4,6 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, teacherService } from '@/services/db';
+import SortDropdown from '@/components/SortDropdown';
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -12,6 +13,9 @@ export default function TeachersPage() {
   const [currentUserName, setCurrentUserName] = useState('');
   const [appUsers, setAppUsers] = useState<any[]>([]);
   const [linkedUserIdField, setLinkedUserIdField] = useState('');
+  
+  const [teacherSortBy, setTeacherSortBy] = useState('teacherId');
+  const [teacherSortOrder, setTeacherSortOrder] = useState<'asc' | 'desc'>('asc');
   
   // State for Teachers
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -175,8 +179,18 @@ export default function TeachersPage() {
   };
 
   const filteredTeachers = teachers.filter(t => 
-    t.fullName.includes(search) || t.englishName.toLowerCase().includes(search.toLowerCase()) || t.teacherId.includes(search)
-  );
+    t.fullName.includes(search) || t.englishName.toLowerCase().includes(search.toLowerCase()) || (t.teacherId && t.teacherId.includes(search))
+  ).sort((a, b) => {
+    let comparison = 0;
+    if (teacherSortBy === 'startDate') {
+      comparison = new Date(a.startDate || 0).getTime() - new Date(b.startDate || 0).getTime();
+    } else {
+      const valA = (a[teacherSortBy] || '').toString();
+      const valB = (b[teacherSortBy] || '').toString();
+      comparison = valA.localeCompare(valB, 'km-KH');
+    }
+    return teacherSortOrder === 'asc' ? comparison : -comparison;
+  });
 
   if (!role) return null;
 
@@ -208,6 +222,25 @@ export default function TeachersPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+              <SortDropdown 
+                options={[
+                  { value: 'teacherId', label: 'អត្តលេខ' },
+                  { value: 'fullName', label: 'ឈ្មោះ' },
+                  { value: 'englishName', label: 'ឈ្មោះឡាតាំង' },
+                  { value: 'gender', label: 'ភេទ' },
+                  { value: 'phone', label: 'លេខទូរស័ព្ទ' },
+                  { value: 'startDate', label: 'ថ្ងៃចូលបង្រៀន' }
+                ]}
+                sortBy={teacherSortBy}
+                sortOrder={teacherSortOrder}
+                onSortChange={(by, order) => {
+                  setTeacherSortBy(by);
+                  setTeacherSortOrder(order);
+                }}
               />
             </div>
           </div>

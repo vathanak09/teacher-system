@@ -14,7 +14,8 @@ import {
   orderBy,
   Query,
   DocumentData,
-  CollectionReference
+  CollectionReference,
+  getCountFromServer
 } from 'firebase/firestore';
 import { IDataService, WhereFilterOp, OrderByDirection } from './types';
 
@@ -29,7 +30,7 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
     return collection(db, this.collectionName);
   }
 
-  subscribeAll(
+  listenAll(
     callback: (data: T[]) => void,
     orderByField?: string,
     orderDirection?: OrderByDirection
@@ -46,6 +47,28 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
       });
       callback(data);
     });
+  }
+
+  subscribeAll(
+    callback: (data: T[]) => void,
+    orderByField?: string,
+    orderDirection?: OrderByDirection
+  ): () => void {
+    let q: Query<DocumentData> = this.collectionRef;
+    if (orderByField) {
+      q = query(this.collectionRef, orderBy(orderByField, orderDirection || 'asc'));
+    }
+
+    getDocs(q).then((snapshot) => {
+      const data: T[] = [];
+      snapshot.forEach((docSnap) => {
+        data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
+      });
+      callback(data);
+    });
+    
+    // Return dummy unsubscribe function
+    return () => {};
   }
 
   subscribeOne(id: string, callback: (data: T | null) => void): () => void {
@@ -82,6 +105,17 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
       data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
     });
     return data;
+  }
+
+  async getCount(): Promise<number> {
+    const snapshot = await getCountFromServer(this.collectionRef);
+    return snapshot.data().count;
+  }
+
+  async getCountByQuery(field: string, op: WhereFilterOp, value: any): Promise<number> {
+    const q = query(this.collectionRef, where(field, op as any, value));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
   }
 
   async getById(id: string): Promise<T | null> {
