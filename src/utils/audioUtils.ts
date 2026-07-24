@@ -43,15 +43,15 @@ export const playTadaSound = () => {
     ctx.resume();
   }
 
-  // Play a simple "Ta-da!" arpeggio
-  const playNote = (freq: number, startTime: number, duration: number) => {
+  // Play a more exciting "Ta-da!" fanfare
+  const playNote = (freq: number, startTime: number, duration: number, type: OscillatorType = 'square', vol = 0.2) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     
-    osc.type = 'square';
+    osc.type = type;
     osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
     
-    gain.gain.setValueAtTime(0.2, ctx.currentTime + startTime);
+    gain.gain.setValueAtTime(vol, ctx.currentTime + startTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
     
     osc.connect(gain);
@@ -61,8 +61,11 @@ export const playTadaSound = () => {
     osc.stop(ctx.currentTime + startTime + duration);
   };
 
-  playNote(392.00, 0, 0.15); // G4
-  playNote(523.25, 0.15, 0.4); // C5
+  // C major arpeggio going up!
+  playNote(261.63, 0, 0.15);    // C4
+  playNote(329.63, 0.15, 0.15); // E4
+  playNote(392.00, 0.3, 0.15);  // G4
+  playNote(523.25, 0.45, 0.6, 'sine', 0.3); // C5 (Longer and smoother finish)
 };
 
 export const playRunningSound = () => {

@@ -5,9 +5,10 @@ import { playRunningSound, playTadaSound } from '@/utils/audioUtils';
 interface RaceVisualizerProps {
   items: string[];
   onWinner?: (winner: string) => void;
+  raceType?: 'running' | 'bicycle';
 }
 
-const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
+const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceType = 'running' }) => {
   const [raceState, setRaceState] = useState<'idle' | 'racing' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
@@ -39,7 +40,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
       playTadaSound();
       if (onWinner) onWinner(items[winnerIdx]);
       
-      // Auto scroll to winner if out of view
+      // Auto scroll to winner if out of view (only if container is scrolling)
       if (containerRef.current) {
         const winnerEl = containerRef.current.children[winnerIdx] as HTMLElement;
         if (winnerEl) {
@@ -63,6 +64,20 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
     );
   }
 
+  // Dynamic Sizing calculations
+  // We want to fit all runners in 400px (or roughly the screen height) if possible.
+  // Minimum lane height is 30px so it's somewhat readable.
+  const maxContainerHeight = 500;
+  const preferredLaneHeight = 50; // default large size
+  const calculatedLaneHeight = Math.floor(maxContainerHeight / items.length);
+  const laneHeight = Math.max(30, Math.min(preferredLaneHeight, calculatedLaneHeight));
+  
+  // Font sizes scale with lane height
+  const iconSize = Math.max(14, laneHeight * 0.4);
+  const fontSize = Math.max(9, laneHeight * 0.25);
+
+  const iconEmoji = raceType === 'running' ? '🏃‍♂️' : '🚴‍♂️';
+
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
@@ -72,7 +87,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
           className="btn btn-primary"
           style={{ padding: '0.75rem 2rem', fontSize: '1.2rem' }}
         >
-          {raceState === 'racing' ? 'កំពុងប្រណាំង...' : 'ចាប់ផ្តើមប្រណាំង'}
+          {raceState === 'racing' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
         </button>
         {raceState === 'finished' && (
           <button onClick={resetRace} className="btn" style={{ padding: '0.75rem 2rem' }}>
@@ -102,13 +117,13 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
         style={{ 
           position: 'relative', 
           width: '100%', 
-          height: '400px', 
+          height: `${Math.min(maxContainerHeight, items.length * laneHeight + 20)}px`, 
           overflowY: 'auto', 
           overflowX: 'hidden',
           background: '#f8fafc',
           border: '2px solid #cbd5e1',
           borderRadius: '12px',
-          padding: '1rem 0'
+          padding: '10px 0'
         }}
       >
         {/* Finish Line Indicator */}
@@ -123,14 +138,14 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
           zIndex: 0
         }} />
 
-        <div ref={containerRef} style={{ position: 'relative', zIndex: 1, paddingBottom: '2rem' }}>
+        <div ref={containerRef} style={{ position: 'relative', zIndex: 1 }}>
           {items.map((item, index) => {
             const duration = durations[index] || 0;
             const isFinished = raceState === 'finished';
             const isWinner = isFinished && index === winnerIndex;
             
-            // Movement: 0% left initially. If racing or finished, move to calc(100% - 60px)
-            const translateX = raceState !== 'idle' ? 'calc(100% - 70px)' : '10px';
+            // Movement: 0% left initially. If racing or finished, move to calc(100% - offset)
+            const translateX = raceState !== 'idle' ? 'calc(100% - 65px)' : '10px';
             
             return (
               <div 
@@ -138,9 +153,8 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  marginBottom: '1rem',
                   position: 'relative',
-                  height: '40px'
+                  height: `${laneHeight}px`
                 }}
               >
                 {/* Lane line */}
@@ -150,23 +164,44 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner }) => {
                 <div 
                   style={{ 
                     display: 'flex', 
+                    flexDirection: 'column', // Name above icon
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    justifyContent: 'center',
                     position: 'absolute',
                     left: 0,
                     transform: `translateX(${translateX})`,
                     transition: raceState === 'racing' ? `transform ${duration}ms ease-in` : (raceState === 'idle' ? 'transform 0s' : 'none'),
                     zIndex: isWinner ? 10 : 1,
-                    background: isWinner ? '#fef08a' : 'white',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: '20px',
-                    border: `2px solid ${colors[index % colors.length]}`,
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                    whiteSpace: 'nowrap'
                   }}
                 >
-                  <span style={{ fontSize: '1.2rem' }}>{isWinner ? '🏆' : '🏃'}</span>
-                  <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>{item.length > 15 ? item.substring(0, 15) + '...' : item}</span>
+                  <span style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: `${fontSize}px`, 
+                    color: '#334155',
+                    background: 'rgba(255,255,255,0.8)',
+                    padding: '0 4px',
+                    borderRadius: '4px',
+                    whiteSpace: 'nowrap',
+                    marginBottom: '2px', // space between name and icon
+                    boxShadow: isWinner ? '0 0 5px gold' : 'none'
+                  }}>
+                    {item.length > 15 ? item.substring(0, 15) + '...' : item}
+                  </span>
+                  <div style={{
+                    fontSize: `${iconSize}px`,
+                    background: isWinner ? '#fef08a' : 'white',
+                    padding: '2px',
+                    borderRadius: '50%',
+                    border: `2px solid ${colors[index % colors.length]}`,
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: `${iconSize + 10}px`,
+                    height: `${iconSize + 10}px`
+                  }}>
+                    {isWinner ? '🏆' : iconEmoji}
+                  </div>
                 </div>
               </div>
             );

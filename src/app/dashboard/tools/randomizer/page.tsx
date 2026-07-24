@@ -6,12 +6,14 @@ import GroupGenerator from '@/components/GroupGenerator';
 import RaceVisualizer from '@/components/RaceVisualizer';
 
 export default function RandomizerPage() {
-  const [activeTab, setActiveTab] = useState<'picker' | 'race' | 'groups'>('picker');
+  const [activeTab, setActiveTab] = useState<'picker' | 'groups'>('picker');
+  const [subTab, setSubTab] = useState<'wheel' | 'running' | 'bicycle'>('wheel');
   
   // Data State
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [hasAutoImported, setHasAutoImported] = useState(false);
   
   // Name List State
   const [names, setNames] = useState<string[]>([]);
@@ -47,10 +49,16 @@ export default function RandomizerPage() {
     const currentUserName = localStorage.getItem('userName');
 
     const unsubClasses = classService.subscribeAll(data => {
-      if (currentRole === 'admin') {
-        setClasses(data);
-      } else {
-        setClasses(data.filter((c: any) => c.teacherId === teacherProfileId || c.teacherId === currentUserId || c.teacherName === currentUserName));
+      let filteredClasses = data;
+      if (currentRole !== 'admin') {
+        filteredClasses = data.filter((c: any) => c.teacherId === teacherProfileId || c.teacherId === currentUserId || c.teacherName === currentUserName);
+      }
+      setClasses(filteredClasses);
+      
+      // Auto-fetch if exactly 1 class and haven't done it yet
+      if (filteredClasses.length === 1 && !hasAutoImported) {
+        setSelectedClassId(filteredClasses[0].id);
+        setHasAutoImported(true); // prevent loop
       }
     });
 
@@ -64,7 +72,14 @@ export default function RandomizerPage() {
     }
 
     return () => unsubClasses();
-  }, []);
+  }, [hasAutoImported]);
+
+  // Effect to handle auto import when selectedClassId is set by auto-fetch logic
+  useEffect(() => {
+    if (hasAutoImported && selectedClassId && names.length === 0) {
+      handleImportClass();
+    }
+  }, [hasAutoImported, selectedClassId]);
 
   useEffect(() => {
     localStorage.setItem('toolNamesList', JSON.stringify(names));
@@ -85,7 +100,13 @@ export default function RandomizerPage() {
         return (selectedClass?.studentIds && selectedClass.studentIds.includes(s.id)) || s.className === selectedClass?.className;
       });
       const activeStudents = classStudents.filter(s => s.status !== 'ឈប់សិក្សា' && s.status !== 'ព្យួរការសិក្សា');
-      const studentNames = activeStudents.map(s => s.fullName || s.englishName).filter(Boolean);
+      
+      // Append className to the name
+      const studentNames = activeStudents.map(s => {
+        const baseName = s.fullName || s.englishName || '';
+        const cls = s.className ? ` (${s.className})` : '';
+        return baseName + cls;
+      }).filter(n => n.trim() !== '');
       
       if (studentNames.length > 0) {
         const newNamesList = Array.from(new Set([...names, ...studentNames]));
@@ -134,10 +155,7 @@ export default function RandomizerPage() {
   };
 
   const handleWinnerSelected = (winnerName: string) => {
-    // Add to history
     setHistory(prev => [winnerName, ...prev]);
-    
-    // Remove if requested
     if (removeWinner) {
       setNames(prev => prev.filter(n => n !== winnerName));
     }
@@ -189,25 +207,33 @@ export default function RandomizerPage() {
               {/* Settings & Import */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', background: 'var(--main-bg)', padding: '0.75rem', borderRadius: '12px' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ទាញយកពីថ្នាក់រៀន</label>
-                <select 
-                  value={selectedClassId} 
-                  onChange={e => setSelectedClassId(e.target.value)}
-                  className="input-field"
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
-                >
-                  <option value="">ជ្រើសរើសថ្នាក់...</option>
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.className} - {c.teacherName || 'គ្មានគ្រូ'}</option>
-                  ))}
-                </select>
-                <button 
-                  onClick={handleImportClass} 
-                  disabled={!selectedClassId || isLoadingStudents}
-                  className="btn btn-primary" 
-                  style={{ width: '100%', padding: '0.5rem' }}
-                >
-                  {isLoadingStudents ? 'កំពុងទាញយក...' : 'នាំចូលឈ្មោះសិស្ស'}
-                </button>
+                {classes.length > 1 ? (
+                  <select 
+                    value={selectedClassId} 
+                    onChange={e => setSelectedClassId(e.target.value)}
+                    className="input-field"
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
+                  >
+                    <option value="">ជ្រើសរើសថ្នាក់...</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.className} - {c.teacherName || 'គ្មានគ្រូ'}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ color: 'var(--primary-color)', fontSize: '0.9rem', padding: '0.25rem 0' }}>
+                    {classes.length === 1 ? `${classes[0].className} (ទាញយកស្វ័យប្រវត្តិ)` : 'មិនមានថ្នាក់ទេ'}
+                  </div>
+                )}
+                {classes.length > 1 && (
+                  <button 
+                    onClick={handleImportClass} 
+                    disabled={!selectedClassId || isLoadingStudents}
+                    className="btn btn-primary" 
+                    style={{ width: '100%', padding: '0.5rem' }}
+                  >
+                    {isLoadingStudents ? 'កំពុងទាញយក...' : 'នាំចូលឈ្មោះសិស្ស'}
+                  </button>
+                )}
               </div>
 
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', marginBottom: '1rem' }}>
@@ -285,12 +311,12 @@ export default function RandomizerPage() {
         {/* Main Workspace */}
         <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
-          {/* Tabs */}
+          {/* Main Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
             <button
               onClick={() => setActiveTab('picker')}
               style={{
-                padding: '1rem',
+                padding: '1rem 2rem',
                 background: 'none',
                 border: 'none',
                 borderBottom: activeTab === 'picker' ? '3px solid var(--primary-color)' : '3px solid transparent',
@@ -304,31 +330,12 @@ export default function RandomizerPage() {
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-              កង់រង្វិល
-            </button>
-            <button
-              onClick={() => setActiveTab('race')}
-              style={{
-                padding: '1rem',
-                background: 'none',
-                border: 'none',
-                borderBottom: activeTab === 'race' ? '3px solid var(--primary-color)' : '3px solid transparent',
-                color: activeTab === 'race' ? 'var(--primary-color)' : 'var(--text-secondary)',
-                fontWeight: activeTab === 'race' ? 700 : 500,
-                fontSize: '1rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-              ការរត់ប្រណាំង
+              ជ្រើសរើសសិស្ស
             </button>
             <button
               onClick={() => setActiveTab('groups')}
               style={{
-                padding: '1rem',
+                padding: '1rem 2rem',
                 background: 'none',
                 border: 'none',
                 borderBottom: activeTab === 'groups' ? '3px solid var(--primary-color)' : '3px solid transparent',
@@ -346,18 +353,51 @@ export default function RandomizerPage() {
             </button>
           </div>
 
+          {/* Sub Tabs for Picker */}
+          {activeTab === 'picker' && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 1rem 0 1rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setSubTab('wheel')}
+                className={subTab === 'wheel' ? 'btn btn-primary' : 'btn'}
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+              >
+                🎡 កង់រង្វិល
+              </button>
+              <button
+                onClick={() => setSubTab('running')}
+                className={subTab === 'running' ? 'btn btn-primary' : 'btn'}
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+              >
+                🏃 ការរត់ប្រណាំង
+              </button>
+              <button
+                onClick={() => setSubTab('bicycle')}
+                className={subTab === 'bicycle' ? 'btn btn-primary' : 'btn'}
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+              >
+                🚴 ការប្រណាំងកង់
+              </button>
+            </div>
+          )}
+
           {/* Content Area */}
           <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '1rem' : '2rem', display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: '100%', maxWidth: '800px' }}>
-              {activeTab === 'picker' && (
+              {activeTab === 'picker' && subTab === 'wheel' && (
                 <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <SpinningWheel items={names} onWinner={handleWinnerSelected} />
                 </div>
               )}
 
-              {activeTab === 'race' && (
+              {activeTab === 'picker' && subTab === 'running' && (
                 <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <RaceVisualizer items={names} onWinner={handleWinnerSelected} />
+                  <RaceVisualizer items={names} onWinner={handleWinnerSelected} raceType="running" />
+                </div>
+              )}
+              
+              {activeTab === 'picker' && subTab === 'bicycle' && (
+                <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <RaceVisualizer items={names} onWinner={handleWinnerSelected} raceType="bicycle" />
                 </div>
               )}
 
