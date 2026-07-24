@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { playTickSound, playTadaSound } from '@/utils/audioUtils';
 
 interface SpinningWheelProps {
   items: string[];
@@ -10,12 +11,36 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({ items, onWinner }) => {
   const [rotation, setRotation] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
+  const [lastTickSlice, setLastTickSlice] = useState<number>(-1);
   
   const colors = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
     '#D4A5A5', '#9B59B6', '#3498DB', '#F1C40F', '#E67E22',
     '#1ABC9C', '#E74C3C', '#E84393', '#00CEC9', '#FD79A8'
   ];
+
+  // Logic to simulate ticking sound while rotating is tricky without requestAnimationFrame.
+  // We'll play a ticking sound at the start and during animation using a simple interval for fun.
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isSpinning) {
+      interval = setInterval(() => {
+        playTickSound();
+      }, 150);
+      
+      // Slow down tick over time
+      setTimeout(() => clearInterval(interval), 2000);
+      setTimeout(() => {
+        interval = setInterval(() => playTickSound(), 300);
+      }, 2000);
+      setTimeout(() => clearInterval(interval), 3000);
+      setTimeout(() => {
+        interval = setInterval(() => playTickSound(), 500);
+      }, 3000);
+      setTimeout(() => clearInterval(interval), 3800);
+    }
+    return () => clearInterval(interval);
+  }, [isSpinning]);
 
   const spinWheel = () => {
     if (isSpinning || items.length === 0) return;
@@ -51,6 +76,7 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({ items, onWinner }) => {
     setTimeout(() => {
       setIsSpinning(false);
       setWinner(items[randomIndex]);
+      playTadaSound();
       if (onWinner) onWinner(items[randomIndex]);
     }, spinDuration);
   };
