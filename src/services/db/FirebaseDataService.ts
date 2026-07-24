@@ -15,7 +15,9 @@ import {
   Query,
   DocumentData,
   CollectionReference,
-  getCountFromServer
+  getCountFromServer,
+  getDocsFromCache,
+  getDocsFromServer
 } from 'firebase/firestore';
 import { IDataService, WhereFilterOp, OrderByDirection } from './types';
 
@@ -52,20 +54,32 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   subscribeAll(
     callback: (data: T[]) => void,
     orderByField?: string,
-    orderDirection?: OrderByDirection
+    orderDirection?: OrderByDirection,
+    forceRefresh?: boolean
   ): () => void {
     let q: Query<DocumentData> = this.collectionRef;
     if (orderByField) {
       q = query(this.collectionRef, orderBy(orderByField, orderDirection || 'asc'));
     }
 
-    getDocs(q).then((snapshot) => {
+    const fetchLogic = async () => {
+      let snapshot;
+      try {
+        if (forceRefresh) throw new Error("Force Refresh");
+        snapshot = await getDocsFromCache(q);
+        if (snapshot.empty) throw new Error("Cache Empty");
+      } catch (e) {
+        snapshot = await getDocsFromServer(q);
+      }
+      
       const data: T[] = [];
       snapshot.forEach((docSnap) => {
         data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
       });
       callback(data);
-    });
+    };
+
+    fetchLogic();
     
     // Return dummy unsubscribe function
     return () => {};

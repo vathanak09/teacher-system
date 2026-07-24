@@ -16,7 +16,7 @@ export interface IDataService<T> {
   /**
    * Subscribe to all documents in the collection, optionally ordered by a field.
    */
-  subscribeAll(callback: (data: T[]) => void, orderByField?: string, orderDirection?: OrderByDirection): () => void;
+  subscribeAll(callback: (data: T[]) => void, orderByField?: string, orderDirection?: OrderByDirection, forceRefresh?: boolean): () => void;
 
   /**
    * Subscribe to a single document by ID.

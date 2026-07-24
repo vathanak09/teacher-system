@@ -16,6 +16,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<any[]>([]);
   const [classesData, setClassesData] = useState<any[]>([]);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Inline Editing & Column Visibility
   const AVAILABLE_COLUMNS = [
     { id: 'photo', label: 'រូបថត' },
@@ -211,16 +212,21 @@ export default function StudentsPage() {
       }
     });
 
-    const unsubscribe = studentService.subscribeAll(setStudents);
+    return () => {
+      unsubSettings();
+    };
+  }, [router]);
 
-    const unsubClasses = classService.subscribeAll(setClassesData);
+  useEffect(() => {
+    const isRefresh = refreshTrigger > 0;
+    const unsubscribe = studentService.subscribeAll(setStudents, undefined, undefined, isRefresh);
+    const unsubClasses = classService.subscribeAll(setClassesData, undefined, undefined, isRefresh);
 
     return () => {
       unsubscribe();
-      unsubSettings();
       unsubClasses();
     };
-  }, [router]);
+  }, [refreshTrigger]);
 
   const getStatusInfo = (nextDateStr: string | null) => {
     if (!nextDateStr) return { label: 'មិនទាន់បង់ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
