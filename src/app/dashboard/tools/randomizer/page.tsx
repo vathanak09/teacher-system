@@ -208,11 +208,12 @@ export default function RandomizerPage() {
           
           <button 
             onClick={() => {
-              if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
+              const gameArea = document.getElementById('game-workspace');
+              if (!document.fullscreenElement && gameArea) {
+                gameArea.requestFullscreen().catch(err => {
                   console.error(`Error attempting to enable fullscreen: ${err.message}`);
                 });
-              } else {
+              } else if (document.fullscreenElement) {
                 document.exitFullscreen();
               }
             }}
@@ -358,7 +359,11 @@ export default function RandomizerPage() {
         )}
 
         {/* Main Workspace */}
-        <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div 
+          id="game-workspace" 
+          className="glass-panel" 
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--main-bg)' }}
+        >
           
           {/* Main Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
