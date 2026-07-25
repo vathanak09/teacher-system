@@ -22,7 +22,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         const w = window.innerWidth;
         setIsMobile(w < 768);
         if (w >= 768) setDesktopMode(false);
-        setScaleRatio(w / 1024);
+        setScaleRatio(w / 820);
       };
       handleResize();
       window.addEventListener('resize', handleResize);
@@ -263,7 +263,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
           </div>
 
           <div style={{
-            width: desktopMode ? '1024px' : '100%',
+            width: desktopMode ? '820px' : '100%',
             zoom: desktopMode ? scaleRatio : 1,
             minHeight: desktopMode ? `${100 / scaleRatio}vh` : 'auto'
           } as React.CSSProperties}>
