@@ -4,6 +4,7 @@ import { classService, studentService } from '@/services/db';
 import SpinningWheel from '@/components/SpinningWheel';
 import GroupGenerator from '@/components/GroupGenerator';
 import RaceVisualizer from '@/components/RaceVisualizer';
+import confetti from 'canvas-confetti';
 
 export default function RandomizerPage() {
   const [activeTab, setActiveTab] = useState<'picker' | 'groups'>('picker');
@@ -22,6 +23,7 @@ export default function RandomizerPage() {
   // History State
   const [history, setHistory] = useState<string[]>([]);
   const [removeWinner, setRemoveWinner] = useState(false);
+  const [winnerPopup, setWinnerPopup] = useState<string | null>(null);
   
   // Mobile Sidebar Toggle
   const [showSidebar, setShowSidebar] = useState(true);
@@ -154,7 +156,36 @@ export default function RandomizerPage() {
     }
   };
 
+  const fireConfetti = () => {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10000 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: any = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+      });
+      confetti({
+        ...defaults, particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+      });
+    }, 250);
+  };
+
   const handleWinnerSelected = (winnerName: string) => {
+    setWinnerPopup(winnerName);
+    fireConfetti();
+    
     setHistory(prev => [winnerName, ...prev]);
     if (removeWinner) {
       setNames(prev => prev.filter(n => n !== winnerName));
@@ -411,10 +442,60 @@ export default function RandomizerPage() {
         </div>
       </div>
       
+      {/* Winner Popup Modal */}
+      {winnerPopup && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{
+            background: 'var(--card-bg)',
+            padding: '4rem',
+            borderRadius: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            textAlign: 'center',
+            transform: 'scale(1)',
+            animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+          }}>
+            <h3 style={{ color: 'var(--text-secondary)', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
+              សូមអបអរសាទរ!
+            </h3>
+            <h1 style={{ 
+              fontSize: '4.5rem', 
+              color: 'var(--primary-color)',
+              margin: '0 0 2rem 0',
+              textShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+              lineHeight: 1.2
+            }}>
+              {winnerPopup}
+            </h1>
+            
+            <button 
+              onClick={() => setWinnerPopup(null)}
+              className="btn btn-primary"
+              style={{ padding: '1rem 3rem', fontSize: '1.25rem', borderRadius: '50px' }}
+            >
+              បន្តទៀត ➜
+            </button>
+          </div>
+        </div>
+      )}
+      
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes popIn {
+          0% { transform: scale(0.8); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>
