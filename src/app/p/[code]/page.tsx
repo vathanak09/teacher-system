@@ -185,7 +185,38 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         </div>
 
         {/* Content */}
-        <div className="post-content-container" style={{ background: 'var(--bg-secondary)', boxShadow: 'var(--shadow-sm)' }}>
+        <div id="post-content-area" className="post-content-container" style={{ position: 'relative', overflowY: 'auto', background: 'var(--bg-main)', boxShadow: 'var(--shadow-sm)' }}>
+          <button 
+            onClick={() => {
+              const area = document.getElementById('post-content-area');
+              if (!document.fullscreenElement && area) {
+                area.requestFullscreen().catch(err => console.error(err));
+              } else if (document.fullscreenElement) {
+                document.exitFullscreen();
+              }
+            }}
+            className="btn"
+            style={{ 
+              position: 'absolute', 
+              top: '1rem', 
+              right: '1rem', 
+              zIndex: 50,
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            title="ពង្រីកពេញអេក្រង់ (Full Screen)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+          </button>
+
           {post.editorMode === 'html' ? (
             <iframe 
               srcDoc={
