@@ -37,11 +37,34 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
     }, 800); // 800ms "calculating" delay
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Optional: show a small toast or visual feedback
+      const el = document.getElementById('copy-feedback');
+      if (el) {
+        el.style.opacity = '1';
+        setTimeout(() => el.style.opacity = '0', 2000);
+      }
+    });
+  };
+
+  const copyGroup = (groupIndex: number) => {
+    const groupName = `ក្រុម ${groupIndex + 1}`;
+    const members = groups[groupIndex].join('\n');
+    copyToClipboard(`${groupName}:\n${members}`);
+  };
+
+  const copyAllGroups = () => {
+    const text = groups.map((g, i) => `ក្រុម ${i + 1}:\n${g.join('\n')}`).join('\n\n');
+    copyToClipboard(text);
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '1.5rem' }}>
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '150px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Configuration Area */}
+      <div style={{ background: 'var(--panel-bg)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '2rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+        
+        <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             ចំនួនក្រុម (Number of Groups)
           </label>
@@ -80,59 +103,116 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
           {isGenerating ? (
             <span className="spinner" style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"></path></svg>
+            <>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              បង្កើតក្រុម
+            </>
           )}
-          បែងចែកក្រុម
         </button>
       </div>
 
-      {/* Results */}
+      {items.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+          សូមជ្រើសរើសបញ្ជីរង់ចាំ ដើម្បីបែងចែកក្រុម
+        </div>
+      )}
+
+      {/* Results Area */}
       {groups.length > 0 && !isGenerating && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-          gap: '1.5rem',
-          animation: 'fadeIn 0.5s ease-out'
-        }}>
-          {groups.map((group, groupIdx) => (
-            <div key={groupIdx} style={{
-              background: 'var(--panel-bg)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '16px',
-              padding: '1.5rem',
-              boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: '2px solid var(--primary-color)',
-                paddingBottom: '0.75rem',
-                marginBottom: '1rem'
-              }}>
-                <h3 style={{ margin: 0, color: 'var(--primary-color)', fontSize: '1.25rem' }}>ក្រុមទី {groupIdx + 1}</h3>
-                <span style={{ background: 'var(--main-bg)', padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                  {group.length} នាក់
-                </span>
+        <div className="animate-fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>លទ្ធផលនៃការបែងចែក៖ {groups.length} ក្រុម</h3>
+            
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span id="copy-feedback" style={{ opacity: 0, transition: 'opacity 0.2s', color: 'var(--success)', fontSize: '0.9rem', fontWeight: 600 }}>
+                បានចម្លង ✓
+              </span>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <select 
+                  onChange={(e) => {
+                    if (e.target.value === 'all') copyAllGroups();
+                    else if (e.target.value !== '') copyGroup(Number(e.target.value));
+                    e.target.value = ''; // Reset select
+                  }}
+                  className="input-field"
+                  style={{ width: 'auto', padding: '0.4rem 2rem 0.4rem 1rem', background: 'var(--card-bg)' }}
+                >
+                  <option value="">ចម្លងអត្ថបទ...</option>
+                  <option value="all">ចម្លងទាំងអស់ (Copy All)</option>
+                  {groups.map((_, idx) => (
+                    <option key={`opt-${idx}`} value={idx}>ចម្លង ក្រុម {idx + 1}</option>
+                  ))}
+                </select>
+                <button onClick={copyAllGroups} className="btn btn-primary" style={{ padding: '0.4rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  Copy All
+                </button>
               </div>
-              
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {group.map((member, memberIdx) => (
-                  <li key={memberIdx} style={{
-                    padding: '0.5rem 1rem',
-                    background: 'var(--main-bg)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem'
-                  }}>
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: 'bold', fontSize: '0.9rem', width: '20px' }}>{memberIdx + 1}.</span>
-                    <span style={{ fontWeight: 500 }}>{member}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
-          ))}
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+            gap: '1.5rem',
+            alignItems: 'start'
+          }}>
+            {groups.map((group, index) => (
+              <div 
+                key={index} 
+                className="glass-panel"
+                style={{ 
+                  padding: '1.5rem', 
+                  borderRadius: '16px',
+                  background: 'var(--main-bg)',
+                  borderTop: `4px solid ${colors[index % colors.length]}`
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                  <h4 style={{ 
+                    margin: 0, 
+                    color: colors[index % colors.length],
+                    fontSize: '1.25rem',
+                    display: 'flex', alignItems: 'center', gap: '0.5rem'
+                  }}>
+                    <span style={{ 
+                      background: `${colors[index % colors.length]}20`, 
+                      width: '32px', height: '32px', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      borderRadius: '8px'
+                    }}>
+                      {index + 1}
+                    </span>
+                    ក្រុមទី {index + 1}
+                  </h4>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', background: 'var(--panel-bg)', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+                    {group.length} នាក់
+                  </span>
+                </div>
+                
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {group.map((member, mIdx) => (
+                    <li 
+                      key={mIdx}
+                      style={{ 
+                        padding: '0.5rem 0.75rem',
+                        background: 'var(--card-bg)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.95rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors[index % colors.length] }} />
+                      {member}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

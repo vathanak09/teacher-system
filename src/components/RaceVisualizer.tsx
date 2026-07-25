@@ -13,6 +13,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   const [durations, setDurations] = useState<number[]>([]);
   const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
+  const [raceDuration, setRaceDuration] = useState<number>(3000); // Default 3 seconds
   const containerRef = useRef<HTMLDivElement>(null);
 
   const colors = [
@@ -32,6 +33,16 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   const startRace = () => {
     if (items.length === 0 || raceState === 'racing') return;
 
+    if (raceState === 'finished') {
+      resetRace();
+      // Need a tiny delay to allow CSS reset before restarting
+      setTimeout(() => executeStart(), 50);
+    } else {
+      executeStart();
+    }
+  };
+
+  const executeStart = () => {
     setRaceState('racing');
     playRunningSound();
 
@@ -39,8 +50,8 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     setWinnerIndex(winnerIdx);
 
     const newDurations = items.map((_, i) => {
-      if (i === winnerIdx) return 3000; // Winner takes exactly 3 seconds
-      return 3500 + Math.random() * 3000; // Losers take 3.5s to 6.5s
+      if (i === winnerIdx) return raceDuration; // Winner takes exact duration
+      return raceDuration + 500 + Math.random() * (raceDuration * 1.2); // Losers take slightly longer
     });
     setDurations(newDurations);
 
@@ -48,7 +59,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
       setRaceState('finished');
       playTadaSound();
       if (onWinner) onWinner(items[winnerIdx]);
-    }, 3000);
+    }, raceDuration);
   };
 
   const resetRace = () => {
@@ -73,20 +84,32 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
+      
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>រយៈពេល៖</label>
+          <select 
+            value={raceDuration} 
+            onChange={e => setRaceDuration(Number(e.target.value))}
+            className="input-field"
+            style={{ padding: '0.25rem 0.5rem', width: 'auto', minWidth: '80px', height: 'auto', background: 'transparent', border: 'none' }}
+            disabled={raceState === 'racing'}
+          >
+            <option value={3000}>៣ វិនាទី</option>
+            <option value={5000}>៥ វិនាទី</option>
+            <option value={10000}>១០ វិនាទី</option>
+            <option value={15000}>១៥ វិនាទី</option>
+          </select>
+        </div>
+
         <button
           onClick={startRace}
           disabled={raceState === 'racing'}
           className="btn btn-primary"
-          style={{ padding: '0.75rem 2rem', fontSize: '1.2rem' }}
+          style={{ padding: '0.75rem 2rem', fontSize: '1.2rem', minWidth: '200px' }}
         >
           {raceState === 'racing' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
         </button>
-        {raceState === 'finished' && (
-          <button onClick={resetRace} className="btn" style={{ padding: '0.75rem 2rem' }}>
-            លេងម្តងទៀត
-          </button>
-        )}
       </div>
 
       {raceState === 'finished' && winnerIndex >= 0 && (
