@@ -9,7 +9,7 @@ interface RaceVisualizerProps {
 }
 
 const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceType = 'running' }) => {
-  const [raceState, setRaceState] = useState<'idle' | 'racing' | 'finished'>('idle');
+  const [raceState, setRaceState] = useState<'idle' | 'racingPhase1' | 'racingPhase2' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
   const [easings, setEasings] = useState<string[]>([]);
   const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
@@ -32,7 +32,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   }, [items, raceState]);
 
   const startRace = () => {
-    if (items.length === 0 || raceState === 'racing') return;
+    if (items.length === 0 || raceState === 'racingPhase1' || raceState === 'racingPhase2') return;
 
     if (raceState === 'finished') {
       resetRace();
@@ -44,41 +44,46 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   };
 
   const executeStart = () => {
-    setRaceState('racing');
+    setRaceState('racingPhase1');
     playRunningSound();
 
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
-    const easingOptions = [
-      'cubic-bezier(0.1, 0.7, 0.1, 1)', // Fast start
-      'cubic-bezier(0.7, 0.0, 0.3, 1)', // Slow start, fast end (Comeback)
-      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth
-      'cubic-bezier(0.8, 0.1, 0.2, 0.9)', // Very dramatic comeback
-      'cubic-bezier(0.2, 0.8, 0.4, 1)'  // Snappy
+    // Phase 1: Neck and Neck until 85% of the track
+    const phase1Duration = raceDuration * 0.75;
+    setDurations(items.map(() => phase1Duration));
+
+    const bouncyEasings = [
+      'cubic-bezier(0.68, -0.55, 0.265, 1.55)', // Overshoot and undershoot (leads to wobble)
+      'cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Pop and bounce
+      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth steady
+      'cubic-bezier(0.8, -0.2, 0.2, 1.2)', // Intense wobble
+      'cubic-bezier(0.1, 0.7, 0.1, 1)' // Fast start, wait for others
     ];
+    setEasings(items.map(() => bouncyEasings[Math.floor(Math.random() * bouncyEasings.length)]));
 
-    const newDurations = items.map((_, i) => {
-      if (i === winnerIdx) return raceDuration; 
-      return raceDuration + 200 + Math.random() * (raceDuration * 0.8); // Losers are close behind!
-    });
-    
-    const newEasings = items.map((_, i) => {
-      if (i === winnerIdx) {
-        // Winner gets a dramatic comeback curve half the time
-        return Math.random() > 0.5 ? 'cubic-bezier(0.8, 0.1, 0.2, 0.9)' : 'cubic-bezier(0.4, 0.0, 0.2, 1)';
-      }
-      return easingOptions[Math.floor(Math.random() * easingOptions.length)];
-    });
-
-    setDurations(newDurations);
-    setEasings(newEasings);
-
+    // Start Phase 2: The Breakaway
     setTimeout(() => {
-      setRaceState('finished');
-      playTadaSound();
-      if (onWinner) onWinner(items[winnerIdx]);
-    }, raceDuration);
+      setRaceState('racingPhase2');
+      
+      const phase2DurationWinner = raceDuration * 0.25;
+      
+      setDurations(items.map((_, i) => {
+        if (i === winnerIdx) return phase2DurationWinner; 
+        return phase2DurationWinner + 500 + Math.random() * (raceDuration * 0.5); // Losers take longer to cross
+      }));
+      
+      setEasings(items.map((_, i) => i === winnerIdx ? 'ease-out' : 'linear'));
+
+      // Finish Race
+      setTimeout(() => {
+        setRaceState('finished');
+        playTadaSound();
+        if (onWinner) onWinner(items[winnerIdx]);
+      }, phase2DurationWinner);
+
+    }, phase1Duration);
   };
 
   const resetRace = () => {
@@ -112,7 +117,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             onChange={e => setRaceDuration(Number(e.target.value))}
             className="input-field"
             style={{ padding: '0.25rem 0.5rem', width: 'auto', minWidth: '80px', height: 'auto', background: 'transparent', border: 'none' }}
-            disabled={raceState === 'racing'}
+            disabled={raceState !== 'idle' && raceState !== 'finished'}
           >
             <option value={3000}>៣ វិនាទី</option>
             <option value={5000}>៥ វិនាទី</option>
@@ -123,11 +128,11 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
 
         <button
           onClick={startRace}
-          disabled={raceState === 'racing'}
+          disabled={raceState !== 'idle' && raceState !== 'finished'}
           className="btn btn-primary"
           style={{ padding: '0.75rem 2rem', fontSize: '1.2rem', minWidth: '200px' }}
         >
-          {raceState === 'racing' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
+          {raceState === 'racingPhase1' || raceState === 'racingPhase2' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
         </button>
       </div>
 
@@ -186,15 +191,19 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             const isFinished = raceState === 'finished';
             const isWinner = isFinished && index === winnerIndex;
             
-            // For translateX, use calc(100% - offset).
-            // We want the right side of the runner to hit the finish line at right: 50px.
+            let leftPos = '0';
+            if (raceState === 'racingPhase1') {
+              leftPos = 'calc(85% - 70px)';
+            } else if (raceState === 'racingPhase2' || raceState === 'finished') {
+              leftPos = 'calc(100% - 70px)';
+            }
 
             return (
               <div 
                 key={index} 
                 style={{ 
                   position: 'absolute',
-                  left: raceState === 'idle' ? '0' : 'calc(100% - 70px)',
+                  left: leftPos,
                   top: `${verticalPositions[index]}%`,
                   transition: raceState === 'idle' ? 'none' : `left ${durations[index]}ms ${easings[index] || 'ease-in-out'}`,
                   transform: 'translateY(-50%)',

@@ -205,25 +205,6 @@ export default function RandomizerPage() {
         </button>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h1 style={{ margin: 0, fontSize: isMobile ? '1.5rem' : '2rem', color: 'var(--text-primary)' }}>ឧបករណ៍បែងចែកសិស្ស</h1>
-          
-          <button 
-            onClick={() => {
-              const gameArea = document.getElementById('game-workspace');
-              if (!document.fullscreenElement && gameArea) {
-                gameArea.requestFullscreen().catch(err => {
-                  console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                });
-              } else if (document.fullscreenElement) {
-                document.exitFullscreen();
-              }
-            }}
-            className="btn"
-            style={{ padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '0.9rem' }}
-            title="ពង្រីកពេញអេក្រង់ (Full Screen)"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-            <span className="hide-on-mobile">Full Screen</span>
-          </button>
         </div>
         {isMobile && (
           <button 
@@ -364,9 +345,42 @@ export default function RandomizerPage() {
           className="glass-panel" 
           style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--main-bg)', position: 'relative' }}
         >
-          
+          {/* Fullscreen Toggle */}
+          <button 
+            onClick={() => {
+              const gameArea = document.getElementById('game-workspace');
+              if (!document.fullscreenElement && gameArea) {
+                gameArea.requestFullscreen().catch(err => {
+                  console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+              } else if (document.fullscreenElement) {
+                document.exitFullscreen();
+              }
+            }}
+            className="btn"
+            style={{ 
+              position: 'absolute', 
+              top: '1rem', 
+              right: '1rem', 
+              zIndex: 50,
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'var(--card-bg)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: '8px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            title="ពង្រីកពេញអេក្រង់ (Full Screen)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+          </button>
+
           {/* Main Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', paddingRight: '3rem' }}>
             <button
               onClick={() => setActiveTab('picker')}
               style={{
