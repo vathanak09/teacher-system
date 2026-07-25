@@ -103,7 +103,7 @@ export default function RandomizerPage() {
       });
       const activeStudents = classStudents.filter(s => s.status !== 'ឈប់សិក្សា' && s.status !== 'ព្យួរការសិក្សា');
       
-      // Append gender and className to the name
+      // Append gender to the name (without class name)
       const studentNames = activeStudents.map(s => {
         const baseName = s.fullName || s.englishName || '';
         let genderCode = '';
@@ -112,8 +112,7 @@ export default function RandomizerPage() {
         } else if (s.gender === 'ស្រី' || s.gender === 'Female' || s.gender === 'F') {
           genderCode = ' (ស)';
         }
-        const cls = s.className ? ` - ${s.className}` : '';
-        return baseName + genderCode + cls;
+        return baseName + genderCode;
       }).filter(n => n.trim() !== '');
       
       if (studentNames.length > 0) {
