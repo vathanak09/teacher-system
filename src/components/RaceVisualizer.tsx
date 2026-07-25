@@ -50,8 +50,8 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
-    // Phase 1: Slow and steady until 70% of the track
-    const phase1Duration = raceDuration * 0.85;
+    // Phase 1: Neck and neck until 70% of the track
+    const phase1Duration = raceDuration * 0.70; // Takes 70% time for 70% distance (normal speed)
     setDurations(items.map(() => phase1Duration));
 
     // Gentle easings so they stay close but still swap places smoothly
@@ -68,7 +68,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     setTimeout(() => {
       setRaceState('racingPhase2');
       
-      const phase2DurationWinner = raceDuration * 0.15;
+      const phase2DurationWinner = raceDuration * 0.30;
       
       setDurations(items.map((_, i) => {
         if (i === winnerIdx) return phase2DurationWinner; 
