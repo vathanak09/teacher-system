@@ -24,6 +24,25 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
   const [userId, setUserId] = useState<string | null>(null);
   const [availableTags, setAvailableTags] = useState<any[]>([]);
 
+  // Mobile Desktop View state
+  const [isMobile, setIsMobile] = useState(false);
+  const [desktopMode, setDesktopMode] = useState(false);
+  const [scaleRatio, setScaleRatio] = useState(1);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleResize = () => {
+        const w = window.innerWidth;
+        setIsMobile(w < 768);
+        if (w >= 768) setDesktopMode(false);
+        setScaleRatio(w / 1024);
+      };
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setUserId(localStorage.getItem('userId'));
@@ -213,33 +232,39 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
         </div>      </div>
 
       {/* Content */}
-      <div id="post-content-area" className="glass-panel post-content-container" style={{ position: 'relative', overflowY: 'auto', background: 'var(--main-bg)' }}>
+      <div id="post-content-area" className="glass-panel post-content-container" style={{ position: 'relative', overflowY: 'auto', overflowX: 'hidden', background: 'var(--main-bg)' }}>
         <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, display: 'flex', gap: '0.5rem' }}>
-          <button 
-            onClick={() => {
-              let htmlContent = post.content;
-              if (post.editorMode !== 'html') {
-                htmlContent = renderContentWithEmbeds(post.content, post.embeddedCodes);
-                htmlContent = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body { font-family: 'Kantumruy Pro', 'Inter', sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: 1.05rem; color: #1a1a1a; }</style></head><body>${htmlContent}</body>`;
-              } else if (!htmlContent.includes('<html')) {
-                htmlContent = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${htmlContent}</body>`;
-              }
-              const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
-            }}
-            className="btn"
-            style={{ 
-              padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-            }}
-            title="View on Desktop (បើកក្នុងផ្ទាំងថ្មី)"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>
-            </svg>
-          </button>
+          {isMobile && (
+            <button 
+              onClick={() => {
+                const nextMode = !desktopMode;
+                setDesktopMode(nextMode);
+                const area = document.getElementById('post-content-area');
+                if (nextMode) {
+                  if (!document.fullscreenElement && area) {
+                    area.requestFullscreen().catch(err => console.error(err));
+                  }
+                } else {
+                  if (document.fullscreenElement) {
+                    document.exitFullscreen().catch(err => console.error(err));
+                  }
+                }
+              }}
+              className="btn"
+              style={{ 
+                padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: desktopMode ? 'var(--primary-color)' : 'var(--card-bg)', 
+                color: desktopMode ? 'white' : 'currentColor',
+                border: '1px solid var(--border-color)', borderRadius: '8px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+              }}
+              title="Desktop View (សម្រាប់ទូរស័ព្ទ)"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </button>
+          )}
 
           <button 
             onClick={() => {
@@ -264,40 +289,47 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
           </button>
         </div>
 
-        {post.editorMode === 'html' ? (
-          <iframe 
-            srcDoc={
-              post.content.includes('<html') 
-                ? post.content 
-                : `<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${post.content}</body>`
-            }
-            style={{ width: '100%', minHeight: '100px', border: 'none', background: 'transparent' }} 
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-            title="HTML Content"
-            onLoad={(e) => {
-              const iframe = e.target as HTMLIFrameElement;
-              try {
-                const doc = iframe.contentWindow?.document;
-                if (!doc) return;
-                const setHeight = () => {
-                  iframe.style.height = doc.documentElement.scrollHeight + 'px';
-                };
-                setHeight();
-                if ((iframe.contentWindow as any)?.ResizeObserver) {
-                  new (iframe.contentWindow as any).ResizeObserver(setHeight).observe(doc.body);
-                } else {
-                  setInterval(setHeight, 1500);
-                }
-              } catch(err) {}
-            }}
-          />
-        ) : (
-          <div 
-            className="ql-editor rich-text-content" 
-            dangerouslySetInnerHTML={{ __html: renderContentWithEmbeds(post.content, post.embeddedCodes) }} 
-            style={{ padding: 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} 
-          />
-        )}
+        <div style={{
+          width: desktopMode ? '1024px' : '100%',
+          transform: desktopMode ? `scale(${scaleRatio})` : 'none',
+          transformOrigin: 'top left',
+          minHeight: desktopMode ? `${100 / scaleRatio}vh` : 'auto'
+        }}>
+          {post.editorMode === 'html' ? (
+            <iframe 
+              srcDoc={
+                post.content.includes('<html') 
+                  ? post.content 
+                  : `<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${post.content}</body>`
+              }
+              style={{ width: '100%', minHeight: desktopMode ? `${100 / scaleRatio}vh` : '100vh', border: 'none', background: 'transparent' }} 
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              title="HTML Content"
+              onLoad={(e) => {
+                const iframe = e.target as HTMLIFrameElement;
+                try {
+                  const doc = iframe.contentWindow?.document;
+                  if (!doc) return;
+                  const setHeight = () => {
+                    iframe.style.height = doc.documentElement.scrollHeight + 'px';
+                  };
+                  setHeight();
+                  if ((iframe.contentWindow as any)?.ResizeObserver) {
+                    new (iframe.contentWindow as any).ResizeObserver(setHeight).observe(doc.body);
+                  } else {
+                    setInterval(setHeight, 1500);
+                  }
+                } catch(err) {}
+              }}
+            />
+          ) : (
+            <div 
+              className="ql-editor rich-text-content" 
+              dangerouslySetInnerHTML={{ __html: renderContentWithEmbeds(post.content, post.embeddedCodes) }} 
+              style={{ padding: desktopMode ? '2rem' : 0, lineHeight: 1.8, fontSize: '1.05rem', color: 'var(--text-primary)' }} 
+            />
+          )}
+        </div>
       </div>
       
     </div>
