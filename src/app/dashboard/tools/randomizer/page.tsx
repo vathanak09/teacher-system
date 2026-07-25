@@ -362,7 +362,7 @@ export default function RandomizerPage() {
         <div 
           id="game-workspace" 
           className="glass-panel" 
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--main-bg)' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--main-bg)', position: 'relative' }}
         >
           
           {/* Main Tabs */}
@@ -462,54 +462,55 @@ export default function RandomizerPage() {
               )}
             </div>
           </div>
+          
+          {/* Winner Popup Modal (Scoped to Game Workspace) */}
+          {winnerPopup && (
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              animation: 'fadeIn 0.3s ease-out'
+            }}>
+              <div style={{
+                background: 'var(--card-bg)',
+                padding: '3rem 4rem',
+                borderRadius: '24px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                textAlign: 'center',
+                transform: 'scale(1)',
+                animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+              }}>
+                <h3 style={{ color: 'var(--text-secondary)', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                  សូមអបអរសាទរ!
+                </h3>
+                <h1 style={{ 
+                  fontSize: '4.5rem', 
+                  color: 'var(--primary-color)',
+                  margin: '0 0 2rem 0',
+                  textShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
+                  lineHeight: 1.2
+                }}>
+                  {winnerPopup}
+                </h1>
+                
+                <button 
+                  onClick={() => setWinnerPopup(null)}
+                  className="btn btn-primary"
+                  style={{ padding: '1rem 3rem', fontSize: '1.25rem', borderRadius: '50px' }}
+                >
+                  បន្តទៀត ➜
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-      
-      {/* Winner Popup Modal */}
-      {winnerPopup && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          animation: 'fadeIn 0.3s ease-out'
-        }}>
-          <div style={{
-            background: 'var(--card-bg)',
-            padding: '4rem',
-            borderRadius: '24px',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            textAlign: 'center',
-            transform: 'scale(1)',
-            animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-          }}>
-            <h3 style={{ color: 'var(--text-secondary)', fontSize: '1.5rem', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
-              សូមអបអរសាទរ!
-            </h3>
-            <h1 style={{ 
-              fontSize: '4.5rem', 
-              color: 'var(--primary-color)',
-              margin: '0 0 2rem 0',
-              textShadow: '0 4px 15px rgba(59, 130, 246, 0.3)',
-              lineHeight: 1.2
-            }}>
-              {winnerPopup}
-            </h1>
-            
-            <button 
-              onClick={() => setWinnerPopup(null)}
-              className="btn btn-primary"
-              style={{ padding: '1rem 3rem', fontSize: '1.25rem', borderRadius: '50px' }}
-            >
-              បន្តទៀត ➜
-            </button>
-          </div>
-        </div>
-      )}
       
       <style>{`
         @keyframes fadeIn {

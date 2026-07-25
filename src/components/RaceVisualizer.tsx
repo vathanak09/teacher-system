@@ -11,6 +11,7 @@ interface RaceVisualizerProps {
 const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceType = 'running' }) => {
   const [raceState, setRaceState] = useState<'idle' | 'racing' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
+  const [easings, setEasings] = useState<string[]>([]);
   const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
   const [raceDuration, setRaceDuration] = useState<number>(3000); // Default 3 seconds
@@ -49,11 +50,29 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
+    const easingOptions = [
+      'cubic-bezier(0.1, 0.7, 0.1, 1)', // Fast start
+      'cubic-bezier(0.7, 0.0, 0.3, 1)', // Slow start, fast end (Comeback)
+      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth
+      'cubic-bezier(0.8, 0.1, 0.2, 0.9)', // Very dramatic comeback
+      'cubic-bezier(0.2, 0.8, 0.4, 1)'  // Snappy
+    ];
+
     const newDurations = items.map((_, i) => {
-      if (i === winnerIdx) return raceDuration; // Winner takes exact duration
-      return raceDuration + 500 + Math.random() * (raceDuration * 1.2); // Losers take slightly longer
+      if (i === winnerIdx) return raceDuration; 
+      return raceDuration + 200 + Math.random() * (raceDuration * 0.8); // Losers are close behind!
     });
+    
+    const newEasings = items.map((_, i) => {
+      if (i === winnerIdx) {
+        // Winner gets a dramatic comeback curve half the time
+        return Math.random() > 0.5 ? 'cubic-bezier(0.8, 0.1, 0.2, 0.9)' : 'cubic-bezier(0.4, 0.0, 0.2, 1)';
+      }
+      return easingOptions[Math.floor(Math.random() * easingOptions.length)];
+    });
+
     setDurations(newDurations);
+    setEasings(newEasings);
 
     setTimeout(() => {
       setRaceState('finished');
@@ -169,38 +188,41 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             
             // For translateX, use calc(100% - offset).
             // We want the right side of the runner to hit the finish line at right: 50px.
-            const targetLeft = raceState !== 'idle' ? 'calc(100% - 90px)' : '10px';
-            const topPos = verticalPositions[index] || 50;
+            const isWinner = raceState === 'finished' && index === winnerIndex;
 
             return (
               <div 
                 key={index} 
                 style={{ 
                   position: 'absolute',
-                  left: targetLeft,
-                  top: `${topPos}%`,
-                  transform: 'translateY(-50%)', // Center vertically based on top%
-                  transition: raceState === 'racing' ? `left ${duration}ms ease-in` : (raceState === 'idle' ? 'none' : 'none'),
-                  zIndex: isWinner ? 100 : (raceState === 'racing' ? 50 : 10), // Winner stays on top
+                  left: raceState === 'idle' ? '0' : 'calc(100% - 70px)',
+                  top: `${verticalPositions[index]}%`,
+                  transition: raceState === 'idle' ? 'none' : `left ${durations[index]}ms ${easings[index] || 'ease-in-out'}`,
+                  transform: 'translateY(-50%)',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '8px'
+                  zIndex: isWinner ? 100 : Math.floor(verticalPositions[index])
                 }}
               >
-                {/* Name Label */}
-                <div style={{ 
-                  fontWeight: 'bold', 
-                  fontSize: '12px', 
-                  color: '#334155',
-                  background: 'rgba(255,255,255,0.9)',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
+                {/* Compact Name Label */}
+                <div style={{
+                  background: colors[index % colors.length],
+                  color: 'white',
+                  padding: '0.15rem 0.4rem',
+                  borderRadius: '6px',
+                  fontSize: '0.7rem',
+                  fontWeight: 'bold',
                   whiteSpace: 'nowrap',
-                  boxShadow: isWinner ? '0 0 10px gold' : '0 1px 3px rgba(0,0,0,0.1)',
-                  border: isWinner ? '2px solid gold' : '1px solid #e2e8f0',
-                  opacity: (raceState === 'idle' && items.length > 20) ? 0.8 : 1 // slight transparency when crowded
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '70px',
+                  marginBottom: '2px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  border: isWinner ? '2px solid gold' : '1px solid rgba(255,255,255,0.3)',
+                  textAlign: 'center'
                 }}>
-                  {item.length > 15 ? item.substring(0, 15) + '...' : item}
+                  {item}
                 </div>
 
                 {/* Runner Icon */}
