@@ -22,13 +22,31 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         const w = window.innerWidth;
         setIsMobile(w < 768);
         if (w >= 768) setDesktopMode(false);
-        setScaleRatio(w / 820);
       };
       handleResize();
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const meta = document.querySelector('meta[name="viewport"]');
+      if (meta) {
+        if (desktopMode) {
+          meta.setAttribute('content', 'width=820, user-scalable=yes');
+        } else {
+          meta.setAttribute('content', 'width=device-width, initial-scale=1');
+        }
+      }
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        const meta = document.querySelector('meta[name="viewport"]');
+        if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1');
+      }
+    };
+  }, [desktopMode]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -204,24 +222,35 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         </div>
 
         {/* Content */}
-        <div id="post-content-area" className="post-content-container" style={{ position: 'relative', overflowY: 'auto', overflowX: 'auto', background: 'var(--bg-main)', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, display: 'flex', gap: '0.5rem' }}>
+        <div 
+          id="post-content-area" 
+          className="post-content-container" 
+          style={desktopMode ? {
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 9999,
+            overflowY: 'auto',
+            overflowX: 'auto',
+            background: 'var(--bg-main)',
+            boxShadow: 'var(--shadow-sm)',
+            borderRadius: 0,
+            margin: 0
+          } : { 
+            position: 'relative', 
+            overflowY: 'auto', 
+            overflowX: 'auto', 
+            background: 'var(--bg-main)', 
+            boxShadow: 'var(--shadow-sm)' 
+          }}
+        >
+          <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 10000, display: 'flex', gap: '0.5rem' }}>
             
             {isMobile && (
               <button 
                 onClick={() => {
-                  const nextMode = !desktopMode;
-                  setDesktopMode(nextMode);
-                  const area = document.getElementById('post-content-area');
-                  if (nextMode) {
-                    if (!document.fullscreenElement && area) {
-                      area.requestFullscreen().catch(err => console.error(err));
-                    }
-                  } else {
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen().catch(err => console.error(err));
-                    }
-                  }
+                  setDesktopMode(!desktopMode);
                 }}
                 className="btn"
                 style={{ 
@@ -264,17 +293,13 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
 
           <div style={{
             width: desktopMode ? '820px' : '100%',
-            zoom: desktopMode ? scaleRatio : 1,
-            minHeight: desktopMode ? `${100 / scaleRatio}vh` : 'auto'
-          } as React.CSSProperties}>
+            minHeight: '100vh',
+            margin: '0 auto'
+          }}>
             {post.editorMode === 'html' ? (
               <iframe 
-                srcDoc={
-                  post.content.includes('<html') 
-                    ? post.content 
-                    : `<head><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${post.content}</body>`
-                }
-                style={{ width: '100%', minHeight: desktopMode ? `${100 / scaleRatio}vh` : '100vh', border: 'none', background: 'transparent' }} 
+                srcDoc={getHtmlContent(post.content)}
+                style={{ width: '100%', minHeight: '100vh', border: 'none', background: 'transparent' }} 
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                 title="HTML Content"
                 onLoad={(e) => {
