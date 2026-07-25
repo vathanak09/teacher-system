@@ -103,11 +103,17 @@ export default function RandomizerPage() {
       });
       const activeStudents = classStudents.filter(s => s.status !== 'ឈប់សិក្សា' && s.status !== 'ព្យួរការសិក្សា');
       
-      // Append className to the name
+      // Append gender and className to the name
       const studentNames = activeStudents.map(s => {
         const baseName = s.fullName || s.englishName || '';
-        const cls = s.className ? ` (${s.className})` : '';
-        return baseName + cls;
+        let genderCode = '';
+        if (s.gender === 'ប្រុស' || s.gender === 'Male' || s.gender === 'M') {
+          genderCode = ' (ប)';
+        } else if (s.gender === 'ស្រី' || s.gender === 'Female' || s.gender === 'F') {
+          genderCode = ' (ស)';
+        }
+        const cls = s.className ? ` - ${s.className}` : '';
+        return baseName + genderCode + cls;
       }).filter(n => n.trim() !== '');
       
       if (studentNames.length > 0) {
