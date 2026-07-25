@@ -214,36 +214,55 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
 
       {/* Content */}
       <div id="post-content-area" className="glass-panel post-content-container" style={{ position: 'relative', overflowY: 'auto', background: 'var(--main-bg)' }}>
-        <button 
-          onClick={() => {
-            const area = document.getElementById('post-content-area');
-            if (!document.fullscreenElement && area) {
-              area.requestFullscreen().catch(err => console.error(err));
-            } else if (document.fullscreenElement) {
-              document.exitFullscreen();
-            }
-          }}
-          className="btn"
-          style={{ 
-            position: 'absolute', 
-            top: '1rem', 
-            right: '1rem', 
-            zIndex: 50,
-            padding: '0.5rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            background: 'var(--card-bg)', 
-            border: '1px solid var(--border-color)', 
-            borderRadius: '8px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-          }}
-          title="ពង្រីកពេញអេក្រង់ (Full Screen)"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-          </svg>
-        </button>
+        <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={() => {
+              let htmlContent = post.content;
+              if (post.editorMode !== 'html') {
+                htmlContent = renderContentWithEmbeds(post.content, post.embeddedCodes);
+                htmlContent = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>body { font-family: 'Kantumruy Pro', 'Inter', sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: 1.05rem; color: #1a1a1a; }</style></head><body>${htmlContent}</body>`;
+              } else if (!htmlContent.includes('<html')) {
+                htmlContent = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap'); body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style></head><body>${htmlContent}</body>`;
+              }
+              const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+            }}
+            className="btn"
+            style={{ 
+              padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            title="View on Desktop (បើកក្នុងផ្ទាំងថ្មី)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </button>
+
+          <button 
+            onClick={() => {
+              const area = document.getElementById('post-content-area');
+              if (!document.fullscreenElement && area) {
+                area.requestFullscreen().catch(err => console.error(err));
+              } else if (document.fullscreenElement) {
+                document.exitFullscreen();
+              }
+            }}
+            className="btn"
+            style={{ 
+              padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}
+            title="ពង្រីកពេញអេក្រង់ (Full Screen)"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+          </button>
+        </div>
 
         {post.editorMode === 'html' ? (
           <iframe 
