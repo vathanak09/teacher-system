@@ -188,7 +188,6 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             
             // For translateX, use calc(100% - offset).
             // We want the right side of the runner to hit the finish line at right: 50px.
-            const isWinner = raceState === 'finished' && index === winnerIndex;
 
             return (
               <div 
