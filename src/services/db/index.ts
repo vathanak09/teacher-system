@@ -14,3 +14,4 @@ export const teachingRecordService = new FirebaseDataService<any>('teachingRecor
 export const taskService = new FirebaseDataService<any>('tasks');
 export const postService = new FirebaseDataService<any>('posts');
 export const attendanceService = new FirebaseDataService<any>('attendance');
+export const resourceService = new FirebaseDataService<any>('resources');
