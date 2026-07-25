@@ -55,11 +55,11 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     setDurations(items.map(() => phase1Duration));
 
     const bouncyEasings = [
-      'cubic-bezier(0.68, -0.55, 0.265, 1.55)', // Overshoot and undershoot (leads to wobble)
-      'cubic-bezier(0.175, 0.885, 0.32, 1.275)', // Pop and bounce
-      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth steady
-      'cubic-bezier(0.8, -0.2, 0.2, 1.2)', // Intense wobble
-      'cubic-bezier(0.1, 0.7, 0.1, 1)' // Fast start, wait for others
+      'cubic-bezier(0.1, 0.9, 0.2, 1)', // Fast start, then coasts (takes early lead)
+      'cubic-bezier(0.8, 0.1, 0.2, 0.9)', // Slow start, fast catchup (surges past others)
+      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth steady pace
+      'cubic-bezier(0.9, 0.0, 0.9, 1)', // Very slow start, huge late surge
+      'cubic-bezier(0.0, 0.9, 1.0, 0.1)'  // Fast start, slow middle, fast end
     ];
     setEasings(items.map(() => bouncyEasings[Math.floor(Math.random() * bouncyEasings.length)]));
 
