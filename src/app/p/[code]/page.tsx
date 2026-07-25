@@ -15,6 +15,7 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
   const [isMobile, setIsMobile] = useState(false);
   const [desktopMode, setDesktopMode] = useState(false);
   const [scaleRatio, setScaleRatio] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -204,13 +205,36 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
         </div>
 
         {/* Content */}
-        <div id="post-content-area" className="post-content-container" style={{ position: 'relative', overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg-main)', boxShadow: 'var(--shadow-sm)' }}>
+        <div id="post-content-area" className="post-content-container" style={{ position: 'relative', overflowY: 'auto', overflowX: 'auto', background: 'var(--bg-main)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 50, display: 'flex', gap: '0.5rem' }}>
+            
+            {desktopMode && (
+              <>
+                <button 
+                  onClick={() => setZoomLevel(prev => prev + 0.25)} 
+                  className="btn" 
+                  style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
+                  title="Zoom In (ពង្រីក)"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                </button>
+                <button 
+                  onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))} 
+                  className="btn" 
+                  style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
+                  title="Zoom Out (បង្រួម)"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                </button>
+              </>
+            )}
+
             {isMobile && (
               <button 
                 onClick={() => {
                   const nextMode = !desktopMode;
                   setDesktopMode(nextMode);
+                  if (!nextMode) setZoomLevel(1);
                   const area = document.getElementById('post-content-area');
                   if (nextMode) {
                     if (!document.fullscreenElement && area) {
@@ -263,10 +287,9 @@ export default function PublicPostPage(props: { params: Promise<{ code: string }
 
           <div style={{
             width: desktopMode ? '1024px' : '100%',
-            transform: desktopMode ? `scale(${scaleRatio})` : 'none',
-            transformOrigin: 'top left',
-            minHeight: desktopMode ? `${100 / scaleRatio}vh` : 'auto'
-          }}>
+            zoom: desktopMode ? scaleRatio * zoomLevel : 1,
+            minHeight: desktopMode ? `${100 / (scaleRatio * zoomLevel)}vh` : 'auto'
+          } as React.CSSProperties}>
             {post.editorMode === 'html' ? (
               <iframe 
                 srcDoc={
