@@ -9,7 +9,7 @@ interface RaceVisualizerProps {
 }
 
 const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceType = 'running' }) => {
-  const [raceState, setRaceState] = useState<'idle' | 'racingPhase1' | 'racingPhase2' | 'finished'>('idle');
+  const [raceState, setRaceState] = useState<'idle' | 'racing' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
   const [easings, setEasings] = useState<string[]>([]);
   const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
@@ -32,7 +32,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   }, [items, raceState]);
 
   const startRace = () => {
-    if (items.length === 0 || raceState === 'racingPhase1' || raceState === 'racingPhase2') return;
+    if (items.length === 0 || raceState === 'racing') return;
 
     if (raceState === 'finished') {
       resetRace();
@@ -44,47 +44,34 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   };
 
   const executeStart = () => {
-    setRaceState('racingPhase1');
+    setRaceState('racing');
     playRunningSound();
 
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
-    // Phase 1: Neck and neck until 70% of the track
-    const phase1Duration = raceDuration * 0.70; // Takes 70% time for 70% distance (normal speed)
-    setDurations(items.map(() => phase1Duration));
+    const newDurations = items.map((_, i) => {
+      if (i === winnerIdx) return raceDuration; // Winner finishes exactly on time
+      return raceDuration + 1500 + Math.random() * 2000; // Losers take significantly longer
+    });
 
-    // Gentle easings so they stay close but still swap places smoothly
-    const gentleEasings = [
-      'ease-in-out', 
-      'ease', 
-      'linear', 
-      'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth steady pace
-      'cubic-bezier(0.2, 0.0, 0.8, 1)'  // Slight variation
-    ];
-    setEasings(items.map(() => gentleEasings[Math.floor(Math.random() * gentleEasings.length)]));
+    const newEasings = items.map((_, i) => {
+      if (i === winnerIdx) {
+        // Winner starts slow, catches up, and finishes strong (ease-in)
+        return 'cubic-bezier(0.5, 0.0, 0.8, 0.5)'; 
+      }
+      // Losers start fast, lead the pack, then get tired (ease-out)
+      return 'cubic-bezier(0.2, 0.8, 0.4, 1)'; 
+    });
 
-    // Start Phase 2: The Breakaway
+    setDurations(newDurations);
+    setEasings(newEasings);
+
     setTimeout(() => {
-      setRaceState('racingPhase2');
-      
-      const phase2DurationWinner = raceDuration * 0.30;
-      
-      setDurations(items.map((_, i) => {
-        if (i === winnerIdx) return phase2DurationWinner; 
-        return phase2DurationWinner + 1500 + Math.random() * 2000; // Losers lag behind drastically
-      }));
-      
-      setEasings(items.map((_, i) => i === winnerIdx ? 'ease-out' : 'linear'));
-
-      // Finish Race
-      setTimeout(() => {
-        setRaceState('finished');
-        playTadaSound();
-        if (onWinner) onWinner(items[winnerIdx]);
-      }, phase2DurationWinner);
-
-    }, phase1Duration);
+      setRaceState('finished');
+      playTadaSound();
+      if (onWinner) onWinner(items[winnerIdx]);
+    }, raceDuration);
   };
 
   const resetRace = () => {
@@ -118,7 +105,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             onChange={e => setRaceDuration(Number(e.target.value))}
             className="input-field"
             style={{ padding: '0.25rem 0.5rem', width: 'auto', minWidth: '80px', height: 'auto', background: 'transparent', border: 'none' }}
-            disabled={raceState !== 'idle' && raceState !== 'finished'}
+            disabled={raceState === 'racing'}
           >
             <option value={3000}>៣ វិនាទី</option>
             <option value={5000}>៥ វិនាទី</option>
@@ -129,11 +116,11 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
 
         <button
           onClick={startRace}
-          disabled={raceState !== 'idle' && raceState !== 'finished'}
+          disabled={raceState === 'racing'}
           className="btn btn-primary"
           style={{ padding: '0.75rem 2rem', fontSize: '1.2rem', minWidth: '200px' }}
         >
-          {raceState === 'racingPhase1' || raceState === 'racingPhase2' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
+          {raceState === 'racing' ? 'កំពុងប្រណាំង...' : (raceType === 'running' ? 'ចាប់ផ្តើមរត់ប្រណាំង' : 'ចាប់ផ្តើមប្រណាំងកង់')}
         </button>
       </div>
 
@@ -191,20 +178,13 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             const duration = durations[index] || 0;
             const isFinished = raceState === 'finished';
             const isWinner = isFinished && index === winnerIndex;
-            
-            let leftPos = '0';
-            if (raceState === 'racingPhase1') {
-              leftPos = 'calc(70% - 70px)';
-            } else if (raceState === 'racingPhase2' || raceState === 'finished') {
-              leftPos = 'calc(100% - 70px)';
-            }
 
             return (
               <div 
                 key={index} 
                 style={{ 
                   position: 'absolute',
-                  left: leftPos,
+                  left: raceState === 'idle' ? '0' : 'calc(100% - 70px)',
                   top: `${verticalPositions[index]}%`,
                   transition: raceState === 'idle' ? 'none' : `left ${durations[index]}ms ${easings[index] || 'ease-in-out'}`,
                   transform: 'translateY(-50%)',
