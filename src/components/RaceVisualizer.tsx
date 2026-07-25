@@ -50,28 +50,29 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
-    // Phase 1: Neck and Neck until 85% of the track
-    const phase1Duration = raceDuration * 0.75;
+    // Phase 1: Slow and steady until 70% of the track
+    const phase1Duration = raceDuration * 0.85;
     setDurations(items.map(() => phase1Duration));
 
-    const bouncyEasings = [
-      'cubic-bezier(0.1, 0.9, 0.2, 1)', // Fast start, then coasts (takes early lead)
-      'cubic-bezier(0.8, 0.1, 0.2, 0.9)', // Slow start, fast catchup (surges past others)
+    // Gentle easings so they stay close but still swap places smoothly
+    const gentleEasings = [
+      'ease-in-out', 
+      'ease', 
+      'linear', 
       'cubic-bezier(0.4, 0.0, 0.2, 1)', // Smooth steady pace
-      'cubic-bezier(0.9, 0.0, 0.9, 1)', // Very slow start, huge late surge
-      'cubic-bezier(0.0, 0.9, 1.0, 0.1)'  // Fast start, slow middle, fast end
+      'cubic-bezier(0.2, 0.0, 0.8, 1)'  // Slight variation
     ];
-    setEasings(items.map(() => bouncyEasings[Math.floor(Math.random() * bouncyEasings.length)]));
+    setEasings(items.map(() => gentleEasings[Math.floor(Math.random() * gentleEasings.length)]));
 
     // Start Phase 2: The Breakaway
     setTimeout(() => {
       setRaceState('racingPhase2');
       
-      const phase2DurationWinner = raceDuration * 0.25;
+      const phase2DurationWinner = raceDuration * 0.15;
       
       setDurations(items.map((_, i) => {
         if (i === winnerIdx) return phase2DurationWinner; 
-        return phase2DurationWinner + 500 + Math.random() * (raceDuration * 0.5); // Losers take longer to cross
+        return phase2DurationWinner + 1500 + Math.random() * 2000; // Losers lag behind drastically
       }));
       
       setEasings(items.map((_, i) => i === winnerIdx ? 'ease-out' : 'linear'));
@@ -193,7 +194,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
             
             let leftPos = '0';
             if (raceState === 'racingPhase1') {
-              leftPos = 'calc(85% - 70px)';
+              leftPos = 'calc(70% - 70px)';
             } else if (raceState === 'racingPhase2' || raceState === 'finished') {
               leftPos = 'calc(100% - 70px)';
             }
