@@ -10,6 +10,12 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
   const [groups, setGroups] = useState<string[][]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
+    '#D4A5A5', '#9B59B6', '#3498DB', '#F1C40F', '#E67E22',
+    '#1ABC9C', '#E74C3C', '#E84393', '#00CEC9', '#FD79A8'
+  ];
+
   const generateGroups = () => {
     if (items.length === 0) return;
     
