@@ -45,21 +45,37 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
             ចំនួនក្រុម (Number of Groups)
           </label>
-          <input
-            type="number"
-            min="1"
-            max={items.length || 1}
-            value={numGroups}
-            onChange={(e) => setNumGroups(parseInt(e.target.value) || 1)}
-            className="input-field"
-            style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button 
+              onClick={() => setNumGroups(Math.max(1, numGroups - 1))}
+              className="btn"
+              style={{ width: '40px', height: '40px', padding: 0, fontSize: '1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)' }}
+            >
+              -
+            </button>
+            <input
+              type="number"
+              min="1"
+              max={items.length || 1}
+              value={numGroups}
+              onChange={(e) => setNumGroups(Math.max(1, parseInt(e.target.value) || 1))}
+              className="input-field"
+              style={{ width: '80px', textAlign: 'center', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+            />
+            <button 
+              onClick={() => setNumGroups(Math.min(items.length || 1, numGroups + 1))}
+              className="btn"
+              style={{ width: '40px', height: '40px', padding: 0, fontSize: '1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)' }}
+            >
+              +
+            </button>
+          </div>
         </div>
         <button
           className="btn btn-primary"
           onClick={generateGroups}
           disabled={isGenerating || items.length === 0}
-          style={{ padding: '0.75rem 2rem', height: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
+          style={{ padding: '0.75rem 2rem', height: '52px', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
         >
           {isGenerating ? (
             <span className="spinner" style={{ width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

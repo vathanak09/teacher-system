@@ -145,7 +145,7 @@ export default function ResourcesPage() {
       </div>
 
       {resources.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+        <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ color: 'var(--text-secondary)', opacity: 0.5, marginBottom: '1rem' }}>
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
           </svg>
@@ -160,7 +160,7 @@ export default function ResourcesPage() {
         }}>
           {resources.map(res => (
             <div key={res.id} style={{
-              background: 'var(--panel-bg)',
+              background: 'var(--card-bg)',
               border: '1px solid var(--border-color)',
               borderTop: `4px solid ${res.color || '#6366f1'}`,
               borderRadius: '16px',
@@ -238,7 +238,7 @@ export default function ResourcesPage() {
           zIndex: 1000, padding: '1rem'
         }}>
           <div style={{
-            background: 'var(--panel-bg)', // Fixed from main-bg to panel-bg for better contrast in dark mode
+            background: 'var(--modal-bg)',
             width: '100%', maxWidth: '500px',
             borderRadius: '16px',
             boxShadow: '0 20px 40px rgba(0,0,0,0.4)',

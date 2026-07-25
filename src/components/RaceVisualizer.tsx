@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { playRunningSound, playTadaSound } from '@/utils/audioUtils';
 
 interface RaceVisualizerProps {
@@ -11,6 +11,7 @@ interface RaceVisualizerProps {
 const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceType = 'running' }) => {
   const [raceState, setRaceState] = useState<'idle' | 'racing' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
+  const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -19,6 +20,14 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     '#D4A5A5', '#9B59B6', '#3498DB', '#F1C40F', '#E67E22',
     '#1ABC9C', '#E74C3C', '#E84393', '#00CEC9', '#FD79A8'
   ];
+
+  // Initialize random vertical positions when items change
+  useEffect(() => {
+    if (raceState === 'idle') {
+      const positions = items.map(() => 5 + Math.random() * 85); // 5% to 90% from top
+      setVerticalPositions(positions);
+    }
+  }, [items, raceState]);
 
   const startRace = () => {
     if (items.length === 0 || raceState === 'racing') return;
@@ -39,14 +48,6 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
       setRaceState('finished');
       playTadaSound();
       if (onWinner) onWinner(items[winnerIdx]);
-      
-      // Auto scroll to winner if out of view (only if container is scrolling)
-      if (containerRef.current) {
-        const winnerEl = containerRef.current.children[winnerIdx] as HTMLElement;
-        if (winnerEl) {
-          winnerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
     }, 3000);
   };
 
@@ -54,6 +55,10 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     setRaceState('idle');
     setWinnerIndex(-1);
     setDurations([]);
+    
+    // Scramble vertical positions again
+    const positions = items.map(() => 5 + Math.random() * 85);
+    setVerticalPositions(positions);
   };
 
   if (items.length === 0) {
@@ -63,18 +68,6 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
       </div>
     );
   }
-
-  // Dynamic Sizing calculations
-  // We want to fit all runners in 400px (or roughly the screen height) if possible.
-  // Minimum lane height is 30px so it's somewhat readable.
-  const maxContainerHeight = 500;
-  const preferredLaneHeight = 50; // default large size
-  const calculatedLaneHeight = Math.floor(maxContainerHeight / items.length);
-  const laneHeight = Math.max(30, Math.min(preferredLaneHeight, calculatedLaneHeight));
-  
-  // Font sizes scale with lane height
-  const iconSize = Math.max(14, laneHeight * 0.4);
-  const fontSize = Math.max(9, laneHeight * 0.25);
 
   const iconEmoji = raceType === 'running' ? '🏃‍♂️' : '🚴‍♂️';
 
@@ -112,18 +105,17 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
         </div>
       )}
 
-      {/* Race Track */}
+      {/* Race Track - Single Open Area */}
       <div 
         style={{ 
           position: 'relative', 
           width: '100%', 
-          height: `${Math.min(maxContainerHeight, items.length * laneHeight + 20)}px`, 
-          overflowY: 'auto', 
-          overflowX: 'hidden',
+          height: '400px', // Fixed height for the shared track
+          overflow: 'hidden', // No scrolling, everyone overlaps
           background: '#f8fafc',
           border: '2px solid #cbd5e1',
           borderRadius: '12px',
-          padding: '10px 0'
+          boxShadow: 'inset 0 4px 6px rgba(0,0,0,0.05)'
         }}
       >
         {/* Finish Line Indicator */}
@@ -132,76 +124,77 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
           right: '50px',
           top: 0,
           bottom: 0,
-          width: '8px',
+          width: '15px',
           background: 'repeating-linear-gradient(45deg, #000, #000 10px, #fff 10px, #fff 20px)',
-          borderLeft: '2px solid #000',
-          zIndex: 0
+          borderLeft: '4px solid #ef4444',
+          zIndex: 1
         }} />
 
-        <div ref={containerRef} style={{ position: 'relative', zIndex: 1 }}>
+        {/* Track Lines for decoration */}
+        <div style={{ position: 'absolute', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', opacity: 0.3, zIndex: 0 }}>
+          <div style={{ borderTop: '2px dashed #cbd5e1' }} />
+          <div style={{ borderTop: '2px dashed #cbd5e1' }} />
+          <div style={{ borderTop: '2px dashed #cbd5e1' }} />
+          <div style={{ borderTop: '2px dashed #cbd5e1' }} />
+        </div>
+
+        <div ref={containerRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10 }}>
           {items.map((item, index) => {
             const duration = durations[index] || 0;
             const isFinished = raceState === 'finished';
             const isWinner = isFinished && index === winnerIndex;
             
-            // Movement: 0% left initially. If racing or finished, move to calc(100% - offset)
-            const translateX = raceState !== 'idle' ? 'calc(100% - 65px)' : '10px';
-            
+            // For translateX, use calc(100% - offset).
+            // We want the right side of the runner to hit the finish line at right: 50px.
+            const targetLeft = raceState !== 'idle' ? 'calc(100% - 90px)' : '10px';
+            const topPos = verticalPositions[index] || 50;
+
             return (
               <div 
                 key={index} 
                 style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  position: 'relative',
-                  height: `${laneHeight}px`
+                  position: 'absolute',
+                  left: targetLeft,
+                  top: `${topPos}%`,
+                  transform: 'translateY(-50%)', // Center vertically based on top%
+                  transition: raceState === 'racing' ? `left ${duration}ms ease-in` : (raceState === 'idle' ? 'none' : 'none'),
+                  zIndex: isWinner ? 100 : (raceState === 'racing' ? 50 : 10), // Winner stays on top
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
-                {/* Lane line */}
-                <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', borderTop: '1px dashed #cbd5e1', zIndex: 0 }} />
-                
-                {/* Runner Icon & Name */}
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', // Name above icon
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'absolute',
-                    left: 0,
-                    transform: `translateX(${translateX})`,
-                    transition: raceState === 'racing' ? `transform ${duration}ms ease-in` : (raceState === 'idle' ? 'transform 0s' : 'none'),
-                    zIndex: isWinner ? 10 : 1,
-                  }}
-                >
-                  <span style={{ 
-                    fontWeight: 'bold', 
-                    fontSize: `${fontSize}px`, 
-                    color: '#334155',
-                    background: 'rgba(255,255,255,0.8)',
-                    padding: '0 4px',
-                    borderRadius: '4px',
-                    whiteSpace: 'nowrap',
-                    marginBottom: '2px', // space between name and icon
-                    boxShadow: isWinner ? '0 0 5px gold' : 'none'
-                  }}>
-                    {item.length > 15 ? item.substring(0, 15) + '...' : item}
-                  </span>
-                  <div style={{
-                    fontSize: `${iconSize}px`,
-                    background: isWinner ? '#fef08a' : 'white',
-                    padding: '2px',
-                    borderRadius: '50%',
-                    border: `2px solid ${colors[index % colors.length]}`,
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: `${iconSize + 10}px`,
-                    height: `${iconSize + 10}px`
-                  }}>
-                    {isWinner ? '🏆' : iconEmoji}
-                  </div>
+                {/* Name Label */}
+                <div style={{ 
+                  fontWeight: 'bold', 
+                  fontSize: '12px', 
+                  color: '#334155',
+                  background: 'rgba(255,255,255,0.9)',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isWinner ? '0 0 10px gold' : '0 1px 3px rgba(0,0,0,0.1)',
+                  border: isWinner ? '2px solid gold' : '1px solid #e2e8f0',
+                  opacity: (raceState === 'idle' && items.length > 20) ? 0.8 : 1 // slight transparency when crowded
+                }}>
+                  {item.length > 15 ? item.substring(0, 15) + '...' : item}
+                </div>
+
+                {/* Runner Icon */}
+                <div style={{
+                  fontSize: '20px',
+                  background: isWinner ? '#fef08a' : 'white',
+                  borderRadius: '50%',
+                  border: `3px solid ${colors[index % colors.length]}`,
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '36px',
+                  height: '36px',
+                  flexShrink: 0
+                }}>
+                  {isWinner ? '🏆' : iconEmoji}
                 </div>
               </div>
             );

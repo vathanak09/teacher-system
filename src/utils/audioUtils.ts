@@ -36,36 +36,52 @@ export const playTickSound = () => {
 };
 
 export const playTadaSound = () => {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  
-  if (ctx.state === 'suspended') {
-    ctx.resume();
+  try {
+    const audioCtx = getAudioContext();
+    if (!audioCtx) return;
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
+    const playNote = (freq: number, startTime: number, duration: number, type: OscillatorType = 'triangle') => {
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startTime);
+      
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime + startTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + startTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startTime + duration);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc.start(audioCtx.currentTime + startTime);
+      osc.stop(audioCtx.currentTime + startTime + duration);
+    };
+
+    // Quick buildup (G4, C5, E5, G5)
+    playNote(392.00, 0, 0.15, 'square');
+    playNote(523.25, 0.15, 0.15, 'square');
+    playNote(659.25, 0.3, 0.15, 'square');
+    playNote(783.99, 0.45, 0.15, 'square');
+    
+    // Grand finish chord (C Major)
+    playNote(523.25, 0.6, 2.0, 'square');
+    playNote(659.25, 0.6, 2.0, 'square');
+    playNote(783.99, 0.6, 2.0, 'square');
+    playNote(1046.50, 0.6, 2.5, 'square');
+
+    // Sparkle effect
+    for (let i = 0; i < 15; i++) {
+      playNote(800 + Math.random() * 800, 0.6 + i * 0.08, 0.4, 'sine');
+    }
+
+  } catch (error) {
+    console.error("Audio error", error);
   }
-
-  // Play a more exciting "Ta-da!" fanfare
-  const playNote = (freq: number, startTime: number, duration: number, type: OscillatorType = 'square', vol = 0.2) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
-    
-    gain.gain.setValueAtTime(vol, ctx.currentTime + startTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    
-    osc.start(ctx.currentTime + startTime);
-    osc.stop(ctx.currentTime + startTime + duration);
-  };
-
-  // C major arpeggio going up!
-  playNote(261.63, 0, 0.15);    // C4
-  playNote(329.63, 0.15, 0.15); // E4
-  playNote(392.00, 0.3, 0.15);  // G4
-  playNote(523.25, 0.45, 0.6, 'sine', 0.3); // C5 (Longer and smoother finish)
 };
 
 export const playRunningSound = () => {
