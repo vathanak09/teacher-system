@@ -12,6 +12,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
   const [raceState, setRaceState] = useState<'idle' | 'racingPhase1' | 'racingPhase2' | 'finished'>('idle');
   const [durations, setDurations] = useState<number[]>([]);
   const [easings, setEasings] = useState<string[]>([]);
+  const [phase1Targets, setPhase1Targets] = useState<string[]>([]);
   const [verticalPositions, setVerticalPositions] = useState<number[]>([]);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
   const [raceDuration, setRaceDuration] = useState<number>(3000); // Default 3 seconds
@@ -50,26 +51,44 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     const winnerIdx = Math.floor(Math.random() * items.length);
     setWinnerIndex(winnerIdx);
 
-    // Phase 1: Everyone runs exactly the same until 85% (Near the finish line)
-    const phase1Duration = raceDuration * 0.85;
+    // Select 2-3 leaders (including the winner)
+    const numLeaders = Math.min(items.length, Math.floor(Math.random() * 2) + 2); // 2 or 3 leaders
+    const leaders = new Set<number>([winnerIdx]);
+    while (leaders.size < numLeaders) {
+      leaders.add(Math.floor(Math.random() * items.length));
+    }
+
+    // Phase 1: Leaders race to 80%, others lag behind
+    const phase1Duration = raceDuration * 0.80;
     setDurations(items.map(() => phase1Duration));
     
-    // Add very slight random variation so they aren't totally pixel perfect stacked
-    const gentleEasings = ['ease', 'ease-in-out', 'linear'];
-    setEasings(items.map(() => gentleEasings[Math.floor(Math.random() * gentleEasings.length)]));
+    // Set different targets for Phase 1
+    const newPhase1Targets = items.map((_, i) => {
+      if (leaders.has(i)) {
+        return 'calc(80% - 70px)'; // Leaders reach 80%
+      } else {
+        const randomLag = 40 + Math.random() * 20; // 40% to 60%
+        return `calc(${randomLag}% - 70px)`; // Others lag behind
+      }
+    });
+    setPhase1Targets(newPhase1Targets);
+    
+    // Smooth easings for everyone
+    setEasings(items.map(() => 'ease-in-out'));
 
-    // Phase 2: Winner speeds up to finish line, losers take their time
+    // Phase 2: Winner speeds up to finish line, other leaders slow down, pack stays behind
     setTimeout(() => {
       setRaceState('racingPhase2');
       
-      const phase2DurationWinner = raceDuration * 0.15;
+      const phase2DurationWinner = raceDuration * 0.20;
       
       setDurations(items.map((_, i) => {
-        if (i === winnerIdx) return phase2DurationWinner; // Winner finishes fast
-        return phase2DurationWinner + 800 + Math.random() * 1000; // Losers are slower
+        if (i === winnerIdx) return phase2DurationWinner; 
+        if (leaders.has(i)) return phase2DurationWinner + 800 + Math.random() * 500; // Other leaders lose the sprint
+        return phase2DurationWinner + 1500 + Math.random() * 1500; // Pack is way behind
       }));
       
-      setEasings(items.map((_, i) => i === winnerIdx ? 'ease-in' : 'linear'));
+      setEasings(items.map((_, i) => i === winnerIdx ? 'ease-in' : 'ease-out'));
 
       // Finish Race
       setTimeout(() => {
@@ -188,7 +207,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
 
             let leftPos = '0';
             if (raceState === 'racingPhase1') {
-              leftPos = 'calc(85% - 70px)';
+              leftPos = phase1Targets[index] || 'calc(80% - 70px)';
             } else if (raceState === 'racingPhase2' || raceState === 'finished') {
               leftPos = 'calc(100% - 70px)';
             }
