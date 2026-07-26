@@ -3,6 +3,21 @@
 import { useEffect, useState, use } from 'react';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
 
+function getHtmlContent(content: string) {
+  const fontInject = `<style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&display=swap');</style>`;
+  const defaultBodyCss = `<style>body { font-family: 'Kantumruy Pro', 'Battambang', 'Inter', sans-serif; margin: 0; padding: 0.5rem; }</style>`;
+  
+  if (content.includes('<html')) {
+    if (content.toLowerCase().includes('<head>')) {
+      return content.replace(/<head[^>]*>/i, match => match + fontInject);
+    } else {
+      return content.replace(/<html[^>]*>/i, match => match + '<head>' + fontInject + '</head>');
+    }
+  } else {
+    return `<head><meta name="viewport" content="width=device-width, initial-scale=1">${fontInject}${defaultBodyCss}</head><body>${content}</body>`;
+  }
+}
+
 export default function PublicPostPage(props: { params: Promise<{ code: string }> }) {
   const params = use(props.params);
   const [post, setPost] = useState<any>(null);
