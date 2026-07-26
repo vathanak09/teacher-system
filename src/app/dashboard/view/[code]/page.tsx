@@ -42,7 +42,8 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
   // Mobile Desktop View state
   const [isMobile, setIsMobile] = useState(false);
   const [desktopMode, setDesktopMode] = useState(false);
-  const [scaleRatio, setScaleRatio] = useState(1);
+  const [baseScale, setBaseScale] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -50,6 +51,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
         const w = window.innerWidth;
         setIsMobile(w < 768);
         if (w >= 768) setDesktopMode(false);
+        setBaseScale(w / 820);
       };
       handleResize();
       window.addEventListener('resize', handleResize);
@@ -57,24 +59,7 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const meta = document.querySelector('meta[name="viewport"]');
-      if (meta) {
-        if (desktopMode) {
-          meta.setAttribute('content', 'width=820, user-scalable=yes');
-        } else {
-          meta.setAttribute('content', 'width=device-width, initial-scale=1');
-        }
-      }
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        const meta = document.querySelector('meta[name="viewport"]');
-        if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=1');
-      }
-    };
-  }, [desktopMode]);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -269,10 +254,10 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
         id="post-content-area" 
         className="glass-panel post-content-container" 
         style={desktopMode ? {
-          position: 'absolute',
-          top: 0, left: 0,
-          width: '100%',
-          minHeight: '100vh',
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          width: '100vw',
+          height: '100vh',
           zIndex: 9999,
           overflowY: 'auto',
           overflowX: 'auto',
@@ -286,14 +271,30 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
           background: 'var(--main-bg)' 
         }}
       >
-        <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 10000, display: 'flex', gap: '0.5rem' }}>
+        <div style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 10000, display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '90%' }}>
+          
+          {desktopMode && (
+            <div style={{ display: 'flex', background: 'var(--card-bg)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+              <button onClick={() => setZoomLevel(prev => Math.max(0.2, prev - 0.1))} className="btn" style={{ padding: '0.5rem', background: 'transparent', color: 'var(--text-primary)', border: 'none', borderRight: '1px solid var(--border-color)', borderRadius: 0 }} title="Zoom Out">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <div style={{ padding: '0 0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold', minWidth: '3.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                {Math.round(zoomLevel * 100)}%
+              </div>
+              <button onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.1))} className="btn" style={{ padding: '0.5rem', background: 'transparent', color: 'var(--text-primary)', border: 'none', borderRadius: 0 }} title="Zoom In">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+            </div>
+          )}
 
           {isMobile && (
             <button 
               onClick={() => {
                 const nextMode = !desktopMode;
                 setDesktopMode(nextMode);
-                if (nextMode) window.scrollTo(0, 0);
+                if (nextMode) {
+                  setZoomLevel(baseScale);
+                }
               }}
               className="btn"
               style={{ 
@@ -336,13 +337,14 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
 
         <div style={{
           width: desktopMode ? '820px' : '100%',
-          minHeight: '100vh',
+          zoom: desktopMode ? zoomLevel : 1,
+          minHeight: desktopMode ? `${100 / zoomLevel}vh` : 'auto',
           margin: '0 auto'
-        }}>
+        } as React.CSSProperties}>
           {post.editorMode === 'html' ? (
             <iframe 
               srcDoc={getHtmlContent(post.content)}
-              style={{ width: '100%', minHeight: '100vh', border: 'none', background: 'transparent' }} 
+              style={{ width: '100%', minHeight: desktopMode ? `${100 / zoomLevel}vh` : '100vh', border: 'none', background: 'transparent' }} 
               sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
               title="HTML Content"
               onLoad={(e) => {
