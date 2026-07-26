@@ -23,13 +23,15 @@ import { IDataService, WhereFilterOp, OrderByDirection } from './types';
 
 export class FirebaseDataService<T extends { id?: string }> implements IDataService<T> {
   private collectionName: string;
+  private dbInstance: ReturnType<typeof getFirestore>;
 
-  constructor(collectionName: string) {
+  constructor(collectionName: string, customDb?: ReturnType<typeof getFirestore>) {
     this.collectionName = collectionName;
+    this.dbInstance = customDb || db;
   }
 
   private get collectionRef(): CollectionReference<DocumentData> {
-    return collection(db, this.collectionName);
+    return collection(this.dbInstance, this.collectionName);
   }
 
   listenAll(
@@ -63,7 +65,7 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   }
 
   subscribeOne(id: string, callback: (data: T | null) => void): () => void {
-    const docRef = doc(db, this.collectionName, id);
+    const docRef = doc(this.dbInstance, this.collectionName, id);
     return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         callback({ ...docSnap.data(), id: docSnap.id } as unknown as T);
@@ -110,7 +112,7 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   }
 
   async getById(id: string): Promise<T | null> {
-    const docRef = doc(db, this.collectionName, id);
+    const docRef = doc(this.dbInstance, this.collectionName, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return { ...docSnap.data(), id: docSnap.id } as unknown as T;
@@ -130,7 +132,7 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
 
   async add(data: any, id?: string): Promise<string> {
     if (id) {
-      const docRef = doc(db, this.collectionName, id);
+      const docRef = doc(this.dbInstance, this.collectionName, id);
       await setDoc(docRef, data, { merge: true });
       return id;
     } else {
@@ -140,12 +142,12 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   }
 
   async update(id: string, data: any): Promise<void> {
-    const docRef = doc(db, this.collectionName, id);
+    const docRef = doc(this.dbInstance, this.collectionName, id);
     await updateDoc(docRef, data);
   }
 
   async delete(id: string): Promise<void> {
-    const docRef = doc(db, this.collectionName, id);
+    const docRef = doc(this.dbInstance, this.collectionName, id);
     await deleteDoc(docRef);
   }
 }
