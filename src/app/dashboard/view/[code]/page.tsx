@@ -269,10 +269,10 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
         id="post-content-area" 
         className="glass-panel post-content-container" 
         style={desktopMode ? {
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          width: '100vw',
-          height: '100vh',
+          position: 'absolute',
+          top: 0, left: 0,
+          width: '100%',
+          minHeight: '100vh',
           zIndex: 9999,
           overflowY: 'auto',
           overflowX: 'auto',
@@ -291,7 +291,9 @@ export default function DashboardPostViewPage(props: { params: Promise<{ code: s
           {isMobile && (
             <button 
               onClick={() => {
-                setDesktopMode(!desktopMode);
+                const nextMode = !desktopMode;
+                setDesktopMode(nextMode);
+                if (nextMode) window.scrollTo(0, 0);
               }}
               className="btn"
               style={{ 
