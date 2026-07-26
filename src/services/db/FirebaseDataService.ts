@@ -57,32 +57,9 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
     orderDirection?: OrderByDirection,
     forceRefresh?: boolean
   ): () => void {
-    let q: Query<DocumentData> = this.collectionRef;
-    if (orderByField) {
-      q = query(this.collectionRef, orderBy(orderByField, orderDirection || 'asc'));
-    }
-
-    const fetchLogic = async () => {
-      let snapshot;
-      try {
-        if (forceRefresh) throw new Error("Force Refresh");
-        snapshot = await getDocsFromCache(q);
-        if (snapshot.empty) throw new Error("Cache Empty");
-      } catch (e) {
-        snapshot = await getDocsFromServer(q);
-      }
-      
-      const data: T[] = [];
-      snapshot.forEach((docSnap) => {
-        data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
-      });
-      callback(data);
-    };
-
-    fetchLogic();
-    
-    // Return dummy unsubscribe function
-    return () => {};
+    // Delegate to listenAll to leverage Firestore's built-in caching and real-time delta sync.
+    // This fixes the issue where the manual getDocsFromCache was permanently blocking new data.
+    return this.listenAll(callback, orderByField, orderDirection);
   }
 
   subscribeOne(id: string, callback: (data: T | null) => void): () => void {
