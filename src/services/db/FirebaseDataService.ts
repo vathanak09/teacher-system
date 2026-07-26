@@ -17,7 +17,8 @@ import {
   CollectionReference,
   getCountFromServer,
   getDocsFromCache,
-  getDocsFromServer
+  getDocsFromServer,
+  getFirestore
 } from 'firebase/firestore';
 import { IDataService, WhereFilterOp, OrderByDirection } from './types';
 
