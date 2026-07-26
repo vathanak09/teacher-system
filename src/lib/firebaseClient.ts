@@ -45,7 +45,7 @@ let studentDb: ReturnType<typeof getFirestore>;
 try {
   studentDb = initializeFirestore(studentApp, {
     localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-  }, 'StudentApp'); // Ensure uniquely named initialization
+  });
 } catch (e) {
   studentDb = getFirestore(studentApp);
 }
