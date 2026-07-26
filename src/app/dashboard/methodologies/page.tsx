@@ -90,7 +90,7 @@ export default function MethodologiesPage() {
     });
 
     // Load Posts
-    const unsubscribe = methodologyService.subscribeAll(setPosts);
+    const unsubscribe = methodologyService.listenAll(setPosts);
 
     return () => {
       unsubscribe();

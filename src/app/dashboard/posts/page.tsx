@@ -69,11 +69,11 @@ export default function PostsManagementPage() {
       }
     });
 
-    const unsubLessons = lessonService.subscribeAll((data) => {
+    const unsubLessons = lessonService.listenAll((data) => {
       setLessonsPosts(data.map((d: any) => ({ ...d, collectionName: 'lessons' })));
     });
 
-    const unsubMethods = methodologyService.subscribeAll((data) => {
+    const unsubMethods = methodologyService.listenAll((data) => {
       setMethodsPosts(data.map((d: any) => ({ ...d, collectionName: 'methodologies' })));
     });
 

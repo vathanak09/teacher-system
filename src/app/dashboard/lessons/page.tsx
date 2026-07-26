@@ -90,7 +90,7 @@ export default function LessonsPage() {
     });
 
     // Load Posts
-    const unsubscribe = lessonService.subscribeAll(setPosts);
+    const unsubscribe = lessonService.listenAll(setPosts);
 
     return () => {
       unsubscribe();
