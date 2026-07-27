@@ -15,6 +15,8 @@ type VocabItem = {
 
 export default function VocabBuilderPage() {
   const [inputText, setInputText] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<VocabItem[]>([]);
   
@@ -30,15 +32,44 @@ export default function VocabBuilderPage() {
     example: true,
     exampleLevel: 'intermediate',
     exampleCount: 1,
+    extractHighlighted: false,
+    extractDifficult: false,
+    difficultLevel: 'beginner',
   });
 
   const handleOptionChange = (field: string, value: any) => {
     setOptions(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const getBase64Image = async (file: File): Promise<{mimeType: string, base64: string}> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // result is like "data:image/jpeg;base64,/9j/4AAQ..."
+        const base64 = result.split(',')[1];
+        resolve({ mimeType: file.type, base64 });
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const generateVocabList = async () => {
-    if (!inputText.trim()) {
-      alert("សូមបញ្ចូលពាក្យជាមុនសិន!");
+    if (!inputText.trim() && !imageFile) {
+      alert("សូមបញ្ចូលពាក្យ ឬ ជ្រើសរើសរូបភាពជាមុនសិន!");
       return;
     }
 
@@ -48,6 +79,11 @@ export default function VocabBuilderPage() {
     const wordsArray = inputText.split(/[,\n]+/).map(w => w.trim()).filter(w => w.length > 0);
 
     try {
+      let imagePayload = null;
+      if (imageFile) {
+        imagePayload = await getBase64Image(imageFile);
+      }
+
       const response = await fetch('/api/vocab-builder', {
         method: 'POST',
         headers: {
@@ -57,6 +93,7 @@ export default function VocabBuilderPage() {
           words: wordsArray,
           options,
           modelName,
+          image: imagePayload
         }),
       });
 
@@ -74,6 +111,54 @@ export default function VocabBuilderPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const generatePromptText = () => {
+    let wordListStr = inputText.trim() || "(None, extract from image only)";
+    let imageInstruction = "";
+    if (imageFile) {
+      imageInstruction = `\nI have provided an image containing text. \nPlease extract words from the image based on the following rules:\n`;
+      if (options.extractHighlighted) {
+        imageInstruction += "- Extract words that are highlighted, underlined, or circled in the image.\n";
+      }
+      if (options.extractDifficult) {
+        imageInstruction += `- Extract words that are considered "difficult" for a ${options.difficultLevel} English learner.\n`;
+      }
+      if (!options.extractHighlighted && !options.extractDifficult) {
+        imageInstruction += "- Extract all distinct, important vocabulary words from the image.\n";
+      }
+      imageInstruction += "\nThen, for all extracted words (and any words provided in the list below), generate the required vocabulary details.\n\n";
+    }
+
+    return `You are an expert English teacher. ${imageInstruction}
+I will give you a list of words or phrases.
+For each word/phrase, please provide the following details based on the user's requested options.
+IMPORTANT: If a word has parentheses next to it (e.g., "bank (2 meanings)" or "apple (fruit)"), pay close attention to that context or instruction when generating meanings and examples.
+
+List of words: ${wordListStr}
+
+Requested options:
+- Part of Speech: ${options.pos ? 'Yes' : 'No'}
+- IPA Pronunciation (US): ${options.ipa ? 'Yes' : 'No'}
+- Simple English Meaning: ${options.simpleMeaning ? 'Yes' : 'No'}
+- Khmer Translation/Meaning: ${options.khmerMeaning ? 'Yes (Short and easy to understand)' : 'No'}
+- Synonyms: ${options.synonyms ? 'Yes (comma separated)' : 'No'}
+- Antonyms: ${options.antonyms ? 'Yes (comma separated)' : 'No'}
+- Examples: ${options.example ? `Yes, provide exactly ${options.exampleCount || 1} example sentence(s) at a ${options.exampleLevel} level.` : 'No'}
+
+Return ONLY a JSON array of objects, where each object represents a word and contains the requested fields. Use exact keys: "word", "pos", "ipa", "meaningEn", "meaningKm", "synonyms", "antonyms", "examples".
+Note: "examples" MUST be an array of strings (e.g., ["Example 1", "Example 2"]).
+If a requested field doesn't make sense or isn't requested, omit it or leave it empty.
+Make sure the Khmer translation is very short, concise, and easy to understand.`;
+  };
+
+  const copyPrompt = () => {
+    const prompt = generatePromptText();
+    navigator.clipboard.writeText(prompt).then(() => {
+      alert("បាន Copy Prompt ជោគជ័យ! លោកអ្នកអាច Paste វាចូល ChatGPT ឬ Gemini បាន។");
+    }).catch(err => {
+      alert("មិនអាច Copy បានទេ: " + err);
+    });
   };
 
   const playAudio = (word: string, locale: 'en-US' | 'en-GB') => {
@@ -116,7 +201,7 @@ export default function VocabBuilderPage() {
     });
 
     navigator.clipboard.writeText(textToCopy).then(() => {
-      alert("បាន Copy ជោគជ័យ!");
+      alert("បាន Copy លទ្ធផលជោគជ័យ!");
     }).catch(err => {
       alert("មិនអាច Copy បានទេ: " + err);
     });
@@ -127,7 +212,7 @@ export default function VocabBuilderPage() {
       <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1>បង្កើតបញ្ជីពាក្យ (Vocab Builder)</h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>បញ្ចួលពាក្យដើម្បីឱ្យ Gemini AI បង្កើតន័យ, IPA និងឧទាហរណ៍ដោយស្វ័យប្រវត្តិ។</p>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>បញ្ចួលពាក្យ ឬអាប់ឡូតរូបភាពដើម្បីឱ្យ Gemini AI បង្កើតន័យ, IPA និងឧទាហរណ៍ដោយស្វ័យប្រវត្តិ។</p>
         </div>
       </div>
 
@@ -143,10 +228,53 @@ export default function VocabBuilderPage() {
         </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>អាប់ឡូតរូបភាព (Upload Image)</label>
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={handleImageChange}
+            className="input-field"
+          />
+          {imagePreview && (
+            <div style={{ marginTop: '1rem' }}>
+              <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+              <div style={{ marginTop: '1rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid #3b82f6' }}>
+                <h4 style={{ margin: '0 0 0.5rem 0' }}>ជម្រើសទាញពាក្យពីរូបភាព</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={options.extractHighlighted} onChange={(e) => handleOptionChange('extractHighlighted', e.target.checked)} />
+                    ទាញយកតែពាក្យដែលបាន Highlight / គូសបន្ទាត់ / គូសរង្វង់
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={options.extractDifficult} onChange={(e) => handleOptionChange('extractDifficult', e.target.checked)} />
+                      ទាញយកពាក្យពិបាកៗតាមកម្រិត៖
+                    </label>
+                    {options.extractDifficult && (
+                      <select 
+                        className="input-field" 
+                        style={{ padding: '0.2rem 0.5rem', width: 'auto' }}
+                        value={options.difficultLevel} 
+                        onChange={(e) => handleOptionChange('difficultLevel', e.target.value)}
+                      >
+                        <option value="beginner">កម្រិតងាយ (Beginner)</option>
+                        <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
+                        <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
+                        <option value="native">ដូចម្ចាស់ភាសា (Native)</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>បញ្ចូលពាក្យឬឃ្លា (Words or Phrases)</label>
           <textarea 
             className="input-field" 
-            placeholder="ឧទាហរណ៍៖ apple, banana, car&#10;ឬវាយចុះបន្ទាត់ម្ដងមួយពាក្យក៏បាន..."
+            placeholder="ឧទាហរណ៍៖ apple, banana, car&#10;វាយចុះបន្ទាត់ម្ដងមួយពាក្យ ឬប្រើសញ្ញាក្បៀស។ អាចដាក់ (បរិបទ) ពីក្រោយពាក្យបាន..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             style={{ minHeight: '120px', resize: 'vertical' }}
@@ -216,11 +344,11 @@ export default function VocabBuilderPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <button 
             className="btn btn-primary" 
             onClick={generateVocabList}
-            disabled={isLoading || !inputText.trim()}
+            disabled={isLoading || (!inputText.trim() && !imageFile)}
             style={{ padding: '0.8rem 2rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
             {isLoading ? (
@@ -234,6 +362,15 @@ export default function VocabBuilderPage() {
                 បង្កើតបញ្ជីពាក្យ (Generate)
               </>
             )}
+          </button>
+          
+          <button 
+            className="btn" 
+            onClick={copyPrompt}
+            style={{ padding: '0.8rem 2rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            ចម្លង Prompt (Copy Prompt)
           </button>
         </div>
       </div>
