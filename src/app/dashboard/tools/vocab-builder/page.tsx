@@ -10,7 +10,7 @@ type VocabItem = {
   meaningKm?: string;
   synonyms?: string;
   antonyms?: string;
-  example?: string;
+  examples?: string[];
 };
 
 export default function VocabBuilderPage() {
@@ -29,6 +29,7 @@ export default function VocabBuilderPage() {
     antonyms: false,
     example: true,
     exampleLevel: 'intermediate',
+    exampleCount: 1,
   });
 
   const handleOptionChange = (field: string, value: any) => {
@@ -76,8 +77,10 @@ export default function VocabBuilderPage() {
   };
 
   const playAudio = (word: string, locale: 'en-US' | 'en-GB') => {
+    // Strip parentheses from word before playing e.g. "bank (2 meanings)" -> "bank"
+    const cleanWord = word.replace(/\(.*?\)/g, '').trim();
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(word);
+      const utterance = new SpeechSynthesisUtterance(cleanWord);
       utterance.lang = locale;
       // You can tweak rate and pitch if needed
       utterance.rate = 0.9;
@@ -90,18 +93,25 @@ export default function VocabBuilderPage() {
   const copyToClipboard = () => {
     if (results.length === 0) return;
 
-    let textToCopy = "Vocabulary List\n\n";
+    let textToCopy = "";
     results.forEach((item, index) => {
-      textToCopy += `${index + 1}. ${item.word}`;
+      // 1. speaker (Noun) //ˈspiːkər// A person who speaks... អ្នកនិយាយ...
+      const cleanWord = item.word.replace(/\(.*?\)/g, '').trim();
+      textToCopy += `${index + 1}. ${cleanWord}`;
       if (item.pos) textToCopy += ` (${item.pos})`;
-      if (item.ipa) textToCopy += ` /${item.ipa}/`;
+      if (item.ipa) textToCopy += ` //${item.ipa}//`;
+      if (item.meaningEn) textToCopy += ` ${item.meaningEn}`;
+      if (item.meaningKm) textToCopy += ` ${item.meaningKm}`;
       textToCopy += "\n";
       
-      if (item.meaningKm) textToCopy += `   • ន័យខ្មែរ: ${item.meaningKm}\n`;
-      if (item.meaningEn) textToCopy += `   • Meaning: ${item.meaningEn}\n`;
-      if (item.synonyms) textToCopy += `   • Synonyms: ${item.synonyms}\n`;
-      if (item.antonyms) textToCopy += `   • Antonyms: ${item.antonyms}\n`;
-      if (item.example) textToCopy += `   • Example: ${item.example}\n`;
+      if (item.synonyms) textToCopy += `    • Synonyms: ${item.synonyms}\n`;
+      if (item.antonyms) textToCopy += `    • Antonyms: ${item.antonyms}\n`;
+      
+      if (item.examples && item.examples.length > 0) {
+        item.examples.forEach(ex => {
+          textToCopy += `    • Example: ${ex}\n`;
+        });
+      }
       textToCopy += "\n";
     });
 
@@ -178,16 +188,30 @@ export default function VocabBuilderPage() {
               ឧទាហរណ៍ប្រយោគ (Example)
             </label>
             {options.example && (
-              <select 
-                className="input-field" 
-                style={{ padding: '0.4rem', width: 'auto', minWidth: '150px' }}
-                value={options.exampleLevel} 
-                onChange={(e) => handleOptionChange('exampleLevel', e.target.value)}
-              >
-                <option value="beginner">កម្រិតងាយ (Beginner)</option>
-                <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
-                <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
-              </select>
+              <>
+                <select 
+                  className="input-field" 
+                  style={{ padding: '0.4rem', width: 'auto', minWidth: '150px' }}
+                  value={options.exampleLevel} 
+                  onChange={(e) => handleOptionChange('exampleLevel', e.target.value)}
+                >
+                  <option value="beginner">កម្រិតងាយ (Beginner)</option>
+                  <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
+                  <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
+                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <label>ចំនួន៖</label>
+                  <input 
+                    type="number" 
+                    className="input-field" 
+                    style={{ padding: '0.4rem', width: '70px' }}
+                    min="1" 
+                    max="10"
+                    value={options.exampleCount}
+                    onChange={(e) => handleOptionChange('exampleCount', parseInt(e.target.value) || 1)}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -229,9 +253,9 @@ export default function VocabBuilderPage() {
               <div key={index} style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--accent-primary)' }}>{item.word}</h3>
+                  <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--accent-primary)' }}>{index + 1}. {item.word.replace(/\(.*?\)/g, '').trim()}</h3>
                   {item.pos && <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600 }}>{item.pos}</span>}
-                  {item.ipa && <span style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>/{item.ipa}/</span>}
+                  {item.ipa && <span style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>//{item.ipa}//</span>}
                   
                   <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
                     <button onClick={() => playAudio(item.word, 'en-US')} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'white', border: '1px solid var(--border-color)' }}>
@@ -244,20 +268,18 @@ export default function VocabBuilderPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-                  {item.meaningKm && (
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span style={{ fontWeight: 600, minWidth: '90px' }}>ន័យខ្មែរ៖</span>
-                      <span>{item.meaningKm}</span>
-                    </div>
-                  )}
                   {item.meaningEn && (
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span style={{ fontWeight: 600, minWidth: '90px' }}>Meaning៖</span>
                       <span>{item.meaningEn}</span>
                     </div>
                   )}
-                  {item.synonyms && (
+                  {item.meaningKm && (
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{item.meaningKm}</span>
+                    </div>
+                  )}
+                  {item.synonyms && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                       <span style={{ fontWeight: 600, minWidth: '90px' }}>Synonyms៖</span>
                       <span style={{ color: 'var(--text-secondary)' }}>{item.synonyms}</span>
                     </div>
@@ -268,9 +290,13 @@ export default function VocabBuilderPage() {
                       <span style={{ color: 'var(--text-secondary)' }}>{item.antonyms}</span>
                     </div>
                   )}
-                  {item.example && (
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', padding: '0.8rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', borderLeft: '3px solid #3b82f6' }}>
-                      <span style={{ fontStyle: 'italic' }}>"{item.example}"</span>
+                  {item.examples && item.examples.length > 0 && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      {item.examples.map((ex, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', padding: '0.8rem', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', borderLeft: '3px solid #3b82f6' }}>
+                          <span style={{ fontStyle: 'italic' }}>• Example: {ex}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

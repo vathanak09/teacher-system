@@ -23,7 +23,8 @@ export async function POST(request: Request) {
 
     const prompt = `
 You are an expert English teacher. I will give you a list of words or phrases.
-For each word/phrase, please provide the following details based on the user's requested options:
+For each word/phrase, please provide the following details based on the user's requested options.
+IMPORTANT: If a word has parentheses next to it (e.g., "bank (2 meanings)" or "apple (fruit)"), pay close attention to that context or instruction when generating meanings and examples.
 
 List of words: ${wordListStr}
 
@@ -31,12 +32,13 @@ Requested options:
 - Part of Speech: ${options.pos ? 'Yes' : 'No'}
 - IPA Pronunciation (US): ${options.ipa ? 'Yes' : 'No'}
 - Simple English Meaning: ${options.simpleMeaning ? 'Yes' : 'No'}
-- Khmer Translation/Meaning (Short and easy to understand): ${options.khmerMeaning ? 'Yes' : 'No'}
-- Synonyms (comma separated): ${options.synonyms ? 'Yes' : 'No'}
-- Antonyms (comma separated): ${options.antonyms ? 'Yes' : 'No'}
-- Example Sentence: ${options.example ? `Yes, at a ${options.exampleLevel} level` : 'No'}
+- Khmer Translation/Meaning: ${options.khmerMeaning ? 'Yes (Short and easy to understand)' : 'No'}
+- Synonyms: ${options.synonyms ? 'Yes (comma separated)' : 'No'}
+- Antonyms: ${options.antonyms ? 'Yes (comma separated)' : 'No'}
+- Examples: ${options.example ? `Yes, provide exactly ${options.exampleCount || 1} example sentence(s) at a ${options.exampleLevel} level.` : 'No'}
 
-Return ONLY a JSON array of objects, where each object represents a word from the list and contains the requested fields. Use exact keys: "word", "pos", "ipa", "meaningEn", "meaningKm", "synonyms", "antonyms", "example".
+Return ONLY a JSON array of objects, where each object represents a word from the list and contains the requested fields. Use exact keys: "word", "pos", "ipa", "meaningEn", "meaningKm", "synonyms", "antonyms", "examples".
+Note: "examples" MUST be an array of strings (e.g., ["Example 1", "Example 2"]).
 If a requested field doesn't make sense or isn't requested, omit it or leave it empty.
 Make sure the Khmer translation is very short, concise, and easy to understand.
 `;
