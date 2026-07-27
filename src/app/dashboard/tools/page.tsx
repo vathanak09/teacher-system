@@ -24,36 +24,6 @@ export default function ToolsMenuPage() {
       border: 'rgba(99, 102, 241, 0.3)'
     },
     {
-      id: 'tts',
-      title: 'អានអក្សរ (Text to Speech)',
-      description: 'បំប្លែងអត្ថបទទៅជាសំឡេងដោយស្វ័យប្រវត្តិ ប្រើប្រាស់បច្ចេកវិទ្យា AI របស់ Google ។',
-      icon: (
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#10b981' }}>
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="23"></line>
-          <line x1="8" y1="23" x2="16" y2="23"></line>
-        </svg>
-      ),
-      path: '/dashboard/tools/tts',
-      color: 'rgba(16, 185, 129, 0.1)',
-      border: 'rgba(16, 185, 129, 0.3)'
-    },
-    {
-      id: 'web-tts',
-      title: 'អានអក្សរ (Web Speech)',
-      description: 'បំប្លែងអត្ថបទទៅជាសំឡេងប្រើប្រាស់មុខងាររបស់ Browser ផ្ទាល់តែម្ដង (ឥតគិតថ្លៃ ១០០%)។',
-      icon: (
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#f59e0b' }}>
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-        </svg>
-      ),
-      path: '/dashboard/tools/web-tts',
-      color: 'rgba(245, 158, 11, 0.1)',
-      border: 'rgba(245, 158, 11, 0.3)'
-    },
-    {
       id: 'gemini-tts',
       title: 'អានអក្សរ (Gemini AI)',
       description: 'បំប្លែងអត្ថបទទៅជាសំឡេងដ៏រស់រវើកដូចមនុស្សពិតៗ ប្រើប្រាស់សេវាកម្ម Google Gemini (ឥតគិតថ្លៃ)។',
