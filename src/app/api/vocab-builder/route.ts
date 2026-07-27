@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { words, options } = body;
+    const { words, options, modelName = 'gemini-3.5-flash' } = body;
 
     if (!words || !words.length) {
       return NextResponse.json({ error: 'Words list is required' }, { status: 400 });
@@ -40,9 +40,6 @@ Return ONLY a JSON array of objects, where each object represents a word from th
 If a requested field doesn't make sense or isn't requested, omit it or leave it empty.
 Make sure the Khmer translation is very short, concise, and easy to understand.
 `;
-
-    // Try standard flash first
-    let modelName = 'gemini-2.5-flash';
 
     const response = await ai.models.generateContent({
       model: modelName,

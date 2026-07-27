@@ -19,6 +19,7 @@ export default function VocabBuilderPage() {
   const [results, setResults] = useState<VocabItem[]>([]);
   
   // Options state
+  const [modelName, setModelName] = useState('gemini-3.5-flash');
   const [options, setOptions] = useState({
     pos: true,
     ipa: true,
@@ -54,6 +55,7 @@ export default function VocabBuilderPage() {
         body: JSON.stringify({
           words: wordsArray,
           options,
+          modelName,
         }),
       });
 
@@ -121,6 +123,15 @@ export default function VocabBuilderPage() {
 
       <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
         
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសម៉ូដែល (Model)</label>
+          <select className="input-field" value={modelName} onChange={(e) => setModelName(e.target.value)} style={{ maxWidth: '300px' }}>
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash (ឆ្លាត និងល្អបំផុត)</option>
+            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (លឿន)</option>
+            <option value="gemini-flash-latest">Gemini Flash Latest</option>
+          </select>
+        </div>
+
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>បញ្ចូលពាក្យឬឃ្លា (Words or Phrases)</label>
           <textarea 
