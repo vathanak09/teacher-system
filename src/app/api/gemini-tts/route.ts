@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     
     // Call Gemini API to generate audio
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash-preview-tts',
       contents: text,
       config: {
         // We explicitly request AUDIO output modality
