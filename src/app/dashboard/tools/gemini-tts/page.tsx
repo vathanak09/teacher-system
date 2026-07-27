@@ -9,6 +9,7 @@ export default function GeminiTTSPage() {
   
   // Voice settings
   const [voiceName, setVoiceName] = useState('Aoede'); 
+  const [modelName, setModelName] = useState('gemini-2.5-flash-preview-tts');
   
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -38,6 +39,7 @@ export default function GeminiTTSPage() {
         body: JSON.stringify({
           text,
           voiceName,
+          modelName,
         }),
       });
 
@@ -86,9 +88,16 @@ export default function GeminiTTSPage() {
 
       <div className="glass-panel" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
         
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសសំឡេង AI (Voice)</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសម៉ូដែល (Model)</label>
+            <select className="input-field" value={modelName} onChange={(e) => setModelName(e.target.value)}>
+              <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (ណែនាំ)</option>
+              <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (សាកល្បងថ្មី)</option>
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសទឹកដមសំឡេង (Voice)</label>
             <select className="input-field" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
               <option value="Aoede">សំឡេង Aoede (ស្រី - ស្រទន់និងច្បាស់)</option>
               <option value="Puck">សំឡេង Puck (ប្រុស - រស់រវើកនិងកក់ក្ដៅ)</option>
