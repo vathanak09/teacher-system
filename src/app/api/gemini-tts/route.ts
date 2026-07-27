@@ -44,6 +44,9 @@ export async function POST(request: Request) {
     }
 
     const audioBase64 = parts[0].inlineData.data;
+    if (!audioBase64) {
+      throw new Error("Audio data is undefined.");
+    }
     
     // Convert raw PCM to WAV
     const pcmBuffer = Buffer.from(audioBase64, 'base64');
