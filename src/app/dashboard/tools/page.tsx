@@ -53,6 +53,19 @@ export default function ToolsMenuPage() {
       color: 'rgba(245, 158, 11, 0.1)',
       border: 'rgba(245, 158, 11, 0.3)'
     },
+    {
+      id: 'gemini-tts',
+      title: 'អានអក្សរ (Gemini AI)',
+      description: 'បំប្លែងអត្ថបទទៅជាសំឡេងដ៏រស់រវើកដូចមនុស្សពិតៗ ប្រើប្រាស់សេវាកម្ម Google Gemini (ឥតគិតថ្លៃ)។',
+      icon: (
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#8b5cf6' }}>
+          <path d="M12 2v20M17 5v14M22 8v8M7 5v14M2 8v8"/>
+        </svg>
+      ),
+      path: '/dashboard/tools/gemini-tts',
+      color: 'rgba(139, 92, 246, 0.1)',
+      border: 'rgba(139, 92, 246, 0.3)'
+    },
     // Future tools can be added here
   ];
 
