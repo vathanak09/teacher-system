@@ -36,6 +36,20 @@ export default function ToolsMenuPage() {
       color: 'rgba(139, 92, 246, 0.1)',
       border: 'rgba(139, 92, 246, 0.3)'
     },
+    {
+      id: 'vocab-builder',
+      title: 'បង្កើតបញ្ជីពាក្យ (Vocab Builder)',
+      description: 'ស្វែងរកអត្ថន័យ ថ្នាក់ពាក្យ ពាក្យន័យដូច និងឧទាហរណ៍ដោយស្វ័យប្រវត្តិ។',
+      icon: (
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#10b981' }}>
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+      ),
+      path: '/dashboard/tools/vocab-builder',
+      color: 'rgba(16, 185, 129, 0.1)',
+      border: 'rgba(16, 185, 129, 0.3)'
+    },
     // Future tools can be added here
   ];
 
