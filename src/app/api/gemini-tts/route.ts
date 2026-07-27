@@ -44,9 +44,35 @@ export async function POST(request: Request) {
     }
 
     const audioBase64 = parts[0].inlineData.data;
-    const mimeType = parts[0].inlineData.mimeType || 'audio/wav';
     
-    return NextResponse.json({ audioBase64, mimeType });
+    // Convert raw PCM to WAV
+    const pcmBuffer = Buffer.from(audioBase64, 'base64');
+    const wavHeader = Buffer.alloc(44);
+    const numChannels = 1;
+    const sampleRate = 24000;
+    const bytesPerSample = 2; // 16-bit
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = pcmBuffer.length;
+
+    wavHeader.write('RIFF', 0);
+    wavHeader.writeUInt32LE(36 + dataSize, 4);
+    wavHeader.write('WAVE', 8);
+    wavHeader.write('fmt ', 12);
+    wavHeader.writeUInt32LE(16, 16); // PCM chunk size
+    wavHeader.writeUInt16LE(1, 20); // Audio format (1 = PCM)
+    wavHeader.writeUInt16LE(numChannels, 22);
+    wavHeader.writeUInt32LE(sampleRate, 24);
+    wavHeader.writeUInt32LE(byteRate, 28);
+    wavHeader.writeUInt16LE(blockAlign, 32);
+    wavHeader.writeUInt16LE(bytesPerSample * 8, 34);
+    wavHeader.write('data', 36);
+    wavHeader.writeUInt32LE(dataSize, 40);
+
+    const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+    const finalBase64 = wavBuffer.toString('base64');
+    
+    return NextResponse.json({ audioBase64: finalBase64, mimeType: 'audio/wav' });
   } catch (error: any) {
     console.error('Error generating Gemini TTS:', error);
     return NextResponse.json({ error: error.message || 'Failed to generate speech' }, { status: 500 });
