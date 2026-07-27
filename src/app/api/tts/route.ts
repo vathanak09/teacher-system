@@ -12,15 +12,26 @@ export async function POST(request: Request) {
     let credentials = undefined;
     if (process.env.GOOGLE_CREDENTIALS_JSON) {
       try {
-        credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+        const parsed = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+        credentials = {
+          client_email: parsed.client_email,
+          private_key: parsed.private_key?.replace(/\\n/g, '\n'),
+          project_id: parsed.project_id
+        };
       } catch (e) {
-        console.error("Invalid GOOGLE_CREDENTIALS_JSON format");
+        console.error("Invalid GOOGLE_CREDENTIALS_JSON format", e);
+        return NextResponse.json({ error: 'Server configuration error: Invalid credentials format.' }, { status: 500 });
       }
+    } else {
+      return NextResponse.json({ error: 'Server configuration error: GOOGLE_CREDENTIALS_JSON is missing in environment variables. Please add it in Vercel.' }, { status: 500 });
     }
     
     const client = new textToSpeech.TextToSpeechClient({
-      credentials,
-      projectId: credentials?.project_id || process.env.GOOGLE_PROJECT_ID,
+      credentials: {
+        client_email: credentials.client_email,
+        private_key: credentials.private_key,
+      },
+      projectId: credentials.project_id || process.env.GOOGLE_PROJECT_ID,
     });
 
     const requestBody = {
