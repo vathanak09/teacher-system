@@ -1,0 +1,184 @@
+"use client";
+
+import { useState, useRef, useEffect } from 'react';
+
+export default function TTSPage() {
+  const [text, setText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
+  // Voice settings
+  const [language, setLanguage] = useState('km-KH');
+  const [voiceName, setVoiceName] = useState('km-KH-Standard-A'); // Default female Khmer voice
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Clean up Object URL when unmounting or when audioUrl changes
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const lang = e.target.value;
+    setLanguage(lang);
+    if (lang === 'km-KH') {
+      setVoiceName('km-KH-Standard-A');
+    } else {
+      setVoiceName('en-US-Neural2-F'); // Default female English voice
+    }
+  };
+
+  const generateSpeech = async () => {
+    if (!text.trim()) {
+      alert("សូមបញ្ចូលអត្ថបទជាមុនសិន!");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          languageCode: language,
+          name: voiceName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate speech');
+      }
+
+      // Convert base64 to blob
+      const binaryString = window.atob(data.audioBase64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([bytes], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(blob);
+      
+      setAudioUrl(url);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.load();
+        setTimeout(() => audioRef.current?.play(), 100);
+      }
+      
+    } catch (error: any) {
+      console.error(error);
+      alert("មានបញ្ហាក្នុងការបង្កើតសំឡេង៖ " + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="page-container animate-fade-in">
+      <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
+        <div>
+          <h1>អានអក្សរ (Text-to-Speech)</h1>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>បំប្លែងអត្ថបទទៅជាសំឡេងដោយស្វ័យប្រវត្តិ ប្រើប្រាស់បច្ចេកវិទ្យា AI ។</p>
+        </div>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+        
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ភាសា (Language)</label>
+            <select className="input-field" value={language} onChange={handleLanguageChange}>
+              <option value="km-KH">ភាសាខ្មែរ (Khmer)</option>
+              <option value="en-US">ភាសាអង់គ្លេស (English US)</option>
+            </select>
+          </div>
+          
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>សំឡេង (Voice Type)</label>
+            <select className="input-field" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
+              {language === 'km-KH' ? (
+                <>
+                  <option value="km-KH-Standard-A">សំឡេងស្រី ១ (Standard A)</option>
+                  <option value="km-KH-Standard-B">សំឡេងប្រុស ១ (Standard B)</option>
+                </>
+              ) : (
+                <>
+                  <option value="en-US-Neural2-F">សំឡេងស្រី ពិរោះ (Neural2 F)</option>
+                  <option value="en-US-Neural2-J">សំឡេងប្រុស ពិរោះ (Neural2 J)</option>
+                  <option value="en-US-Standard-C">សំឡេងស្រី ធម្មតា (Standard C)</option>
+                  <option value="en-US-Standard-D">សំឡេងប្រុស ធម្មតា (Standard D)</option>
+                </>
+              )}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>អត្ថបទដែលត្រូវអាន</label>
+          <textarea 
+            className="input-field" 
+            placeholder="វាយបញ្ចូលអត្ថបទនៅទីនេះ..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            style={{ minHeight: '200px', resize: 'vertical' }}
+          ></textarea>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            តួអក្សរ៖ {text.length}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+          <button 
+            className="btn btn-primary" 
+            onClick={generateSpeech}
+            disabled={isLoading || !text.trim()}
+            style={{ padding: '0.8rem 2rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line></svg>
+                កំពុងបង្កើតសំឡេង...
+              </>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                បង្កើតសំឡេង (Generate Speech)
+              </>
+            )}
+          </button>
+        </div>
+
+        {audioUrl && (
+          <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.03)', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>លទ្ធផលសំឡេង</h3>
+            <audio ref={audioRef} controls src={audioUrl} style={{ width: '100%' }} />
+            
+            <a 
+              href={audioUrl} 
+              download={`tts_${Date.now()}.mp3`}
+              className="btn"
+              style={{ background: 'var(--accent-primary)', color: 'white', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              ទាញយកជា MP3
+            </a>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

@@ -23,6 +23,22 @@ export default function ToolsMenuPage() {
       color: 'rgba(99, 102, 241, 0.1)',
       border: 'rgba(99, 102, 241, 0.3)'
     },
+    {
+      id: 'tts',
+      title: 'អានអក្សរ (Text to Speech)',
+      description: 'បំប្លែងអត្ថបទទៅជាសំឡេងដោយស្វ័យប្រវត្តិ ប្រើប្រាស់បច្ចេកវិទ្យា AI របស់ Google ។',
+      icon: (
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#10b981' }}>
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      ),
+      path: '/dashboard/tools/tts',
+      color: 'rgba(16, 185, 129, 0.1)',
+      border: 'rgba(16, 185, 129, 0.3)'
+    },
     // Future tools can be added here
   ];
 
