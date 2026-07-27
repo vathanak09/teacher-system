@@ -9,7 +9,7 @@ export default function GeminiTTSPage() {
   
   // Voice settings
   const [voiceName, setVoiceName] = useState('Aoede'); 
-  const [modelName, setModelName] = useState('gemini-2.5-flash-preview-tts');
+  const [modelName, setModelName] = useState('gemini-3.5-flash');
   
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -92,8 +92,9 @@ export default function GeminiTTSPage() {
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសម៉ូដែល (Model)</label>
             <select className="input-field" value={modelName} onChange={(e) => setModelName(e.target.value)}>
-              <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (ណែនាំ)</option>
-              <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (សាកល្បងថ្មី)</option>
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash (ថ្មី & គុណភាពខ្ពស់)</option>
+              <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (លឿនបំផុត)</option>
+              <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (Classic)</option>
             </select>
           </div>
           <div style={{ flex: 1, minWidth: '200px' }}>
