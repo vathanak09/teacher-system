@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { convertDriveImageLink } from '../../../utils/driveLink';
 
 import { useState, useEffect, useRef } from 'react';
@@ -26,14 +26,14 @@ export default function TeachersPage() {
   const [teacherIdField, setTeacherIdField] = useState('');
   const [fullNameField, setFullNameField] = useState('');
   const [englishNameField, setEnglishNameField] = useState('');
-  const [genderField, setGenderField] = useState('ប្រុស');
+  const [genderField, setGenderField] = useState('áž”áŸ’ážšáž»ážŸ');
   const [dobField, setDobField] = useState('');
   const [phoneField, setPhoneField] = useState('');
   const [subjectField, setSubjectField] = useState('');
   const [addressField, setAddressField] = useState('');
   const [joinDateField, setJoinDateField] = useState('');
   const [photoField, setPhotoField] = useState('');
-  const [statusField, setStatusField] = useState('កំពុងបង្រៀន');
+  const [statusField, setStatusField] = useState('áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“');
   // Contacts
   const [telegramEnabled, setTelegramEnabled] = useState(false);
   const [telegramLink, setTelegramLink] = useState('');
@@ -83,14 +83,14 @@ export default function TeachersPage() {
     setTeacherIdField('');
     setFullNameField('');
     setEnglishNameField('');
-    setGenderField('ប្រុស');
+    setGenderField('áž”áŸ’ážšáž»ážŸ');
     setDobField('');
     setPhoneField('');
     setSubjectField('');
     setAddressField('');
     setJoinDateField('');
     setPhotoField('');
-    setStatusField('កំពុងបង្រៀន');
+    setStatusField('áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“');
     setLinkedUserIdField('');
     setTelegramEnabled(false);
     setTelegramLink('');
@@ -127,7 +127,7 @@ export default function TeachersPage() {
   };
 
   const handleDeleteTeacher = (id: string) => {
-    if (confirm('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
+    if (confirm('ážáž¾áž¢áŸ’áž“áž€áž–áž·ážáž‡áž¶áž…áž„áŸ‹áž›áž»áž”áž‚áŸ’ážšáž¼áž“áŸáŸ‡áž˜áŸ‚áž“áž‘áŸ?')) {
       teacherService.delete(id);
     }
   };
@@ -135,7 +135,7 @@ export default function TeachersPage() {
   const handleSaveTeacher = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullNameField || !teacherIdField) {
-      alert('សូមបំពេញព័ត៌មានដែលចាំបាច់!');
+      alert('ážŸáž¼áž˜áž”áŸ†áž–áŸáž‰áž–áŸážáŸŒáž˜áž¶áž“ážŠáŸ‚áž›áž…áž¶áŸ†áž”áž¶áž…áŸ‹!');
       return;
     }
     const newTeacher = {
@@ -199,15 +199,15 @@ export default function TeachersPage() {
       <div className="page-container animate-fade-in">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>ព័ត៌មានគ្រូ (Teachers)</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>គ្រប់គ្រងទិន្នន័យគ្រូបង្រៀនទាំងអស់</p>
+            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>áž–áŸážáŸŒáž˜áž¶áž“áž‚áŸ’ážšáž¼ (Teachers)</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>áž‚áŸ’ážšáž”áŸ‹áž‚áŸ’ážšáž„áž‘áž·áž“áŸ’áž“áž“áŸáž™áž‚áŸ’ážšáž¼áž”áž„áŸ’ážšáŸ€áž“áž‘áž¶áŸ†áž„áž¢ážŸáŸ‹</p>
           </div>
           <button 
             onClick={handleOpenAddTeacher}
             style={{ padding: '0.6rem 1.2rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            បញ្ចូលគ្រូថ្មី
+            áž”áž‰áŸ’áž…áž¼áž›áž‚áŸ’ážšáž¼ážáŸ’áž˜áž¸
           </button>
         </div>
 
@@ -215,10 +215,10 @@ export default function TeachersPage() {
         <div className="glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ស្វែងរក</label>
+              <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ážŸáŸ’ážœáŸ‚áž„ážšáž€</label>
               <input 
                 type="text" 
-                placeholder="ឈ្មោះ ឬអត្តលេខ..." 
+                placeholder="ážˆáŸ’áž˜áŸ„áŸ‡ áž¬áž¢ážáŸ’ážáž›áŸáž..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
@@ -228,12 +228,12 @@ export default function TeachersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
               <SortDropdown 
                 options={[
-                  { value: 'teacherId', label: 'អត្តលេខ' },
-                  { value: 'fullName', label: 'ឈ្មោះ' },
-                  { value: 'englishName', label: 'ឈ្មោះឡាតាំង' },
-                  { value: 'gender', label: 'ភេទ' },
-                  { value: 'phone', label: 'លេខទូរស័ព្ទ' },
-                  { value: 'startDate', label: 'ថ្ងៃចូលបង្រៀន' }
+                  { value: 'teacherId', label: 'áž¢ážáŸ’ážáž›áŸáž' },
+                  { value: 'fullName', label: 'ážˆáŸ’áž˜áŸ„áŸ‡' },
+                  { value: 'englishName', label: 'ážˆáŸ’áž˜áŸ„áŸ‡áž¡áž¶ážáž¶áŸ†áž„' },
+                  { value: 'gender', label: 'áž—áŸáž‘' },
+                  { value: 'phone', label: 'áž›áŸážáž‘áž¼ážšážŸáŸáž–áŸ’áž‘' },
+                  { value: 'startDate', label: 'ážáŸ’áž„áŸƒáž…áž¼áž›áž”áž„áŸ’ážšáŸ€áž“' }
                 ]}
                 sortBy={teacherSortBy}
                 sortOrder={teacherSortOrder}
@@ -252,16 +252,16 @@ export default function TeachersPage() {
 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>លេខរៀង</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្ត លេខ</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះខ្មែរ</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឡាតាំង</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ភេទ</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>លេខទូរស័ព្ទ</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>áž›áŸážážšáŸ€áž„</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ážšáž¼áž”ážáž</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>áž¢ážáŸ’áž áž›áŸáž</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ážˆáŸ’áž˜áŸ„áŸ‡ážáŸ’áž˜áŸ‚ážš</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>áž¡áž¶ážáž¶áŸ†áž„</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>áž—áŸáž‘</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>áž›áŸážáž‘áž¼ážšážŸáŸáž–áŸ’áž‘</th>
                 <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>Contacts</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ស្ថានភាព</th>
-                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>សកម្មភាព</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ážŸáŸ’ážáž¶áž“áž—áž¶áž–</th>
+                <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>ážŸáž€áž˜áŸ’áž˜áž—áž¶áž–</th>
               </tr>
             </thead>
             <tbody>
@@ -298,16 +298,16 @@ export default function TeachersPage() {
                     </div>
                   </td>
                   <td style={{ padding: '1rem' }}>
-                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.875rem', fontWeight: '500', background: teacher.status === 'កំពុងបង្រៀន' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: teacher.status === 'កំពុងបង្រៀន' ? '#10b981' : '#ef4444' }}>
+                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', fontSize: '0.875rem', fontWeight: '500', background: teacher.status === 'áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: teacher.status === 'áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“' ? '#10b981' : '#ef4444' }}>
                       {teacher.status}
                     </span>
                   </td>
                   <td style={{ padding: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                      <button onClick={() => handleOpenEditTeacher(teacher)} style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="កែប្រែ">
+                      <button onClick={() => handleOpenEditTeacher(teacher)} style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="áž€áŸ‚áž”áŸ’ážšáŸ‚">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                       </button>
-                      <button onClick={() => handleDeleteTeacher(teacher.id)} style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="លុប">
+                      <button onClick={() => handleDeleteTeacher(teacher.id)} style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '8px', cursor: 'pointer' }} title="áž›áž»áž”">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                       </button>
                     </div>
@@ -316,7 +316,7 @@ export default function TeachersPage() {
               ))}
               {filteredTeachers.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>មិនមានទិន្នន័យគ្រូទេ</td>
+                  <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>áž˜áž·áž“áž˜áž¶áž“áž‘áž·áž“áŸ’áž“áž“áŸáž™áž‚áŸ’ážšáž¼áž‘áŸ</td>
                 </tr>
               )}
             </tbody>
@@ -337,7 +337,7 @@ export default function TeachersPage() {
             style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--modal-bg)' }}
           >
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--modal-bg)', zIndex: 10 }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{teacherEditId ? 'កែប្រែព័ត៌មានគ្រូ' : 'បញ្ចូលគ្រូថ្មី'}</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{teacherEditId ? 'áž€áŸ‚áž”áŸ’ážšáŸ‚áž–áŸážáŸŒáž˜áž¶áž“áž‚áŸ’ážšáž¼' : 'áž”áž‰áŸ’áž…áž¼áž›áž‚áŸ’ážšáž¼ážáŸ’áž˜áž¸'}</h2>
               <button onClick={() => setIsTeacherModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem' }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
@@ -347,30 +347,30 @@ export default function TeachersPage() {
               <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                   <div style={{ width: '120px', height: '120px', borderRadius: '12px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {photoField ? <img src={convertDriveImageLink(photoField)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>រូបថត</span>}
+                    {photoField ? <img src={convertDriveImageLink(photoField)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>ážšáž¼áž”ážáž</span>}
                   </div>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}>ជ្រើសរើសរូបថត</button>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}>áž‡áŸ’ážšáž¾ážŸážšáž¾ážŸážšáž¼áž”ážáž</button>
                   <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
                 </div>
                 
                 <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អត្តលេខ *</label>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž¢ážáŸ’ážáž›áŸáž *</label>
                     <input type="text" value={teacherIdField} onChange={e => setTeacherIdField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះខ្មែរ *</label>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ážˆáŸ’áž˜áŸ„áŸ‡ážáŸ’áž˜áŸ‚ážš *</label>
                     <input type="text" value={fullNameField} onChange={e => setFullNameField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អក្សរឡាតាំង</label>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž¢áž€áŸ’ážŸážšáž¡áž¶ážáž¶áŸ†áž„</label>
                     <input type="text" value={englishNameField} onChange={e => setEnglishNameField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភេទ</label>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž—áŸáž‘</label>
                     <select value={genderField} onChange={e => setGenderField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                      <option value="ប្រុស">ប្រុស</option>
-                      <option value="ស្រី">ស្រី</option>
+                      <option value="áž”áŸ’ážšáž»ážŸ">áž”áŸ’ážšáž»ážŸ</option>
+                      <option value="ážŸáŸ’ážšáž¸">ážŸáŸ’ážšáž¸</option>
                     </select>
                   </div>
                 </div>
@@ -378,37 +378,37 @@ export default function TeachersPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>មុខវិជ្ជា</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž˜áž»ážážœáž·áž‡áŸ’áž‡áž¶</label>
                   <input type="text" value={subjectField} onChange={e => setSubjectField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ទូរស័ព្ទ</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž‘áž¼ážšážŸáŸáž–áŸ’áž‘</label>
                   <input type="text" value={phoneField} onChange={e => setPhoneField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃខែឆ្នាំកំណើត</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ážáŸ’áž„áŸƒážáŸ‚áž†áŸ’áž“áž¶áŸ†áž€áŸ†ážŽáž¾áž</label>
                   <input type="date" value={dobField} onChange={e => setDobField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលធ្វើការ</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ážáŸ’áž„áŸƒáž…áž¼áž›áž’áŸ’ážœáž¾áž€áž¶ážš</label>
                   <input type="date" value={joinDateField} onChange={e => setJoinDateField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អាសយដ្ឋាន</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž¢áž¶ážŸáž™ážŠáŸ’áž‹áž¶áž“</label>
                   <input type="text" value={addressField} onChange={e => setAddressField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ស្ថានភាព</label>
+                  <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ážŸáŸ’ážáž¶áž“áž—áž¶áž–</label>
                   <select value={statusField} onChange={e => setStatusField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                    <option value="កំពុងបង្រៀន">កំពុងបង្រៀន</option>
-                    <option value="ឈប់បង្រៀន">ឈប់បង្រៀន</option>
+                    <option value="áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“">áž€áŸ†áž–áž»áž„áž”áž„áŸ’ážšáŸ€áž“</option>
+                    <option value="ážˆáž”áŸ‹áž”áž„áŸ’ážšáŸ€áž“">ážˆáž”áŸ‹áž”áž„áŸ’ážšáŸ€áž“</option>
                   </select>
                 </div>
                 {role === 'admin' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភ្ជាប់ជាមួយគណនី (Linked User)</label>
+                    <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>áž—áŸ’áž‡áž¶áž”áŸ‹áž‡áž¶áž˜áž½áž™áž‚ážŽáž“áž¸ (Linked User)</label>
                     <select value={linkedUserIdField} onChange={e => setLinkedUserIdField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                      <option value="">-- មិនទាន់ភ្ជាប់ --</option>
+                      <option value="">-- áž˜áž·áž“áž‘áž¶áž“áŸ‹áž—áŸ’áž‡áž¶áž”áŸ‹ --</option>
                       {appUsers.map(u => (
                         <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                       ))}
@@ -418,7 +418,7 @@ export default function TeachersPage() {
               </div>
 
               <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
-                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>ទំនាក់ទំនង (Contacts)</h3>
+                <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>áž‘áŸ†áž“áž¶áž€áŸ‹áž‘áŸ†áž“áž„ (Contacts)</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '120px', cursor: 'pointer' }}>
@@ -438,11 +438,11 @@ export default function TeachersPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '120px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={otherContactEnabled} onChange={(e) => setOtherContactEnabled(e.target.checked)} /> ផ្សេងៗ
+                      <input type="checkbox" checked={otherContactEnabled} onChange={(e) => setOtherContactEnabled(e.target.checked)} /> áž•áŸ’ážŸáŸáž„áŸ—
                     </label>
                     {otherContactEnabled && (
                       <div style={{ display: 'flex', gap: '0.5rem', flex: 1, minWidth: '200px', flexWrap: 'wrap' }}>
-                        <input type="text" className="input-field" placeholder="ឈ្មោះ (ឧ. Line)" value={otherContactLabel} onChange={e => setOtherContactLabel(e.target.value)} style={{ width: '120px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                        <input type="text" className="input-field" placeholder="ážˆáŸ’áž˜áŸ„áŸ‡ (áž§. Line)" value={otherContactLabel} onChange={e => setOtherContactLabel(e.target.value)} style={{ width: '120px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                         <input type="url" className="input-field" placeholder="Link URL" value={otherContactLink} onChange={e => setOtherContactLink(e.target.value)} style={{ flex: 1, minWidth: '150px', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                       </div>
                     )}
@@ -451,8 +451,8 @@ export default function TeachersPage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)', marginTop: '2rem' }}>
-                <button type="button" onClick={() => setIsTeacherModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
-                <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>រក្សាទុក</button>
+                <button type="button" onClick={() => setIsTeacherModalOpen(false)} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>áž”áŸ„áŸ‡áž”áž„áŸ‹</button>
+                <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>ážšáž€áŸ’ážŸáž¶áž‘áž»áž€</button>
               </div>
             </form>
           </div>
@@ -461,3 +461,4 @@ export default function TeachersPage() {
     </>
   );
 }
+

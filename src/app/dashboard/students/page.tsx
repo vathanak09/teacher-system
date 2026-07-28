@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { convertDriveImageLink } from '../../../utils/driveLink';
 
 import { useEffect, useState, useRef } from 'react';
@@ -19,29 +19,29 @@ export default function StudentsPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Inline Editing & Column Visibility
   const AVAILABLE_COLUMNS = [
-    { id: 'photo', label: 'រូបថត' },
-    { id: 'photoLink', label: 'តំណភ្ជាប់រូបថត' },
-    { id: 'studentId', label: 'អត្តលេខ' },
-    { id: 'fullName', label: 'ឈ្មោះពេញ' },
-    { id: 'englishName', label: 'ឈ្មោះអង់គ្លេស' },
-    { id: 'gender', label: 'ភេទ' },
-    { id: 'level', label: 'កម្រិតសិក្សា' },
-    { id: 'shift', label: 'វេន' },
-    { id: 'enrollDate', label: 'ថ្ងៃចូលរៀន' },
-    { id: 'fee', label: 'ថ្លៃសិក្សា (Fee)' },
-    { id: 'nextPaymentDate', label: 'ថ្ងៃបង់បន្ទាប់' },
-    { id: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
-    { id: 'status', label: 'ស្ថានភាពសិក្សា' },
-    { id: 'className', label: 'ថ្នាក់' },
-    { id: 'teacherName', label: 'គ្រូ' },
-    { id: 'dob', label: 'ថ្ងៃកំណើត (DOB)' },
-    { id: 'address', label: 'អាសយដ្ឋាន' },
-    { id: 'location', label: 'ទីតាំង' },
-    { id: 'transport', label: 'មធ្យោបាយ' },
-    { id: 'contact', label: 'អ្នកទំនាក់ទំនង' },
-    { id: 'father', label: 'ឪពុក' },
-    { id: 'mother', label: 'ម្តាយ' },
-    { id: 'phoneNum', label: 'លេខទូរស័ព្ទ' }
+    { id: 'photo', label: 'Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾ÂÃ¡Å¾Â' },
+    { id: 'photoLink', label: 'Ã¡Å¾ÂÃ¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾â€”Ã¡Å¸â€™Ã¡Å¾â€¡Ã¡Å¾Â¶Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾ÂÃ¡Å¾Â' },
+    { id: 'studentId', label: 'Ã¡Å¾Â¢Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾Â' },
+    { id: 'fullName', label: 'Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾â€°' },
+    { id: 'englishName', label: 'Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾Â¢Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾Å¸' },
+    { id: 'gender', label: 'Ã¡Å¾â€”Ã¡Å¸ÂÃ¡Å¾â€˜' },
+    { id: 'level', label: 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' },
+    { id: 'shift', label: 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œ' },
+    { id: 'enrollDate', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€¦Ã¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ' },
+    { id: 'fee', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸Æ’Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Fee)' },
+    { id: 'nextPaymentDate', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¾â€Ã¡Å¸â€¹' },
+    { id: 'paymentStatus', label: 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹' },
+    { id: 'status', label: 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' },
+    { id: 'className', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹' },
+    { id: 'teacherName', label: 'Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¼' },
+    { id: 'dob', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾Â¾Ã¡Å¾Â (DOB)' },
+    { id: 'address', label: 'Ã¡Å¾Â¢Ã¡Å¾Â¶Ã¡Å¾Å¸Ã¡Å¾â„¢Ã¡Å¾Å Ã¡Å¸â€™Ã¡Å¾â€¹Ã¡Å¾Â¶Ã¡Å¾â€œ' },
+    { id: 'location', label: 'Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€ž' },
+    { id: 'transport', label: 'Ã¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¸â€žÃ¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â„¢' },
+    { id: 'contact', label: 'Ã¡Å¾Â¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾â€ž' },
+    { id: 'father', label: 'Ã¡Å¾ÂªÃ¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â‚¬' },
+    { id: 'mother', label: 'Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â„¢' },
+    { id: 'phoneNum', label: 'Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾ÂÃ¡Å¾â€˜Ã¡Å¾Â¼Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¸ÂÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â€˜' }
   ];
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
@@ -104,10 +104,10 @@ export default function StudentsPage() {
       const selectFields = ['gender', 'level', 'shift', 'status', 'address', 'transport'];
       if (selectFields.includes(field)) {
         let options: string[] = [];
-        if (field === 'gender') options = ['ប្រុស', 'ស្រី'];
+        if (field === 'gender') options = ['Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾Å¸', 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸'];
         else if (field === 'level') options = levelOptions;
         else if (field === 'shift') options = shiftOptions;
-        else if (field === 'status') options = ['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន'];
+        else if (field === 'status') options = ['Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾Ë†Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ'];
         else if (field === 'address') options = addressOptions;
         else if (field === 'transport') options = transportOptions;
         
@@ -153,19 +153,19 @@ export default function StudentsPage() {
   const [studentIdField, setStudentIdField] = useState('');
   const [studentFullNameField, setStudentFullNameField] = useState('');
   const [studentEnglishNameField, setStudentEnglishNameField] = useState('');
-  const [studentGenderField, setStudentGenderField] = useState('ស្រី');
-  const [studentLevelField, setStudentLevelField] = useState('កម្រិតមធ្យមសិក្សា');
-  const [studentShiftField, setStudentShiftField] = useState('វេនព្រឹក');
+  const [studentGenderField, setStudentGenderField] = useState('Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸');
+  const [studentLevelField, setStudentLevelField] = useState('Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
+  const [studentShiftField, setStudentShiftField] = useState('Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¹Ã¡Å¾â‚¬');
   const [studentEnrollDateField, setStudentEnrollDateField] = useState('');
   const [studentFeeField, setStudentFeeField] = useState('120'); // 1 = 1000 Riels
   const [studentClassNameField, setStudentClassNameField] = useState('10C');
-  const [studentTeacherField, setStudentTeacherField] = useState('ស៊ុន សុខ');
+  const [studentTeacherField, setStudentTeacherField] = useState('Ã¡Å¾Å¸Ã¡Å¸Å Ã¡Å¾Â»Ã¡Å¾â€œ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â');
   const [studentDobField, setStudentDobField] = useState('');
   const [studentAddressField, setStudentAddressField] = useState('');
   const [studentLocationField, setStudentLocationField] = useState('');
   const [studentTransportField, setStudentTransportField] = useState('Personal');
   const [studentPhotoField, setStudentPhotoField] = useState('');
-  const [studentStatusField, setStudentStatusField] = useState('កំពុងសិក្សា');
+  const [studentStatusField, setStudentStatusField] = useState('Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
   const [studentContactField, setStudentContactField] = useState('');
   const [studentFatherField, setStudentFatherField] = useState('');
   const [studentMotherField, setStudentMotherField] = useState('');
@@ -180,18 +180,18 @@ export default function StudentsPage() {
   const [studentClassFilter, setStudentClassFilter] = useState('all');
   const [studentLevelFilter, setStudentLevelFilter] = useState('all');
   const [studentShiftFilter, setStudentShiftFilter] = useState('all');
-  const [studentStatusFilter, setStudentStatusFilter] = useState('កំពុងសិក្សា');
+  const [studentStatusFilter, setStudentStatusFilter] = useState('Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
   const [studentSortBy, setStudentSortBy] = useState('studentId');
   const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic Options States
-  const [levelOptions, setLevelOptions] = useState<string[]>(['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']);
-  const [shiftOptions, setShiftOptions] = useState<string[]>(['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']);
-  const [addressOptions, setAddressOptions] = useState<string[]>(['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']);
-  const [transportOptions, setTransportOptions] = useState<string[]>(['Bus', 'Personal', 'ម៉ូតូ', 'កង់']);
-  const [genderOptions, setGenderOptions] = useState<string[]>(['ប្រុស', 'ស្រី']);
-  const [statusOptions, setStatusOptions] = useState<string[]>(['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន']);
+  const [levelOptions, setLevelOptions] = useState<string[]>(['Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾â€Ã¡Å¾â€¹Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å“Ã¡Å¾Â·Ã¡Å¾â€˜Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â¶Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾â„¢']);
+  const [shiftOptions, setShiftOptions] = useState<string[]>(['Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¹Ã¡Å¾â‚¬', 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¸â‚¬Ã¡Å¾â€º', 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€ºÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¾Â¶Ã¡Å¾â€¦', 'Ã¡Å¾Å¸Ã¡Å¸â€¦Ã¡Å¾Å¡Ã¡Å¸Â-Ã¡Å¾Â¢Ã¡Å¾Â¶Ã¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â„¢']);
+  const [addressOptions, setAddressOptions] = useState<string[]>(['Ã¡Å¾â€”Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¸â€ Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾â€°', 'Ã¡Å¾â‚¬Ã¡Å¾Å½Ã¡Å¸â€™Ã¡Å¾Å Ã¡Å¾Â¶Ã¡Å¾â€º', 'Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾Å“', 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€¦Ã¡Å¾Â¶Ã¡Å¾Ëœ']);
+  const [transportOptions, setTransportOptions] = useState<string[]>(['Bus', 'Personal', 'Ã¡Å¾ËœÃ¡Å¸â€°Ã¡Å¾Â¼Ã¡Å¾ÂÃ¡Å¾Â¼', 'Ã¡Å¾â‚¬Ã¡Å¾â€žÃ¡Å¸â€¹']);
+  const [genderOptions, setGenderOptions] = useState<string[]>(['Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾Å¸', 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸']);
+  const [statusOptions, setStatusOptions] = useState<string[]>(['Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶', 'Ã¡Å¾Ë†Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ']);
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
@@ -229,7 +229,7 @@ export default function StudentsPage() {
   }, [refreshTrigger]);
 
   const getStatusInfo = (nextDateStr: string | null) => {
-    if (!nextDateStr) return { label: 'មិនទាន់បង់ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    if (!nextDateStr) return { label: 'Ã¡Å¾ËœÃ¡Å¾Â·Ã¡Å¾â€œÃ¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¸â€¹Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -239,10 +239,10 @@ export default function StudentsPage() {
     const diffTime = nextDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { label: 'ហួសកំណត់ / Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
-    if (diffDays === 0) return { label: 'ដល់ថ្ងៃបង់ / Due Today', color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' };
-    if (diffDays <= 5) return { label: 'ជិតដល់ថ្ងៃ / Due Soon', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-    return { label: 'បានបង់ / Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+    if (diffDays < 0) return { label: 'Ã¡Å¾Â Ã¡Å¾Â½Ã¡Å¾Å¸Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾ÂÃ¡Å¸â€¹ / Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    if (diffDays === 0) return { label: 'Ã¡Å¾Å Ã¡Å¾â€ºÃ¡Å¸â€¹Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹ / Due Today', color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' };
+    if (diffDays <= 5) return { label: 'Ã¡Å¾â€¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å Ã¡Å¾â€ºÃ¡Å¸â€¹Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’ / Due Soon', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+    return { label: 'Ã¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹ / Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
   };
 
   const augmentedStudents = students.map(s => {
@@ -278,7 +278,7 @@ export default function StudentsPage() {
     setStudentLocationField('');
     setStudentTransportField(transportOptions.includes('Personal') ? 'Personal' : transportOptions.length > 0 ? transportOptions[0] : 'Personal');
     setStudentPhotoField('');
-    setStudentStatusField('កំពុងសិក្សា');
+    setStudentStatusField('Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
     setStudentContactField('');
     setStudentFatherField('');
     setStudentMotherField('');
@@ -293,18 +293,18 @@ export default function StudentsPage() {
     setStudentFullNameField(student.fullName || '');
     setStudentEnglishNameField(student.englishName || '');
     setStudentGenderField(student.gender || (genderOptions.length > 0 ? genderOptions[0] : ''));
-    setStudentLevelField(student.level || 'កម្រិតមធ្យមសិក្សា');
-    setStudentShiftField(student.shift || 'វេនព្រឹក');
+    setStudentLevelField(student.level || 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
+    setStudentShiftField(student.shift || 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¹Ã¡Å¾â‚¬');
     setStudentEnrollDateField(student.enrollDate || '');
     setStudentFeeField((student.fee || 120).toString());
     setStudentClassNameField(student.className || '10C');
-    setStudentTeacherField(student.teacherName || 'ស៊ុន សុខ');
+    setStudentTeacherField(student.teacherName || 'Ã¡Å¾Å¸Ã¡Å¸Å Ã¡Å¾Â»Ã¡Å¾â€œ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â');
     setStudentDobField(student.dob || '');
     setStudentAddressField(student.address || '');
     setStudentLocationField(student.location || '');
-    setStudentTransportField(student.transport || 'ម៉ូតូ');
+    setStudentTransportField(student.transport || 'Ã¡Å¾ËœÃ¡Å¸â€°Ã¡Å¾Â¼Ã¡Å¾ÂÃ¡Å¾Â¼');
     setStudentPhotoField(student.photo || '');
-    setStudentStatusField(student.status || 'កំពុងសិក្សា');
+    setStudentStatusField(student.status || 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶');
     setStudentContactField(student.contact || '');
     setStudentFatherField(student.father || '');
     setStudentMotherField(student.mother || '');
@@ -335,7 +335,7 @@ export default function StudentsPage() {
   const handleSaveStudent = () => {
     // Validate all Part 1 fields (Mandatory)
     if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
-      alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
+      alert('Ã¡Å¾Å¸Ã¡Å¾Â¼Ã¡Å¾ËœÃ¡Å¾â€Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾â€°Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â€ºÃ¡Å¸â€¹Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¸â€¦Ã¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¸â€šÃ¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¸Â¡ Ã¡Å¾Â±Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾â€¡Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾â€¡Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€žÃ¡Å¾â„¢ (Ã¡Å¾ËœÃ¡Å¾Â·Ã¡Å¾â€œÃ¡Å¾Â¢Ã¡Å¾Â¶Ã¡Å¾â€¦Ã¡Å¾Å¡Ã¡Å¸â€ Ã¡Å¾â€ºÃ¡Å¾â€žÃ¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Â¡Ã¡Å¾Â¾Ã¡Å¾â„¢)!');
       return;
     }
 
@@ -376,7 +376,7 @@ export default function StudentsPage() {
 
   const handleDeleteStudent = (id: string) => {
     if (isStudentTableLocked) return;
-    if (confirm('តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សនេះមែនទេ?')) {
+    if (confirm('Ã¡Å¾ÂÃ¡Å¾Â¾Ã¡Å¾Â¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â‚¬Ã¡Å¾â€“Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾â€¡Ã¡Å¾Â¶Ã¡Å¾â€¦Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€ºÃ¡Å¾Â»Ã¡Å¾â€Ã¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â€œÃ¡Å¸ÂÃ¡Å¾â„¢Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾â€œÃ¡Å¸ÂÃ¡Å¸â€¡Ã¡Å¾ËœÃ¡Å¸â€šÃ¡Å¾â€œÃ¡Å¾â€˜Ã¡Å¸Â?')) {
       const studentToDelete = students.find(s => s.id === id);
       
       // Update classes that contain this student to preserve their final data
@@ -398,7 +398,7 @@ export default function StudentsPage() {
   const handleBulkDelete = () => {
     if (isStudentTableLocked) return;
     if (selectedStudentIds.length === 0) return;
-    if (confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សទាំង ${selectedStudentIds.length} នាក់នេះមែនទេ?`)) {
+    if (confirm(`Ã¡Å¾ÂÃ¡Å¾Â¾Ã¡Å¾Â¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â‚¬Ã¡Å¾â€“Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾â€¡Ã¡Å¾Â¶Ã¡Å¾â€¦Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€ºÃ¡Å¾Â»Ã¡Å¾â€Ã¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â€œÃ¡Å¸ÂÃ¡Å¾â„¢Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€ž ${selectedStudentIds.length} Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€œÃ¡Å¸ÂÃ¡Å¸â€¡Ã¡Å¾ËœÃ¡Å¸â€šÃ¡Å¾â€œÃ¡Å¾â€˜Ã¡Å¸Â?`)) {
       selectedStudentIds.forEach(id => {
         const studentToDelete = students.find(s => s.id === id);
         
@@ -426,9 +426,9 @@ export default function StudentsPage() {
       "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
     ];
     const sampleRow = [
-      "9201", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", 
-      "2026-05-10", "120", "10C", "ស៊ុន សុខ", "27-06-2012", "ភ្នំពេញ", 
-      "ច្បារអំពៅ", "Personal", "", "កំពុងសិក្សា", "មាស សុខ", "លី សុវណ្ណ", "មាស សុខ", "012345678"
+      "9201", "Ã¡Å¾â€ºÃ¡Å¾Â¸ Ã¡Å¾ÂÃ¡Å¾Â·Ã¡Å¾â€¦Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸ÂÃ¡Å¾â€ž", "Ly Tichsreng", "Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸", "Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶", "Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¹Ã¡Å¾â‚¬", 
+      "2026-05-10", "120", "10C", "Ã¡Å¾Å¸Ã¡Å¸Å Ã¡Å¾Â»Ã¡Å¾â€œ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â", "27-06-2012", "Ã¡Å¾â€”Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¸â€ Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾â€°", 
+      "Ã¡Å¾â€¦Ã¡Å¸â€™Ã¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Â¢Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¸â€¦", "Personal", "", "Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶", "Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾Å¸ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â", "Ã¡Å¾â€ºÃ¡Å¾Â¸ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Å“Ã¡Å¾Å½Ã¡Å¸â€™Ã¡Å¾Å½", "Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾Å¸ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â", "012345678"
     ];
     const csvContent = "\uFEFF" + [headers.join(","), sampleRow.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(",")].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -451,7 +451,7 @@ export default function StudentsPage() {
     const rows = augmentedStudents.map(s => [
       s.studentId, s.fullName, s.englishName, s.gender, s.level, s.shift,
       s.enrollDate, s.fee, s.className, s.teacherName, s.dob, s.address,
-      s.location, s.transport, s.photo, s.status || 'កំពុងសិក្សា',
+      s.location, s.transport, s.photo, s.status || 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶',
       s.contact || '', s.father || '', s.mother || '', s.phoneNum || ''
     ]);
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(","))].join("\n");
@@ -506,9 +506,9 @@ export default function StudentsPage() {
             studentId: fields[0] || '',
             fullName: fields[1] || '',
             englishName: fields[2] || '',
-            gender: fields[3] || 'ប្រុស',
-            level: fields[4] || 'កម្រិតមធ្យមសិក្សា',
-            shift: fields[5] || 'វេនព្រឹក',
+            gender: fields[3] || 'Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾Å¸',
+            level: fields[4] || 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶',
+            shift: fields[5] || 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¹Ã¡Å¾â‚¬',
             enrollDate: fields[6] || '',
             fee: Number(fields[7]) || 120,
             className: fields[8] || '',
@@ -516,9 +516,9 @@ export default function StudentsPage() {
             dob: fields[10] || '',
             address: fields[11] || '',
             location: fields[12] || '',
-            transport: fields[13] || 'ម៉ូតូ',
+            transport: fields[13] || 'Ã¡Å¾ËœÃ¡Å¸â€°Ã¡Å¾Â¼Ã¡Å¾ÂÃ¡Å¾Â¼',
             photo: fields[14] || '',
-            status: fields[15] || 'កំពុងសិក្សា',
+            status: fields[15] || 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶',
             contact: fields[16] || '',
             father: fields[17] || '',
             mother: fields[18] || '',
@@ -529,16 +529,16 @@ export default function StudentsPage() {
 
       if (imported.length > 0) {
         imported.forEach(student => studentService.add(student));
-        alert(`កំពុងនាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់...`);
+        alert(`Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€¦Ã¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â€œÃ¡Å¸ÂÃ¡Å¾â„¢Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾â€¦Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾Â½Ã¡Å¾â€œ ${imported.length} Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹...`);
       } else {
-        alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');
+        alert('Ã¡Å¾Å¸Ã¡Å¾Â¼Ã¡Å¾ËœÃ¡Å¾â€“Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¾Â·Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾ËœÃ¡Å¾Â¾Ã¡Å¾â€ºÃ¡Å¾â€˜Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾Â Ã¡Å¸â€™Ã¡Å¾Å“Ã¡Å¾Â¶Ã¡Å¾â„¢ CSV Ã¡Å¾Å¡Ã¡Å¾â€Ã¡Å¾Å¸Ã¡Å¸â€¹Ã¡Å¾Â¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â‚¬Ã¡Å¾Â¡Ã¡Å¾Â¾Ã¡Å¾â€žÃ¡Å¾Å“Ã¡Å¾Â·Ã¡Å¾â€°!');
       }
     };
     reader.readAsText(file);
   };
 
   const getFirstLetter = (name: string) => {
-    if (!name) return 'ស';
+    if (!name) return 'Ã¡Å¾Å¸';
     const parts = name.trim().split(' ');
     const lastPart = parts[parts.length - 1];
     return lastPart.charAt(0);
@@ -604,8 +604,8 @@ export default function StudentsPage() {
     });
 
   const totalInFilter = filteredAndSortedStudents.length;
-  const femaleCount = filteredAndSortedStudents.filter(s => s.gender === 'ស្រី').length;
-  const maleCount = filteredAndSortedStudents.filter(s => s.gender === 'ប្រុស').length;
+  const femaleCount = filteredAndSortedStudents.filter(s => s.gender === 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸').length;
+  const maleCount = filteredAndSortedStudents.filter(s => s.gender === 'Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾Å¸').length;
 
   if (role !== 'admin' && role !== 'teacher') return null;
 
@@ -618,18 +618,18 @@ export default function StudentsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--accent-primary)' }}><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
-            ព័ត៌មានសិស្ស
+            Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸
           </h1>
           {/* Stats Badges (Custom CSS Badges instead of Emojis) */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
-              {totalInFilter === students.length ? `សរុប ${students.length} នាក់` : `បង្ហាញ ${totalInFilter} / ${students.length} នាក់`}
+              {totalInFilter === students.length ? `Ã¡Å¾Å¸Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾â€ ${students.length} Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹` : `Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Â Ã¡Å¾Â¶Ã¡Å¾â€° ${totalInFilter} / ${students.length} Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹`}
             </span>
             <span style={{ color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', border: '1px solid rgba(236, 72, 153, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
-              ស្រី {femaleCount}
+              Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸ {femaleCount}
             </span>
             <span style={{ color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
-              ប្រុស {maleCount}
+              Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â»Ã¡Å¾Å¸ {maleCount}
             </span>
           </div>
         </div>
@@ -640,7 +640,7 @@ export default function StudentsPage() {
           {/* Level Filter */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <select className="input-field" value={studentLevelFilter} onChange={e => setStudentLevelFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់កម្រិត</option>
+              <option value="all">Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾Â</option>
               {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
@@ -648,7 +648,7 @@ export default function StudentsPage() {
           {/* Shift Filter */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <select className="input-field" value={studentShiftFilter} onChange={e => setStudentShiftFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់វេន</option>
+              <option value="all">Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œ</option>
               {shiftOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -656,23 +656,23 @@ export default function StudentsPage() {
           {/* Class Filter */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <select className="input-field" value={studentClassFilter} onChange={e => setStudentClassFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់ថ្នាក់</option>
+              <option value="all">Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹</option>
               {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
           {/* Status Filter */}
           <select className="input-field" value={studentStatusFilter} onChange={e => setStudentStatusFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-            <option value="កំពុងសិក្សា">កំពុងសិក្សា</option>
-            <option value="ព្យួរការសិក្សា">ព្យួរការសិក្សា</option>
-            <option value="ឈប់រៀន">ឈប់រៀន</option>
+            <option value="Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶">Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶</option>
+            <option value="Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶">Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶</option>
+            <option value="Ã¡Å¾Ë†Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ">Ã¡Å¾Ë†Ã¡Å¾â€Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ</option>
           </select>
 
           {/* Search Box */}
           <input 
             type="text" 
             className="input-field" 
-            placeholder="ស្វែងរក..." 
+            placeholder="Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å“Ã¡Å¸â€šÃ¡Å¾â€žÃ¡Å¾Å¡Ã¡Å¾â‚¬..." 
             value={studentSearch} 
             onChange={e => setStudentSearch(e.target.value)}
             style={{ width: '160px', padding: '0.4rem 0.75rem', background: 'var(--main-bg)', fontSize: '0.9rem' }} 
@@ -680,12 +680,12 @@ export default function StudentsPage() {
 
           {/* Column Visibility Toggle */}
           <div style={{ position: 'relative' }}>
-            <button className="btn" onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} style={{ background: 'var(--main-bg)', padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', height: '100%' }} title="លាក់/បង្ហាញ ជួរឈរ">
+            <button className="btn" onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)} style={{ background: 'var(--main-bg)', padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--border-color)', height: '100%' }} title="Ã¡Å¾â€ºÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹/Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Â Ã¡Å¾Â¶Ã¡Å¾â€° Ã¡Å¾â€¡Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾Ë†Ã¡Å¾Å¡">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
             </button>
             {isColumnMenuOpen && (
               <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', zIndex: 50, width: '250px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxHeight: '400px', overflowY: 'auto' }}>
-                <div style={{ fontWeight: 600, marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>បង្ហាញ/លាក់ ជួរឈរ</div>
+                <div style={{ fontWeight: 600, marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Â Ã¡Å¾Â¶Ã¡Å¾â€°/Ã¡Å¾â€ºÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹ Ã¡Å¾â€¡Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾Ë†Ã¡Å¾Å¡</div>
                 {AVAILABLE_COLUMNS.map(col => (
                   <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', cursor: 'pointer' }}>
                     <input type="checkbox" checked={visibleColumns.includes(col.id)} onChange={() => toggleColumn(col.id)} />
@@ -697,7 +697,7 @@ export default function StudentsPage() {
           </div>
 
           {/* Action SVGs (Stop using Emojis) */}
-          <button onClick={handleOpenAddStudent} className="btn btn-primary" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="បន្ថែមសិស្ស">
+          <button onClick={handleOpenAddStudent} className="btn btn-primary" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
           
@@ -715,7 +715,7 @@ export default function StudentsPage() {
                 alignItems: 'center',
                 opacity: isStudentTableLocked ? 0.5 : 1
               }} 
-              title="លុបសិស្សដែលបានជ្រើសរើស"
+              title="Ã¡Å¾â€ºÃ¡Å¾Â»Ã¡Å¾â€Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Å Ã¡Å¸â€šÃ¡Å¾â€ºÃ¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€¡Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¾Ã¡Å¾Å¸Ã¡Å¾Å¡Ã¡Å¾Â¾Ã¡Å¾Å¸"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
@@ -723,20 +723,20 @@ export default function StudentsPage() {
 
           <SortDropdown 
             options={[
-              { value: 'studentId', label: 'អត្តលេខ' },
-              { value: 'fullName', label: 'ឈ្មោះ' },
-              { value: 'englishName', label: 'ឈ្មោះឡាតាំង' },
-              { value: 'gender', label: 'ភេទ' },
-              { value: 'level', label: 'កម្រិតសិក្សា' },
-              { value: 'shift', label: 'វេន' },
-              { value: 'enrollDate', label: 'ថ្ងៃខែចុះឈ្មោះ' },
-              { value: 'fee', label: 'តម្លៃសិក្សា' },
-              { value: 'nextPaymentDate', label: 'ថ្ងៃបង់ប្រាក់បន្ទាប់' },
-              { value: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
-              { value: 'status', label: 'ស្ថានភាពសិក្សា' },
-              { value: 'className', label: 'ថ្នាក់រៀន' },
-              { value: 'teacherName', label: 'គ្រូបង្រៀន' },
-              { value: 'dob', label: 'ថ្ងៃខែឆ្នាំកំណើត' }
+              { value: 'studentId', label: 'Ã¡Å¾Â¢Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾Â' },
+              { value: 'fullName', label: 'Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡' },
+              { value: 'englishName', label: 'Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾Â¡Ã¡Å¾Â¶Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€ž' },
+              { value: 'gender', label: 'Ã¡Å¾â€”Ã¡Å¸ÂÃ¡Å¾â€˜' },
+              { value: 'level', label: 'Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' },
+              { value: 'shift', label: 'Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œ' },
+              { value: 'enrollDate', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾â€¦Ã¡Å¾Â»Ã¡Å¸â€¡Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡' },
+              { value: 'fee', label: 'Ã¡Å¾ÂÃ¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸Æ’Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' },
+              { value: 'nextPaymentDate', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¾â€Ã¡Å¸â€¹' },
+              { value: 'paymentStatus', label: 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹' },
+              { value: 'status', label: 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' },
+              { value: 'className', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ' },
+              { value: 'teacherName', label: 'Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ' },
+              { value: 'dob', label: 'Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾â€ Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾Â¾Ã¡Å¾Â' }
             ]}
             sortBy={studentSortBy}
             sortOrder={studentSortOrder}
@@ -746,7 +746,7 @@ export default function StudentsPage() {
             }}
           />
           
-          <button onClick={() => { setStudentSearch(''); setStudentClassFilter('all'); setStudentLevelFilter('all'); setStudentShiftFilter('all'); setStudentStatusFilter('កំពុងសិក្សា'); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
+          <button onClick={() => { setStudentSearch(''); setStudentClassFilter('all'); setStudentLevelFilter('all'); setStudentShiftFilter('all'); setStudentStatusFilter('Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶'); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </button>
 
@@ -758,9 +758,9 @@ export default function StudentsPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </button>
           
-          <button onClick={downloadSampleCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="ទាញយកគំរូ CSV">
+          <button onClick={downloadSampleCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="Ã¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¾â€°Ã¡Å¾â„¢Ã¡Å¾â‚¬Ã¡Å¾â€šÃ¡Å¸â€ Ã¡Å¾Å¡Ã¡Å¾Â¼ CSV">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            គំរូ CSV
+            Ã¡Å¾â€šÃ¡Å¸â€ Ã¡Å¾Å¡Ã¡Å¾Â¼ CSV
           </button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={importFromCSV} style={{ display: 'none' }} />
 
@@ -776,7 +776,7 @@ export default function StudentsPage() {
               display: 'flex',
               alignItems: 'center'
             }}
-            title={isStudentTableLocked ? "ដោះសោដើម្បីកែប្រែ" : "ចាក់សោតារាង"}
+            title={isStudentTableLocked ? "Ã¡Å¾Å Ã¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾Å¸Ã¡Å¸â€žÃ¡Å¾Å Ã¡Å¾Â¾Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾â€Ã¡Å¾Â¸Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€š" : "Ã¡Å¾â€¦Ã¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾Å¸Ã¡Å¸â€žÃ¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â€ž"}
           >
             {isStudentTableLocked ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -791,7 +791,7 @@ export default function StudentsPage() {
       {isStudentTableLocked && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.15)', padding: '0.75rem 1rem', borderRadius: '8px', color: '#d97706', marginBottom: '1.25rem', fontWeight: 500, fontSize: '0.9rem' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '0.25rem' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          តារាងត្រូវបានចាក់សោ — ចុចរូបសោ 🔒 នៅខាងលើ ដើម្បីបើកបន្ថែម កែប្រែ ឬលុបទិន្នន័យសិស្ស។
+          Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Â¶Ã¡Å¾â€žÃ¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾Å“Ã¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€¦Ã¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾Å¸Ã¡Å¸â€ž Ã¢â‚¬â€ Ã¡Å¾â€¦Ã¡Å¾Â»Ã¡Å¾â€¦Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾Å¸Ã¡Å¸â€ž Ã°Å¸â€â€™ Ã¡Å¾â€œÃ¡Å¸â€¦Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€žÃ¡Å¾â€ºÃ¡Å¾Â¾ Ã¡Å¾Å Ã¡Å¾Â¾Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾â€Ã¡Å¾Â¸Ã¡Å¾â€Ã¡Å¾Â¾Ã¡Å¾â‚¬Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾Ëœ Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€š Ã¡Å¾Â¬Ã¡Å¾â€ºÃ¡Å¾Â»Ã¡Å¾â€Ã¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â€œÃ¡Å¸ÂÃ¡Å¾â„¢Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¸â€
         </div>
       )}
 
@@ -808,9 +808,9 @@ export default function StudentsPage() {
                   onChange={handleSelectAll} 
                 />
               </th>
-              <th style={{ padding: '0.85rem 1.25rem', width: '60px' }}>ល.រ</th>
+              <th style={{ padding: '0.85rem 1.25rem', width: '60px' }}>Ã¡Å¾â€º.Ã¡Å¾Å¡</th>
               {AVAILABLE_COLUMNS.map(col => visibleColumns.includes(col.id) && <th key={col.id} style={{ padding: '0.85rem 1.25rem' }}>{col.label}</th>)}
-              <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right', width: '120px' }}>ជម្រើស</th>
+              <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right', width: '120px' }}>Ã¡Å¾â€¡Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¾Ã¡Å¾Å¸</th>
             </tr>
           </thead>
           <tbody>
@@ -841,7 +841,7 @@ export default function StudentsPage() {
                   ) : (
                     <div style={{ 
                       width: '48px', height: '48px', borderRadius: '12px', 
-                      background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                      background: student.gender === 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
                       color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '1.2rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                     }}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
@@ -869,16 +869,16 @@ export default function StudentsPage() {
                         {student.photo && String(student.photo).trim() !== '' && !String(student.photo).includes('1SvTDHG3zdMHxOkER5Tii3Ac0alK3EqHi') ? (
                           <img src={convertDriveImageLink(student.photo)} alt={student.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
                         ) : (
-                          <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: student.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
+                          <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: student.gender === 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
                             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                           </div>
                         )}
                         <div style={{ flex: 1 }}>
                           <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{student.fullName}</h2>
-                          <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{student.englishName || 'គ្មានឈ្មោះអង់គ្លេស'}</p>
+                          <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{student.englishName || 'Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾Â¢Ã¡Å¾â€žÃ¡Å¸â€¹Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾Å¸'}</p>
                           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 700 }}>ID: {student.studentId}</span>
-                            <span style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem', borderRadius: '8px', background: student.status === 'កំពុងសិក្សា' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: student.status === 'កំពុងសិក្សា' ? '#10b981' : '#ef4444', fontWeight: 700 }}>{student.status || 'កំពុងសិក្សា'}</span>
+                            <span style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem', borderRadius: '8px', background: student.status === 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: student.status === 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? '#10b981' : '#ef4444', fontWeight: 700 }}>{student.status || 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶'}</span>
                           </div>
                         </div>
                       </div>
@@ -890,15 +890,15 @@ export default function StudentsPage() {
                         <div style={{ background: 'rgba(139, 92, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(139, 92, 246, 0.1)' }}>
                           <h4 style={{ margin: '0 0 1rem 0', color: '#8b5cf6', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
-                            ព័ត៌មានសិក្សា
+                            Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶
                           </h4>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្នាក់៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.className || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>កម្រិត៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.level || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>វេន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.shift || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>គ្រូបន្ទុកថ្នាក់៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.teacherName || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{formatEnrollToDay(student.enrollDate) || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្លៃសិក្សា៖</span> <strong style={{ color: '#10b981' }}>{student.fee ? `${student.fee} ពាន់រៀល` : 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.className || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.level || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.shift || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¾Â»Ã¡Å¾â‚¬Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.teacherName || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€¦Ã¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œÃ¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{formatEnrollToDay(student.enrollDate) || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸Æ’Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶Ã¡Å¸â€“</span> <strong style={{ color: '#10b981' }}>{student.fee ? `${student.fee} Ã¡Å¾â€“Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¸â€¹Ã¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€º` : 'N/A'}</strong></div>
                           </div>
                         </div>
 
@@ -906,27 +906,27 @@ export default function StudentsPage() {
                         <div style={{ background: 'rgba(236, 72, 153, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(236, 72, 153, 0.1)' }}>
                           <h4 style={{ margin: '0 0 1rem 0', color: '#ec4899', fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            ជីវប្រវត្តិ & ទំនាក់ទំនង
+                            Ã¡Å¾â€¡Ã¡Å¾Â¸Ã¡Å¾Å“Ã¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Å“Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â· & Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾â€ž
                           </h4>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ភេទ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.gender || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃកំណើត៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.dob || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ឪពុក៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.father || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ម្តាយ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.mother || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>លេខទូរស័ព្ទ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.phoneNum || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>មធ្យោបាយ៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.transport || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾â€”Ã¡Å¸ÂÃ¡Å¾â€˜Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.gender || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾Â¾Ã¡Å¾ÂÃ¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.dob || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ÂªÃ¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â‚¬Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.father || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â„¢Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.mother || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾ÂÃ¡Å¾â€˜Ã¡Å¾Â¼Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¸ÂÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.phoneNum || 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¸â€žÃ¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â„¢Ã¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)' }}>{student.transport || 'N/A'}</strong></div>
                           </div>
                         </div>
 
                         {/* Extra Details spanning full width */}
                         <div style={{ gridColumn: '1 / -1', background: 'rgba(59, 130, 246, 0.04)', borderRadius: '16px', padding: '1.25rem', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
-                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>អាសយដ្ឋាន៖</span> <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{student.address || 'N/A'}</strong></div>
-                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>បណ្តាញសង្គម៖</span> 
-                               {student.contact ? (student.contact.startsWith('http') ? <a href={student.contact} target="_blank" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'underline' }}>ចុចទីនេះ 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.contact}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>Ã¡Å¾Â¢Ã¡Å¾Â¶Ã¡Å¾Å¸Ã¡Å¾â„¢Ã¡Å¾Å Ã¡Å¸â€™Ã¡Å¾â€¹Ã¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¸â€“</span> <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{student.address || 'N/A'}</strong></div>
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>Ã¡Å¾â€Ã¡Å¾Å½Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€°Ã¡Å¾Å¸Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾â€šÃ¡Å¾ËœÃ¡Å¸â€“</span> 
+                               {student.contact ? (student.contact.startsWith('http') ? <a href={student.contact} target="_blank" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'underline' }}>Ã¡Å¾â€¦Ã¡Å¾Â»Ã¡Å¾â€¦Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¾â€œÃ¡Å¸ÂÃ¡Å¸â€¡ Ã°Å¸â€œÂ</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.contact}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
                              </div>
-                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>ទីតាំងផ្ទះ៖</span> 
-                               {student.location ? (student.location.startsWith('http') ? <a href={student.location} target="_blank" style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline' }}>ផែនទី 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.location}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€žÃ¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¸â€¡Ã¡Å¸â€“</span> 
+                               {student.location ? (student.location.startsWith('http') ? <a href={student.location} target="_blank" style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline' }}>Ã¡Å¾â€¢Ã¡Å¸â€šÃ¡Å¾â€œÃ¡Å¾â€˜Ã¡Å¾Â¸ Ã°Å¸â€œÂ</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.location}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
                              </div>
                            </div>
                         </div>
@@ -934,7 +934,7 @@ export default function StudentsPage() {
 
                       <button onClick={() => { setHoveredPhotoId(null); handleOpenEditStudent(student); }} className="btn btn-primary" disabled={isStudentTableLocked} style={{ width: '100%', padding: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', borderRadius: '14px', border: 'none', fontSize: '1.05rem', fontWeight: 700, marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        កែប្រែព័ត៌មានលម្អិតសិស្ស
+                        Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€šÃ¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€ºÃ¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Â¢Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸
                       </button>
                     </div>
                   </div>,
@@ -944,8 +944,8 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('photoLink') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'photo', student.photo ? (
-                    <a href={convertDriveImageLink(student.photo)} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link 📍</a>
-                  ) : <span style={{ color: 'var(--text-secondary)' }}>គ្មាន</span>)}
+                    <a href={convertDriveImageLink(student.photo)} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link Ã°Å¸â€œÂ</a>
+                  ) : <span style={{ color: 'var(--text-secondary)' }}>Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œ</span>)}
                 </td>}
 
                 {visibleColumns.includes('studentId') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'studentId', <code>{student.studentId}</code>)}</td>}
@@ -955,8 +955,8 @@ export default function StudentsPage() {
                 {visibleColumns.includes('gender') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'gender', <span style={{ 
                     fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
-                    background: student.gender === 'ស្រី' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                    color: student.gender === 'ស្រី' ? '#ec4899' : '#3b82f6'
+                    background: student.gender === 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                    color: student.gender === 'Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¸' ? '#ec4899' : '#3b82f6'
                   }}>
                     {student.gender}
                   </span>)}
@@ -985,10 +985,10 @@ export default function StudentsPage() {
                 {visibleColumns.includes('status') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'status', <span style={{ 
                     fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
-                    background: student.status === 'កំពុងសិក្សា' ? 'rgba(16, 185, 129, 0.1)' : student.status === 'ព្យួរការសិក្សា' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    color: student.status === 'កំពុងសិក្សា' ? '#10b981' : student.status === 'ព្យួរការសិក្សា' ? '#f59e0b' : '#ef4444'
+                    background: student.status === 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? 'rgba(16, 185, 129, 0.1)' : student.status === 'Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: student.status === 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? '#10b981' : student.status === 'Ã¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¾Â½Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶' ? '#f59e0b' : '#ef4444'
                   }}>
-                    {student.status || 'កំពុងសិក្សា'}
+                    {student.status || 'Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â€žÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶'}
                   </span>)}
                 </td>}
                 
@@ -1000,7 +1000,7 @@ export default function StudentsPage() {
                 {visibleColumns.includes('location') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'location', student.location && (student.location.startsWith('http://') || student.location.startsWith('https://')) ? (
                     <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                      Link 📍
+                      Link Ã°Å¸â€œÂ
                     </a>
                   ) : student.location)}
                 </td>}
@@ -1011,7 +1011,7 @@ export default function StudentsPage() {
                   {renderCell(student, 'contact', student.contact ? (
                     student.contact.startsWith('http://') || student.contact.startsWith('https://') ? (
                       <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                        Link 📍
+                        Link Ã°Å¸â€œÂ
                       </a>
                     ) : student.contact
                   ) : '')}
@@ -1029,7 +1029,7 @@ export default function StudentsPage() {
                       className="btn" 
                       disabled={isStudentTableLocked}
                       style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', opacity: isStudentTableLocked ? 0.4 : 1 }} 
-                      title="កែប្រែ"
+                      title="Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€š"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </button>
@@ -1038,7 +1038,7 @@ export default function StudentsPage() {
                       className="btn" 
                       disabled={isStudentTableLocked}
                       style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none', opacity: isStudentTableLocked ? 0.4 : 1 }} 
-                      title="លុប"
+                      title="Ã¡Å¾â€ºÃ¡Å¾Â»Ã¡Å¾â€"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </button>
@@ -1049,7 +1049,7 @@ export default function StudentsPage() {
             {filteredAndSortedStudents.length === 0 && (
               <tr>
                 <td colSpan={22} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  មិនមានទិន្នន័យសិស្សត្រូវគ្នានឹងការស្វែងរកទេ។
+                  Ã¡Å¾ËœÃ¡Å¾Â·Ã¡Å¾â€œÃ¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€˜Ã¡Å¾Â·Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â€œÃ¡Å¸ÂÃ¡Å¾â„¢Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾Å“Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Â¹Ã¡Å¾â€žÃ¡Å¾â‚¬Ã¡Å¾Â¶Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å“Ã¡Å¸â€šÃ¡Å¾â€žÃ¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¸ÂÃ¡Å¸â€
                 </td>
               </tr>
             )}
@@ -1069,12 +1069,13 @@ export default function StudentsPage() {
           <div 
             onClick={(e) => e.stopPropagation()}
             className="glass-panel animate-fade-in post-read-modal" 
-            style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', padding: '2rem', overflowY: 'auto' }}
+            style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', padding: '2rem', paddingBottom: '1.5rem', overflow: 'hidden' }}
           >
             <h2 style={{ margin: '0 0 1.5rem 0' }}>
-              {studentEditId ? 'កែប្រែព័ត៌មានសិស្ស' : 'បន្ថែមសិស្សថ្មី'}
+              {studentEditId ? 'Ã¡Å¾â‚¬Ã¡Å¸â€šÃ¡Å¾â€Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸â€šÃ¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸' : 'Ã¡Å¾â€Ã¡Å¾â€œÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾ËœÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¾Â¸'}
             </h2>
             
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column' }}>
             {/* Part 1 Header Toggle */}
             <div 
               onClick={() => setShowPart1(!showPart1)} 
@@ -1092,38 +1093,38 @@ export default function StudentsPage() {
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🎓 ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Fee)
+                Ã°Å¸Å½â€œ Ã¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¸â€šÃ¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¸Â¡Ã¡Å¸â€“ Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Student ID Ã¡Å¾Å Ã¡Å¾â€ºÃ¡Å¸â€¹ Fee)
               </span>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart1 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart1 ? 'Ã¢â€“Â¼ Ã¡Å¾â€ºÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹ (Hide)' : 'Ã¢â€“Â² Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Â Ã¡Å¾Â¶Ã¡Å¾â€° (Show)'}</span>
             </div>
 
             {showPart1 && (
               <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អត្តលេខ (Student ID) *</label>
-                  <input type="text" className="input-field" value={studentIdField} onChange={e => setStudentIdField(e.target.value)} placeholder="ឧ. 9201" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Â¢Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾Â (Student ID) *</label>
+                  <input type="text" className="input-field" value={studentIdField} onChange={e => setStudentIdField(e.target.value)} placeholder="Ã¡Å¾Â§. 9201" />
                 </div>
                 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះពេញ (Khmer Name) *</label>
-                  <input type="text" className="input-field" value={studentFullNameField} onChange={e => setStudentFullNameField(e.target.value)} placeholder="ឧ. លី តិចស្រេង" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾â€° (Khmer Name) *</label>
+                  <input type="text" className="input-field" value={studentFullNameField} onChange={e => setStudentFullNameField(e.target.value)} placeholder="Ã¡Å¾Â§. Ã¡Å¾â€ºÃ¡Å¾Â¸ Ã¡Å¾ÂÃ¡Å¾Â·Ã¡Å¾â€¦Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¸ÂÃ¡Å¾â€ž" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះឡាតាំង (English Name) *</label>
-                  <input type="text" className="input-field" value={studentEnglishNameField} onChange={e => setStudentEnglishNameField(e.target.value)} placeholder="ឧ. Ly Tichsreng" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾Â¡Ã¡Å¾Â¶Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€ž (English Name) *</label>
+                  <input type="text" className="input-field" value={studentEnglishNameField} onChange={e => setStudentEnglishNameField(e.target.value)} placeholder="Ã¡Å¾Â§. Ly Tichsreng" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ភេទ (Gender) *</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾â€”Ã¡Å¸ÂÃ¡Å¾â€˜ (Gender) *</label>
                   <select className="input-field" value={studentGenderField} onChange={e => setStudentGenderField(e.target.value)}>
                       {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      {genderOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
+                      {genderOptions.length === 0 && <option value="" disabled>-- Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€¡Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¾Ã¡Å¾Å¸ --</option>}
                     </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>កម្រិតសិក្សា (Level) *</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾â‚¬Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â·Ã¡Å¾ÂÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Level) *</label>
                   <select className="input-field" value={studentLevelField} onChange={e => setStudentLevelField(e.target.value)}>
                     {levelOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     {!levelOptions.includes(studentLevelField) && studentLevelField && <option value={studentLevelField}>{studentLevelField}</option>}
@@ -1131,7 +1132,7 @@ export default function StudentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>វេនសិក្សា (Shift) *</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Å“Ã¡Å¸ÂÃ¡Å¾â€œÃ¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Shift) *</label>
                   <select className="input-field" value={studentShiftField} onChange={e => setStudentShiftField(e.target.value)}>
                     {shiftOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     {!shiftOptions.includes(studentShiftField) && studentShiftField && <option value={studentShiftField}>{studentShiftField}</option>}
@@ -1139,13 +1140,13 @@ export default function StudentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
-                  <input type="text" placeholder="ឧ. 2024-06-27" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾â€¦Ã¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾Å¡Ã¡Å¸â‚¬Ã¡Å¾â€œ (Enroll Date) *</label>
+                  <input type="text" placeholder="Ã¡Å¾Â§. 2024-06-27" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្លៃសិក្សា (Fee) [1 = 1000៛] *</label>
-                  <input type="number" className="input-field" value={studentFeeField} onChange={e => setStudentFeeField(e.target.value)} placeholder="ឧ. 120 (120,000៛)" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¸Æ’Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Fee) [1 = 1000Ã¡Å¸â€º] *</label>
+                  <input type="number" className="input-field" value={studentFeeField} onChange={e => setStudentFeeField(e.target.value)} placeholder="Ã¡Å¾Â§. 120 (120,000Ã¡Å¸â€º)" />
                 </div>
               </div>
             )}
@@ -1167,20 +1168,20 @@ export default function StudentsPage() {
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🏠 ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
+                Ã°Å¸ÂÂ  Ã¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¸â€šÃ¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¸Â¢Ã¡Å¸â€“ Ã¡Å¾â€“Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¸Å’Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾â€˜Ã¡Å¾Â¶Ã¡Å¾â€ºÃ¡Å¸â€¹Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€ºÃ¡Å¾Â½Ã¡Å¾â€œ Ã¡Å¾â€œÃ¡Å¾Â·Ã¡Å¾â€žÃ¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾â€ž (DOB Ã¡Å¾Å Ã¡Å¾â€ºÃ¡Å¸â€¹ Phone Num)
               </span>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart2 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart2 ? 'Ã¢â€“Â¼ Ã¡Å¾â€ºÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹ (Hide)' : 'Ã¢â€“Â² Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€™Ã¡Å¾Â Ã¡Å¾Â¶Ã¡Å¾â€° (Show)'}</span>
             </div>
 
             {showPart2 && (
               <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃខែឆ្នាំកំណើត (DOB)</label>
-                  <input type="text" className="input-field" value={studentDobField} onChange={e => setStudentDobField(e.target.value)} placeholder="ឧ. 27-06-2012" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾â€žÃ¡Å¸Æ’Ã¡Å¾ÂÃ¡Å¸â€šÃ¡Å¾â€ Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â‚¬Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾Â¾Ã¡Å¾Â (DOB)</label>
+                  <input type="text" className="input-field" value={studentDobField} onChange={e => setStudentDobField(e.target.value)} placeholder="Ã¡Å¾Â§. 27-06-2012" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អាសយដ្ឋាន (Address)</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Â¢Ã¡Å¾Â¶Ã¡Å¾Å¸Ã¡Å¾â„¢Ã¡Å¾Å Ã¡Å¸â€™Ã¡Å¾â€¹Ã¡Å¾Â¶Ã¡Å¾â€œ (Address)</label>
                   <select className="input-field" value={studentAddressField} onChange={e => setStudentAddressField(e.target.value)}>
                     {addressOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     {!addressOptions.includes(studentAddressField) && studentAddressField && <option value={studentAddressField}>{studentAddressField}</option>}
@@ -1188,12 +1189,12 @@ export default function StudentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ទីតាំង (Google Maps Link)</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾â€˜Ã¡Å¾Â¸Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¸â€ Ã¡Å¾â€ž (Google Maps Link)</label>
                   <input type="text" className="input-field" value={studentLocationField} onChange={e => setStudentLocationField(e.target.value)} placeholder="https://maps.google.com/..." />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>មធ្យោបាយធ្វើដំណើរ (Transport)</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾ËœÃ¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾â„¢Ã¡Å¸â€žÃ¡Å¾â€Ã¡Å¾Â¶Ã¡Å¾â„¢Ã¡Å¾â€™Ã¡Å¸â€™Ã¡Å¾Å“Ã¡Å¾Â¾Ã¡Å¾Å Ã¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾Â¾Ã¡Å¾Å¡ (Transport)</label>
                   <select className="input-field" value={studentTransportField} onChange={e => setStudentTransportField(e.target.value)}>
                     {transportOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     {!transportOptions.includes(studentTransportField) && studentTransportField && <option value={studentTransportField}>{studentTransportField}</option>}
@@ -1201,43 +1202,44 @@ export default function StudentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>តំណលីងរូបថត (Photo URL / Google Drive)</label>
-                  <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="បិទភ្ជាប់ Link រូបភាព ឬ Link ពី Google Drive" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾ÂÃ¡Å¸â€ Ã¡Å¾Å½Ã¡Å¾â€ºÃ¡Å¾Â¸Ã¡Å¾â€žÃ¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾ÂÃ¡Å¾Â (Photo URL / Google Drive)</label>
+                  <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="Ã¡Å¾â€Ã¡Å¾Â·Ã¡Å¾â€˜Ã¡Å¾â€”Ã¡Å¸â€™Ã¡Å¾â€¡Ã¡Å¾Â¶Ã¡Å¾â€Ã¡Å¸â€¹ Link Ã¡Å¾Å¡Ã¡Å¾Â¼Ã¡Å¾â€Ã¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“ Ã¡Å¾Â¬ Link Ã¡Å¾â€“Ã¡Å¾Â¸ Google Drive" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ស្ថានភាពសិក្សា (Status)</label>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Å¸Ã¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€”Ã¡Å¾Â¶Ã¡Å¾â€“Ã¡Å¾Å¸Ã¡Å¾Â·Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶ (Status)</label>
                   <select className="input-field" value={studentStatusField} onChange={e => setStudentStatusField(e.target.value)}>
                       {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      {statusOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
+                      {statusOptions.length === 0 && <option value="" disabled>-- Ã¡Å¾â€šÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾â€œÃ¡Å¾â€¡Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾Å¡Ã¡Å¾Â¾Ã¡Å¾Å¸ --</option>}
                     </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អ្នកទំនាក់ទំនង (Social Media Link)</label>
-                  <input type="text" className="input-field" value={studentContactField} onChange={e => setStudentContactField(e.target.value)} placeholder="https://t.me/username ឬ Link ផ្សេងៗ" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Â¢Ã¡Å¸â€™Ã¡Å¾â€œÃ¡Å¾â‚¬Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾Â¶Ã¡Å¾â‚¬Ã¡Å¸â€¹Ã¡Å¾â€˜Ã¡Å¸â€ Ã¡Å¾â€œÃ¡Å¾â€ž (Social Media Link)</label>
+                  <input type="text" className="input-field" value={studentContactField} onChange={e => setStudentContactField(e.target.value)} placeholder="https://t.me/username Ã¡Å¾Â¬ Link Ã¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¸ÂÃ¡Å¾â€žÃ¡Å¸â€”" />
                 </div>
                 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះឪពុក (Father Name)</label>
-                  <input type="text" className="input-field" value={studentFatherField} onChange={e => setStudentFatherField(e.target.value)} placeholder="ឧ. លី សុវណ្ណ" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾ÂªÃ¡Å¾â€“Ã¡Å¾Â»Ã¡Å¾â‚¬ (Father Name)</label>
+                  <input type="text" className="input-field" value={studentFatherField} onChange={e => setStudentFatherField(e.target.value)} placeholder="Ã¡Å¾Â§. Ã¡Å¾â€ºÃ¡Å¾Â¸ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Å“Ã¡Å¾Å½Ã¡Å¸â€™Ã¡Å¾Å½" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ឈ្មោះម្តាយ (Mother Name)</label>
-                  <input type="text" className="input-field" value={studentMotherField} onChange={e => setStudentMotherField(e.target.value)} placeholder="ឧ. មាស សុខ" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾Ë†Ã¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾ËœÃ¡Å¸â€™Ã¡Å¾ÂÃ¡Å¾Â¶Ã¡Å¾â„¢ (Mother Name)</label>
+                  <input type="text" className="input-field" value={studentMotherField} onChange={e => setStudentMotherField(e.target.value)} placeholder="Ã¡Å¾Â§. Ã¡Å¾ËœÃ¡Å¾Â¶Ã¡Å¾Å¸ Ã¡Å¾Å¸Ã¡Å¾Â»Ã¡Å¾Â" />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>លេខទូរស័ព្ទ (Phone Num)</label>
-                  <input type="text" className="input-field" value={studentPhoneNumField} onChange={e => setStudentPhoneNumField(e.target.value)} placeholder="ឧ. 012345678" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>Ã¡Å¾â€ºÃ¡Å¸ÂÃ¡Å¾ÂÃ¡Å¾â€˜Ã¡Å¾Â¼Ã¡Å¾Å¡Ã¡Å¾Å¸Ã¡Å¸ÂÃ¡Å¾â€“Ã¡Å¸â€™Ã¡Å¾â€˜ (Phone Num)</label>
+                  <input type="text" className="input-field" value={studentPhoneNumField} onChange={e => setStudentPhoneNumField(e.target.value)} placeholder="Ã¡Å¾Â§. 012345678" />
                 </div>
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: 'auto' }}>
-              <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsStudentModalOpen(false)}>បោះបង់</button>
-              <button className="btn btn-primary" onClick={handleSaveStudent} style={{ padding: '0.75rem 2rem' }}>រក្សាទុក</button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsStudentModalOpen(false)}>Ã¡Å¾â€Ã¡Å¸â€žÃ¡Å¸â€¡Ã¡Å¾â€Ã¡Å¾â€žÃ¡Å¸â€¹</button>
+              <button className="btn btn-primary" onClick={handleSaveStudent} style={{ padding: '0.75rem 2rem' }}>Ã¡Å¾Å¡Ã¡Å¾â‚¬Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¾Â¶Ã¡Å¾â€˜Ã¡Å¾Â»Ã¡Å¾â‚¬</button>
             </div>
           </div>
         </div>
@@ -1245,3 +1247,5 @@ export default function StudentsPage() {
     </>
   );
 }
+
+
