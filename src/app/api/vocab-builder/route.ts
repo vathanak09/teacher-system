@@ -36,6 +36,9 @@ Please extract words from the image based on the following rules:
       if (!options.extractHighlighted && !options.extractDifficult) {
         imageInstruction += "- Extract all distinct, important vocabulary words from the image.\n";
       }
+      if (options.imageCustomPrompt) {
+        imageInstruction += `- Additional instructions for image extraction: ${options.imageCustomPrompt}\n`;
+      }
       imageInstruction += "\nThen, for all extracted words (and any words provided in the list below), generate the required vocabulary details.\n\n";
     }
 

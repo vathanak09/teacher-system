@@ -19,6 +19,7 @@ export default function VocabBuilderPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<VocabItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'text' | 'image'>('text');
   
   // Options state
   const [modelName, setModelName] = useState('gemini-3.5-flash');
@@ -30,11 +31,12 @@ export default function VocabBuilderPage() {
     synonyms: false,
     antonyms: false,
     example: true,
-    exampleLevel: 'intermediate',
+    exampleLevel: 'beginner',
     exampleCount: 1,
     extractHighlighted: false,
     extractDifficult: false,
     difficultLevel: 'beginner',
+    imageCustomPrompt: '',
   });
 
   const handleOptionChange = (field: string, value: any) => {
@@ -59,7 +61,6 @@ export default function VocabBuilderPage() {
       reader.readAsDataURL(file);
       reader.onload = () => {
         const result = reader.result as string;
-        // result is like "data:image/jpeg;base64,/9j/4AAQ..."
         const base64 = result.split(',')[1];
         resolve({ mimeType: file.type, base64 });
       };
@@ -68,19 +69,23 @@ export default function VocabBuilderPage() {
   };
 
   const generateVocabList = async () => {
-    if (!inputText.trim() && !imageFile) {
-      alert("សូមបញ្ចូលពាក្យ ឬ ជ្រើសរើសរូបភាពជាមុនសិន!");
+    if (activeTab === 'text' && !inputText.trim()) {
+      alert("សូមបញ្ចូលពាក្យឬឃ្លាជាមុនសិន!");
+      return;
+    }
+    if (activeTab === 'image' && !imageFile) {
+      alert("សូមអាប់ឡូតរូបភាពជាមុនសិន!");
       return;
     }
 
     setIsLoading(true);
     
     // Split by commas or newlines and clean up
-    const wordsArray = inputText.split(/[,\n]+/).map(w => w.trim()).filter(w => w.length > 0);
+    const wordsArray = activeTab === 'text' ? inputText.split(/[,\n]+/).map(w => w.trim()).filter(w => w.length > 0) : [];
 
     try {
       let imagePayload = null;
-      if (imageFile) {
+      if (activeTab === 'image' && imageFile) {
         imagePayload = await getBase64Image(imageFile);
       }
 
@@ -114,9 +119,9 @@ export default function VocabBuilderPage() {
   };
 
   const generatePromptText = () => {
-    let wordListStr = inputText.trim() || "(None, extract from image only)";
+    let wordListStr = activeTab === 'text' ? inputText.trim() : "(None, extract from image only)";
     let imageInstruction = "";
-    if (imageFile) {
+    if (activeTab === 'image' && imageFile) {
       imageInstruction = `\nI have provided an image containing text. \nPlease extract words from the image based on the following rules:\n`;
       if (options.extractHighlighted) {
         imageInstruction += "- Extract words that are highlighted, underlined, or circled in the image.\n";
@@ -126,6 +131,9 @@ export default function VocabBuilderPage() {
       }
       if (!options.extractHighlighted && !options.extractDifficult) {
         imageInstruction += "- Extract all distinct, important vocabulary words from the image.\n";
+      }
+      if (options.imageCustomPrompt) {
+        imageInstruction += `- Additional instructions for image extraction: ${options.imageCustomPrompt}\n`;
       }
       imageInstruction += "\nThen, for all extracted words (and any words provided in the list below), generate the required vocabulary details.\n\n";
     }
@@ -162,12 +170,10 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
   };
 
   const playAudio = (word: string, locale: 'en-US' | 'en-GB') => {
-    // Strip parentheses from word before playing e.g. "bank (2 meanings)" -> "bank"
     const cleanWord = word.replace(/\(.*?\)/g, '').trim();
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(cleanWord);
       utterance.lang = locale;
-      // You can tweak rate and pitch if needed
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     } else {
@@ -180,7 +186,6 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
 
     let textToCopy = "";
     results.forEach((item, index) => {
-      // 1. speaker (Noun) //ˈspiːkər// A person who speaks... អ្នកនិយាយ...
       const cleanWord = item.word.replace(/\(.*?\)/g, '').trim();
       textToCopy += `${index + 1}. ${cleanWord}`;
       if (item.pos) textToCopy += ` (${item.pos})`;
@@ -227,58 +232,107 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
           </select>
         </div>
 
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>អាប់ឡូតរូបភាព (Upload Image)</label>
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={handleImageChange}
-            className="input-field"
-          />
-          {imagePreview && (
-            <div style={{ marginTop: '1rem' }}>
-              <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-              <div style={{ marginTop: '1rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid #3b82f6' }}>
-                <h4 style={{ margin: '0 0 0.5rem 0' }}>ជម្រើសទាញពាក្យពីរូបភាព</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={options.extractHighlighted} onChange={(e) => handleOptionChange('extractHighlighted', e.target.checked)} />
-                    ទាញយកតែពាក្យដែលបាន Highlight / គូសបន្ទាត់ / គូសរង្វង់
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={options.extractDifficult} onChange={(e) => handleOptionChange('extractDifficult', e.target.checked)} />
-                      ទាញយកពាក្យពិបាកៗតាមកម្រិត៖
-                    </label>
-                    {options.extractDifficult && (
-                      <select 
-                        className="input-field" 
-                        style={{ padding: '0.2rem 0.5rem', width: 'auto' }}
-                        value={options.difficultLevel} 
-                        onChange={(e) => handleOptionChange('difficultLevel', e.target.value)}
-                      >
-                        <option value="beginner">កម្រិតងាយ (Beginner)</option>
-                        <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
-                        <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
-                        <option value="native">ដូចម្ចាស់ភាសា (Native)</option>
-                      </select>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Input Tabs */}
+        <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '1rem' }}>
+          <button 
+            onClick={() => setActiveTab('text')}
+            style={{ 
+              padding: '0.8rem 1.5rem', 
+              background: 'none', 
+              border: 'none', 
+              borderBottom: activeTab === 'text' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+              color: activeTab === 'text' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            បញ្ចូលពាក្យឬឃ្លា (Words or Phrases)
+          </button>
+          <button 
+            onClick={() => setActiveTab('image')}
+            style={{ 
+              padding: '0.8rem 1.5rem', 
+              background: 'none', 
+              border: 'none', 
+              borderBottom: activeTab === 'image' ? '2px solid var(--accent-primary)' : '2px solid transparent',
+              color: activeTab === 'image' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            អាប់ឡូតរូបភាព (Upload Image)
+          </button>
         </div>
 
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>បញ្ចូលពាក្យឬឃ្លា (Words or Phrases)</label>
-          <textarea 
-            className="input-field" 
-            placeholder="ឧទាហរណ៍៖ apple, banana, car&#10;វាយចុះបន្ទាត់ម្ដងមួយពាក្យ ឬប្រើសញ្ញាក្បៀស។ អាចដាក់ (បរិបទ) ពីក្រោយពាក្យបាន..."
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            style={{ minHeight: '120px', resize: 'vertical' }}
-          ></textarea>
+        {/* Tab Content */}
+        <div style={{ marginBottom: '2rem' }}>
+          {activeTab === 'text' && (
+            <div>
+              <textarea 
+                className="input-field" 
+                placeholder="ឧទាហរណ៍៖ apple, banana, car&#10;វាយចុះបន្ទាត់ម្ដងមួយពាក្យ ឬប្រើសញ្ញាក្បៀស។ អាចដាក់ (បរិបទ) ពីក្រោយពាក្យបាន..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                style={{ minHeight: '120px', resize: 'vertical' }}
+              ></textarea>
+            </div>
+          )}
+
+          {activeTab === 'image' && (
+            <div>
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageChange}
+                className="input-field"
+              />
+              {imagePreview && (
+                <div style={{ marginTop: '1rem' }}>
+                  <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+                  <div style={{ marginTop: '1rem', background: 'rgba(59, 130, 246, 0.05)', padding: '1.5rem', borderRadius: '8px', border: '1px solid #3b82f6' }}>
+                    <h4 style={{ margin: '0 0 1rem 0' }}>ជម្រើសទាញពាក្យពីរូបភាព</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={options.extractHighlighted} onChange={(e) => handleOptionChange('extractHighlighted', e.target.checked)} />
+                        ទាញយកតែពាក្យដែលបាន Highlight / គូសបន្ទាត់ / គូសរង្វង់
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={options.extractDifficult} onChange={(e) => handleOptionChange('extractDifficult', e.target.checked)} />
+                          ទាញយកពាក្យពិបាកៗតាមកម្រិត៖
+                        </label>
+                        {options.extractDifficult && (
+                          <select 
+                            className="input-field" 
+                            style={{ padding: '0.3rem 0.5rem', width: 'auto' }}
+                            value={options.difficultLevel} 
+                            onChange={(e) => handleOptionChange('difficultLevel', e.target.value)}
+                          >
+                            <option value="beginner">កម្រិតងាយ (Beginner)</option>
+                            <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
+                            <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
+                            <option value="native">ដូចម្ចាស់ភាសា (Native)</option>
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600 }}>បញ្ជាបន្ថែម (Custom Prompt) - មិនដាក់ក៏បាន</label>
+                        <input 
+                          type="text" 
+                          className="input-field" 
+                          placeholder="ឧទាហរណ៍៖ ទាញយកតែពាក្យដែលជានាម (Noun)..."
+                          value={options.imageCustomPrompt}
+                          onChange={(e) => handleOptionChange('imageCustomPrompt', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
@@ -329,15 +383,27 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
                 </select>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <label>ចំនួន៖</label>
-                  <input 
-                    type="number" 
-                    className="input-field" 
-                    style={{ padding: '0.4rem', width: '70px' }}
-                    min="1" 
-                    max="10"
-                    value={options.exampleCount}
-                    onChange={(e) => handleOptionChange('exampleCount', parseInt(e.target.value) || 1)}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                    <button 
+                      className="btn" 
+                      style={{ padding: '0.4rem 0.8rem', background: 'var(--surface-color)', border: 'none', borderRight: '1px solid var(--border-color)', borderRadius: 0 }}
+                      onClick={() => handleOptionChange('exampleCount', Math.max(1, options.exampleCount - 1))}
+                    >-</button>
+                    <input 
+                      type="number" 
+                      className="input-field" 
+                      style={{ padding: '0.4rem', width: '50px', border: 'none', borderRadius: 0, textAlign: 'center' }}
+                      min="1" 
+                      max="10"
+                      value={options.exampleCount}
+                      onChange={(e) => handleOptionChange('exampleCount', Math.max(1, parseInt(e.target.value) || 1))}
+                    />
+                    <button 
+                      className="btn" 
+                      style={{ padding: '0.4rem 0.8rem', background: 'var(--surface-color)', border: 'none', borderLeft: '1px solid var(--border-color)', borderRadius: 0 }}
+                      onClick={() => handleOptionChange('exampleCount', Math.min(10, options.exampleCount + 1))}
+                    >+</button>
+                  </div>
                 </div>
               </>
             )}
@@ -348,7 +414,7 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
           <button 
             className="btn btn-primary" 
             onClick={generateVocabList}
-            disabled={isLoading || (!inputText.trim() && !imageFile)}
+            disabled={isLoading || (activeTab === 'text' && !inputText.trim()) || (activeTab === 'image' && !imageFile)}
             style={{ padding: '0.8rem 2rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
             {isLoading ? (
