@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Teacher Management System',
+  title: 'BSIS International School',
   description: 'A modern platform for teachers and students.',
 }
 
