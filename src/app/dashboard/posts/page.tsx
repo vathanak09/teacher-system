@@ -6,6 +6,7 @@ import { settingsService, lessonService, methodologyService } from '@/services/d
 import Papa from 'papaparse';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
+import ImageUploadBox from '@/components/ImageUploadBox';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
@@ -146,8 +147,7 @@ export default function PostsManagementPage() {
     setIsEditorOpen(false);
   };
 
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCoverUpload = async (file: File) => {
     if (file) {
       try {
         setIsUploadingCover(true);
@@ -522,18 +522,22 @@ export default function PostsManagementPage() {
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>រូបថតគម្រប (Cover Photo)</label>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ width: '120px', height: '80px', borderRadius: '8px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {coverPhotoField ? <img src={coverPhotoField} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>គ្មានរូបថត</span>}
-                  </div>
+                  <ImageUploadBox
+                    onFileSelect={handleCoverUpload}
+                    currentImage={coverPhotoField || undefined}
+                    isUploading={isUploadingCover}
+                    isUploadSuccess={isUploadSuccess}
+                    shape="rect"
+                    width="120px"
+                    height="80px"
+                    emptyText="គ្មានរូបថត"
+                    isActiveModal={isEditorOpen}
+                  />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover} className="btn" style={{ padding: '0.5rem 1rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.3s' }}>
-                        {isUploadingCover ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត Cover'}
-                      </button>
                       <input type="text" className="input-field" value={coverPhotoField} onChange={e => setCoverPhotoField(e.target.value)} placeholder="URL រូបថត" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} />
                     </div>
-                    <input type="file" ref={coverInputRef} onChange={handleCoverUpload} accept="image/*" style={{ display: 'none' }} />
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។ (ទាញរូបថតទម្លាក់លើប្រអប់ផ្ទាល់ ឬ Paste (Ctrl+V) ក៏បាន)</span>
                   </div>
                 </div>
               </div>
@@ -556,39 +560,77 @@ export default function PostsManagementPage() {
                             {groupTags.map(tag => {
                               const isSelected = selectedTags.includes(tag.id);
                               return (
-                                <button
+                                <div 
                                   key={tag.id}
                                   onClick={() => {
                                     if (isSelected) {
-                                      setSelectedTags(prev => prev.filter(id => id !== tag.id));
+                                      setSelectedTags(selectedTags.filter(id => id !== tag.id));
                                     } else {
-                                      setSelectedTags(prev => [...prev, tag.id]);
+                                      setSelectedTags([...selectedTags, tag.id]);
                                     }
                                   }}
                                   style={{
-                                    padding: '0.35rem 0.75rem',
+                                    padding: '0.4rem 0.8rem',
                                     borderRadius: '20px',
-                                    border: isSelected ? `1.5px solid ${tag.color}` : '1.5px solid var(--border-color)',
-                                    background: isSelected ? `${tag.color}15` : 'transparent',
-                                    color: isSelected ? tag.color : 'var(--text-secondary)',
-                                    cursor: 'pointer',
                                     fontSize: '0.85rem',
-                                    fontWeight: isSelected ? 600 : 500,
-                                    transition: 'all 0.2s',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem'
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    background: isSelected ? tag.color : 'var(--modal-bg)',
+                                    color: isSelected ? 'white' : 'var(--text-secondary)',
+                                    border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
+                                    transition: 'all 0.2s'
                                   }}
                                 >
-                                  {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                                   {tag.name}
-                                </button>
+                                </div>
                               );
                             })}
                           </div>
                         </div>
                       );
                     })}
+                    {/* Ungrouped Tags */}
+                    {(() => {
+                      const ungroupedTags = availableTags.filter(t => !t.groupId);
+                      if (ungroupedTags.length === 0) return null;
+                      return (
+                        <div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                            🏷️ ស្លាកពាក្យផ្សេងៗ (Others)
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {ungroupedTags.map(tag => {
+                              const isSelected = selectedTags.includes(tag.id);
+                              return (
+                                <div 
+                                  key={tag.id}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                                    } else {
+                                      setSelectedTags([...selectedTags, tag.id]);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '0.4rem 0.8rem',
+                                    borderRadius: '20px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    background: isSelected ? tag.color : 'var(--modal-bg)',
+                                    color: isSelected ? 'white' : 'var(--text-secondary)',
+                                    border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  {tag.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
