@@ -79,6 +79,7 @@ export default function ImageUploadBox({
 
   const handleClick = () => {
     if (!isUploading) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       fileInputRef.current?.click();
     }
   };
@@ -87,10 +88,6 @@ export default function ImageUploadBox({
     const file = e.target.files?.[0];
     if (file) {
       onFileSelect(file);
-    }
-    // Reset input value to allow selecting the same file again
-    if (e.target) {
-      e.target.value = '';
     }
   };
 
