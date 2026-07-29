@@ -518,9 +518,11 @@ export default function LessonsPage() {
                   })}
                 </div>
 
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
-                  {getExcerpt(post.content)}
-                </p>
+                {!post.coverPhoto && (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
+                    {getExcerpt(post.content)}
+                  </p>
+                )}
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
