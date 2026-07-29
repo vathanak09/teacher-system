@@ -33,6 +33,8 @@ export default function TeachersPage() {
   const [addressField, setAddressField] = useState('');
   const [joinDateField, setJoinDateField] = useState('');
   const [photoField, setPhotoField] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadSuccess, setIsUploadSuccess] = useState(false);
   const [statusField, setStatusField] = useState('កំពុងបង្រៀន');
   // Contacts
   const [telegramEnabled, setTelegramEnabled] = useState(false);
@@ -167,14 +169,30 @@ export default function TeachersPage() {
     setIsTeacherModalOpen(false);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoField(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        setIsUploadingPhoto(true);
+        setIsUploadSuccess(false);
+        const { compressImage } = await import('@/utils/imageCompressor');
+        const { uploadTeacherPhoto } = await import('@/services/db/StorageService');
+        const compressedBlob = await compressImage(file, 300, 1024);
+        
+        const teacherName = englishNameField || fullNameField || 'teacher';
+        const teacherId = teacherIdField || 'no_id';
+        const formattedName = `${teacherId}_${teacherName}`.replace(/\s+/g, '_');
+        
+        const url = await uploadTeacherPhoto(compressedBlob, formattedName);
+        setPhotoField(url);
+        setIsUploadSuccess(true);
+        setTimeout(() => setIsUploadSuccess(false), 3000);
+      } catch (err) {
+        console.error("Failed to upload photo", err);
+        alert("បរាជ័យក្នុងការបញ្ចូលរូបថត។");
+      } finally {
+        setIsUploadingPhoto(false);
+      }
     }
   };
 
@@ -350,8 +368,10 @@ export default function TeachersPage() {
                   <div style={{ width: '120px', height: '120px', borderRadius: '12px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {photoField ? <img src={convertDriveImageLink(photoField)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>រូបថត</span>}
                   </div>
-                  <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: '0.5rem 1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem' }}>ជ្រើសរើសរូបថត</button>
-                  <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
+                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingPhoto} style={{ padding: '0.5rem 1rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.3s' }}>
+                      {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
                 </div>
                 
                 <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>

@@ -27,6 +27,8 @@ const studentFirebaseConfig = {
 
 const studentApp = getApps().find(a => a.name === 'StudentApp') || initializeApp(studentFirebaseConfig, 'StudentApp');
 
+import { getStorage } from "firebase/storage";
+
 // Initialize Firestore with offline persistence capabilities
 let db: ReturnType<typeof getFirestore>;
 
@@ -50,4 +52,8 @@ try {
   studentDb = getFirestore(studentApp);
 }
 
-export { app, db, studentApp, studentDb };
+// Initialize Storage
+const storage = getStorage(app);
+const studentStorage = getStorage(studentApp);
+
+export { app, db, storage, studentApp, studentDb, studentStorage };

@@ -58,6 +58,9 @@ export default function ClassesPage() {
   const [hoveredStudent, setHoveredStudent] = useState<any | null>(null);
   const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
   const [editStudentData, setEditStudentData] = useState<any | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadSuccess, setIsUploadSuccess] = useState(false);
 
   // Form Fields
   const [classCodeField, setClassCodeField] = useState('');
@@ -321,6 +324,46 @@ export default function ClassesPage() {
   };
 
   const handleRemoveStudentFromClass = (studentId: string) => {
+    if (!viewingClass) return;
+    if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
+      const existingIds = viewingClass.studentIds || (viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : []);
+      const newIds = existingIds.filter((id: string) => id !== studentId);
+      const updatedClass = { ...viewingClass, studentIds: newIds };
+      delete updatedClass.studentsData;
+      
+      classService.update(viewingClass.id, updatedClass);
+      setViewingClass(updatedClass);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editStudentData) {
+      try {
+        setIsUploadingPhoto(true);
+        setIsUploadSuccess(false);
+        const { compressImage } = await import('@/utils/imageCompressor');
+        const { uploadStudentPhoto } = await import('@/services/db/StorageService');
+        const compressedBlob = await compressImage(file, 300, 1024);
+        
+        const studentName = editStudentData.englishName || editStudentData.fullName || 'student';
+        const studentId = editStudentData.studentId || 'no_id';
+        const formattedName = `${studentId}_${studentName}`.replace(/\s+/g, '_');
+        
+        const url = await uploadStudentPhoto(compressedBlob, formattedName);
+        setEditStudentData({...editStudentData, photo: url});
+        setIsUploadSuccess(true);
+        setTimeout(() => setIsUploadSuccess(false), 3000);
+      } catch (err) {
+        console.error("Failed to upload photo", err);
+        alert("បរាជ័យក្នុងការបញ្ចូលរូបថត។");
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
+  };
+
+  const calculateStudentOverallScore = (studentId: string) => {
     if (!viewingClass) return;
     if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
       const existingIds = viewingClass.studentIds || (viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : []);
@@ -1632,7 +1675,13 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: 'span 2' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>តំណភ្ជាប់រូបថត (Photo URL / Google Drive)</label>
-                      <input type="text" placeholder="https://drive.google.com/file/d/..." value={editStudentData.photo || ''} onChange={e => setEditStudentData({...editStudentData, photo: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="button" onClick={() => photoInputRef.current?.click()} disabled={isUploadingPhoto} className="btn" style={{ padding: '0.75rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.3s' }}>
+                          {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
+                        </button>
+                        <input type="text" placeholder="https://drive.google.com/file/d/..." value={editStudentData.photo || ''} onChange={e => setEditStudentData({...editStudentData, photo: e.target.value})} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
+                        <input type="file" ref={photoInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
+                      </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ស្ថានភាពសិក្សា (Status)</label>

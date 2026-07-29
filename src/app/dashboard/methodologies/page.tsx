@@ -10,7 +10,7 @@ function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
   return result;
 }
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
@@ -25,6 +25,11 @@ export default function MethodologiesPage() {
   // Modals state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isReadModalOpen, setIsReadModalOpen] = useState(false);
+  
+  const [coverPhotoField, setCoverPhotoField] = useState('');
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [isUploadSuccess, setIsUploadSuccess] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   
   const [role, setRole] = useState('');
   const [authorName, setAuthorName] = useState('');
@@ -105,6 +110,7 @@ export default function MethodologiesPage() {
     setPostCodeField(generatePostCode());
     setEditingId(null);
     setEditorMode('word');
+    setCoverPhotoField('');
     
     setIsEditorOpen(true);
   };
@@ -118,6 +124,7 @@ export default function MethodologiesPage() {
     setPostCodeField(post.postCode || '');
     setEditingId(post.id);
     setEditorMode(post.editorMode || 'word');
+    setCoverPhotoField(post.coverPhoto || '');
     
     setIsEditorOpen(true);
   };
@@ -154,7 +161,8 @@ export default function MethodologiesPage() {
       authorRole: role,
       tags: selectedTags,
       postCode: postCodeField,
-      editorMode
+      editorMode,
+      coverPhoto: coverPhotoField
     };
     if (editingId) {
       await methodologyService.update(editingId.toString(), postData);
@@ -167,6 +175,29 @@ export default function MethodologiesPage() {
     setContent('');
     setSelectedTags([]);
     setEditingId(null);
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        setIsUploadingCover(true);
+        setIsUploadSuccess(false);
+        const { compressImage } = await import('@/utils/imageCompressor');
+        const { uploadPostCoverPhoto } = await import('@/services/db/StorageService');
+        const compressedBlob = await compressImage(file, 800, 1024);
+        const formattedName = postCodeField ? postCodeField.replace(/\s+/g, '') : `post_${Date.now()}`;
+        const url = await uploadPostCoverPhoto(compressedBlob, formattedName);
+        setCoverPhotoField(url);
+        setIsUploadSuccess(true);
+        setTimeout(() => setIsUploadSuccess(false), 3000);
+      } catch (err) {
+        console.error("Failed to upload cover", err);
+        alert("បរាជ័យក្នុងការបញ្ចូលរូបថត Cover។");
+      } finally {
+        setIsUploadingCover(false);
+      }
+    }
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -467,12 +498,12 @@ export default function MethodologiesPage() {
                   })}
                 </div>
 
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
+                <p style={{ color: post.coverPhoto ? 'rgba(255,255,255,0.9)' : 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
                   {getExcerpt(post.content)}
                 </p>
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: post.coverPhoto ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
+                  <div style={{ fontSize: '0.85rem', color: post.coverPhoto ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                       {post.author}
@@ -481,11 +512,11 @@ export default function MethodologiesPage() {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                       {post.date}
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: post.coverPhoto ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                       {post.views || 0}
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: post.coverPhoto ? '#fff' : 'var(--accent-primary)' }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                       {post.likes?.length || 0}
                     </span>
@@ -547,6 +578,25 @@ export default function MethodologiesPage() {
                   placeholder="XXXX"
                   style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
                 />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>រូបថតគម្រប (Cover Photo)</label>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ width: '120px', height: '80px', borderRadius: '8px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {coverPhotoField ? <img src={coverPhotoField} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>គ្មានរូបថត</span>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover} className="btn" style={{ padding: '0.5rem 1rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.3s' }}>
+                      {isUploadingCover ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត Cover'}
+                    </button>
+                    <input type="text" className="input-field" value={coverPhotoField} onChange={e => setCoverPhotoField(e.target.value)} placeholder="URL រូបថត" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} />
+                  </div>
+                  <input type="file" ref={coverInputRef} onChange={handleCoverUpload} accept="image/*" style={{ display: 'none' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។</span>
+                </div>
               </div>
             </div>
 

@@ -165,6 +165,9 @@ export default function StudentsPage() {
   const [studentLocationField, setStudentLocationField] = useState('');
   const [studentTransportField, setStudentTransportField] = useState('Personal');
   const [studentPhotoField, setStudentPhotoField] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadSuccess, setIsUploadSuccess] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [studentStatusField, setStudentStatusField] = useState('កំពុងសិក្សា');
   const [studentContactField, setStudentContactField] = useState('');
   const [studentFatherField, setStudentFatherField] = useState('');
@@ -284,6 +287,33 @@ export default function StudentsPage() {
     setStudentMotherField('');
     setStudentPhoneNumField('');
     setIsStudentModalOpen(true);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        setIsUploadingPhoto(true);
+        setIsUploadSuccess(false);
+        const { compressImage } = await import('@/utils/imageCompressor');
+        const { uploadStudentPhoto } = await import('@/services/db/StorageService');
+        const compressedBlob = await compressImage(file, 300, 1024);
+        
+        const studentName = studentEnglishNameField || studentFullNameField || 'student';
+        const studentId = studentIdField || 'no_id';
+        const formattedName = `${studentId}_${studentName}`.replace(/\s+/g, '_');
+        
+        const url = await uploadStudentPhoto(compressedBlob, formattedName);
+        setStudentPhotoField(url);
+        setIsUploadSuccess(true);
+        setTimeout(() => setIsUploadSuccess(false), 3000);
+      } catch (err) {
+        console.error('Failed to upload photo', err);
+        alert('បរាជ័យក្នុងការបញ្ចូលរូបថត។');
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
   };
 
   const handleOpenEditStudent = (student: any) => {
@@ -1202,8 +1232,14 @@ export default function StudentsPage() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>តំណលីងរូបថត (Photo URL / Google Drive)</label>
-                  <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="បិទភ្ជាប់ Link រូបភាព ឬ Link ពី Google Drive" />
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>រូបថតសិស្ស (Photo URL)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button type="button" onClick={() => photoInputRef.current?.click()} disabled={isUploadingPhoto} className="btn" style={{ padding: '0.75rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.3s' }}>
+                      {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
+                    </button>
+                    <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="បញ្ចូល Link ឬ Upload រូបថត" style={{ flex: 1 }} />
+                    <input type="file" ref={photoInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
+                  </div>
                 </div>
 
                 <div>
