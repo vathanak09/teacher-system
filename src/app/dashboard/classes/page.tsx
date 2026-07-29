@@ -1,5 +1,6 @@
 "use client";
 import { convertDriveImageLink } from '../../../utils/driveLink';
+import ImageUploadBox from '@/components/ImageUploadBox';
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -336,8 +337,7 @@ export default function ClassesPage() {
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handlePhotoUpload = async (file: File) => {
     if (file && editStudentData) {
       try {
         setIsUploadingPhoto(true);
@@ -1675,12 +1675,18 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: 'span 2' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>តំណភ្ជាប់រូបថត (Photo URL / Google Drive)</label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button type="button" onClick={() => photoInputRef.current?.click()} disabled={isUploadingPhoto} className="btn" style={{ padding: '0.75rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.3s' }}>
-                          {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
-                        </button>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <ImageUploadBox
+                          onFileSelect={handlePhotoUpload}
+                          currentImage={editStudentData.photo ? convertDriveImageLink(editStudentData.photo) : undefined}
+                          isUploading={isUploadingPhoto}
+                          isUploadSuccess={isUploadSuccess}
+                          shape="rect"
+                          width="80px"
+                          height="60px"
+                          isActiveModal={isEditStudentModalOpen}
+                        />
                         <input type="text" placeholder="https://drive.google.com/file/d/..." value={editStudentData.photo || ''} onChange={e => setEditStudentData({...editStudentData, photo: e.target.value})} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} />
-                        <input type="file" ref={photoInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>

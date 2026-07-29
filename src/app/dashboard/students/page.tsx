@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { settingsService, studentService, classService } from '@/services/db';
+
+import ImageUploadBox from '@/components/ImageUploadBox';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 
@@ -289,8 +291,7 @@ export default function StudentsPage() {
     setIsStudentModalOpen(true);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handlePhotoUpload = async (file: File) => {
     if (file) {
       try {
         setIsUploadingPhoto(true);
@@ -1233,12 +1234,18 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>រូបថតសិស្ស (Photo URL)</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button type="button" onClick={() => photoInputRef.current?.click()} disabled={isUploadingPhoto} className="btn" style={{ padding: '0.75rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.3s' }}>
-                      {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
-                    </button>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <ImageUploadBox
+                      onFileSelect={handlePhotoUpload}
+                      currentImage={studentPhotoField ? convertDriveImageLink(studentPhotoField) : undefined}
+                      isUploading={isUploadingPhoto}
+                      isUploadSuccess={isUploadSuccess}
+                      shape="rect"
+                      width="80px"
+                      height="60px"
+                      isActiveModal={isStudentModalOpen}
+                    />
                     <input type="text" className="input-field" value={studentPhotoField} onChange={e => setStudentPhotoField(e.target.value)} placeholder="បញ្ចូល Link ឬ Upload រូបថត" style={{ flex: 1 }} />
-                    <input type="file" ref={photoInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
                   </div>
                 </div>
 

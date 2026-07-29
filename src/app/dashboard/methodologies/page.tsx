@@ -13,6 +13,8 @@ function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
+
+import ImageUploadBox from '@/components/ImageUploadBox';
 import SortDropdown from '@/components/SortDropdown';
 import AdvancedEditor from '@/components/AdvancedEditor';
 
@@ -177,8 +179,7 @@ export default function MethodologiesPage() {
     setEditingId(null);
   };
 
-  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCoverUpload = async (file: File) => {
     if (file) {
       try {
         setIsUploadingCover(true);
@@ -606,18 +607,22 @@ export default function MethodologiesPage() {
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>រូបថតគម្រប (Cover Photo)</label>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ width: '120px', height: '80px', borderRadius: '8px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {coverPhotoField ? <img src={coverPhotoField} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>គ្មានរូបថត</span>}
-                </div>
+                <ImageUploadBox
+                  onFileSelect={handleCoverUpload}
+                  currentImage={coverPhotoField || undefined}
+                  isUploading={isUploadingCover}
+                  isUploadSuccess={isUploadSuccess}
+                  shape="rect"
+                  width="120px"
+                  height="80px"
+                  emptyText="គ្មានរូបថត"
+                  isActiveModal={isEditorOpen}
+                />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button type="button" onClick={() => coverInputRef.current?.click()} disabled={isUploadingCover} className="btn" style={{ padding: '0.5rem 1rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.3s' }}>
-                      {isUploadingCover ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត Cover'}
-                    </button>
                     <input type="text" className="input-field" value={coverPhotoField} onChange={e => setCoverPhotoField(e.target.value)} placeholder="URL រូបថត" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} />
                   </div>
-                  <input type="file" ref={coverInputRef} onChange={handleCoverUpload} accept="image/*" style={{ display: 'none' }} />
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។ (ទាញរូបថតទម្លាក់លើប្រអប់ផ្ទាល់ ឬ Paste (Ctrl+V) ក៏បាន)</span>
                 </div>
               </div>
             </div>

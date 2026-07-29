@@ -1,10 +1,10 @@
 "use client";
-import { convertDriveImageLink } from '../../../utils/driveLink';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
+import ImageUploadBox from '@/components/ImageUploadBox';
+import { convertDriveImageLink } from '@/utils/driveLink';
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -169,8 +169,7 @@ export default function TeachersPage() {
     setIsTeacherModalOpen(false);
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handlePhotoUpload = async (file: File) => {
     if (file) {
       try {
         setIsUploadingPhoto(true);
@@ -365,13 +364,15 @@ export default function TeachersPage() {
               
               <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '120px', height: '120px', borderRadius: '12px', background: 'var(--bg-secondary)', overflow: 'hidden', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {photoField ? <img src={convertDriveImageLink(photoField)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>រូបថត</span>}
-                  </div>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingPhoto} style={{ padding: '0.5rem 1rem', background: isUploadSuccess ? '#10B981' : 'var(--bg-secondary)', color: isUploadSuccess ? 'white' : 'var(--text-primary)', border: isUploadSuccess ? 'none' : '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', transition: 'all 0.3s' }}>
-                      {isUploadingPhoto ? 'កំពុងបញ្ចូល...' : isUploadSuccess ? '✅ ជោគជ័យ' : 'ជ្រើសរើសរូបថត'}
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={handlePhotoUpload} accept="image/*" style={{ display: 'none' }} />
+                  <ImageUploadBox
+                    onFileSelect={handlePhotoUpload}
+                    currentImage={photoField ? convertDriveImageLink(photoField) : undefined}
+                    isUploading={isUploadingPhoto}
+                    isUploadSuccess={isUploadSuccess}
+                    shape="square"
+                    width="120px"
+                    isActiveModal={isTeacherModalOpen}
+                  />
                 </div>
                 
                 <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
