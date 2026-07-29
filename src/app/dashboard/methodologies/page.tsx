@@ -464,10 +464,33 @@ export default function MethodologiesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
           {filteredAndSortedPosts.map(post => (
-            <div key={post.id} className="glass-panel" style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s', overflow: 'hidden' }} onClick={() => openReadModal(post)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div key={post.id} className="glass-panel" style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              cursor: 'pointer', 
+              transition: 'transform 0.2s, box-shadow 0.2s', 
+              overflow: 'hidden',
+              minHeight: '200px',
+              position: 'relative'
+            }} onClick={() => openReadModal(post)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+              
+              {/* Background Cover Photo with Overlay */}
+              {post.coverPhoto && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `url(${post.coverPhoto})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  zIndex: 0
+                }}>
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.8))' }} />
+                </div>
+              )}
+
+              <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
                 <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4' }}>{post.title}</h3>
+                  <h3 style={{ margin: 0, color: post.coverPhoto ? '#fff' : 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4', textShadow: post.coverPhoto ? '0 2px 4px rgba(0,0,0,0.5)' : 'none' }}>{post.title}</h3>
                   {userId && (
                     <button 
                       onClick={(e) => toggleLike(e, post)} 
