@@ -54,7 +54,7 @@ export default function PaymentsPage() {
   };
 
   const getStatusInfo = (nextDateStr: string | null) => {
-    if (!nextDateStr) return { label: 'មិនទាន់បង់ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
+    if (!nextDateStr) return { label: 'មិនទាន់មានទិន្នន័យ', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -64,14 +64,15 @@ export default function PaymentsPage() {
     const diffTime = nextDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { label: 'ហួសកំណត់ / Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
-    if (diffDays === 0) return { label: 'ដល់ថ្ងៃបង់ / Due Today', color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)', code: 'due_today' };
-    if (diffDays <= 5) return { label: 'ជិតដល់ថ្ងៃ / Due Soon', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
-    return { label: 'បានបង់ / Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
+    if (diffDays <= 0) return { label: 'ហួសកំណត់', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
+    if (diffDays <= 10) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
+    return { label: 'បានបង់', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
   };
 
   // Process data
-  const augmentedStudents = students.map(s => {
+  const augmentedStudents = students
+    .filter(s => s.status === 'កំពុងសិក្សា')
+    .map(s => {
     const sClasses = classesData.filter(c => c.studentIds && c.studentIds.includes(s.id));
     const sClassName = sClasses.length > 0 ? sClasses.map(c => c.classCode || c.className).join(', ') : (s.className || 'គ្មានថ្នាក់');
     
@@ -112,7 +113,7 @@ export default function PaymentsPage() {
   // Stats
   const totalPaid = augmentedStudents.filter(s => s.statusInfo.code === 'paid').length;
   const totalOverdue = augmentedStudents.filter(s => s.statusInfo.code === 'overdue').length;
-  const totalDueSoon = augmentedStudents.filter(s => s.statusInfo.code === 'due_soon' || s.statusInfo.code === 'due_today').length;
+  const totalDueSoon = augmentedStudents.filter(s => s.statusInfo.code === 'due_soon').length;
 
   // Handlers
   const openPaymentModal = (student: any) => {
@@ -197,15 +198,15 @@ export default function PaymentsPage() {
       {/* Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>សិស្សបានបង់ (Paid)</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>បានបង់</span>
           <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#10b981' }}>{totalPaid}</span>
         </div>
         <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>ជិតដល់ថ្ងៃ (Due Soon)</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>មិនទាន់បង់</span>
           <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b' }}>{totalDueSoon}</span>
         </div>
         <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '16px', padding: '1.25rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>ជំពាក់ / ហួសថ្ងៃ (Overdue)</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>ហួសកំណត់</span>
           <span style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ef4444' }}>{totalOverdue}</span>
         </div>
       </div>
@@ -222,10 +223,9 @@ export default function PaymentsPage() {
         />
         <select className="input-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 'auto' }}>
           <option value="all">គ្រប់ស្ថានភាពទាំងអស់</option>
-          <option value="paid">បានបង់ (Paid)</option>
-          <option value="due_soon">ជិតដល់ថ្ងៃ (Due Soon)</option>
-          <option value="due_today">ដល់ថ្ងៃបង់ (Due Today)</option>
-          <option value="overdue">ជំពាក់ (Overdue)</option>
+          <option value="paid">បានបង់</option>
+          <option value="due_soon">មិនទាន់បង់</option>
+          <option value="overdue">ហួសកំណត់</option>
         </select>
         <select className="input-field" value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ width: 'auto' }}>
           <option value="all">គ្រប់ថ្នាក់ទាំងអស់</option>
