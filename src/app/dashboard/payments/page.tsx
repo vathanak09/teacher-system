@@ -53,7 +53,7 @@ export default function PaymentsPage() {
     return date.toISOString().slice(0, 10);
   };
 
-  const getStatusInfo = (nextDateStr: string | null) => {
+  const getStatusInfo = (nextDateStr: string | null, hasPaid: boolean) => {
     if (!nextDateStr) return { label: 'មិនទាន់មានទិន្នន័យ', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
     
     const today = new Date();
@@ -65,6 +65,7 @@ export default function PaymentsPage() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays <= 0) return { label: 'ហួសកំណត់', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
+    if (!hasPaid) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
     if (diffDays <= 10) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
     return { label: 'បានបង់', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
   };
@@ -78,9 +79,9 @@ export default function PaymentsPage() {
     
     const sPayments = payments.filter(p => p.studentId === s.id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
     const lastPayment = sPayments.length > 0 ? sPayments[0] : null;
-    
     const nextDate = s.nextPaymentDate || (lastPayment ? lastPayment.validUntil : null) || s.enrollDate;
-    const statusInfo = getStatusInfo(nextDate);
+    const hasPaid = sPayments.length > 0;
+    const statusInfo = getStatusInfo(nextDate, hasPaid);
     
     let computedLastPaymentDate = lastPayment ? lastPayment.paymentDate : null;
     if (!computedLastPaymentDate && s.enrollDate) {
