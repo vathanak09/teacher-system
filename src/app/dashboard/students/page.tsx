@@ -4,7 +4,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { settingsService, studentService, classService } from '@/services/db';
+import { settingsService, studentService, classService, paymentService } from '@/services/db';
 
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { formatDateToDMY } from '@/utils/dateFormatter';
@@ -17,6 +17,7 @@ export default function StudentsPage() {
   // Student States
   const [students, setStudents] = useState<any[]>([]);
   const [classesData, setClassesData] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Inline Editing & Column Visibility
@@ -226,15 +227,17 @@ export default function StudentsPage() {
     const isRefresh = refreshTrigger > 0;
     const unsubscribe = studentService.subscribeAll(setStudents, undefined, undefined, isRefresh);
     const unsubClasses = classService.subscribeAll(setClassesData, undefined, undefined, isRefresh);
+    const unsubPayments = paymentService.subscribeAll(setPayments, undefined, undefined, isRefresh);
 
     return () => {
       unsubscribe();
       unsubClasses();
+      unsubPayments();
     };
   }, [refreshTrigger]);
 
-  const getStatusInfo = (nextDateStr: string | null) => {
-    if (!nextDateStr) return { label: 'មិនទាន់បង់ / Unpaid', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+  const getStatusInfo = (nextDateStr: string | null, hasPaid: boolean) => {
+    if (!nextDateStr) return { label: 'មិនទាន់មានទិន្នន័យ', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -244,15 +247,19 @@ export default function StudentsPage() {
     const diffTime = nextDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { label: 'ហួសកំណត់ / Overdue', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
-    if (diffDays === 0) return { label: 'ដល់ថ្ងៃបង់ / Due Today', color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' };
-    if (diffDays <= 5) return { label: 'ជិតដល់ថ្ងៃ / Due Soon', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
-    return { label: 'បានបង់ / Paid', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
+    if (diffDays <= 0) return { label: 'ហួសកំណត់', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' };
+    if (!hasPaid) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+    if (diffDays <= 10) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' };
+    return { label: 'បានបង់', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' };
   };
 
   const augmentedStudents = students.map(s => {
     const sClasses = classesData.filter(c => c.studentIds && c.studentIds.includes(s.id));
-    const statusInfo = getStatusInfo(s.nextPaymentDate);
+    const sPayments = payments.filter(p => p.studentId === s.id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+    const lastPayment = sPayments.length > 0 ? sPayments[0] : null;
+    const nextDate = s.nextPaymentDate || (lastPayment ? lastPayment.validUntil : null) || s.enrollDate;
+    const hasPaid = sPayments.length > 0;
+    const statusInfo = getStatusInfo(nextDate, hasPaid);
     if (sClasses.length > 0) {
       return {
         ...s,
