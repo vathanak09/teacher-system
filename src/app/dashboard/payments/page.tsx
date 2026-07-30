@@ -180,6 +180,27 @@ export default function PaymentsPage() {
     }
   };
 
+  const deletePayment = async (paymentId: string, studentId: string) => {
+    if (!window.confirm('តើអ្នកពិតជាចង់លុបប្រវត្តិបង់ប្រាក់នេះមែនទេ?')) return;
+    try {
+      await paymentService.delete(paymentId);
+      
+      // Calculate new nextPaymentDate based on remaining payments
+      const remainingPayments = payments
+        .filter(p => p.studentId === studentId && p.id !== paymentId)
+        .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+      
+      const newNextDate = remainingPayments.length > 0 ? remainingPayments[0].validUntil : '';
+      
+      await studentService.update(studentId, {
+        nextPaymentDate: newNextDate
+      });
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      alert('មានបញ្ហាក្នុងការលុបប្រវត្តិបង់ប្រាក់');
+    }
+  };
+
   if (role !== 'admin') return null;
 
   return (
@@ -400,11 +421,18 @@ export default function PaymentsPage() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {payments.filter(p => p.studentId === historyStudentId).sort((a,b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map(p => (
-                <div key={p.id} style={{ background: 'var(--main-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <div key={p.id} style={{ background: 'var(--main-bg)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', position: 'relative' }}>
                   <div style={{ color: 'var(--text-secondary)' }}>ថ្ងៃបង់៖ <strong style={{ color: 'var(--text-primary)' }}>{formatDateToDMY(p.paymentDate)}</strong></div>
-                  <div style={{ color: 'var(--text-secondary)' }}>ទឹកប្រាក់៖ <strong style={{ color: '#10b981' }}>{p.amount} K</strong></div>
+                  <div style={{ color: 'var(--text-secondary)' }}>ទឹកប្រាក់៖ <strong style={{ color: '#10b981' }}>{p.amount} $</strong></div>
                   <div style={{ color: 'var(--text-secondary)' }}>វិធីសាស្ត្រ៖ <strong style={{ color: 'var(--text-primary)' }}>{p.paymentMethod}</strong></div>
-                  <div style={{ color: 'var(--text-secondary)' }}>សុពលភាព៖ <strong style={{ color: 'var(--accent-primary)' }}>{p.validUntil || 'N/A'}</strong></div>
+                  <div style={{ color: 'var(--text-secondary)' }}>សុពលភាព៖ <strong style={{ color: 'var(--accent-primary)' }}>{formatDateToDMY(p.validUntil) || 'N/A'}</strong></div>
+                  <button 
+                    onClick={() => deletePayment(p.id, p.studentId)}
+                    style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}
+                    title="លុបប្រវត្តិបង់ប្រាក់"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                  </button>
                 </div>
               ))}
               {payments.filter(p => p.studentId === historyStudentId).length === 0 && (
