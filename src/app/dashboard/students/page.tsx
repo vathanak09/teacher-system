@@ -637,6 +637,8 @@ export default function StudentsPage() {
   const totalInFilter = filteredAndSortedStudents.length;
   const femaleCount = filteredAndSortedStudents.filter(s => s.gender === 'ស្រី').length;
   const maleCount = filteredAndSortedStudents.filter(s => s.gender === 'ប្រុស').length;
+  
+  const activeStudentsCount = students.filter(s => s.status === 'កំពុងសិក្សា').length;
 
   if (role !== 'admin' && role !== 'teacher') return null;
 
@@ -654,7 +656,7 @@ export default function StudentsPage() {
           {/* Stats Badges (Custom CSS Badges instead of Emojis) */}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
-              {totalInFilter === students.length ? `សរុប ${students.length} នាក់` : `បង្ហាញ ${totalInFilter} / ${students.length} នាក់`}
+              {totalInFilter === students.length ? `សរុប ${activeStudentsCount} នាក់ (កំពុងសិក្សា)` : `បង្ហាញ ${totalInFilter} / សរុប ${activeStudentsCount} នាក់ (កំពុងសិក្សា)`}
             </span>
             <span style={{ color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', border: '1px solid rgba(236, 72, 153, 0.2)', padding: '0.3rem 0.75rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600 }}>
               ស្រី {femaleCount}
