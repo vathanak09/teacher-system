@@ -83,12 +83,16 @@ export default function PaymentsPage() {
     const hasPaid = sPayments.length > 0;
     const statusInfo = getStatusInfo(nextDate, hasPaid);
     
-    let computedLastPaymentDate = lastPayment ? lastPayment.paymentDate : null;
-    if (!computedLastPaymentDate && s.enrollDate) {
-      // Fallback last payment date to one month before enrollDate (e.g. June 2026)
-      const enroll = new Date(s.enrollDate);
-      enroll.setMonth(enroll.getMonth() - 1);
-      computedLastPaymentDate = enroll.toISOString().slice(0, 10);
+    let computedLastPaymentDate = null;
+    if (lastPayment) {
+      const durNum = Math.round(Number(lastPayment.amount) / Number(s.fee || 1));
+      if (!isNaN(durNum) && durNum > 0 && lastPayment.validUntil) {
+        computedLastPaymentDate = addMonths(lastPayment.validUntil, -durNum);
+      } else {
+        computedLastPaymentDate = lastPayment.validFrom || lastPayment.paymentDate;
+      }
+    } else if (s.enrollDate) {
+      computedLastPaymentDate = addMonths(s.enrollDate, -1);
     }
 
     return {
@@ -156,11 +160,14 @@ export default function PaymentsPage() {
   };
 
   const submitPayment = async () => {
+    const student = augmentedStudents.find(s => s.id === selectedStudentId);
+    const baseDate = student?.nextPaymentDate || student?.enrollDate || paymentDate;
+
     const paymentRecord = {
       studentId: selectedStudentId,
       amount: Number(paymentAmount),
       paymentDate,
-      validFrom: paymentDate,
+      validFrom: baseDate,
       validUntil: computedNextDate,
       paymentMethod,
       receiverName: localStorage.getItem('userName') || 'Admin',
