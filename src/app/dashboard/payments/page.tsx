@@ -19,6 +19,8 @@ export default function PaymentsPage() {
 
   // Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
+  const [computedNextDate, setComputedNextDate] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -76,13 +78,21 @@ export default function PaymentsPage() {
     const sPayments = payments.filter(p => p.studentId === s.id).sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
     const lastPayment = sPayments.length > 0 ? sPayments[0] : null;
     
-    const nextDate = s.nextPaymentDate || (lastPayment ? lastPayment.validUntil : null);
+    const nextDate = s.nextPaymentDate || (lastPayment ? lastPayment.validUntil : null) || s.enrollDate;
     const statusInfo = getStatusInfo(nextDate);
+    
+    let computedLastPaymentDate = lastPayment ? lastPayment.paymentDate : null;
+    if (!computedLastPaymentDate && s.enrollDate) {
+      // Fallback last payment date to one month before enrollDate (e.g. June 2026)
+      const enroll = new Date(s.enrollDate);
+      enroll.setMonth(enroll.getMonth() - 1);
+      computedLastPaymentDate = enroll.toISOString().slice(0, 10);
+    }
 
     return {
       ...s,
       computedClass: sClassName,
-      lastPaymentDate: lastPayment ? lastPayment.paymentDate : null,
+      lastPaymentDate: computedLastPaymentDate,
       nextPaymentDate: nextDate,
       statusInfo
     };
@@ -123,7 +133,7 @@ export default function PaymentsPage() {
     }
   };
 
-  const submitPayment = async () => {
+  const handleReviewPayment = () => {
     if (!selectedStudentId || !paymentAmount || !paymentDate || !paymentDuration) {
       alert('សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់!');
       return;
@@ -135,21 +145,21 @@ export default function PaymentsPage() {
     let nextDate = '';
     const durNum = Number(paymentDuration);
     if (!isNaN(durNum)) {
-      // If student is overdue, calculate next payment from TODAY (or the day they paid).
-      // If student is paying in advance, calculate from their EXISTING nextPaymentDate.
-      let baseDate = paymentDate;
-      if (student.nextPaymentDate && new Date(student.nextPaymentDate) > new Date(paymentDate)) {
-        baseDate = student.nextPaymentDate;
-      }
+      // Logic: the payment day (day of month) is aligned to the enrollment date or the previous nextPaymentDate.
+      let baseDate = student.nextPaymentDate || student.enrollDate || paymentDate;
       nextDate = addMonths(baseDate, durNum);
     }
+    setComputedNextDate(nextDate);
+    setIsConfirmingPayment(true);
+  };
 
+  const submitPayment = async () => {
     const paymentRecord = {
       studentId: selectedStudentId,
       amount: Number(paymentAmount),
       paymentDate,
       validFrom: paymentDate,
-      validUntil: nextDate,
+      validUntil: computedNextDate,
       paymentMethod,
       receiverName: localStorage.getItem('userName') || 'Admin',
       createdAt: new Date().toISOString()
@@ -158,8 +168,9 @@ export default function PaymentsPage() {
     try {
       await paymentService.add(paymentRecord);
       await studentService.update(selectedStudentId, {
-        nextPaymentDate: nextDate
+        nextPaymentDate: computedNextDate
       });
+      setIsConfirmingPayment(false);
       setIsPaymentModalOpen(false);
     } catch (error) {
       console.error("Error saving payment: ", error);
@@ -278,66 +289,102 @@ export default function PaymentsPage() {
       {isPaymentModalOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
           <div style={{ background: 'var(--modal-bg)', width: '90%', maxWidth: '500px', borderRadius: '24px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
-            <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>កត់ត្រាការបង់ប្រាក់</h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>សិស្ស</label>
-                <select className="input-field" value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} disabled>
-                  {augmentedStudents.map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.studentId})</option>)}
-                </select>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>កាលបរិច្ឆេទបង់</label>
-                  <input type="date" className="input-field" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>រយៈពេលបង់</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <select className="input-field" value={paymentDuration === 'custom' ? 'custom' : paymentDuration} onChange={handleDurationChange} style={{ flex: 1 }}>
-                      <option value="1">១ ខែ</option>
-                      <option value="3">៣ ខែ</option>
-                      <option value="6">៦ ខែ</option>
-                      <option value="12">១ ឆ្នាំ (១២ ខែ)</option>
-                      <option value="custom">ផ្សេងៗ...</option>
+            {!isConfirmingPayment ? (
+              <>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>កត់ត្រាការបង់ប្រាក់</h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>សិស្ស</label>
+                    <select className="input-field" value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} disabled>
+                      {augmentedStudents.map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.studentId})</option>)}
                     </select>
-                    {paymentDuration === 'custom' || isNaN(Number(paymentDuration)) ? (
-                      <input 
-                        type="number" 
-                        className="input-field" 
-                        placeholder="ខែ" 
-                        value={paymentDuration === 'custom' ? '' : paymentDuration} 
-                        onChange={e => setPaymentDuration(e.target.value)} 
-                        style={{ width: '80px' }} 
-                        min="1"
-                      />
-                    ) : null}
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>កាលបរិច្ឆេទបង់</label>
+                      <input type="date" className="input-field" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>រយៈពេលបង់</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <select className="input-field" value={paymentDuration === 'custom' ? 'custom' : paymentDuration} onChange={handleDurationChange} style={{ flex: 1 }}>
+                          <option value="1">១ ខែ</option>
+                          <option value="3">៣ ខែ</option>
+                          <option value="6">៦ ខែ</option>
+                          <option value="12">១ ឆ្នាំ (១២ ខែ)</option>
+                          <option value="custom">ផ្សេងៗ...</option>
+                        </select>
+                        {paymentDuration === 'custom' || isNaN(Number(paymentDuration)) ? (
+                          <input 
+                            type="number" 
+                            className="input-field" 
+                            placeholder="ខែ" 
+                            value={paymentDuration === 'custom' ? '' : paymentDuration} 
+                            onChange={e => setPaymentDuration(e.target.value)} 
+                            style={{ width: '80px' }} 
+                            min="1"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>ចំនួនទឹកប្រាក់ (រៀល/ពាន់)</label>
+                      <input type="number" className="input-field" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>វិធីសាស្ត្របង់ប្រាក់</label>
+                      <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                        <option value="Cash">សាច់ប្រាក់ (Cash)</option>
+                        <option value="ABA">ABA Bank</option>
+                        <option value="Acleda">Acleda Bank</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>ចំនួនទឹកប្រាក់ (រៀល/ពាន់)</label>
-                  <input type="number" className="input-field" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                  <button onClick={() => setIsPaymentModalOpen(false)} className="btn" style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>បោះបង់</button>
+                  <button onClick={handleReviewPayment} className="btn btn-primary" style={{ boxShadow: 'var(--shadow-glow)' }}>ពិនិត្យវិក្កយបត្រ</button>
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>វិធីសាស្ត្របង់ប្រាក់</label>
-                  <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                    <option value="Cash">សាច់ប្រាក់ (Cash)</option>
-                    <option value="ABA">ABA Bank</option>
-                    <option value="Acleda">Acleda Bank</option>
-                  </select>
+              </>
+            ) : (
+              <>
+                <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>បញ្ជាក់ការបង់ប្រាក់</h2>
+                
+                <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>ឈ្មោះសិស្ស៖</span>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }}>{augmentedStudents.find(s => s.id === selectedStudentId)?.fullName}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទបង់៖</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{formatDateToDMY(paymentDate)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>រយៈពេលបង់៖</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{paymentDuration} ខែ</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃកំណត់បង់បន្ទាប់៖</span>
+                    <strong style={{ color: 'var(--accent-primary)', fontSize: '1.1rem' }}>{formatDateToDMY(computedNextDate)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', fontWeight: 600 }}>ទឹកប្រាក់សរុប៖</span>
+                    <strong style={{ color: '#10b981', fontSize: '1.5rem' }}>{paymentAmount} ៛</strong>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="btn" style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>បោះបង់</button>
-              <button onClick={submitPayment} className="btn btn-primary" style={{ boxShadow: 'var(--shadow-glow)' }}>រក្សាទុក</button>
-            </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                  <button onClick={() => setIsConfirmingPayment(false)} className="btn" style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>ត្រឡប់ក្រោយ</button>
+                  <button onClick={submitPayment} className="btn btn-primary" style={{ boxShadow: 'var(--shadow-glow)' }}>យល់ព្រមបង់ប្រាក់</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
