@@ -181,7 +181,8 @@ export default function PaymentsPage() {
   if (role !== 'admin') return null;
 
   return (
-    <div className="page-container animate-fade-in">
+    <>
+      <div className="page-container animate-fade-in">
       <div className="flex-between" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
@@ -284,6 +285,7 @@ export default function PaymentsPage() {
           </tbody>
         </table>
       </div>
+    </div>
 
       {/* Payment Modal */}
       {isPaymentModalOpen && (
@@ -415,7 +417,6 @@ export default function PaymentsPage() {
           </div>
         </div>
       )}
-
-    </div>
+    </>
   );
 }
