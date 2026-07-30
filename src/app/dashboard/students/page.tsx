@@ -155,17 +155,17 @@ export default function StudentsPage() {
   const [studentIdField, setStudentIdField] = useState('');
   const [studentFullNameField, setStudentFullNameField] = useState('');
   const [studentEnglishNameField, setStudentEnglishNameField] = useState('');
-  const [studentGenderField, setStudentGenderField] = useState('ស្រី');
-  const [studentLevelField, setStudentLevelField] = useState('កម្រិតមធ្យមសិក្សា');
-  const [studentShiftField, setStudentShiftField] = useState('វេនព្រឹក');
+  const [studentGenderField, setStudentGenderField] = useState('');
+  const [studentLevelField, setStudentLevelField] = useState('');
+  const [studentShiftField, setStudentShiftField] = useState('');
   const [studentEnrollDateField, setStudentEnrollDateField] = useState('');
   const [studentFeeField, setStudentFeeField] = useState('120'); // 1 = 1000 Riels
-  const [studentClassNameField, setStudentClassNameField] = useState('10C');
-  const [studentTeacherField, setStudentTeacherField] = useState('ស៊ុន សុខ');
+  const [studentClassNameField, setStudentClassNameField] = useState('');
+  const [studentTeacherField, setStudentTeacherField] = useState('');
   const [studentDobField, setStudentDobField] = useState('');
   const [studentAddressField, setStudentAddressField] = useState('');
   const [studentLocationField, setStudentLocationField] = useState('');
-  const [studentTransportField, setStudentTransportField] = useState('Personal');
+  const [studentTransportField, setStudentTransportField] = useState('');
   const [studentPhotoField, setStudentPhotoField] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadSuccess, setIsUploadSuccess] = useState(false);
@@ -324,16 +324,16 @@ export default function StudentsPage() {
     setStudentFullNameField(student.fullName || '');
     setStudentEnglishNameField(student.englishName || '');
     setStudentGenderField(student.gender || (genderOptions.length > 0 ? genderOptions[0] : ''));
-    setStudentLevelField(student.level || 'កម្រិតមធ្យមសិក្សា');
-    setStudentShiftField(student.shift || 'វេនព្រឹក');
+    setStudentLevelField(student.level || '');
+    setStudentShiftField(student.shift || '');
     setStudentEnrollDateField(student.enrollDate || '');
     setStudentFeeField((student.fee || 120).toString());
-    setStudentClassNameField(student.className || '10C');
-    setStudentTeacherField(student.teacherName || 'ស៊ុន សុខ');
+    setStudentClassNameField(student.className || '');
+    setStudentTeacherField(student.teacherName || '');
     setStudentDobField(student.dob || '');
     setStudentAddressField(student.address || '');
     setStudentLocationField(student.location || '');
-    setStudentTransportField(student.transport || 'ម៉ូតូ');
+    setStudentTransportField(student.transport || '');
     setStudentPhotoField(student.photo || '');
     setStudentStatusField(student.status || 'កំពុងសិក្សា');
     setStudentContactField(student.contact || '');
@@ -537,9 +537,9 @@ export default function StudentsPage() {
             studentId: fields[0] || '',
             fullName: fields[1] || '',
             englishName: fields[2] || '',
-            gender: fields[3] || 'ប្រុស',
-            level: fields[4] || 'កម្រិតមធ្យមសិក្សា',
-            shift: fields[5] || 'វេនព្រឹក',
+            gender: fields[3] || '',
+            level: fields[4] || '',
+            shift: fields[5] || '',
             enrollDate: fields[6] || '',
             fee: Number(fields[7]) || 120,
             className: fields[8] || '',
@@ -547,7 +547,7 @@ export default function StudentsPage() {
             dob: fields[10] || '',
             address: fields[11] || '',
             location: fields[12] || '',
-            transport: fields[13] || 'ម៉ូតូ',
+            transport: fields[13] || '',
             photo: fields[14] || '',
             status: fields[15] || 'កំពុងសិក្សា',
             contact: fields[16] || '',
