@@ -811,8 +811,8 @@ export default function ClassesPage() {
                               ជួរឈរ
                             </button>
                             {isClassColumnDropdownOpen && (
-                              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--modal-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 30, minWidth: '220px', padding: '0.5rem' }}>
-                                <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
+        <div onClick={() => setIsClassColumnDropdownOpen(false)}  style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--modal-bg)', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 30, minWidth: '220px', padding: '0.5rem' }}>
+          <div onClick={(e) => e.stopPropagation()}  style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
                                   <button onClick={setSummaryView} style={{ width: '100%', padding: '0.5rem', textAlign: 'left', background: 'var(--bg-secondary)', border: 'none', borderRadius: '6px', cursor: 'pointer', marginBottom: '0.25rem' }}>ទិដ្ឋភាពសង្ខេប</button>
                                   <button onClick={setFullView} style={{ width: '100%', padding: '0.5rem', textAlign: 'left', background: 'var(--bg-secondary)', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>បង្ហាញទាំងអស់</button>
                                 </div>

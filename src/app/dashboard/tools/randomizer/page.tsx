@@ -484,7 +484,7 @@ export default function RandomizerPage() {
           
           {/* Winner Popup Modal (Scoped to Game Workspace) */}
           {winnerPopup && (
-            <div style={{
+        <div onClick={() => setWinnerPopup(false)}  style={{
               position: 'absolute',
               top: 0, left: 0, right: 0, bottom: 0,
               background: 'rgba(0, 0, 0, 0.7)',
@@ -495,7 +495,7 @@ export default function RandomizerPage() {
               zIndex: 9999,
               animation: 'fadeIn 0.3s ease-out'
             }}>
-              <div style={{
+          <div onClick={(e) => e.stopPropagation()}  style={{
                 background: 'var(--card-bg)',
                 padding: '3rem 4rem',
                 borderRadius: '24px',

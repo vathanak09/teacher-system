@@ -570,8 +570,8 @@ export default function MethodologiesPage() {
 
     {/* EDITOR MODAL (Solid Background Fixed) */}
     {isEditorOpen && (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
-        <div className="glass-panel animate-fade-in post-editor-modal" style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}>
+        <div onClick={() => setIsEditorOpen(false)}  style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>
+          <div onClick={(e) => e.stopPropagation()}  className="glass-panel animate-fade-in post-editor-modal" style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}>
           <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
             <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{editingId ? 'កែប្រែអត្ថបទ' : 'សរសេរអត្ថបទថ្មី'}</h2>
             

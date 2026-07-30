@@ -318,8 +318,8 @@ export default function PaymentsPage() {
 
       {/* Payment Modal */}
       {isPaymentModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: 'var(--modal-bg)', width: '90%', maxWidth: '500px', borderRadius: '24px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+        <div onClick={() => setIsPaymentModalOpen(false)}  style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div onClick={(e) => e.stopPropagation()}  style={{ background: 'var(--modal-bg)', width: '90%', maxWidth: '500px', borderRadius: '24px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
             {!isConfirmingPayment ? (
               <>
                 <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>កត់ត្រាការបង់ប្រាក់</h2>
@@ -422,8 +422,8 @@ export default function PaymentsPage() {
 
       {/* History Modal */}
       {isHistoryModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: 'var(--modal-bg)', width: '90%', maxWidth: '600px', borderRadius: '24px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div onClick={() => setIsHistoryModalOpen(false)}  style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div onClick={(e) => e.stopPropagation()}  style={{ background: 'var(--modal-bg)', width: '90%', maxWidth: '600px', borderRadius: '24px', padding: '2rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>ប្រវត្តិបង់ប្រាក់សិស្ស</h2>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

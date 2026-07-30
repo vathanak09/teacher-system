@@ -724,8 +724,8 @@ export default function StudentsPage() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
             </button>
             {isColumnMenuOpen && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', zIndex: 50, width: '250px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxHeight: '400px', overflowY: 'auto' }}>
-                <div style={{ fontWeight: 600, marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>បង្ហាញ/លាក់ ជួរឈរ</div>
+        <div onClick={() => setIsColumnMenuOpen(false)}  style={{ position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', zIndex: 50, width: '250px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', maxHeight: '400px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()}  style={{ fontWeight: 600, marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>បង្ហាញ/លាក់ ជួរឈរ</div>
                 {AVAILABLE_COLUMNS.map(col => (
                   <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0', cursor: 'pointer' }}>
                     <input type="checkbox" checked={visibleColumns.includes(col.id)} onChange={() => toggleColumn(col.id)} />
