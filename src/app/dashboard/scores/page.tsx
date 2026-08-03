@@ -47,10 +47,13 @@ export default function ScoresPage() {
     gradeB: 80,
     gradeC: 70,
     gradeD: 60,
-    gradeE: 50
+    gradeE: 50,
+    coefficientType: 'auto',
+    customMaxScore: 250
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
+  const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   const clearDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -147,7 +150,14 @@ export default function ScoresPage() {
       
       if (hasAnyValue) {
         currentRec.totalScore = total.toString();
-        const avgNum = total / (Number(settings.maxSubjects) || 1);
+        let divisor = 1;
+        if (settings.coefficientType === 'custom') {
+          divisor = (Number(settings.customMaxScore) || 250) / 50;
+        } else {
+          divisor = Number(settings.maxSubjects) || 1;
+        }
+        if (divisor <= 0) divisor = 1;
+        const avgNum = total / divisor;
         currentRec.average = avgNum.toFixed(2).replace(/\.00$/, '');
         
         let g = 'F';
@@ -272,7 +282,14 @@ export default function ScoresPage() {
       
       if (hasAnyValue) {
         updatedScore.totalScore = total.toString();
-        const avgNum = total / (Number(settings.maxSubjects) || 1);
+        let divisor = 1;
+        if (settings.coefficientType === 'custom') {
+          divisor = (Number(settings.customMaxScore) || 250) / 50;
+        } else {
+          divisor = Number(settings.maxSubjects) || 1;
+        }
+        if (divisor <= 0) divisor = 1;
+        const avgNum = total / divisor;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
         updatedScore.remarks = calculateRemarks(updatedScore.grade);
@@ -576,6 +593,13 @@ export default function ScoresPage() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
 
+          <button 
+            onClick={() => setIsCoeffModalOpen(true)}
+            style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
+            title="កំណត់មេគុណសម្រាប់មធ្យមភាគ"
+          >
+            🔢 មេគុណ
+          </button>
           <SortDropdown 
             options={[
               { value: 'studentIdCode', label: 'អត្តលេខ' },
@@ -669,7 +693,7 @@ export default function ScoresPage() {
             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
               <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ល.រ</th>
               <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>អត្តលេខ</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ឈ្មោះសិស្ស</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 10, background: 'var(--bg-secondary)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>ឈ្មោះសិស្ស</th>
               <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ភេទ</th>
               
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
@@ -736,7 +760,7 @@ export default function ScoresPage() {
                   <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
                     <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
                     <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.studentIdCode || 'N/A'}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayFullName}</td>
+                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 9, background: 'var(--main-bg)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>{displayFullName}</td>
                     <td style={{ padding: '0.5rem', textAlign: 'center', color: displayGender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayGender}</td>
                     
                     {/* New Subject Columns */}
