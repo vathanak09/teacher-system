@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { classService, studentService, scoreService, settingsService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
 
@@ -53,6 +53,48 @@ export default function ScoresPage() {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
+  let currentCoeff = 1;
+  if (settings.coefficientType === 'custom') {
+    currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
+  } else {
+    currentCoeff = Number(settings.maxSubjects) || 1;
+  }
+  if (currentCoeff <= 0) currentCoeff = 1;
+
+  const dynamicRanks = useMemo(() => {
+    const ranks = {};
+    const scored = [...scores].filter(s => s.average !== '' && !isNaN(parseFloat(s.average)));
+    scored.sort((a, b) => parseFloat(b.average) - parseFloat(a.average));
+    
+    let currentRank = 1;
+    let currentAvg = -1;
+    for (let i = 0; i < scored.length; i++) {
+      const s = scored[i];
+      const avgNum = parseFloat(s.average);
+      if (avgNum !== currentAvg) {
+        currentRank = i + 1;
+        currentAvg = avgNum;
+      }
+      ranks[s.id] = currentRank;
+    }
+    return ranks;
+  }, [scores]);
+
+  useEffect(() => {
+    if (scores.length === 0) return;
+    const timer = setTimeout(() => {
+      const updates = [];
+      scores.forEach(s => {
+        const newRank = dynamicRanks[s.id]?.toString() || '';
+        if (s.rank !== newRank && s.id) {
+          updates.push(scoreService.update(s.id, { rank: newRank }));
+        }
+      });
+      if (updates.length > 0) Promise.all(updates);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [dynamicRanks, scores]);
+
   const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   const clearDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -321,30 +363,7 @@ export default function ScoresPage() {
     }
   };
 
-  const recalculateRanks = async () => {
-    const scoredStudents = scores.filter(s => s.totalScore !== '' && !isNaN(parseFloat(s.totalScore)));
-    
-    // Sort descending by totalScore
-    scoredStudents.sort((a, b) => parseFloat(b.totalScore) - parseFloat(a.totalScore));
-    
-    let currentRank = 1;
-    let currentScore = -1;
-    let offset = 0;
-
-    for (let i = 0; i < scoredStudents.length; i++) {
-      const s = scoredStudents[i];
-      const scoreNum = parseFloat(s.totalScore);
-      
-      if (scoreNum !== currentScore) {
-        currentRank = i + 1;
-        currentScore = scoreNum;
-      }
-      
-      if (s.id && s.rank !== currentRank.toString()) {
-        await scoreService.update(s.id, { rank: currentRank.toString() });
-      }
-    }
-  };
+  
 
   const handlePaste = async (e: React.ClipboardEvent, startStudentIndex: number, field: string) => {
     e.preventDefault();
@@ -568,9 +587,7 @@ export default function ScoresPage() {
               style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
             />
           </div>
-          <button onClick={recalculateRanks} className="btn btn-primary" title="គណនាចំណាត់ថ្នាក់ឡើងវិញដោយស្វ័យប្រវត្តិ">
-            🏆 ទាញចំណាត់ថ្នាក់
-          </button>
+          
         </div>
       </div>
 
@@ -716,7 +733,7 @@ export default function ScoresPage() {
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>មធ្យមភាគ</div>
+                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>មធ្យមភាគ <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--primary)', transform: 'rotate(90deg)' }}>(/{currentCoeff})</span></div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
@@ -832,7 +849,7 @@ export default function ScoresPage() {
 
                     {/* Rank */}
                     <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.rank || '-'}
+                      {dynamicRanks[scoreRec.id] || '-'}
                     </td>
 
                     {/* Remarks */}
