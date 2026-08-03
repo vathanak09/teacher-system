@@ -448,34 +448,34 @@ export default function ScoresPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 'max-content' }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
-              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>ល.រ</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)' }}>អត្តលេខ</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', width: '100%' }}>ឈ្មោះសិស្ស</th>
-              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>ភេទ</th>
+              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ល.រ</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>អត្តលេខ</th>
+              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', width: '100%', border: '1px solid var(--border-color)' }}>ឈ្មោះសិស្ស</th>
+              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ភេទ</th>
               
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Quiz</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Exercise</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Speaking</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Homework</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Test</div>
               </th>
 
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>មធ្យមភាគ</div>
               </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
+              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', width: '1px' }}>
@@ -512,89 +512,89 @@ export default function ScoresPage() {
               return sortedScores.map((scoreRec, index) => {
                 return (
                   <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
-                    <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{index + 1}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{scoreRec.studentIdCode || 'N/A'}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{scoreRec.fullName}</td>
-                    <td style={{ padding: '0.5rem', textAlign: 'center', color: scoreRec.gender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>{scoreRec.gender}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
+                    <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.studentIdCode || 'N/A'}</td>
+                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.fullName}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center', color: scoreRec.gender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.gender}</td>
                     
                     {/* New Subject Columns */}
-                    <td style={{ padding: '0.2rem' }}>
+                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
                         type="text" 
                         value={scoreRec.quiz || ''}
                         onChange={(e) => handleScoreChange(scoreRec, 'quiz', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'quiz')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
                         placeholder=""
                       />
                     </td>
-                    <td style={{ padding: '0.2rem' }}>
+                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
                         type="text" 
                         value={scoreRec.exercise || ''}
                         onChange={(e) => handleScoreChange(scoreRec, 'exercise', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'exercise')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
                         placeholder=""
                       />
                     </td>
-                    <td style={{ padding: '0.2rem' }}>
+                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
                         type="text" 
                         value={scoreRec.speaking || ''}
                         onChange={(e) => handleScoreChange(scoreRec, 'speaking', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'speaking')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
                         placeholder=""
                       />
                     </td>
-                    <td style={{ padding: '0.2rem' }}>
+                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
                         type="text" 
                         value={scoreRec.homework || ''}
                         onChange={(e) => handleScoreChange(scoreRec, 'homework', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'homework')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
                         placeholder=""
                       />
                     </td>
-                    <td style={{ padding: '0.2rem' }}>
+                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
                         type="text" 
                         value={scoreRec.test || ''}
                         onChange={(e) => handleScoreChange(scoreRec, 'test', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'test')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
                         placeholder=""
                       />
                     </td>
 
                     {/* Total Score */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>
                       {scoreRec.totalScore || '-'}
                     </td>
                     
                     {/* Average */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-primary)' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-primary)', border: '1px solid var(--border-color)' }}>
                       {scoreRec.average || '-'}
                     </td>
 
                     {/* Grade */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#10b981' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#10b981', border: '1px solid var(--border-color)' }}>
                       {scoreRec.grade || '-'}
                     </td>
 
                     {/* Rank */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
                       {scoreRec.rank || '-'}
                     </td>
 
                     {/* Remarks */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '80px' }}>
                       {scoreRec.remarks || '-'}
                     </td>
 
-                    <td style={{ padding: '0.2rem', textAlign: 'center' }}>
+                    <td style={{ padding: '0.2rem', textAlign: 'center', border: '1px solid var(--border-color)' }}>
                       <button 
                         onClick={() => removeScoreRecord(scoreRec.id)}
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '1.2rem' }}
