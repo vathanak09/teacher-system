@@ -65,7 +65,7 @@ export default function ScoresPage() {
     if (settings.coefficientType === 'custom') {
       currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
     } else {
-      currentCoeff = maxTotalScore / 50;
+      currentCoeff = (maxTotalScore + 5) / 50;
     }
     if (currentCoeff <= 0) currentCoeff = 1;
 
@@ -941,7 +941,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                   />
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1. ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មេគុណ = ពិន្ទុសរុបអតិបរមា ចែកនឹង ៥០</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មេគុណ = (ពិន្ទុសរុបអតិបរមា + 5) ចែកនឹង ៥០</div>
                   </div>
                 </label>
 
