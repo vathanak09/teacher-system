@@ -83,7 +83,7 @@ export default function ScoresPage() {
   useEffect(() => {
     if (scores.length === 0) return;
     const timer = setTimeout(() => {
-      const updates = [];
+      const updates: Promise<void>[] = [];
       scores.forEach(s => {
         const newRank = dynamicRanks[s.id]?.toString() || '';
         if (s.rank !== newRank && s.id) {
