@@ -4,6 +4,20 @@ import { classService, studentService, scoreService, settingsService } from '@/s
 import SortDropdown from '@/components/SortDropdown';
 
 
+
+const COLORS = [
+    { id: 'blue', value: '#3b82f6', label: 'ខៀវ' },
+    { id: 'indigo', value: '#6366f1', label: 'ខៀវចាស់' },
+    { id: 'purple', value: '#8b5cf6', label: 'ស្វាយ' },
+    { id: 'pink', value: '#ec4899', label: 'ផ្កាឈូក' },
+    { id: 'red', value: '#ef4444', label: 'ក្រហម' },
+    { id: 'orange', value: '#f97316', label: 'ទឹកក្រូច' },
+    { id: 'yellow', value: '#eab308', label: 'លឿង' },
+    { id: 'green', value: '#22c55e', label: 'បៃតង' },
+    { id: 'teal', value: '#14b8a6', label: 'ខៀវបៃតង' },
+    { id: 'slate', value: '#64748b', label: 'ប្រផេះ' }
+];
+
 const ICONS = [
     { id: 'book', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>, label: 'សៀវភៅ' },
     { id: 'monitor', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>, label: 'កុំព្យូទ័រ' },
@@ -594,7 +608,18 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
 
             return (
               <div key={c.id} onClick={() => setSelectedClassId(c.id)} className="glass-panel glass-panel-hoverable" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ background: c.color || 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', padding: '1rem', borderRadius: '50%', boxShadow: 'var(--shadow-md)', fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px' }}>
+                <div style={{ 
+                  background: `${COLORS.find(col => col.id === c.color)?.value || '#3b82f6'}15`, 
+                  color: COLORS.find(col => col.id === c.color)?.value || '#3b82f6', 
+                  padding: '1.25rem', 
+                  borderRadius: '20px', 
+                  fontSize: '2.5rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  width: '80px', 
+                  height: '80px' 
+                }}>
                   {ICONS.find(i => i.id === c.icon)?.icon || '📚'}
                 </div>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{c.className}</h3>
