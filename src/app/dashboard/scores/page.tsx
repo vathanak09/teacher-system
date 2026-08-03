@@ -85,6 +85,7 @@ export default function ScoresPage() {
         ...s,
         dynAverage: s.totalScore === '' ? '' : avg.toFixed(2),
         dynGrade: s.totalScore === '' ? '' : grade,
+        dynRemarks: s.totalScore === '' ? '' : calculateRemarks(grade),
         avgNum: s.totalScore === '' ? -1 : avg
       };
     });
@@ -125,6 +126,7 @@ export default function ScoresPage() {
           const toUpdate: any = {};
           if (s.average !== computed.dynAverage) { toUpdate.average = computed.dynAverage; needsUpdate = true; }
           if (s.grade !== computed.dynGrade) { toUpdate.grade = computed.dynGrade; needsUpdate = true; }
+          if (s.remarks !== computed.dynRemarks) { toUpdate.remarks = computed.dynRemarks; needsUpdate = true; }
           if (s.rank !== computed.dynRank?.toString()) { toUpdate.rank = computed.dynRank?.toString(); needsUpdate = true; }
           
           if (needsUpdate && s.id) {
@@ -336,19 +338,18 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     return 'F';
   };
 
-  const calculateRemarks = (grade: string) => {
+    const calculateRemarks = (grade: string) => {
     switch (grade) {
-      case 'A': return 'ល្អណាស់';
+      case 'A': return 'ល្អប្រសើរ';
       case 'B': return 'ល្អ';
       case 'C': return 'ល្អបង្គួរ';
       case 'D': return 'មធ្យម';
-      case 'E': return 'ខ្សោយ';
-      case 'F': return 'ខ្សោយណាស់';
+      case 'E': return 'មធ្យម';
+      case 'F': return 'ខ្សោយ';
       default: return '';
     }
   };
-
-  const handleScoreChange = async (scoreRec: any, field: string, value: string) => {
+const handleScoreChange = async (scoreRec: any, field: string, value: string) => {
     const updatedScore = { ...scoreRec, [field]: value };
     
     // Auto calculate if a subject changes
@@ -874,7 +875,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     
                     {/* Average */}
                     <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-primary)', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.average || '-'}
+                      {scoreRec.dynAverage || '-'}
                     </td>
 
                     {/* Grade */}
@@ -889,7 +890,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
 
                     {/* Remarks */}
                     <td style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '80px' }}>
-                      {scoreRec.remarks || '-'}
+                      {scoreRec.dynRemarks || '-'}
                     </td>
 
                     <td style={{ padding: '0.2rem', textAlign: 'center', border: '1px solid var(--border-color)' }}>
