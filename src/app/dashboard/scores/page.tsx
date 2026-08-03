@@ -73,12 +73,13 @@ export default function ScoresPage() {
       const total = parseFloat(s.totalScore) || 0;
       let avg = total / currentCoeff;
       
+      const avgPercentage = (avg / 50) * 100;
       let grade = 'F';
-      if (avg >= (settings.gradeA || 90)) grade = 'A';
-      else if (avg >= (settings.gradeB || 80)) grade = 'B';
-      else if (avg >= (settings.gradeC || 70)) grade = 'C';
-      else if (avg >= (settings.gradeD || 60)) grade = 'D';
-      else if (avg >= (settings.gradeE || 50)) grade = 'E';
+      if (avgPercentage >= (settings.gradeA || 90)) grade = 'A';
+      else if (avgPercentage >= (settings.gradeB || 80)) grade = 'B';
+      else if (avgPercentage >= (settings.gradeC || 70)) grade = 'C';
+      else if (avgPercentage >= (settings.gradeD || 60)) grade = 'D';
+      else if (avgPercentage >= (settings.gradeE || 50)) grade = 'E';
       
       return {
         ...s,
@@ -325,12 +326,13 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     ? classes 
     : classes.filter(c => c.teacherId === teacherProfileId || c.teacherId === userId || c.teacherName === userName);
 
-  const calculateAutoGrade = (average: number) => {
-    if (average >= settings.gradeA) return 'A';
-    if (average >= settings.gradeB) return 'B';
-    if (average >= settings.gradeC) return 'C';
-    if (average >= settings.gradeD) return 'D';
-    if (average >= settings.gradeE) return 'E';
+    const calculateAutoGrade = (average: number) => {
+    const avgPercentage = (average / 50) * 100;
+    if (avgPercentage >= (settings.gradeA || 90)) return 'A';
+    if (avgPercentage >= (settings.gradeB || 80)) return 'B';
+    if (avgPercentage >= (settings.gradeC || 70)) return 'C';
+    if (avgPercentage >= (settings.gradeD || 60)) return 'D';
+    if (avgPercentage >= (settings.gradeE || 50)) return 'E';
     return 'F';
   };
 
