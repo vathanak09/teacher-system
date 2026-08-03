@@ -338,7 +338,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     return 'F';
   };
 
-    const calculateRemarks = (grade: string) => {
+    function calculateRemarks(grade: string) {
     switch (grade) {
       case 'A': return 'ល្អប្រសើរ';
       case 'B': return 'ល្អ';
