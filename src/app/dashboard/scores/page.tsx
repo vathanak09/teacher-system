@@ -53,49 +53,89 @@ export default function ScoresPage() {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
-  let currentCoeff = 1;
-  if (settings.coefficientType === 'custom') {
-    currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
-  } else {
-    currentCoeff = Number(settings.maxSubjects) || 1;
-  }
-  if (currentCoeff <= 0) currentCoeff = 1;
 
-  const dynamicRanks = useMemo(() => {
-    const ranks: Record<string, number> = {};
-    const scored = [...scores].filter(s => s.average !== '' && !isNaN(parseFloat(s.average)));
-    scored.sort((a, b) => parseFloat(b.average) - parseFloat(a.average));
+  const computedScores = useMemo(() => {
+    let maxTotalScore = 0;
+    if (settings.coefficientType !== 'custom') {
+      maxTotalScore = Math.max(...scores.map(s => parseFloat(s.totalScore) || 0));
+      if (maxTotalScore <= 0) maxTotalScore = 50; // fallback
+    }
+    
+    let currentCoeff = 1;
+    if (settings.coefficientType === 'custom') {
+      currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
+    } else {
+      currentCoeff = maxTotalScore / 50;
+    }
+    if (currentCoeff <= 0) currentCoeff = 1;
+
+    const mapped = scores.map(s => {
+      const total = parseFloat(s.totalScore) || 0;
+      let avg = total / currentCoeff;
+      
+      let grade = 'F';
+      if (avg >= (settings.gradeA || 90)) grade = 'A';
+      else if (avg >= (settings.gradeB || 80)) grade = 'B';
+      else if (avg >= (settings.gradeC || 70)) grade = 'C';
+      else if (avg >= (settings.gradeD || 60)) grade = 'D';
+      else if (avg >= (settings.gradeE || 50)) grade = 'E';
+      
+      return {
+        ...s,
+        dynAverage: s.totalScore === '' ? '' : avg.toFixed(2),
+        dynGrade: s.totalScore === '' ? '' : grade,
+        avgNum: s.totalScore === '' ? -1 : avg
+      };
+    });
+    
+    const scored = [...mapped].filter(s => s.avgNum !== -1);
+    scored.sort((a, b) => b.avgNum - a.avgNum);
     
     let currentRank = 1;
     let currentAvg = -1;
+    const ranks: Record<string, number> = {};
     for (let i = 0; i < scored.length; i++) {
       const s = scored[i];
-      const avgNum = parseFloat(s.average);
-      if (avgNum !== currentAvg) {
+      if (s.avgNum !== currentAvg) {
         currentRank = i + 1;
-        currentAvg = avgNum;
+        currentAvg = s.avgNum;
       }
       ranks[s.id as string] = currentRank;
     }
-    return ranks;
-  }, [scores]);
+    
+    return {
+      currentCoeff,
+      maxTotalScore,
+      rows: mapped.map(s => ({
+        ...s,
+        dynRank: ranks[s.id] || ''
+      }))
+    };
+  }, [scores, settings]);
 
   useEffect(() => {
     if (scores.length === 0) return;
     const timer = setTimeout(() => {
       const updates: Promise<void>[] = [];
       scores.forEach(s => {
-        const newRank = dynamicRanks[s.id]?.toString() || '';
-        if (s.rank !== newRank && s.id) {
-          updates.push(scoreService.update(s.id, { rank: newRank }));
+        const computed = computedScores.rows.find(r => r.id === s.id);
+        if (computed) {
+          let needsUpdate = false;
+          const toUpdate = {};
+          if (s.average !== computed.dynAverage) { toUpdate.average = computed.dynAverage; needsUpdate = true; }
+          if (s.grade !== computed.dynGrade) { toUpdate.grade = computed.dynGrade; needsUpdate = true; }
+          if (s.rank !== computed.dynRank?.toString()) { toUpdate.rank = computed.dynRank?.toString(); needsUpdate = true; }
+          
+          if (needsUpdate && s.id) {
+            updates.push(scoreService.update(s.id, toUpdate));
+          }
         }
       });
       if (updates.length > 0) Promise.all(updates);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [dynamicRanks, scores]);
-
-  const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
+  }, [computedScores, scores]);
+const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   const clearDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -613,7 +653,7 @@ export default function ScoresPage() {
             style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
             title="កំណត់មេគុណសម្រាប់មធ្យមភាគ"
           >
-            🔢 មេគុណ: {currentCoeff}
+            🔢 មេគុណ: {computedScores.currentCoeff}
           </button>
           <SortDropdown 
             options={[
@@ -731,7 +771,7 @@ export default function ScoresPage() {
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>មធ្យមភាគ <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--primary)', transform: 'rotate(90deg)' }}>(/{currentCoeff})</span></div>
+                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>មធ្យមភាគ <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--primary)', transform: 'rotate(90deg)' }}>(/{computedScores.currentCoeff})</span></div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
@@ -842,12 +882,12 @@ export default function ScoresPage() {
 
                     {/* Grade */}
                     <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#10b981', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.grade || '-'}
+                      {scoreRec.dynGrade || "-"}
                     </td>
 
                     {/* Rank */}
                     <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
-                      {dynamicRanks[scoreRec.id] || '-'}
+                      {scoreRec.dynRank || "-"}
                     </td>
 
                     {/* Remarks */}
@@ -903,8 +943,8 @@ export default function ScoresPage() {
                     }} 
                   />
                   <div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1. ផ្អែកតាមចំនួនមុខវិជ្ជា</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មេគុណ = ចំនួនមុខវិជ្ជាសរុប (ចែកនឹង ៥០)</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1. ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មេគុណ = ពិន្ទុសរុបអតិបរមា ចែកនឹង ៥០</div>
                   </div>
                 </label>
 
