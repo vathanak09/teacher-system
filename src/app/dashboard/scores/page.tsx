@@ -30,6 +30,26 @@ export default function ScoresPage() {
     gradeE: 50
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
+  const clearDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clearDropdownRef.current && !clearDropdownRef.current.contains(event.target as Node)) {
+        setIsClearDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleClearColumn = async (columnKey: string, columnName: string) => {
+    if (!window.confirm(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`)) return;
+    setIsClearDropdownOpen(false);
+    const updatedScores = scores.map(s => ({ ...s, [columnKey]: '' }));
+    setScores(updatedScores);
+    await Promise.all(updatedScores.map(s => scoreService.updateScore(s.id, s)));
+  };
 
   useEffect(() => { 
     setRole(localStorage.getItem('userRole') || ''); 
@@ -436,6 +456,50 @@ export default function ScoresPage() {
               setScoreSortConfig({ key: by, direction: order });
             }}
           />
+
+          <div style={{ position: 'relative' }} ref={clearDropdownRef}>
+            <button 
+              onClick={() => setIsClearDropdownOpen(!isClearDropdownOpen)} 
+              className="btn" 
+              style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
+              title="លុបទិន្នន័យតាមជួរឈរ"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+              លុបទិន្នន័យ
+            </button>
+            
+            {isClearDropdownOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem',
+                background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', minWidth: '180px', zIndex: 50, padding: '0.5rem 0',
+                animation: 'fadeIn 0.2s ease-out'
+              }}>
+                <div style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ជ្រើសរើសជួរឈរត្រូវលុប</div>
+                {[
+                  { key: 'quiz', label: 'Quiz' },
+                  { key: 'exercise', label: 'Exercise' },
+                  { key: 'speaking', label: 'Speaking' },
+                  { key: 'homework', label: 'Homework' },
+                  { key: 'test', label: 'Test' }
+                ].map(col => (
+                  <div 
+                    key={col.key}
+                    onClick={() => handleClearColumn(col.key, col.label)}
+                    style={{
+                      padding: '0.5rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      color: 'var(--danger)', transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    លុប {col.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <button onClick={exportToCSV} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
