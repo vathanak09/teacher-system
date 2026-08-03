@@ -22,8 +22,7 @@ export default function AttendancePage() {
   
   // Attendance Records: { [studentId]: { [day]: 'present' | 'absent' | 'permission' } }
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
-  const [sortConfig, setSortConfig] = useState({ key: 'fullName', direction: 'asc' });
-  const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
+    const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
   const router = useRouter();
 
   useEffect(() => {
@@ -91,24 +90,14 @@ export default function AttendancePage() {
     let classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
     
     classStudents = [...classStudents].sort((a, b) => {
-      let aVal = a[sortConfig.key] || '';
-      let bVal = b[sortConfig.key] || '';
+      let aVal = a.fullName || a.name || '';
+      let bVal = b.fullName || b.name || '';
       
-      // Special handle for name variations
-      if (sortConfig.key === 'fullName') {
-        aVal = a.fullName || a.name || '';
-        bVal = b.fullName || b.name || '';
-      }
-
       if (typeof aVal === 'string') aVal = aVal.toLowerCase();
       if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      // Handle numeric sorting specifically for counts
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
-      }
       
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      if (aVal < bVal) return -1;
+      if (aVal > bVal) return 1;
       return 0;
     });
     
@@ -270,6 +259,7 @@ export default function AttendancePage() {
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Unlock</span>
                 <input 
                   type="number" 
+                  className="no-spinner"
                   value={unlockedDay}
                   onChange={e => setUnlockedDay(Math.min(31, Math.max(1, Number(e.target.value))))}
                   style={{ width: '40px', background: 'transparent', border: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-color)', outline: 'none' }}
@@ -281,19 +271,7 @@ export default function AttendancePage() {
               >+</button>
             </div>
 
-            <SortDropdown 
-              options={[
-                { value: 'studentId', label: 'អត្តលេខ' },
-                { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
-                { value: 'gender', label: 'ភេទ' },
-                { value: 'presentCount', label: 'សរុប ✔️' },
-                { value: 'absentCount', label: 'សរុប ❌' },
-                { value: 'permissionCount', label: 'សរុប P' }
-              ]}
-              sortBy={sortConfig.key}
-              sortOrder={sortConfig.direction as "asc" | "desc"}
-              onSortChange={(key, dir) => setSortConfig({ key, direction: dir })}
-            />
+            
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ fontWeight: 600 }}>ខែ៖</label>
               <select className="input-field" value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '0.5rem', background: 'var(--bg-secondary)', width: 'auto' }}>
