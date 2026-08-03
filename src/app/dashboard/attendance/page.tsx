@@ -102,6 +102,11 @@ export default function AttendancePage() {
 
       if (typeof aVal === 'string') aVal = aVal.toLowerCase();
       if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      // Handle numeric sorting specifically for counts
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -114,14 +119,10 @@ export default function AttendancePage() {
     
     const allPresent = classStudents.every(s => attendanceRecords[s.id]?.[day] === 'present');
     classStudents.forEach(student => {
-      if (!newRecords[student.id]) newRecords[student.id] = {};
+      newRecords[student.id] = { ...(newRecords[student.id] || {}) };
       const newValue = allPresent ? '' : 'present';
       if (newRecords[student.id][day] !== newValue) {
-        if (newValue === '') {
-          delete newRecords[student.id][day];
-        } else {
-          newRecords[student.id][day] = newValue;
-        }
+        newRecords[student.id][day] = newValue;
         changed = true;
       }
     });
