@@ -479,9 +479,7 @@ export default function ScoresPage() {
       <div className="page-container animate-fade-in">
         <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
           <h1 style={{ margin: 0 }}>បញ្ចូលពិន្ទុ (Scores)</h1>
-          <button className="btn" onClick={() => setIsSettingsModalOpen(true)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
-            ⚙️ កំណត់ការគណនា
-          </button>
+          
         </div>
         
         <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '2rem' }}>
@@ -615,7 +613,7 @@ export default function ScoresPage() {
             style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
             title="កំណត់មេគុណសម្រាប់មធ្យមភាគ"
           >
-            🔢 មេគុណ
+            🔢 មេគុណ: {currentCoeff}
           </button>
           <SortDropdown 
             options={[
