@@ -107,7 +107,7 @@ export default function ScoresPage() {
           if (homeworkIndex !== -1 && row[homeworkIndex] !== undefined) updatedScore.homework = row[homeworkIndex];
           if (testIndex !== -1 && row[testIndex] !== undefined) updatedScore.test = row[testIndex];
           
-          await scoreService.updateScore(updatedScore.id, updatedScore);
+          await scoreService.update(updatedScore.id, updatedScore);
           updatedCount++;
         }
       }
@@ -133,7 +133,14 @@ export default function ScoresPage() {
     setIsClearDropdownOpen(false);
     const updatedScores = scores.map(s => ({ ...s, [columnKey]: '' }));
     setScores(updatedScores);
-    await Promise.all(updatedScores.map(s => scoreService.updateScore(s.id, s)));
+    await Promise.all(updatedScores.map(s => scoreService.update(s.id, s)));
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យបញ្ជីឈ្មោះទាំងអស់ក្នុងខែនេះមែនទេ?`)) return;
+    setIsClearDropdownOpen(false);
+    await Promise.all(scores.map(s => scoreService.delete(s.id)));
+    setScores([]);
   };
 
   useEffect(() => { 
@@ -582,6 +589,20 @@ export default function ScoresPage() {
                     លុប {col.label}
                   </div>
                 ))}
+
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.5rem 0' }}></div>
+                <div 
+                  onClick={handleClearAll}
+                  style={{
+                    padding: '0.5rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    color: 'var(--danger)', transition: 'background 0.2s', fontWeight: 600
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                  លុបទាំងអស់ (Clear All)
+                </div>
               </div>
             )}
           </div>
