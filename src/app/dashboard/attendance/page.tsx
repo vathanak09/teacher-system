@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
-import SortDropdown from '@/components/SortDropdown';
 
 export default function AttendancePage() {
   const [role, setRole] = useState('');
@@ -22,7 +21,8 @@ export default function AttendancePage() {
   
   // Attendance Records: { [studentId]: { [day]: 'present' | 'absent' | 'permission' } }
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
-    const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
+  const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
+  const [unlockedDayInput, setUnlockedDayInput] = useState(String(currentDate.getDate()));
   const router = useRouter();
 
   useEffect(() => {
@@ -78,28 +78,19 @@ export default function AttendancePage() {
     loadAttendance();
   }, [selectedClassId, selectedMonth, selectedYear]);
 
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month, 0).getDate();
+  };
+
   const markAllPresent = async (day: number) => {
     if (day !== unlockedDay) return;
     if (role !== 'admin' && role !== 'teacher') return;
     
-    // Check if we have selected class and students
     const selectedClass = classes.find(c => c.id === selectedClassId);
     if (!selectedClass) return;
     
     const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
-    let classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
-    
-    classStudents = [...classStudents].sort((a, b) => {
-      let aVal = a.fullName || a.name || '';
-      let bVal = b.fullName || b.name || '';
-      
-      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-      
-      if (aVal < bVal) return -1;
-      if (aVal > bVal) return 1;
-      return 0;
-    });
+    const classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
     
     if (classStudents.length === 0) return;
 
@@ -137,13 +128,8 @@ export default function AttendancePage() {
     if (role !== 'admin' && role !== 'teacher') return;
     
     const newRecords = { ...attendanceRecords };
-    if (!newRecords[studentId]) newRecords[studentId] = {};
-    
-    if (value === '') {
-      delete newRecords[studentId][day];
-    } else {
-      newRecords[studentId][day] = value;
-    }
+    newRecords[studentId] = { ...(newRecords[studentId] || {}) };
+    newRecords[studentId][day] = value;
     
     setAttendanceRecords(newRecords);
     
@@ -160,10 +146,6 @@ export default function AttendancePage() {
     } catch (error) {
       console.error("Error saving attendance", error);
     }
-  };
-
-  const getDaysInMonth = (month: number, year: number) => {
-    return new Date(year, month, 0).getDate();
   };
 
   const renderClassList = () => {
@@ -184,7 +166,6 @@ export default function AttendancePage() {
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
               {grouped[teacherName].map(c => {
-                // Students count
                 const studentCount = c.studentsData ? c.studentsData.length : (c.studentIds ? c.studentIds.length : 0);
                 
                 return (
@@ -226,10 +207,26 @@ export default function AttendancePage() {
 
     // Filter students for this class
     const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
-    const classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
+    const baseStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
     
     const days = getDaysInMonth(selectedMonth, selectedYear);
     const daysArray = Array.from({ length: days }, (_, i) => i + 1);
+
+    // Compute totals per student
+    const classStudents = baseStudents.map(student => {
+      let presentCount = 0;
+      let absentCount = 0;
+      let permissionCount = 0;
+      daysArray.forEach(day => {
+        const status = attendanceRecords[student.id]?.[day];
+        if (status === 'present') presentCount++;
+        else if (status === 'absent') absentCount++;
+        else if (status === 'permission') permissionCount++;
+      });
+      return { ...student, presentCount, absentCount, permissionCount };
+    });
+
+    const maxDay = getDaysInMonth(selectedMonth, selectedYear);
 
     return (
       <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -250,28 +247,54 @@ export default function AttendancePage() {
           </div>
           
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            {/* Unlock Day Control */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem 0.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
               <button 
-                onClick={() => setUnlockedDay(prev => Math.max(1, prev - 1))}
-                style={{ padding: '0.25rem 0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }}
+                onClick={() => {
+                  const next = Math.max(1, unlockedDay - 1);
+                  setUnlockedDay(next);
+                  setUnlockedDayInput(String(next));
+                }}
+                style={{ width: '28px', height: '28px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >-</button>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Unlock</span>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '52px' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Unlock</span>
                 <input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
                   className="no-spinner"
-                  value={unlockedDay}
-                  onChange={e => setUnlockedDay(Math.min(31, Math.max(1, Number(e.target.value))))}
+                  value={unlockedDayInput}
+                  onChange={e => {
+                    setUnlockedDayInput(e.target.value);
+                  }}
+                  onBlur={e => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) {
+                      const clamped = Math.min(maxDay, Math.max(1, val));
+                      setUnlockedDay(clamped);
+                      setUnlockedDayInput(String(clamped));
+                    } else {
+                      setUnlockedDayInput(String(unlockedDay));
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
                   style={{ width: '40px', background: 'transparent', border: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-color)', outline: 'none' }}
                 />
               </div>
               <button 
-                onClick={() => setUnlockedDay(prev => Math.min(31, prev + 1))}
-                style={{ padding: '0.25rem 0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }}
+                onClick={() => {
+                  const next = Math.min(maxDay, unlockedDay + 1);
+                  setUnlockedDay(next);
+                  setUnlockedDayInput(String(next));
+                }}
+                style={{ width: '28px', height: '28px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >+</button>
             </div>
 
-            
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ fontWeight: 600 }}>ខែ៖</label>
               <select className="input-field" value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '0.5rem', background: 'var(--bg-secondary)', width: 'auto' }}>
@@ -299,9 +322,31 @@ export default function AttendancePage() {
                 <th className="mobile-hide" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '80px', position: 'sticky', left: '50px', background: 'var(--bg-secondary)', zIndex: 10 }}>អត្តលេខ</th>
                 <th className="sticky-name" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '150px', position: 'sticky', background: 'var(--bg-secondary)', zIndex: 10 }}>ឈ្មោះសិស្ស</th>
                 <th className="mobile-hide sticky-gender" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '60px', position: 'sticky', background: 'var(--bg-secondary)', borderRight: '2px solid var(--border-color)', zIndex: 10 }}>ភេទ</th>
-                {daysArray.map(day => (
-                  <th key={day} onClick={() => markAllPresent(day)} title={day === unlockedDay ? "ចុចដើម្បីដាក់/ដកវត្តមានសិស្សទាំងអស់" : "ថ្ងៃត្រូវបានចាក់សោរ"} style={{ padding: '0.5rem 0.25rem', textAlign: 'center', minWidth: '38px', fontSize: '0.85rem', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: 'var(--bg-secondary)', cursor: day === unlockedDay ? 'pointer' : 'not-allowed', opacity: day === unlockedDay ? 1 : 0.6 }} className={day === unlockedDay ? "hover:bg-blue-50 transition-colors" : ""}>{day}</th>
-                ))}
+                {daysArray.map(day => {
+                  const date = new Date(selectedYear, selectedMonth - 1, day);
+                  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                  const isUnlocked = day === unlockedDay;
+                  return (
+                    <th 
+                      key={day} 
+                      onClick={() => markAllPresent(day)} 
+                      title={isUnlocked ? "ចុចដើម្បីដាក់/ដកវត្តមានសិស្សទាំងអស់" : "ថ្ងៃត្រូវបានចាក់សោរ"}
+                      style={{ 
+                        padding: '0.5rem 0.25rem', 
+                        textAlign: 'center', 
+                        minWidth: '38px', 
+                        fontSize: '0.85rem', 
+                        borderLeft: '1px solid rgba(0,0,0,0.05)', 
+                        borderRight: '1px solid rgba(0,0,0,0.05)', 
+                        background: isUnlocked ? 'rgba(59,130,246,0.1)' : isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)', 
+                        color: isUnlocked ? 'var(--primary-color)' : isWeekend ? '#ef4444' : 'inherit',
+                        cursor: isUnlocked ? 'pointer' : 'not-allowed', 
+                        opacity: isUnlocked ? 1 : 0.6,
+                        fontWeight: isUnlocked ? 700 : 400,
+                      }}
+                    >{day}</th>
+                  );
+                })}
                 <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#3b82f6' }}>សរុប ✔️</th>
                 <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#ef4444' }}>សរុប ❌</th>
                 <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#f59e0b' }}>សរុប P</th>
@@ -320,18 +365,19 @@ export default function AttendancePage() {
                     {daysArray.map(day => {
                       const date = new Date(selectedYear, selectedMonth - 1, day);
                       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                      const isUnlocked = day === unlockedDay;
                       
                       const status = attendanceRecords[student.id]?.[day] || '';
-                      let bgColor = isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)';
+                      let bgColor = isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'transparent';
                       let color = 'inherit';
                       let icon = '';
                       
-                      if (status === 'present') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#3b82f6'; icon = '✔️'; } // User requested checkmark is blue
+                      if (status === 'present') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#3b82f6'; icon = '✔️'; }
                       else if (status === 'absent') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; icon = '❌'; }
                       else if (status === 'permission') { bgColor = 'rgba(245, 158, 11, 0.15)'; color = '#f59e0b'; icon = 'P'; }
 
                       const cycleStatus = () => {
-                        if (day !== unlockedDay) return;
+                        if (!isUnlocked) return;
                         let next = '';
                         if (!status) next = 'present';
                         else if (status === 'present') next = 'absent';
@@ -341,7 +387,7 @@ export default function AttendancePage() {
                       };
 
                       return (
-                        <td key={day} style={{ padding: '0.15rem', textAlign: 'center', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)' }}>
+                        <td key={day} style={{ padding: '0.15rem', textAlign: 'center', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: isUnlocked ? 'rgba(59,130,246,0.04)' : 'transparent' }}>
                           <button 
                             onClick={cycleStatus}
                             style={{ 
@@ -354,8 +400,8 @@ export default function AttendancePage() {
                               color: color,
                               fontWeight: 'bold',
                               fontSize: '0.9rem',
-                              cursor: day === unlockedDay ? 'pointer' : 'not-allowed',
-                              opacity: day === unlockedDay ? 1 : 0.6,
+                              cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                              opacity: isUnlocked ? 1 : 0.65,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -396,7 +442,7 @@ export default function AttendancePage() {
             <span style={{ fontSize: '0.9rem' }}>ច្បាប់</span>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            * ទិន្នន័យរក្សាទុកដោយស្វ័យប្រវត្តិពេលជ្រើសរើស (Auto-saved)
+            * ទិន្នន័យរក្សាទុកដោយស្វ័យប្រវត្តិ (Auto-saved)
           </div>
         </div>
       </div>
@@ -410,7 +456,7 @@ export default function AttendancePage() {
           {selectedClassId && (
             <button 
               onClick={() => setSelectedClassId(null)}
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',color: 'var(--text-primary)' }}
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
