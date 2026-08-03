@@ -76,6 +76,47 @@ export default function AttendancePage() {
     loadAttendance();
   }, [selectedClassId, selectedMonth, selectedYear]);
 
+  const markAllPresent = async (day: number) => {
+    if (role !== 'admin' && role !== 'teacher') return;
+    
+    // Check if we have selected class and students
+    const selectedClass = classes.find(c => c.id === selectedClassId);
+    if (!selectedClass) return;
+    
+    const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
+    const classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
+    
+    if (classStudents.length === 0) return;
+
+    const newRecords = { ...attendanceRecords };
+    let changed = false;
+    
+    classStudents.forEach(student => {
+      if (!newRecords[student.id]) newRecords[student.id] = {};
+      // If it's not already present, mark it as present
+      if (newRecords[student.id][day] !== 'present') {
+        newRecords[student.id][day] = 'present';
+        changed = true;
+      }
+    });
+    
+    if (changed) {
+      setAttendanceRecords(newRecords);
+      const docId = `${selectedClassId}_${selectedYear}_${selectedMonth}`;
+      try {
+        await attendanceService.add({
+          classId: selectedClassId,
+          year: selectedYear,
+          month: selectedMonth,
+          records: newRecords,
+          updatedAt: new Date().toISOString()
+        }, docId);
+      } catch (error) {
+        console.error("Error saving bulk attendance", error);
+      }
+    }
+  };
+
   const handleAttendanceChange = async (studentId: string, day: number, value: string) => {
     if (role !== 'admin' && role !== 'teacher') return;
     
@@ -216,16 +257,16 @@ export default function AttendancePage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
-                <th style={{ padding: '1rem', textAlign: 'left', minWidth: '50px', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 10 }}>ល.រ</th>
-                <th className="mobile-hide" style={{ padding: '1rem', textAlign: 'left', minWidth: '80px', position: 'sticky', left: '50px', background: 'var(--bg-secondary)', zIndex: 10 }}>អត្តលេខ</th>
-                <th className="sticky-name" style={{ padding: '1rem', textAlign: 'left', minWidth: '150px', position: 'sticky', background: 'var(--bg-secondary)', zIndex: 10 }}>ឈ្មោះសិស្ស</th>
-                <th className="mobile-hide sticky-gender" style={{ padding: '1rem', textAlign: 'left', minWidth: '60px', position: 'sticky', background: 'var(--bg-secondary)', borderRight: '2px solid var(--border-color)', zIndex: 10 }}>ភេទ</th>
+                <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '50px', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 10 }}>ល.រ</th>
+                <th className="mobile-hide" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '80px', position: 'sticky', left: '50px', background: 'var(--bg-secondary)', zIndex: 10 }}>អត្តលេខ</th>
+                <th className="sticky-name" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '150px', position: 'sticky', background: 'var(--bg-secondary)', zIndex: 10 }}>ឈ្មោះសិស្ស</th>
+                <th className="mobile-hide sticky-gender" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '60px', position: 'sticky', background: 'var(--bg-secondary)', borderRight: '2px solid var(--border-color)', zIndex: 10 }}>ភេទ</th>
                 {daysArray.map(day => (
-                  <th key={day} style={{ padding: '1rem 0.25rem', textAlign: 'center', minWidth: '40px', fontSize: '0.85rem' }}>{day}</th>
+                  <th key={day} onClick={() => markAllPresent(day)} title="ចុចដើម្បីដាក់វត្តមានសិស្សទាំងអស់" style={{ padding: '0.5rem 0.25rem', textAlign: 'center', minWidth: '38px', fontSize: '0.85rem', cursor: 'pointer', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: 'var(--bg-secondary)' }} className="hover:bg-blue-50 transition-colors">{day}</th>
                 ))}
-                <th style={{ padding: '1rem', textAlign: 'center', minWidth: '60px', color: '#10b981' }}>សរុប ✔️</th>
-                <th style={{ padding: '1rem', textAlign: 'center', minWidth: '60px', color: '#ef4444' }}>សរុប ❌</th>
-                <th style={{ padding: '1rem', textAlign: 'center', minWidth: '60px', color: '#f59e0b' }}>សរុប P</th>
+                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#3b82f6' }}>សរុប ✔️</th>
+                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#ef4444' }}>សរុប ❌</th>
+                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#f59e0b' }}>សរុប P</th>
               </tr>
             </thead>
             <tbody>
@@ -243,10 +284,10 @@ export default function AttendancePage() {
 
                 return (
                   <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="hover:bg-black/5">
-                    <td style={{ padding: '0.75rem 1rem', position: 'sticky', left: 0, background: 'var(--card-bg)', zIndex: 5 }}>{idx + 1}</td>
-                    <td className="mobile-hide" style={{ padding: '0.75rem 1rem', position: 'sticky', left: '50px', background: 'var(--card-bg)', zIndex: 5 }}>{student.studentId || ''}</td>
-                    <td className="sticky-name" style={{ padding: '0.75rem 1rem', fontWeight: 600, position: 'sticky', background: 'var(--card-bg)', zIndex: 5 }}>{student.fullName || student.name || ''}</td>
-                    <td className="mobile-hide sticky-gender" style={{ padding: '0.75rem 1rem', position: 'sticky', background: 'var(--card-bg)', borderRight: '2px solid var(--border-color)', zIndex: 5 }}>{student.gender}</td>
+                    <td style={{ padding: '0.35rem 0.75rem', position: 'sticky', left: 0, background: 'var(--card-bg)', zIndex: 5 }}>{idx + 1}</td>
+                    <td className="mobile-hide" style={{ padding: '0.35rem 0.75rem', position: 'sticky', left: '50px', background: 'var(--card-bg)', zIndex: 5 }}>{student.studentId || ''}</td>
+                    <td className="sticky-name" style={{ padding: '0.35rem 0.75rem', fontWeight: 600, position: 'sticky', background: 'var(--card-bg)', zIndex: 5 }}>{student.fullName || student.name || ''}</td>
+                    <td className="mobile-hide sticky-gender" style={{ padding: '0.35rem 0.75rem', position: 'sticky', background: 'var(--card-bg)', borderRight: '2px solid var(--border-color)', zIndex: 5 }}>{student.gender}</td>
                     {daysArray.map(day => {
                       const status = attendanceRecords[student.id]?.[day] || '';
                       let bgColor = 'var(--bg-secondary)';
@@ -267,19 +308,19 @@ export default function AttendancePage() {
                       };
 
                       return (
-                        <td key={day} style={{ padding: '0.25rem', textAlign: 'center' }}>
+                        <td key={day} style={{ padding: '0.15rem', textAlign: 'center', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)' }}>
                           <button 
                             onClick={cycleStatus}
                             style={{ 
-                              width: '32px', 
-                              height: '32px',
+                              width: '28px', 
+                              height: '28px',
                               padding: 0, 
                               border: 'none', 
-                              borderRadius: '8px',
+                              borderRadius: '6px',
                               background: bgColor,
                               color: color,
                               fontWeight: 'bold',
-                              fontSize: '1rem',
+                              fontSize: '0.9rem',
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
@@ -293,9 +334,9 @@ export default function AttendancePage() {
                         </td>
                       );
                     })}
-                    <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: '#3b82f6' }}>{presentCount > 0 ? presentCount : ''}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>{absentCount > 0 ? absentCount : ''}</td>
-                    <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b' }}>{permissionCount > 0 ? permissionCount : ''}</td>
+                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#3b82f6' }}>{presentCount > 0 ? presentCount : ''}</td>
+                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>{absentCount > 0 ? absentCount : ''}</td>
+                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b' }}>{permissionCount > 0 ? permissionCount : ''}</td>
                   </tr>
                 );
               })}
