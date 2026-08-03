@@ -771,7 +771,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>មធ្យមភាគ <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--primary)', transform: 'rotate(90deg)' }}>(/{computedScores.currentCoeff})</span></div>
+                <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>មធ្យមភាគ</div>
               </th>
               <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
                 <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
@@ -787,7 +787,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
           </thead>
           <tbody>
             {(() => {
-              const sortedScores = [...scores].sort((a: any, b: any) => {
+              const sortedScores = [...computedScores.rows].sort((a: any, b: any) => {
                 if (!scoreSortConfig) {
                   // Default: Female first, then Name
                   if (a.gender === 'ស្រី' && b.gender !== 'ស្រី') return -1;
@@ -821,8 +821,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     {/* New Subject Columns */}
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
-                        type="text" 
-                        value={scoreRec.quiz || ''}
+                        type="number" step="any" value={scoreRec.quiz || ""}
                         onChange={(e) => handleScoreChange(scoreRec, 'quiz', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'quiz')}
                         style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
@@ -831,8 +830,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     </td>
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
-                        type="text" 
-                        value={scoreRec.exercise || ''}
+                        type="number" step="any" value={scoreRec.exercise || ""}
                         onChange={(e) => handleScoreChange(scoreRec, 'exercise', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'exercise')}
                         style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
@@ -841,8 +839,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     </td>
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
-                        type="text" 
-                        value={scoreRec.speaking || ''}
+                        type="number" step="any" value={scoreRec.speaking || ""}
                         onChange={(e) => handleScoreChange(scoreRec, 'speaking', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'speaking')}
                         style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
@@ -851,8 +848,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     </td>
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
-                        type="text" 
-                        value={scoreRec.homework || ''}
+                        type="number" step="any" value={scoreRec.homework || ""}
                         onChange={(e) => handleScoreChange(scoreRec, 'homework', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'homework')}
                         style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
@@ -861,8 +857,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
                     </td>
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
                       <input 
-                        type="text" 
-                        value={scoreRec.test || ''}
+                        type="number" step="any" value={scoreRec.test || ""}
                         onChange={(e) => handleScoreChange(scoreRec, 'test', e.target.value)}
                         onPaste={(e) => handlePaste(e, index, 'test')}
                         style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
