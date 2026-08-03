@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
+import SortDropdown from '@/components/SortDropdown';
 
 export default function AttendancePage() {
   const [role, setRole] = useState('');
@@ -21,6 +22,7 @@ export default function AttendancePage() {
   
   // Attendance Records: { [studentId]: { [day]: 'present' | 'absent' | 'permission' } }
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
+  const [sortConfig, setSortConfig] = useState({ key: 'studentId', direction: 'asc' });
   const router = useRouter();
 
   useEffect(() => {
@@ -84,18 +86,40 @@ export default function AttendancePage() {
     if (!selectedClass) return;
     
     const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
-    const classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
+    let classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
+    
+    classStudents = [...classStudents].sort((a, b) => {
+      let aVal = a[sortConfig.key] || '';
+      let bVal = b[sortConfig.key] || '';
+      
+      // Special handle for name variations
+      if (sortConfig.key === 'fullName') {
+        aVal = a.fullName || a.name || '';
+        bVal = b.fullName || b.name || '';
+      }
+
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
     
     if (classStudents.length === 0) return;
 
     const newRecords = { ...attendanceRecords };
     let changed = false;
     
+    const allPresent = classStudents.every(s => attendanceRecords[s.id]?.[day] === 'present');
     classStudents.forEach(student => {
       if (!newRecords[student.id]) newRecords[student.id] = {};
-      // If it's not already present, mark it as present
-      if (newRecords[student.id][day] !== 'present') {
-        newRecords[student.id][day] = 'present';
+      const newValue = allPresent ? '' : 'present';
+      if (newRecords[student.id][day] !== newValue) {
+        if (newValue === '') {
+          delete newRecords[student.id][day];
+        } else {
+          newRecords[student.id][day] = newValue;
+        }
         changed = true;
       }
     });
@@ -233,7 +257,16 @@ export default function AttendancePage() {
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>គ្រូ៖ {selectedClass.teacherName} • សិស្ស៖ {classStudents.length} នាក់</div>
           </div>
           
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <SortDropdown 
+              options={[
+                { value: 'studentId', label: 'អត្តលេខ' },
+                { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
+                { value: 'gender', label: 'ភេទ' }
+              ]}
+              currentSort={sortConfig}
+              onSortChange={setSortConfig}
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ fontWeight: 600 }}>ខែ៖</label>
               <select className="input-field" value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '0.5rem', background: 'var(--bg-secondary)', width: 'auto' }}>
@@ -289,8 +322,11 @@ export default function AttendancePage() {
                     <td className="sticky-name" style={{ padding: '0.35rem 0.75rem', fontWeight: 600, position: 'sticky', background: 'var(--card-bg)', zIndex: 5 }}>{student.fullName || student.name || ''}</td>
                     <td className="mobile-hide sticky-gender" style={{ padding: '0.35rem 0.75rem', position: 'sticky', background: 'var(--card-bg)', borderRight: '2px solid var(--border-color)', zIndex: 5 }}>{student.gender}</td>
                     {daysArray.map(day => {
+                      const date = new Date(selectedYear, selectedMonth - 1, day);
+                      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                      
                       const status = attendanceRecords[student.id]?.[day] || '';
-                      let bgColor = 'var(--bg-secondary)';
+                      let bgColor = isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)';
                       let color = 'inherit';
                       let icon = '';
                       
