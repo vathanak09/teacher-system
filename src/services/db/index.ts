@@ -20,4 +20,5 @@ export const paymentService = new FirebaseDataService<any>('payments', studentDb
 export const teachingRecordService = new FirebaseDataService<any>('teachingRecords', studentDb);
 export const taskService = new FirebaseDataService<any>('tasks', studentDb);
 export const attendanceService = new FirebaseDataService<any>('attendance', studentDb);
+export const scoreService = new FirebaseDataService<any>('scores', studentDb);
 

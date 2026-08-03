@@ -199,6 +199,16 @@ export default function RandomizerPage() {
 
   return (
     <div className="page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: isMobile ? 'auto' : 'calc(100vh - 100px)' }}>
+      {winnerPopup && (
+        <div onClick={() => setWinnerPopup(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', maxWidth: '400px', width: '100%' }}>
+            <h2 style={{ color: 'var(--primary-color)', fontSize: '2rem', marginBottom: '1rem' }}>🎉 អបអរសាទរ!</h2>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>{winnerPopup}</div>
+            <button onClick={() => setWinnerPopup(null)} className="btn btn-primary" style={{ width: '100%' }}>យល់ព្រម</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <button 
           onClick={() => window.history.back()}
@@ -484,7 +494,7 @@ export default function RandomizerPage() {
           
           {/* Winner Popup Modal (Scoped to Game Workspace) */}
           {winnerPopup && (
-        <div onClick={() => setWinnerPopup(false)}  style={{
+        <div onClick={() => setWinnerPopup(null)}  style={{
               position: 'absolute',
               top: 0, left: 0, right: 0, bottom: 0,
               background: 'rgba(0, 0, 0, 0.7)',
