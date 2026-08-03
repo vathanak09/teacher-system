@@ -264,7 +264,8 @@ export default function AttendancePage() {
                 { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
                 { value: 'gender', label: 'ភេទ' }
               ]}
-              currentSort={{ sortBy: sortConfig.key, sortOrder: sortConfig.direction as "asc" | "desc" }}
+              sortBy={sortConfig.key}
+              sortOrder={sortConfig.direction as "asc" | "desc"}
               onSortChange={(key, dir) => setSortConfig({ key, direction: dir })}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
