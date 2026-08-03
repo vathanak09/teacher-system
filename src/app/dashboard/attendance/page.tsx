@@ -22,7 +22,8 @@ export default function AttendancePage() {
   
   // Attendance Records: { [studentId]: { [day]: 'present' | 'absent' | 'permission' } }
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
-  const [sortConfig, setSortConfig] = useState({ key: 'studentId', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'fullName', direction: 'asc' });
+  const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
   const router = useRouter();
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export default function AttendancePage() {
   }, [selectedClassId, selectedMonth, selectedYear]);
 
   const markAllPresent = async (day: number) => {
+    if (day !== unlockedDay) return;
     if (role !== 'admin' && role !== 'teacher') return;
     
     // Check if we have selected class and students
@@ -258,11 +260,34 @@ export default function AttendancePage() {
           </div>
           
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <button 
+                onClick={() => setUnlockedDay(prev => Math.max(1, prev - 1))}
+                style={{ padding: '0.25rem 0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }}
+              >-</button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '40px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Unlock</span>
+                <input 
+                  type="number" 
+                  value={unlockedDay}
+                  onChange={e => setUnlockedDay(Math.min(31, Math.max(1, Number(e.target.value))))}
+                  style={{ width: '40px', background: 'transparent', border: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-color)', outline: 'none' }}
+                />
+              </div>
+              <button 
+                onClick={() => setUnlockedDay(prev => Math.min(31, prev + 1))}
+                style={{ padding: '0.25rem 0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-secondary)' }}
+              >+</button>
+            </div>
+
             <SortDropdown 
               options={[
                 { value: 'studentId', label: 'អត្តលេខ' },
                 { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
-                { value: 'gender', label: 'ភេទ' }
+                { value: 'gender', label: 'ភេទ' },
+                { value: 'presentCount', label: 'សរុប ✔️' },
+                { value: 'absentCount', label: 'សរុប ❌' },
+                { value: 'permissionCount', label: 'សរុប P' }
               ]}
               sortBy={sortConfig.key}
               sortOrder={sortConfig.direction as "asc" | "desc"}
@@ -296,7 +321,7 @@ export default function AttendancePage() {
                 <th className="sticky-name" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '150px', position: 'sticky', background: 'var(--bg-secondary)', zIndex: 10 }}>ឈ្មោះសិស្ស</th>
                 <th className="mobile-hide sticky-gender" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '60px', position: 'sticky', background: 'var(--bg-secondary)', borderRight: '2px solid var(--border-color)', zIndex: 10 }}>ភេទ</th>
                 {daysArray.map(day => (
-                  <th key={day} onClick={() => markAllPresent(day)} title="ចុចដើម្បីដាក់វត្តមានសិស្សទាំងអស់" style={{ padding: '0.5rem 0.25rem', textAlign: 'center', minWidth: '38px', fontSize: '0.85rem', cursor: 'pointer', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: 'var(--bg-secondary)' }} className="hover:bg-blue-50 transition-colors">{day}</th>
+                  <th key={day} onClick={() => markAllPresent(day)} title={day === unlockedDay ? "ចុចដើម្បីដាក់/ដកវត្តមានសិស្សទាំងអស់" : "ថ្ងៃត្រូវបានចាក់សោរ"} style={{ padding: '0.5rem 0.25rem', textAlign: 'center', minWidth: '38px', fontSize: '0.85rem', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: 'var(--bg-secondary)', cursor: day === unlockedDay ? 'pointer' : 'not-allowed', opacity: day === unlockedDay ? 1 : 0.6 }} className={day === unlockedDay ? "hover:bg-blue-50 transition-colors" : ""}>{day}</th>
                 ))}
                 <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#3b82f6' }}>សរុប ✔️</th>
                 <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#ef4444' }}>សរុប ❌</th>
@@ -305,16 +330,7 @@ export default function AttendancePage() {
             </thead>
             <tbody>
               {classStudents.map((student, idx) => {
-                let presentCount = 0;
-                let absentCount = 0;
-                let permissionCount = 0;
-                
-                daysArray.forEach(day => {
-                  const status = attendanceRecords[student.id]?.[day];
-                  if (status === 'present') presentCount++;
-                  else if (status === 'absent') absentCount++;
-                  else if (status === 'permission') permissionCount++;
-                });
+                const { presentCount, absentCount, permissionCount } = student;
 
                 return (
                   <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="hover:bg-black/5">
@@ -336,6 +352,7 @@ export default function AttendancePage() {
                       else if (status === 'permission') { bgColor = 'rgba(245, 158, 11, 0.15)'; color = '#f59e0b'; icon = 'P'; }
 
                       const cycleStatus = () => {
+                        if (day !== unlockedDay) return;
                         let next = '';
                         if (!status) next = 'present';
                         else if (status === 'present') next = 'absent';
@@ -358,7 +375,8 @@ export default function AttendancePage() {
                               color: color,
                               fontWeight: 'bold',
                               fontSize: '0.9rem',
-                              cursor: 'pointer',
+                              cursor: day === unlockedDay ? 'pointer' : 'not-allowed',
+                              opacity: day === unlockedDay ? 1 : 0.6,
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -413,7 +431,7 @@ export default function AttendancePage() {
           {selectedClassId && (
             <button 
               onClick={() => setSelectedClassId(null)}
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)' }}
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',color: 'var(--text-primary)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             </button>
