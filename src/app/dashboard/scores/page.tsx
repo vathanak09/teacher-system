@@ -14,11 +14,31 @@ export default function ScoresPage() {
   const [scores, setScores] = useState<any[]>([]); // Snapshot score records for the selected month/class
   
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [scoreSortConfig, setScoreSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [scoreSortConfig, setScoreSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('scoreSortConfig');
+      if (saved) return JSON.parse(saved);
+    }
+    return { key: 'fullName', direction: 'asc' };
+  });
   
-  // Format: YYYY-MM
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedScoreMonth');
+      if (saved) return saved;
+    }
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  });
+
+  useEffect(() => {
+    if (scoreSortConfig) localStorage.setItem('scoreSortConfig', JSON.stringify(scoreSortConfig));
+  }, [scoreSortConfig]);
+
+  useEffect(() => {
+    if (selectedMonth) localStorage.setItem('selectedScoreMonth', selectedMonth);
+  }, [selectedMonth]);
   
   // Settings
   const [settings, setSettings] = useState<any>({
@@ -32,6 +52,71 @@ export default function ScoresPage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
   const clearDropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+      
+      const parseCSVLine = (str: string) => {
+        let ret = [], keep = false, col = "";
+        for(let i=0; i<str.length; i++) {
+          if(str[i] === '"') keep = !keep;
+          else if(str[i] === ',' && !keep) { ret.push(col.trim()); col = ""; }
+          else col += str[i];
+        }
+        ret.push(col.trim());
+        return ret;
+      };
+
+      const rows = text.split('\n').map(parseCSVLine);
+      if (rows.length < 2) return;
+
+      const headers = rows[0];
+      const idIndex = headers.findIndex(h => h.includes('អត្តលេខ'));
+      const quizIndex = headers.findIndex(h => h.toLowerCase().includes('quiz'));
+      const exerciseIndex = headers.findIndex(h => h.toLowerCase().includes('exercise'));
+      const speakingIndex = headers.findIndex(h => h.toLowerCase().includes('speaking'));
+      const homeworkIndex = headers.findIndex(h => h.toLowerCase().includes('homework'));
+      const testIndex = headers.findIndex(h => h.toLowerCase().includes('test'));
+
+      if (idIndex === -1) {
+        alert('រកមិនឃើញជួរឈរ អត្តលេខ នៅក្នុងឯកសារ Excel ទេ!');
+        return;
+      }
+
+      let updatedCount = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length < 5) continue;
+
+        const studentId = row[idIndex];
+        if (!studentId) continue;
+
+        const existingScore = scores.find(s => s.studentIdCode === studentId);
+        if (existingScore) {
+          const updatedScore = { ...existingScore };
+          if (quizIndex !== -1 && row[quizIndex] !== undefined) updatedScore.quiz = row[quizIndex];
+          if (exerciseIndex !== -1 && row[exerciseIndex] !== undefined) updatedScore.exercise = row[exerciseIndex];
+          if (speakingIndex !== -1 && row[speakingIndex] !== undefined) updatedScore.speaking = row[speakingIndex];
+          if (homeworkIndex !== -1 && row[homeworkIndex] !== undefined) updatedScore.homework = row[homeworkIndex];
+          if (testIndex !== -1 && row[testIndex] !== undefined) updatedScore.test = row[testIndex];
+          
+          await scoreService.updateScore(updatedScore.id, updatedScore);
+          updatedCount++;
+        }
+      }
+      
+      alert(`បានបញ្ចូលពិន្ទុជោគជ័យចំនួន ${updatedCount} នាក់!`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -501,6 +586,12 @@ export default function ScoresPage() {
             )}
           </div>
 
+          <button onClick={() => fileInputRef.current?.click()} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#10b981', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', fontWeight: '500' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            បញ្ចូល (Import)
+          </button>
+          <input type="file" accept=".csv" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportCSV} />
+
           <button onClick={exportToCSV} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             ទាញយក Excel
@@ -574,12 +665,15 @@ export default function ScoresPage() {
               });
 
               return sortedScores.map((scoreRec, index) => {
+                const studentMaster = allStudents.find(s => s.studentIdCode === scoreRec.studentIdCode);
+                const displayFullName = studentMaster ? studentMaster.fullName : scoreRec.fullName;
+                const displayGender = studentMaster ? studentMaster.gender : scoreRec.gender;
                 return (
                   <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
                     <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
                     <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.studentIdCode || 'N/A'}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.fullName}</td>
-                    <td style={{ padding: '0.5rem', textAlign: 'center', color: scoreRec.gender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.gender}</td>
+                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayFullName}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center', color: displayGender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayGender}</td>
                     
                     {/* New Subject Columns */}
                     <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
