@@ -62,7 +62,7 @@ export default function ScoresPage() {
   if (currentCoeff <= 0) currentCoeff = 1;
 
   const dynamicRanks = useMemo(() => {
-    const ranks = {};
+    const ranks: Record<string, number> = {};
     const scored = [...scores].filter(s => s.average !== '' && !isNaN(parseFloat(s.average)));
     scored.sort((a, b) => parseFloat(b.average) - parseFloat(a.average));
     
@@ -75,7 +75,7 @@ export default function ScoresPage() {
         currentRank = i + 1;
         currentAvg = avgNum;
       }
-      ranks[s.id] = currentRank;
+      ranks[s.id as string] = currentRank;
     }
     return ranks;
   }, [scores]);
