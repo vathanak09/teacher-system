@@ -121,7 +121,7 @@ export default function ScoresPage() {
         const computed = computedScores.rows.find(r => r.id === s.id);
         if (computed) {
           let needsUpdate = false;
-          const toUpdate = {};
+          const toUpdate: any = {};
           if (s.average !== computed.dynAverage) { toUpdate.average = computed.dynAverage; needsUpdate = true; }
           if (s.grade !== computed.dynGrade) { toUpdate.grade = computed.dynGrade; needsUpdate = true; }
           if (s.rank !== computed.dynRank?.toString()) { toUpdate.rank = computed.dynRank?.toString(); needsUpdate = true; }
