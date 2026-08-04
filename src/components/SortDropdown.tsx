@@ -14,6 +14,7 @@ export interface SortDropdownProps {
 
 export default function SortDropdown({ options, sortBy, sortOrder, onSortChange }: SortDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [alignRight, setAlignRight] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,6 +26,17 @@ export default function SortDropdown({ options, sortBy, sortOrder, onSortChange 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      if (rect.left < window.innerWidth / 2) {
+        setAlignRight(false);
+      } else {
+        setAlignRight(true);
+      }
+    }
+  }, [isOpen]);
 
   const currentOption = options.find(o => o.value === sortBy);
   const label = currentOption ? currentOption.label : 'តម្រៀប';
@@ -55,13 +67,14 @@ export default function SortDropdown({ options, sortBy, sortOrder, onSortChange 
         <div style={{
           position: 'absolute',
           top: '100%',
-          right: 0,
+          ...(alignRight ? { right: 0, left: 'auto' } : { left: 0, right: 'auto' }),
           marginTop: '0.5rem',
           background: 'var(--main-bg)',
           border: '1px solid var(--border-color)',
           borderRadius: '8px',
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          minWidth: '220px',
+          width: '220px',
+          maxWidth: 'calc(100vw - 2rem)',
           zIndex: 50,
           padding: '0.5rem 0',
           animation: 'fadeIn 0.2s ease-out'
