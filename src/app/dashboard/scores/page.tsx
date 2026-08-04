@@ -46,6 +46,11 @@ export default function ScoresPage() {
   const [classes, setClasses] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]); // Global live students
   const [scores, setScores] = useState<any[]>([]); // Snapshot score records for the selected month/class
+  const [allScores, setAllScores] = useState<any[]>([]); // Global scores for computing progress
+  const [selectedClassIdsFilter, setSelectedClassIdsFilter] = useState<string[]>([]);
+  const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
+  const [classSearchFilter, setClassSearchFilter] = useState('');
+  const classFilterRef = useRef<HTMLDivElement>(null);
   
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [scoreSortConfig, setScoreSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(() => {
