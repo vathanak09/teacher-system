@@ -59,6 +59,7 @@ export default function ScoresPage() {
   const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
   const [classSearchFilter, setClassSearchFilter] = useState('');
   const classFilterRef = useRef<HTMLDivElement>(null);
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false);
 
   useEffect(() => {
     if (selectedClassIdsFilter !== null) {
@@ -655,6 +656,76 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)' }}>បញ្ចូលពិន្ទុ (Scores)</h1>
           
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button 
+              onClick={async () => {
+                if (isSyncingSheets) return;
+                
+                const data = filteredDisplayClasses.map(c => {
+                  const classScores = allScores.filter((sc: any) => sc.classId === c.id && sc.month === selectedMonth);
+                  return {
+                    classInfo: c,
+                    scores: classScores,
+                  };
+                });
+                
+                if (data.length === 0) {
+                  alert('សូមជ្រើសរើសថ្នាក់យ៉ាងហោចណាស់មួយសិន!');
+                  return;
+                }
+
+                let sheetUrl = settings.googleSheetUrl || localStorage.getItem('googleSheetId');
+                if (!sheetUrl) {
+                  alert('សូមជួយចូលទៅកាន់ប៉ូតុង "ការកំណត់" (Settings) នៅខាងលើ ដើម្បីបញ្ចូល Link ឯកសារ Google Sheets របស់អ្នកជាមុនសិន!');
+                  return;
+                }
+
+                // Extract ID from URL if it's a URL
+                let sheetId = sheetUrl;
+                const match = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                if (match && match[1]) {
+                  sheetId = match[1];
+                }
+
+                setIsSyncingSheets(true);
+                try {
+                  const response = await fetch('/api/sync-sheets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      spreadsheetId: sheetId,
+                      classesData: data,
+                      selectedMonth
+                    })
+                  });
+                  const resData = await response.json();
+                  if (resData.url || resData.success) {
+                    alert('ទិន្នន័យត្រូវបានបញ្ជូនទៅកាន់ Google Sheets រួចរាល់ហើយ!');
+                  } else {
+                    alert(resData.error || 'Failed to sync to Google Sheets');
+                  }
+                } catch (err: any) {
+                  alert('Error: ' + err.message);
+                } finally {
+                  setIsSyncingSheets(false);
+                }
+              }}
+              style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#10b981', border: 'none', borderRadius: '8px', color: 'white', cursor: isSyncingSheets ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: isSyncingSheets ? 0.7 : 1 }}
+            >
+              {isSyncingSheets ? (
+                <span className="spinner" style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              )}
+              {isSyncingSheets ? 'កំពុងភ្ជាប់...' : 'Sync Selected to Sheets'}
+            </button>
+            <button 
+              onClick={() => setIsSettingsModalOpen(true)}
+              style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
+              title="កំណត់ Link Google Sheets និងការគណនាពិន្ទុ"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V15a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              ការកំណត់
+            </button>
             {/* Filter Dropdown to tick class names */}
             <div style={{ position: 'relative' }} ref={classFilterRef}>
               <button 
@@ -893,35 +964,12 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         {isSettingsModalOpen && (
           <div onClick={() => setIsSettingsModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
             <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '2rem', background: 'var(--modal-bg)', width: '90%', maxWidth: '500px' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0' }}>កំណត់ការគណនាពិន្ទុ</h2>
+              <h2 style={{ margin: '0 0 1.5rem 0' }}>ការកំណត់ (Settings)</h2>
               <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem' }}>ចំនួនមុខវិជ្ជាសរុប (សម្រាប់ចែកមធ្យមភាគ)</label>
-                  <input type="number" className="input-field" value={settings.maxSubjects || 1} onChange={e => setSettings({...settings, maxSubjects: parseInt(e.target.value)})} min="1" required />
-                </div>
-                
-                <h3 style={{ margin: '1rem 0 0.5rem 0', fontSize: '1rem' }}>កំណត់និទ្ទេស (ភាគរយមធ្យមភាគ)</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ fontSize: '0.9rem' }}>និទ្ទេស A (≥)</label>
-                    <input type="number" className="input-field" value={settings.gradeA || 90} onChange={e => setSettings({...settings, gradeA: parseInt(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.9rem' }}>និទ្ទេស B (≥)</label>
-                    <input type="number" className="input-field" value={settings.gradeB || 80} onChange={e => setSettings({...settings, gradeB: parseInt(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.9rem' }}>និទ្ទេស C (≥)</label>
-                    <input type="number" className="input-field" value={settings.gradeC || 70} onChange={e => setSettings({...settings, gradeC: parseInt(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.9rem' }}>និទ្ទេស D (≥)</label>
-                    <input type="number" className="input-field" value={settings.gradeD || 60} onChange={e => setSettings({...settings, gradeD: parseInt(e.target.value)})} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '0.9rem' }}>និទ្ទេស E (≥)</label>
-                    <input type="number" className="input-field" value={settings.gradeE || 50} onChange={e => setSettings({...settings, gradeE: parseInt(e.target.value)})} />
-                  </div>
+                  <label style={{ display: 'block', marginBottom: '0.3rem', fontWeight: '500' }}>តភ្ជាប់ឯកសារ Google Sheets (Link ឬ ID)</label>
+                  <input type="text" className="input-field" value={settings.googleSheetUrl || ''} onChange={e => setSettings({...settings, googleSheetUrl: e.target.value})} placeholder="https://docs.google.com/spreadsheets/d/..." />
+                  <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.75rem', color: '#ec4899' }}>*សូមអញ្ជើញ Share ឯកសាររបស់អ្នកមកអ៊ីមែល <b>bsis-936@high-magpie-503702-t0.iam.gserviceaccount.com</b> ជាមុនសិន</p>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
@@ -930,7 +978,6 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </form>
             </div>
-          </div>
         )}
       </div>
     );
@@ -1273,6 +1320,60 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           </tbody>
         </table>
       </div>
+
+      {scores.length > 0 && (
+        <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>សរុបស្ថិតិ</h3>
+          {(() => {
+            const rows = computedScores.rows;
+            const totalStudents = rows.length;
+            const femaleCount = rows.filter((s:any) => s.gender === 'ស្រី').length;
+            
+            const gradeStats = ['A', 'B', 'C', 'D', 'E', 'F'].map(g => {
+              const studentsInGrade = rows.filter((s:any) => s.dynGrade === g && s.totalScore !== '');
+              const count = studentsInGrade.length;
+              const percent = totalStudents > 0 ? ((count / totalStudents) * 100).toFixed(2).replace(/\.00$/, '') : '0';
+              const fCount = studentsInGrade.filter((s:any) => s.gender === 'ស្រី').length;
+              const fPercent = totalStudents > 0 ? ((fCount / totalStudents) * 100).toFixed(2).replace(/\.00$/, '') : '0';
+              return { grade: g, count, percent, femaleCount: fCount, femalePercent: fPercent };
+            });
+
+            const absentStudents = rows.filter((s:any) => !s.totalScore || s.totalScore === '');
+            const absentCount = absentStudents.length;
+            const absentPercent = totalStudents > 0 ? ((absentCount / totalStudents) * 100).toFixed(2).replace(/\.00$/, '') : '0';
+            const absentFemaleCount = absentStudents.filter((s:any) => s.gender === 'ស្រី').length;
+            const absentFemalePercent = totalStudents > 0 ? ((absentFemaleCount / totalStudents) * 100).toFixed(2).replace(/\.00$/, '') : '0';
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                <div style={{ marginBottom: '0.5rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '0.5rem' }}>
+                  ~ បញ្ឈប់បញ្ជីត្រឹមចំនួន <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>{totalStudents}</span> នាក់ ក្នុងនោះ ស្រីចំនួន <span style={{ fontWeight: 'bold', color: '#ec4899' }}>{femaleCount}</span> នាក់
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '250px 250px', gap: '0.8rem' }}>
+                  {gradeStats.map(stat => {
+                    let gradeColor = 'black';
+                    if (stat.grade === 'A' || stat.grade === 'B') gradeColor = '#ef4444'; // Red
+                    if (stat.grade === 'C') gradeColor = '#c026d3'; // Purple
+                    if (stat.grade === 'D' || stat.grade === 'E') gradeColor = '#16a34a'; // Green
+                    if (stat.grade === 'F') gradeColor = '#475569'; // Slate
+
+                    return (
+                      <div key={stat.grade}>
+                        ~ និទ្ទេស<span style={{ fontWeight: 'bold', color: gradeColor, fontSize: '1.1rem' }}>{stat.grade}</span>: <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>{stat.count}</span>នាក់ <span style={{ fontWeight: 'bold', color: '#10b981' }}>{stat.percent}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ marginTop: '0.5rem', borderTop: '1px dashed var(--border-color)', paddingTop: '0.5rem' }}>
+                  ~ អវត្តមាន: <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>{absentCount}</span> នាក់ <span style={{ fontWeight: 'bold', color: '#10b981' }}>{absentPercent}%</span>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         * គន្លឹះ៖ លោកអ្នកអាច Copy (Ctrl+C) ទិន្នន័យពី Excel រួច Paste (Ctrl+V) ចូលក្នុងប្រអប់ណាមួយ វាអានជាជួរស្វ័យប្រវត្តិ។ រាល់ការវាយបញ្ចូលនឹង Save ចូលប្រព័ន្ធដោយស្វ័យប្រវត្តិ។
       </p>
@@ -1338,7 +1439,6 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </div>
             </div>
-          </div>
         )}
     </div>
   );
