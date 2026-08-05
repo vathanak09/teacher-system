@@ -1,14 +1,13 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCjnEE5_5WyDxj_9kFcaCkW_-jN_hZ-YOg",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "managesys-9c469.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "managesys-9c469",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "managesys-9c469.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "324438333613",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:324438333613:web:ee2d53a8c871e10fc2ce24"
 };
 
 // Main Firebase App
@@ -29,28 +28,11 @@ const studentApp = getApps().find(a => a.name === 'StudentApp') || initializeApp
 
 import { getStorage } from "firebase/storage";
 
-// Initialize Firestore with offline persistence capabilities
-let db: ReturnType<typeof getFirestore>;
-
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-  });
-} catch (e) {
-  // Fallback if offline persistence fails or is already initialized
-  db = getFirestore(app);
-}
+// Initialize Firestore (using default memory cache to prevent IndexedDB HMR issues)
+const db = getFirestore(app);
 
 // Initialize Student Firestore
-let studentDb: ReturnType<typeof getFirestore>;
-
-try {
-  studentDb = initializeFirestore(studentApp, {
-    localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-  });
-} catch (e) {
-  studentDb = getFirestore(studentApp);
-}
+const studentDb = getFirestore(studentApp);
 
 // Initialize Storage
 const storage = getStorage(app);
