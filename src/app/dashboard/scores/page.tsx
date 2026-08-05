@@ -978,6 +978,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </form>
             </div>
+          </div>
         )}
       </div>
     );
@@ -1439,6 +1440,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </div>
             </div>
+          </div>
         )}
     </div>
   );
