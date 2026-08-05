@@ -30,8 +30,8 @@ export async function POST(req: Request) {
     try {
       const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
       const sheetData = spreadsheetInfo.data.sheets?.find(s => s.properties?.title === 'All Sheets');
-      if (sheetData && sheetData.properties?.sheetId !== undefined) {
-        targetSheetId = sheetData.properties.sheetId;
+      if (sheetData && sheetData.properties?.sheetId !== undefined && sheetData.properties?.sheetId !== null) {
+        targetSheetId = sheetData.properties.sheetId || 0;
       }
     } catch (e: any) {
       if (e.code === 403 || e.status === 403) {
