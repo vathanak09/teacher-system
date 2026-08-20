@@ -56,8 +56,8 @@ export async function POST(req: Request) {
       'Test',
       'សរុប',
       'មធ្យមភាគ',
-      'និទ្ទេស',
       'ចំណាត់ថ្នាក់',
+      'និទ្ទេស',
       'មូលវិចារណ៍',
       'លេខកូដថ្នាក់',
       'គ្រូបង្រៀន'
@@ -84,8 +84,8 @@ export async function POST(req: Request) {
             s.test || '',
             s.totalScore || '',
             s.average || '',
-            s.grade || '',
             s.rank || '',
+            s.grade || '',
             s.remarks || '',
             className,
             teacherName
