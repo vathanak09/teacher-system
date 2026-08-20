@@ -1422,7 +1422,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                   ~ បញ្ឈប់បញ្ជីត្រឹមចំនួន <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>{totalStudents}</span> នាក់ ក្នុងនោះ ស្រីចំនួន <span style={{ fontWeight: 'bold', color: '#ec4899' }}>{femaleCount}</span> នាក់
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '250px 250px', gap: '0.8rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.8rem' }}>
                   {gradeStats.map(stat => {
                     let gradeColor = 'black';
                     if (stat.grade === 'A' || stat.grade === 'B') gradeColor = '#ef4444'; // Red
