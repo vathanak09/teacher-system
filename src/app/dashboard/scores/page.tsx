@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { classService, studentService, scoreService, settingsService } from '@/services/db';
+import { classService, studentService, scoreService, settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
 
 
@@ -45,6 +45,7 @@ export default function ScoresPage() {
   
   const [classes, setClasses] = useState<any[]>([]);
   const [allStudents, setAllStudents] = useState<any[]>([]); // Global live students
+  const [allTeachers, setAllTeachers] = useState<any[]>([]); // Global teachers
   const [scores, setScores] = useState<any[]>([]); // Snapshot score records for the selected month/class
   const [allScores, setAllScores] = useState<any[]>([]); // Global scores for computing progress
   const [selectedClassIdsFilter, setSelectedClassIdsFilter] = useState<string[] | null>(() => {
@@ -399,6 +400,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
       setClasses(activeClasses);
     });
 
+    const unsubTeachers = teacherService.subscribeAll((data: any[]) => { setAllTeachers(data); });
     const unsubStudents = studentService.subscribeAll((data: any[]) => {
       setAllStudents(data);
     });
@@ -410,7 +412,8 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     return () => {
       unsubSettings();
       unsubClasses();
-      unsubStudents();
+        unsubStudents();
+        unsubTeachers();
       unsubAllScores();
     };
   }, []);
@@ -693,17 +696,67 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                         else if (avgPercentage >= (settings.gradeE || 50)) grade = 'E';
                         
                         let remarks = '';
+                        let engRemarks = '';
                         switch(grade) {
-                          case 'A': remarks = 'ល្អប្រសើរ'; break;
-                          case 'B': remarks = 'ល្អ'; break;
-                          case 'C': remarks = 'ល្អបង្គួរ'; break;
-                          case 'D': remarks = 'មធ្យម'; break;
-                          case 'E': remarks = 'មធ្យម'; break;
-                          case 'F': remarks = 'ខ្សោយ'; break;
+                          case 'A': remarks = 'ល្អប្រសើរ'; engRemarks = 'Excellent'; break;
+                          case 'B': remarks = 'ល្អ'; engRemarks = 'Good'; break;
+                          case 'C': remarks = 'ល្អបង្គួរ'; engRemarks = 'Fair'; break;
+                          case 'D': remarks = 'មធ្យម'; engRemarks = 'Medium'; break;
+                          case 'E': remarks = 'មធ្យម'; engRemarks = 'Medium'; break;
+                          case 'F': remarks = 'ខ្សោយ'; engRemarks = 'Poor'; break;
                         }
+
+                        const student = allStudents.find((st: any) => st.id === s.studentId || (st.studentId && st.studentId === s.studentIdCode) || st.fullName === s.fullName);
+                        const teacher = allTeachers.find((t: any) => t.id === c.teacherId || t.teacherId === c.teacherId || t.fullName === c.teacherName);
+
+                        const studentShift = student?.shift || c.shift || '';
+                        const shiftUpper = (studentShift || '').toUpperCase().trim();
+                        let shiftFull = '';
+                        if (shiftUpper.includes('E')) {
+                          shiftFull = 'ក្រៅម៉ោង';
+                        } else if (shiftUpper.includes('FA') || shiftUpper.includes('FM') || shiftUpper.includes('F')) {
+                          shiftFull = 'ពេញម៉ោង';
+                        } else if (shiftUpper) {
+                          shiftFull = studentShift;
+                        }
+
+                        const rawGender = student?.gender || s.gender || '';
+                        let engGender = '';
+                        if (rawGender === 'ប្រុស' || rawGender.toLowerCase() === 'male' || rawGender.toLowerCase() === 'm') {
+                          engGender = 'M';
+                        } else if (rawGender === 'ស្រី' || rawGender.toLowerCase() === 'female' || rawGender.toLowerCase() === 'f') {
+                          engGender = 'F';
+                        } else {
+                          engGender = rawGender;
+                        }
+
+                        let bookName = '';
+                        if (c.books && Array.isArray(c.books)) {
+                          bookName = c.books
+                            .map((b: any) => typeof b === 'string' ? b : (b.name || b.title || ''))
+                            .filter(Boolean)
+                            .join(', ');
+                        } else if (typeof c.books === 'string') {
+                          bookName = c.books;
+                        } else if (c.book) {
+                          bookName = typeof c.book === 'string' ? c.book : (c.book.name || '');
+                        }
+                        if (!bookName && c.className) {
+                          bookName = c.className;
+                        }
+
+                        const englishName = student?.englishName || '';
+                        const engTeacherName = teacher?.englishName || c.teacherName || '';
 
                         return {
                           ...s,
+                          shift: studentShift,
+                          shiftFull,
+                          bookName,
+                          englishName,
+                          engGender,
+                          engRemarks: (s.totalScore === '' || s.totalScore == null) ? '' : engRemarks,
+                          engTeacherName,
                           average: (s.totalScore === '' || s.totalScore == null) ? '' : avg.toFixed(2),
                           grade: (s.totalScore === '' || s.totalScore == null) ? '' : grade,
                           remarks: (s.totalScore === '' || s.totalScore == null) ? '' : remarks,

@@ -60,7 +60,14 @@ export async function POST(req: Request) {
       'និទ្ទេស',
       'មូលវិចារណ៍',
       'លេខកូដថ្នាក់',
-      'គ្រូបង្រៀន'
+      'គ្រូបង្រៀន',
+      'វេន',
+      'វេនFull',
+      'ឈ្មោះសៀវភៅ',
+      'English Name',
+      'Eng_Gender',
+      'Eng មូលវិចារណ៍',
+      'Eng_Teacher Name'
     ]);
 
     let globalIndex = 1;
@@ -88,7 +95,14 @@ export async function POST(req: Request) {
             s.grade || '',
             s.remarks || '',
             className,
-            teacherName
+            teacherName,
+            s.shift || '',
+            s.shiftFull || '',
+            s.bookName || '',
+            s.englishName || '',
+            s.engGender || '',
+            s.engRemarks || '',
+            s.engTeacherName || ''
           ]);
         });
       }
@@ -104,7 +118,7 @@ export async function POST(req: Request) {
     try {
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
-        range: "'All Sheets'!A:P",
+        range: "'All Sheets'!A:W",
       });
     } catch(e) {
       // Ignore if sheet is empty or error
@@ -113,7 +127,7 @@ export async function POST(req: Request) {
     // Write new data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "'All Sheets'!A1:P",
+      range: "'All Sheets'!A1:W",
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values
@@ -132,7 +146,7 @@ export async function POST(req: Request) {
                   sheetId: targetSheetId,
                   dimension: 'COLUMNS',
                   startIndex: 0,
-                  endIndex: 16
+                  endIndex: 23
                 }
               }
             },
