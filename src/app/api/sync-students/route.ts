@@ -130,12 +130,12 @@ export async function POST(req: Request) {
       uniqueSheets.add(sheet.info.title);
 
       try {
-        await sheets.spreadsheets.values.clear({ spreadsheetId, range: \`'${sheet.info.title}'!${sheet.cols}\` });
+        await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${sheet.info.title}'!${sheet.cols}` });
       } catch(e) {}
       
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: \`'${sheet.info.title}'!A1:${sheet.endCol}\`,
+        range: `'${sheet.info.title}'!A1:${sheet.endCol}`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: sheet.values }
       });
@@ -181,7 +181,7 @@ export async function POST(req: Request) {
       });
     } catch(e) {}
 
-    return NextResponse.json({ success: true, url: \`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit\` });
+    return NextResponse.json({ success: true, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
   } catch (error: any) {
     console.error('Google Sheets Sync Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
