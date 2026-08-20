@@ -753,7 +753,7 @@ export default function StudentsPage() {
                 onClick={async () => {
                   if (isSyncingSheets) return;
                   
-                  const dataToSync = augmentedStudents;
+                  const dataToSync = filteredAndSortedStudents;
                   
                   if (dataToSync.length === 0) {
                     alert('មិនមានទិន្នន័យសិស្សសម្រាប់ Sync ទេ!');
@@ -764,6 +764,13 @@ export default function StudentsPage() {
                   if (!sheetUrl) {
                     alert('សូមជួយចូលទៅកាន់ប៉ូតុង "ការកំណត់" (Settings) នៅខាងលើ ដើម្បីបញ្ចូល Link ឯកសារ Google Sheets របស់អ្នកជាមុនសិន!');
                     return;
+                  }
+
+                  // Auto-save to database if not yet saved correctly
+                  try {
+                    await settingsService.add({ googleSheetUrl: sheetUrl, id: 'studentSettings' }, 'studentSettings');
+                  } catch (e) {
+                    console.warn('Failed to auto-save sheet URL to DB:', e);
                   }
 
                   let spreadsheetId = '';
@@ -1436,7 +1443,7 @@ export default function StudentsPage() {
                 className="btn btn-primary"
                 onClick={async () => {
                   try {
-                    await settingsService.update('studentSettings', { ...syncSettings, id: 'studentSettings' });
+                    await settingsService.add({ ...syncSettings, id: 'studentSettings' }, 'studentSettings');
                     localStorage.setItem('studentGoogleSheetUrl', syncSettings.googleSheetUrl);
                     setIsSyncSettingsModalOpen(false);
                   } catch(e) {
