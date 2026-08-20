@@ -21,6 +21,9 @@ export default function StudentsPage() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   // Inline Editing & Column Visibility
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false);
+  const [isSyncSettingsModalOpen, setIsSyncSettingsModalOpen] = useState(false);
+  const [syncSettings, setSyncSettings] = useState<any>({ googleSheetUrl: '' });
   const AVAILABLE_COLUMNS = [
     { id: 'photo', label: 'រូបថត' },
     { id: 'photoLink', label: 'តំណភ្ជាប់រូបថត' },
@@ -218,8 +221,15 @@ export default function StudentsPage() {
       }
     });
 
+    const unsubSyncSettings = settingsService.subscribeOne('studentSettings', (data) => {
+      if (data) {
+        setSyncSettings(data);
+      }
+    });
+
     return () => {
       unsubSettings();
+      unsubSyncSettings();
     };
   }, [router]);
 
@@ -735,6 +745,87 @@ export default function StudentsPage() {
               </div>
             )}
           </div>
+
+          {/* Sync Actions */}
+          {role === 'admin' && (
+            <>
+              <button 
+                onClick={async () => {
+                  if (isSyncingSheets) return;
+                  
+                  const dataToSync = augmentedStudents;
+                  
+                  if (dataToSync.length === 0) {
+                    alert('មិនមានទិន្នន័យសិស្សសម្រាប់ Sync ទេ!');
+                    return;
+                  }
+
+                  let sheetUrl = syncSettings.googleSheetUrl || localStorage.getItem('studentGoogleSheetUrl');
+                  if (!sheetUrl) {
+                    alert('សូមជួយចូលទៅកាន់ប៉ូតុង "ការកំណត់" (Settings) នៅខាងលើ ដើម្បីបញ្ចូល Link ឯកសារ Google Sheets របស់អ្នកជាមុនសិន!');
+                    return;
+                  }
+
+                  let spreadsheetId = '';
+                  try {
+                    const match = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                    if (match && match[1]) {
+                      spreadsheetId = match[1];
+                    } else if (sheetUrl.length > 20 && !sheetUrl.includes('/')) {
+                      spreadsheetId = sheetUrl;
+                    } else {
+                      throw new Error();
+                    }
+                  } catch (e) {
+                    alert('Link ឯកសារ Google Sheets មិនត្រឹមត្រូវទេ។ សូមពិនិត្យមើលម្តងទៀត!');
+                    return;
+                  }
+
+                  setIsSyncingSheets(true);
+                  try {
+                    const res = await fetch('/api/sync-students', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        spreadsheetId,
+                        studentsData: dataToSync
+                      })
+                    });
+
+                    const result = await res.json();
+                    if (res.ok) {
+                      alert('Sync ទិន្នន័យសិស្សទៅកាន់ Google Sheets រួចរាល់!');
+                    } else {
+                      alert(`បរាជ័យ: ${result.error}`);
+                    }
+                  } catch (e: any) {
+                    alert(`មានបញ្ហា: ${e.message}`);
+                  } finally {
+                    setIsSyncingSheets(false);
+                  }
+                }}
+                className="btn btn-outline"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.45rem 0.75rem', borderColor: '#10b981', color: '#10b981', whiteSpace: 'nowrap' }}
+                title="Sync ទៅកាន់ Google Sheet"
+              >
+                {isSyncingSheets ? (
+                  <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', borderColor: '#10b981', borderTopColor: 'transparent' }}></span>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path><path d="m16 4 3 3-3 3"></path><path d="M19 7H9"></path></svg>
+                )}
+                {isSyncingSheets ? 'កំពុង...' : 'Sync'}
+              </button>
+
+              <button 
+                onClick={() => setIsSyncSettingsModalOpen(true)}
+                className="btn btn-outline"
+                style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="ការកំណត់ Google Sheet"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              </button>
+            </>
+          )}
 
           {/* Action SVGs (Stop using Emojis) */}
           <button onClick={handleOpenAddStudent} className="btn btn-primary" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="បន្ថែមសិស្ស">
@@ -1292,6 +1383,60 @@ export default function StudentsPage() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
               <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsStudentModalOpen(false)}>បោះបង់</button>
               <button className="btn btn-primary" onClick={handleSaveStudent} style={{ padding: '0.75rem 2rem' }}>រក្សាទុក</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSyncSettingsModalOpen && (
+        <div className="modal-overlay animate-fade-in" onClick={() => setIsSyncSettingsModalOpen(false)}>
+          <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>ការកំណត់ Google Sheets (សិស្ស)</h2>
+              <button className="btn" onClick={() => setIsSyncSettingsModalOpen(false)} style={{ padding: '0.5rem', background: 'transparent' }}>✕</button>
+            </div>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Google Sheet Link ឬ Spreadsheet ID
+              </label>
+              <input 
+                type="text" 
+                className="input-field" 
+                value={syncSettings.googleSheetUrl}
+                onChange={e => setSyncSettings({...syncSettings, googleSheetUrl: e.target.value})}
+                placeholder="https://docs.google.com/spreadsheets/d/1xxxx/edit"
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+              />
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem', lineHeight: 1.5 }}>
+                បញ្ចូលតំណភ្ជាប់ (Link) ទៅកាន់ឯកសារ Google Sheets របស់អ្នក។<br/>
+                <b>ចំណាំ:</b> កុំភ្លេច Share ឯកសារទៅកាន់ Email នេះ: <br/>
+                <code style={{ background: 'var(--main-bg)', padding: '2px 5px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>bsis-936@high-magpie-503702-t0.iam.gserviceaccount.com</code> និងកំណត់សិទ្ធិជា <b>Editor</b>!
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+              <button 
+                className="btn" 
+                onClick={() => setIsSyncSettingsModalOpen(false)}
+                style={{ background: 'var(--main-bg)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              >
+                បិទ
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    await settingsService.update('studentSettings', { ...syncSettings, id: 'studentSettings' });
+                    localStorage.setItem('studentGoogleSheetUrl', syncSettings.googleSheetUrl);
+                    setIsSyncSettingsModalOpen(false);
+                  } catch(e) {
+                    alert('មានបញ្ហាក្នុងការរក្សាទុក!');
+                  }
+                }}
+              >
+                រក្សាទុក
+              </button>
             </div>
           </div>
         </div>
