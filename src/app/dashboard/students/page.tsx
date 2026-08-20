@@ -1390,8 +1390,16 @@ export default function StudentsPage() {
       )}
 
       {isSyncSettingsModalOpen && (
-        <div className="modal-overlay animate-fade-in" onClick={() => setIsSyncSettingsModalOpen(false)}>
-          <div className="modal-content animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
+        <div 
+          className="animate-fade-in" 
+          onClick={() => setIsSyncSettingsModalOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <div 
+            className="glass-panel animate-slide-up post-read-modal" 
+            onClick={e => e.stopPropagation()} 
+            style={{ maxWidth: '600px', width: '90%', background: 'var(--modal-bg)', padding: '2rem', borderRadius: '12px' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>ការកំណត់ Google Sheets (សិស្ស)</h2>
               <button className="btn" onClick={() => setIsSyncSettingsModalOpen(false)} style={{ padding: '0.5rem', background: 'transparent' }}>✕</button>
