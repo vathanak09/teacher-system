@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { messageService, studentService, classService, taskService, postService, teacherService } from '@/services/db';
@@ -411,7 +412,7 @@ export default function MessagesPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទអនុវត្ត</label>
-                <input type="date" value={taskDurationValueField} onChange={e => setTaskDurationValueField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <CustomDatePicker selected={taskDurationValueField} onChange={(date) => setTaskDurationValueField(date)}      required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}  />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>

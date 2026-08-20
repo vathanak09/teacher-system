@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { useRouter } from 'next/navigation';
 import { studentService, paymentService, classService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
@@ -347,7 +348,7 @@ export default function PaymentsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>កាលបរិច្ឆេទបង់</label>
-                      <input type="date" className="input-field" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} />
+                      <CustomDatePicker selected={paymentDate} onChange={(date) => setPaymentDate(date)}  className="input-field"      />
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>រយៈពេលបង់</label>

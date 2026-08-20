@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { useRouter } from 'next/navigation';
 import { settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
@@ -409,11 +410,11 @@ export default function TeachersPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃខែឆ្នាំកំណើត</label>
-                  <input type="date" value={dobField} onChange={e => setDobField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  <CustomDatePicker selected={dobField} onChange={(date) => setDobField(date)}      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលធ្វើការ</label>
-                  <input type="date" value={joinDateField} onChange={e => setJoinDateField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                  <CustomDatePicker selected={joinDateField} onChange={(date) => setJoinDateField(date)}      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>អាសយដ្ឋាន</label>

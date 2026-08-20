@@ -2,6 +2,7 @@
 import { convertDriveImageLink } from '../../../utils/driveLink';
 
 import { useEffect, useState, useRef } from 'react';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { settingsService, studentService, classService, paymentService } from '@/services/db';
@@ -1280,7 +1281,7 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
-                  <input type="text" placeholder="ឧ. 2024-06-27" className="input-field" value={studentEnrollDateField} onChange={e => setStudentEnrollDateField(e.target.value)} />
+                  <CustomDatePicker selected={studentEnrollDateField} onChange={(date) => setStudentEnrollDateField(date)} className="input-field" />
                 </div>
 
                 <div>
@@ -1316,7 +1317,7 @@ export default function StudentsPage() {
               <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្ងៃខែឆ្នាំកំណើត (DOB)</label>
-                  <input type="text" className="input-field" value={studentDobField} onChange={e => setStudentDobField(e.target.value)} placeholder="ឧ. 27-06-2012" />
+                  <CustomDatePicker selected={studentDobField} onChange={(date) => setStudentDobField(date)} className="input-field" />
                 </div>
 
                 <div>

@@ -3,6 +3,7 @@ import { convertDriveImageLink } from '../../../utils/driveLink';
 import ImageUploadBox from '@/components/ImageUploadBox';
 
 import { useState, useEffect, useRef } from 'react';
+import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService } from '@/services/db';
@@ -1189,7 +1190,7 @@ export default function ClassesPage() {
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទ</label>
-                <input type="date" value={recordDateField} onChange={e => setRecordDateField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <CustomDatePicker selected={recordDateField} onChange={(date) => setRecordDateField(date)}      required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}  />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សៀវភៅ / កម្រិតសិក្សា</label>
@@ -1316,7 +1317,7 @@ export default function ClassesPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>កាលបរិច្ឆេទអនុវត្ត</label>
-                <input type="date" value={taskDurationValueField} onChange={e => setTaskDurationValueField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
+                <CustomDatePicker selected={taskDurationValueField} onChange={(date) => setTaskDurationValueField(date)}      required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}  />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

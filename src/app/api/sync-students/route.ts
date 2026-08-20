@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា',
       'ថ្ងៃបង់បន្ទាប់', 'ស្ថានភាពបង់ប្រាក់', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
-      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ'
+      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
 
     const generateStudentRow = (s: any, index: number) => {
@@ -82,7 +82,8 @@ export async function POST(req: Request) {
         s.contact || '',
         s.father || '',
         s.mother || '',
-        s.phoneNum || ''
+        s.phoneNum || '',
+        s.photo || ''
       ];
     };
 
@@ -118,9 +119,9 @@ export async function POST(req: Request) {
 
     // Write to sheets
     const sheetsToUpdate = [
-      { info: studentSheetInfo, values: studentValues, cols: 'A:V', endCol: 'V' },
-      { info: dueSheetInfo, values: dueValues, cols: 'A:V', endCol: 'V' },
-      { info: paidSheetInfo, values: paidValues, cols: 'A:V', endCol: 'V' }
+      { info: studentSheetInfo, values: studentValues, cols: 'A:W', endCol: 'W' },
+      { info: dueSheetInfo, values: dueValues, cols: 'A:W', endCol: 'W' },
+      { info: paidSheetInfo, values: paidValues, cols: 'A:W', endCol: 'W' }
     ];
 
     const uniqueSheets = new Set();
