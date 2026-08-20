@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const { spreadsheetId, studentsData } = data;
+    const { spreadsheetId, studentsData, paymentsData } = data;
 
     if (!process.env.GOOGLE_CREDENTIALS_JSON) {
       return NextResponse.json({ error: 'Missing Google credentials in environment variables.' }, { status: 500 });
@@ -24,43 +24,36 @@ export async function POST(req: Request) {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
+    const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
+    const existingSheets = spreadsheetInfo.data.sheets || [];
 
-    // Ensure the spreadsheet exists and we can access it
-    let targetSheetId = 0;
-    try {
-      const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
-      const sheetData = spreadsheetInfo.data.sheets?.find(s => s.properties?.title === 'Students' || s.properties?.title === 'សិស្ស');
-      if (sheetData && sheetData.properties?.sheetId !== undefined && sheetData.properties?.sheetId !== null) {
-        targetSheetId = sheetData.properties.sheetId || 0;
-      } else {
-        // Fallback to first sheet if "Students" or "សិស្ស" is not found
-        const firstSheet = spreadsheetInfo.data.sheets?.[0];
-        if (firstSheet && firstSheet.properties?.sheetId !== undefined) {
-           targetSheetId = firstSheet.properties.sheetId || 0;
-        }
+    // Helper to find or create sheet
+    async function getOrCreateSheet(title: string, fallbackTitles: string[]) {
+      let sheet = existingSheets.find(s => s.properties?.title === title || (s.properties?.title && fallbackTitles.includes(s.properties.title)));
+      if (sheet) {
+        return { sheetId: sheet.properties?.sheetId || 0, title: sheet.properties?.title || title };
       }
-    } catch (e: any) {
-      if (e.code === 403 || e.status === 403) {
-        return NextResponse.json({ error: 'Permission Denied! Please share your Google Sheet with: bsis-936@high-magpie-503702-t0.iam.gserviceaccount.com (Set as Editor)' }, { status: 403 });
+      
+      // Try to create it
+      try {
+        const response = await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title } } }]
+          }
+        });
+        const newSheetId = response.data.replies?.[0].addSheet?.properties?.sheetId || 0;
+        return { sheetId: newSheetId, title };
+      } catch (e) {
+        // Fallback to first sheet
+        return { sheetId: existingSheets[0]?.properties?.sheetId || 0, title: existingSheets[0]?.properties?.title || 'Sheet1' };
       }
-      return NextResponse.json({ error: 'Could not find the Google Sheet. Please check the Link or ID.' }, { status: 400 });
     }
 
-    // Determine target tab name based on what we matched
-    let targetTabName = 'Students';
-    try {
-       const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
-       const matchedSheet = spreadsheetInfo.data.sheets?.find(s => s.properties?.sheetId === targetSheetId);
-       if (matchedSheet && matchedSheet.properties?.title) {
-           targetTabName = matchedSheet.properties.title;
-       }
-    } catch(e) {}
-
-    // Prepare data
-    const values: any[][] = [];
-    
-    // Header Row
-    values.push([
+    // 1. Process Students Tab
+    const studentSheetInfo = await getOrCreateSheet('សិស្ស', ['Students', 'បញ្ជីសិស្ស', 'ទិន្នន័យសិស្ស']);
+    const studentValues: any[][] = [];
+    studentValues.push([
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
       'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា',
       'ថ្ងៃបង់បន្ទាប់', 'ស្ថានភាពបង់ប្រាក់', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
@@ -68,11 +61,10 @@ export async function POST(req: Request) {
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ'
     ]);
 
-    let globalIndex = 1;
-
-    for (const s of studentsData) {
-      values.push([
-        globalIndex++,
+    let studentIndex = 1;
+    for (const s of studentsData || []) {
+      studentValues.push([
+        studentIndex++,
         s.studentId || '',
         s.fullName || '',
         s.englishName || '',
@@ -97,49 +89,62 @@ export async function POST(req: Request) {
       ]);
     }
 
-    // Clear existing data in target tab first
-    try {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId,
-        range: `'${targetTabName}'!A:V`,
-      });
-    } catch(e) {
-      // Ignore if sheet is empty or error
+    // 2. Process Payments Tab
+    const paymentSheetInfo = await getOrCreateSheet('ការបង់ប្រាក់', ['Payments', 'បង់ប្រាក់']);
+    const paymentValues: any[][] = [];
+    paymentValues.push([
+      'ល.រ', 'អត្តលេខសិស្ស', 'ឈ្មោះសិស្ស', 'ថ្ងៃបង់ប្រាក់', 'ចំនួនទឹកប្រាក់', 'ប្រភេទ', 'អ្នកទទួល', 'ចំណាំ'
+    ]);
+
+    let paymentIndex = 1;
+    for (const p of paymentsData || []) {
+      const student = (studentsData || []).find((s:any) => s.id === p.studentId);
+      paymentValues.push([
+        paymentIndex++,
+        student?.studentId || '',
+        student?.fullName || '',
+        p.paymentDate || '',
+        p.amount || '',
+        p.type || '',
+        p.receiver || '',
+        p.note || ''
+      ]);
     }
 
-    // Write new data
+    // Write to sheets
+    try {
+      await sheets.spreadsheets.values.clear({ spreadsheetId, range: \'\'!A:V\ });
+    } catch(e) {}
+    
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${targetTabName}'!A1:V`,
+      range: \'\'!A1:V\,
       valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values
-      }
+      requestBody: { values: studentValues }
     });
 
-    // Format the header row
+    if (studentSheetInfo.title !== paymentSheetInfo.title) {
+      try {
+        await sheets.spreadsheets.values.clear({ spreadsheetId, range: \'\'!A:H\ });
+      } catch(e) {}
+      
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: \'\'!A1:H\,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: paymentValues }
+      });
+    }
+
+    // Format headers
     try {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: {
           requests: [
             {
-              autoResizeDimensions: {
-                dimensions: {
-                  sheetId: targetSheetId,
-                  dimension: 'COLUMNS',
-                  startIndex: 0,
-                  endIndex: 22
-                }
-              }
-            },
-            {
               repeatCell: {
-                range: {
-                  sheetId: targetSheetId,
-                  startRowIndex: 0,
-                  endRowIndex: 1,
-                },
+                range: { sheetId: studentSheetInfo.sheetId, startRowIndex: 0, endRowIndex: 1 },
                 cell: {
                   userEnteredFormat: {
                     backgroundColor: { red: 0.1, green: 0.5, blue: 0.3 },
@@ -149,15 +154,26 @@ export async function POST(req: Request) {
                 },
                 fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
               }
-            }
+            },
+            ...(studentSheetInfo.title !== paymentSheetInfo.title ? [{
+              repeatCell: {
+                range: { sheetId: paymentSheetInfo.sheetId, startRowIndex: 0, endRowIndex: 1 },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 0.8, green: 0.4, blue: 0.1 },
+                    textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+                    horizontalAlignment: 'CENTER'
+                  }
+                },
+                fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+              }
+            }] : [])
           ]
         }
       });
-    } catch(e) {
-      // Ignore formatting errors if they occur
-    }
+    } catch(e) {}
 
-    return NextResponse.json({ success: true, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
+    return NextResponse.json({ success: true, url: \https://docs.google.com/spreadsheets/d/\/edit\ });
   } catch (error: any) {
     console.error('Google Sheets Sync Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

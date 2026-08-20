@@ -788,7 +788,8 @@ export default function StudentsPage() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         spreadsheetId,
-                        studentsData: dataToSync
+                        studentsData: dataToSync,
+                        paymentsData: payments
                       })
                     });
 
@@ -1403,7 +1404,7 @@ export default function StudentsPage() {
               <input 
                 type="text" 
                 className="input-field" 
-                value={syncSettings.googleSheetUrl}
+                value={syncSettings?.googleSheetUrl || ''}
                 onChange={e => setSyncSettings({...syncSettings, googleSheetUrl: e.target.value})}
                 placeholder="https://docs.google.com/spreadsheets/d/1xxxx/edit"
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
