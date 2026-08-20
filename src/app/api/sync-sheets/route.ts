@@ -83,10 +83,10 @@ export async function POST(req: Request) {
             s.homework || '',
             s.test || '',
             s.totalScore || '',
-            s.dynAverage || '',
-            s.dynGrade || '',
-            s.dynRank || '',
-            s.dynRemarks || '',
+            s.average || '',
+            s.grade || '',
+            s.rank || '',
+            s.remarks || '',
             className,
             teacherName
           ]);

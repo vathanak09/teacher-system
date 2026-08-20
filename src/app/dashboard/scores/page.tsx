@@ -664,9 +664,76 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     
                     const data = filteredDisplayClasses.map(c => {
                       const classScores = allScores.filter((sc: any) => sc.classId === c.id && sc.month === selectedMonth);
+                      
+                      let maxTotalScore = 0;
+                      if (settings.coefficientType !== 'custom') {
+                        const validTotals = classScores.map((s:any) => parseFloat(s.totalScore)).filter(n => !isNaN(n));
+                        maxTotalScore = validTotals.length > 0 ? Math.max(...validTotals) : 0;
+                        if (maxTotalScore <= 0 || !isFinite(maxTotalScore)) maxTotalScore = 50;
+                      }
+                      
+                      let currentCoeff = 1;
+                      if (settings.coefficientType === 'custom') {
+                        currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
+                      } else {
+                        currentCoeff = (maxTotalScore + 5) / 50;
+                      }
+                      if (currentCoeff <= 0) currentCoeff = 1;
+
+                      const mappedClassScores = classScores.map((s:any) => {
+                        const total = parseFloat(s.totalScore) || 0;
+                        let avg = total / currentCoeff;
+                        
+                        const avgPercentage = (avg / 50) * 100;
+                        let grade = 'F';
+                        if (avgPercentage >= (settings.gradeA || 90)) grade = 'A';
+                        else if (avgPercentage >= (settings.gradeB || 80)) grade = 'B';
+                        else if (avgPercentage >= (settings.gradeC || 70)) grade = 'C';
+                        else if (avgPercentage >= (settings.gradeD || 60)) grade = 'D';
+                        else if (avgPercentage >= (settings.gradeE || 50)) grade = 'E';
+                        
+                        let remarks = '';
+                        switch(grade) {
+                          case 'A': remarks = 'ល្អប្រសើរ'; break;
+                          case 'B': remarks = 'ល្អ'; break;
+                          case 'C': remarks = 'ល្អបង្គួរ'; break;
+                          case 'D': remarks = 'មធ្យម'; break;
+                          case 'E': remarks = 'មធ្យម'; break;
+                          case 'F': remarks = 'ខ្សោយ'; break;
+                        }
+
+                        return {
+                          ...s,
+                          average: (s.totalScore === '' || s.totalScore == null) ? '' : avg.toFixed(2),
+                          grade: (s.totalScore === '' || s.totalScore == null) ? '' : grade,
+                          remarks: (s.totalScore === '' || s.totalScore == null) ? '' : remarks,
+                          avgNum: (s.totalScore === '' || s.totalScore == null) ? -1 : avg
+                        };
+                      });
+
+                      const scored = [...mappedClassScores].filter((s:any) => s.avgNum !== -1);
+                      scored.sort((a, b) => b.avgNum - a.avgNum);
+                      
+                      let currentRank = 1;
+                      let currentAvg = -1;
+                      const ranks: Record<string, number> = {};
+                      for (let i = 0; i < scored.length; i++) {
+                        const s = scored[i];
+                        if (s.avgNum !== currentAvg) {
+                          currentRank = i + 1;
+                          currentAvg = s.avgNum;
+                        }
+                        ranks[s.id] = currentRank;
+                      }
+
+                      const finalScores = mappedClassScores.map((s:any) => ({
+                        ...s,
+                        rank: ranks[s.id] !== undefined ? ranks[s.id].toString() : ''
+                      }));
+
                       return {
                         classInfo: c,
-                        scores: classScores,
+                        scores: finalScores,
                       };
                     });
                     
