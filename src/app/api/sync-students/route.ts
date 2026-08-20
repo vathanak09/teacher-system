@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const { spreadsheetId, studentsData, paymentsData } = data;
+    const { spreadsheetId, studentsData } = data;
 
     if (!process.env.GOOGLE_CREDENTIALS_JSON) {
       return NextResponse.json({ error: 'Missing Google credentials in environment variables.' }, { status: 500 });
@@ -50,21 +50,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // 1. Process Students Tab
-    const studentSheetInfo = await getOrCreateSheet('សិស្ស', ['Students', 'បញ្ជីសិស្ស', 'ទិន្នន័យសិស្ស']);
-    const studentValues: any[][] = [];
-    studentValues.push([
+    const studentHeaders = [
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
       'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា',
       'ថ្ងៃបង់បន្ទាប់', 'ស្ថានភាពបង់ប្រាក់', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ'
-    ]);
+    ];
 
-    let studentIndex = 1;
-    for (const s of studentsData || []) {
-      studentValues.push([
-        studentIndex++,
+    const generateStudentRow = (s: any, index: number) => {
+      const paymentStatus = s.statusInfo?.label || s.paymentStatus || '';
+      return [
+        index,
         s.studentId || '',
         s.fullName || '',
         s.englishName || '',
@@ -75,7 +72,7 @@ export async function POST(req: Request) {
         s.enrollDate || '',
         s.fee || '',
         s.nextPaymentDate || '',
-        s.paymentStatus || '',
+        paymentStatus,
         s.status || '',
         s.teacherName || '',
         s.dob || '',
@@ -86,94 +83,105 @@ export async function POST(req: Request) {
         s.father || '',
         s.mother || '',
         s.phoneNum || ''
-      ]);
+      ];
+    };
+
+    // 1. Process Students Tab (All Students)
+    const studentSheetInfo = await getOrCreateSheet('សិស្ស', ['Students', 'បញ្ជីសិស្ស']);
+    const studentValues: any[][] = [studentHeaders];
+    let studentIndex = 1;
+    for (const s of studentsData || []) {
+      studentValues.push(generateStudentRow(s, studentIndex++));
     }
 
-    // 2. Process Payments Tab
-    const paymentSheetInfo = await getOrCreateSheet('ការបង់ប្រាក់', ['Payments', 'បង់ប្រាក់']);
-    const paymentValues: any[][] = [];
-    paymentValues.push([
-      'ល.រ', 'អត្តលេខសិស្ស', 'ឈ្មោះសិស្ស', 'ថ្ងៃបង់ប្រាក់', 'ចំនួនទឹកប្រាក់', 'ប្រភេទ', 'អ្នកទទួល', 'ចំណាំ'
-    ]);
+    // 2. Process Due Students Tab (ដល់ថ្ងៃបង់ប្រាក់)
+    const dueSheetInfo = await getOrCreateSheet('ដល់ថ្ងៃបង់ប្រាក់', ['Due', 'ជំពាក់', 'ដល់ថ្ងៃបង់']);
+    const dueValues: any[][] = [studentHeaders];
+    let dueIndex = 1;
+    for (const s of studentsData || []) {
+      const pStatus = s.statusInfo?.label || '';
+      if (pStatus !== 'បានបង់') {
+        dueValues.push(generateStudentRow(s, dueIndex++));
+      }
+    }
 
-    let paymentIndex = 1;
-    for (const p of paymentsData || []) {
-      const student = (studentsData || []).find((s:any) => s.id === p.studentId);
-      paymentValues.push([
-        paymentIndex++,
-        student?.studentId || '',
-        student?.fullName || '',
-        p.paymentDate || '',
-        p.amount || '',
-        p.type || '',
-        p.receiver || '',
-        p.note || ''
-      ]);
+    // 3. Process Paid Students Tab (បង់ប្រាក់រួច)
+    const paidSheetInfo = await getOrCreateSheet('បង់ប្រាក់រួច', ['Paid', 'បានបង់']);
+    const paidValues: any[][] = [studentHeaders];
+    let paidIndex = 1;
+    for (const s of studentsData || []) {
+      const pStatus = s.statusInfo?.label || '';
+      if (pStatus === 'បានបង់') {
+        paidValues.push(generateStudentRow(s, paidIndex++));
+      }
     }
 
     // Write to sheets
-    try {
-      await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${studentSheetInfo.title}'!A:V` });
-    } catch(e) {}
-    
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `'${studentSheetInfo.title}'!A1:V`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: studentValues }
-    });
+    const sheetsToUpdate = [
+      { info: studentSheetInfo, values: studentValues, cols: 'A:V', endCol: 'V' },
+      { info: dueSheetInfo, values: dueValues, cols: 'A:V', endCol: 'V' },
+      { info: paidSheetInfo, values: paidValues, cols: 'A:V', endCol: 'V' }
+    ];
 
-    if (studentSheetInfo.title !== paymentSheetInfo.title) {
+    const uniqueSheets = new Set();
+    
+    for (const sheet of sheetsToUpdate) {
+      if (uniqueSheets.has(sheet.info.title)) continue;
+      uniqueSheets.add(sheet.info.title);
+
       try {
-        await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${paymentSheetInfo.title}'!A:H` });
+        await sheets.spreadsheets.values.clear({ spreadsheetId, range: \`'${sheet.info.title}'!${sheet.cols}\` });
       } catch(e) {}
       
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${paymentSheetInfo.title}'!A1:H`,
+        range: \`'${sheet.info.title}'!A1:${sheet.endCol}\`,
         valueInputOption: 'USER_ENTERED',
-        requestBody: { values: paymentValues }
+        requestBody: { values: sheet.values }
       });
     }
 
     // Format headers
+    const formatRequests = [];
+    uniqueSheets.clear();
+
+    const colors = [
+      { red: 0.1, green: 0.5, blue: 0.3 }, // Greenish for students
+      { red: 0.8, green: 0.2, blue: 0.2 }, // Reddish for due
+      { red: 0.1, green: 0.4, blue: 0.8 }  // Blueish for paid
+    ];
+
+    let colorIdx = 0;
+    for (const sheet of sheetsToUpdate) {
+      if (uniqueSheets.has(sheet.info.title)) continue;
+      uniqueSheets.add(sheet.info.title);
+
+      formatRequests.push({
+        repeatCell: {
+          range: { sheetId: sheet.info.sheetId, startRowIndex: 0, endRowIndex: 1 },
+          cell: {
+            userEnteredFormat: {
+              backgroundColor: colors[colorIdx % 3],
+              textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+              horizontalAlignment: 'CENTER'
+            }
+          },
+          fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
+        }
+      });
+      colorIdx++;
+    }
+
     try {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: {
-          requests: [
-            {
-              repeatCell: {
-                range: { sheetId: studentSheetInfo.sheetId, startRowIndex: 0, endRowIndex: 1 },
-                cell: {
-                  userEnteredFormat: {
-                    backgroundColor: { red: 0.1, green: 0.5, blue: 0.3 },
-                    textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                    horizontalAlignment: 'CENTER'
-                  }
-                },
-                fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
-              }
-            },
-            ...(studentSheetInfo.title !== paymentSheetInfo.title ? [{
-              repeatCell: {
-                range: { sheetId: paymentSheetInfo.sheetId, startRowIndex: 0, endRowIndex: 1 },
-                cell: {
-                  userEnteredFormat: {
-                    backgroundColor: { red: 0.8, green: 0.4, blue: 0.1 },
-                    textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                    horizontalAlignment: 'CENTER'
-                  }
-                },
-                fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'
-              }
-            }] : [])
-          ]
+          requests: formatRequests
         }
       });
     } catch(e) {}
 
-    return NextResponse.json({ success: true, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
+    return NextResponse.json({ success: true, url: \`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit\` });
   } catch (error: any) {
     console.error('Google Sheets Sync Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
