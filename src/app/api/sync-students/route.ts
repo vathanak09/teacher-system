@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 
 export async function POST(req: Request) {
@@ -113,24 +113,24 @@ export async function POST(req: Request) {
 
     // Write to sheets
     try {
-      await sheets.spreadsheets.values.clear({ spreadsheetId, range: \'\'!A:V\ });
+      await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${studentSheetInfo.title}'!A:V` });
     } catch(e) {}
     
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: \'\'!A1:V\,
+      range: `'${studentSheetInfo.title}'!A1:V`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: studentValues }
     });
 
     if (studentSheetInfo.title !== paymentSheetInfo.title) {
       try {
-        await sheets.spreadsheets.values.clear({ spreadsheetId, range: \'\'!A:H\ });
+        await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${paymentSheetInfo.title}'!A:H` });
       } catch(e) {}
       
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: \'\'!A1:H\,
+        range: `'${paymentSheetInfo.title}'!A1:H`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: paymentValues }
       });
@@ -173,7 +173,7 @@ export async function POST(req: Request) {
       });
     } catch(e) {}
 
-    return NextResponse.json({ success: true, url: \https://docs.google.com/spreadsheets/d/\/edit\ });
+    return NextResponse.json({ success: true, url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });
   } catch (error: any) {
     console.error('Google Sheets Sync Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
