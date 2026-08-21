@@ -706,8 +706,44 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                           case 'F': remarks = 'ខ្សោយ'; engRemarks = 'Poor'; break;
                         }
 
-                        const student = allStudents.find((st: any) => st.id === s.studentId || (st.studentId && st.studentId === s.studentIdCode) || st.fullName === s.fullName);
-                        const teacher = allTeachers.find((t: any) => t.id === c.teacherId || t.teacherId === c.teacherId || t.fullName === c.teacherName);
+                        // Helper to normalize strings for strict comparison
+                        const cleanStr = (val: any) => (val || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+
+                        const scoreCode = cleanStr(s.studentIdCode);
+                        const scoreDocId = cleanStr(s.studentId);
+
+                        // Strict ID Lookup (VLOOKUP by ID):
+                        let student: any = null;
+
+                        // 1. Match by Student ID Code (e.g. BS0673)
+                        if (scoreCode) {
+                          student = allStudents.find((st: any) => cleanStr(st.studentId) === scoreCode || cleanStr(st.id) === scoreCode);
+                        }
+
+                        // 2. If not found, match by Firebase Document ID
+                        if (!student && scoreDocId) {
+                          student = allStudents.find((st: any) => cleanStr(st.id) === scoreDocId || cleanStr(st.studentId) === scoreDocId);
+                        }
+
+                        // 3. ONLY if neither ID is provided, fall back to class student list + Name match
+                        if (!student && !scoreCode && !scoreDocId && s.fullName) {
+                          const classStudentIds = c.studentIds || (c.studentsData ? c.studentsData.map((ms: any) => ms.id) : []) || [];
+                          student = allStudents.find((st: any) => classStudentIds.includes(st.id) && cleanStr(st.fullName) === cleanStr(s.fullName));
+                          
+                          if (!student) {
+                            student = allStudents.find((st: any) => cleanStr(st.fullName) === cleanStr(s.fullName));
+                          }
+                        }
+
+                        const teacherId = cleanStr(c.teacherId);
+                        const teacherName = cleanStr(c.teacherName);
+                        let teacher: any = null;
+                        if (teacherId) {
+                          teacher = allTeachers.find((t: any) => cleanStr(t.id) === teacherId || cleanStr(t.teacherId) === teacherId);
+                        }
+                        if (!teacher && teacherName) {
+                          teacher = allTeachers.find((t: any) => cleanStr(t.fullName) === teacherName);
+                        }
 
                         const studentShift = student?.shift || c.shift || '';
                         const shiftUpper = (studentShift || '').toUpperCase().trim();
@@ -746,6 +782,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                         }
 
                         const englishName = student?.englishName || '';
+                        // Lookup Level directly from student record
+                        const studentLevel = student?.level || '';
                         const engTeacherName = teacher?.englishName || c.teacherName || '';
 
                         return {
@@ -754,6 +792,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                           shiftFull,
                           bookName,
                           englishName,
+                          level: studentLevel,
                           engGender,
                           engRemarks: (s.totalScore === '' || s.totalScore == null) ? '' : engRemarks,
                           engTeacherName,

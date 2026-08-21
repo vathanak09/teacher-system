@@ -65,6 +65,7 @@ export async function POST(req: Request) {
       'វេនFull',
       'ឈ្មោះសៀវភៅ',
       'English Name',
+      'Level',
       'Eng_Gender',
       'Eng មូលវិចារណ៍',
       'Eng_Teacher Name'
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
             s.shiftFull || '',
             s.bookName || '',
             s.englishName || '',
+            s.level || '',
             s.engGender || '',
             s.engRemarks || '',
             s.engTeacherName || ''
@@ -118,7 +120,7 @@ export async function POST(req: Request) {
     try {
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
-        range: "'All Sheets'!A:W",
+        range: "'All Sheets'!A:X",
       });
     } catch(e) {
       // Ignore if sheet is empty or error
@@ -127,7 +129,7 @@ export async function POST(req: Request) {
     // Write new data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "'All Sheets'!A1:W",
+      range: "'All Sheets'!A1:X",
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values
@@ -146,7 +148,7 @@ export async function POST(req: Request) {
                   sheetId: targetSheetId,
                   dimension: 'COLUMNS',
                   startIndex: 0,
-                  endIndex: 23
+                  endIndex: 24
                 }
               }
             },
