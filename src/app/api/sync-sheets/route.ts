@@ -63,12 +63,14 @@ export async function POST(req: Request) {
       'គ្រូបង្រៀន',
       'វេន',
       'វេនFull',
+      'Eng_វេនFull',
       'ឈ្មោះសៀវភៅ',
       'English Name',
       'Level',
       'Eng_Gender',
       'Eng មូលវិចារណ៍',
-      'Eng_Teacher Name'
+      'Eng_Teacher Name',
+      'Photo Link'
     ]);
 
     let globalIndex = 1;
@@ -99,12 +101,14 @@ export async function POST(req: Request) {
             teacherName,
             s.shift || '',
             s.shiftFull || '',
+            s.engShiftFull || '',
             s.bookName || '',
             s.englishName || '',
             s.level || '',
             s.engGender || '',
             s.engRemarks || '',
-            s.engTeacherName || ''
+            s.engTeacherName || '',
+            s.photo ? (s.photo.startsWith('http') ? s.photo : `https://drive.google.com/uc?export=view&id=${s.photo}`) : (s.photoLink || '')
           ]);
         });
       }
@@ -116,20 +120,25 @@ export async function POST(req: Request) {
     values.push(['របាយការណ៍ខែ៖', selectedMonth]);
     values.push(['ថ្ងៃខែឆ្នាំបញ្ចេញរបាយការណ៍៖', new Date().toLocaleDateString('km-KH')]);
 
-    // Clear existing data in All Sheets first, to avoid leftover data
+    // Clear entire sheet first to avoid leftover columns and rows from previous syncs
     try {
       await sheets.spreadsheets.values.clear({
         spreadsheetId,
-        range: "'All Sheets'!A:X",
+        range: "'All Sheets'",
       });
     } catch(e) {
-      // Ignore if sheet is empty or error
+      try {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: "'All Sheets'!A:ZZ",
+        });
+      } catch(e2) {}
     }
 
     // Write new data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: "'All Sheets'!A1:X",
+      range: "'All Sheets'!A1",
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values
@@ -148,7 +157,7 @@ export async function POST(req: Request) {
                   sheetId: targetSheetId,
                   dimension: 'COLUMNS',
                   startIndex: 0,
-                  endIndex: 24
+                  endIndex: 26
                 }
               }
             },

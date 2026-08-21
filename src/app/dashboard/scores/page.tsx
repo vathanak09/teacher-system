@@ -748,12 +748,16 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                         const studentShift = student?.shift || c.shift || '';
                         const shiftUpper = (studentShift || '').toUpperCase().trim();
                         let shiftFull = '';
+                        let engShiftFull = '';
                         if (shiftUpper.includes('E')) {
                           shiftFull = 'ក្រៅម៉ោង';
+                          engShiftFull = 'Part-time';
                         } else if (shiftUpper.includes('FA') || shiftUpper.includes('FM') || shiftUpper.includes('F')) {
                           shiftFull = 'ពេញម៉ោង';
+                          engShiftFull = 'Full-time';
                         } else if (shiftUpper) {
                           shiftFull = studentShift;
+                          engShiftFull = studentShift;
                         }
 
                         const rawGender = student?.gender || s.gender || '';
@@ -785,17 +789,20 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                         // Lookup Level directly from student record
                         const studentLevel = student?.level || '';
                         const engTeacherName = teacher?.englishName || c.teacherName || '';
+                        const studentPhoto = student?.photo || student?.photoLink || '';
 
                         return {
                           ...s,
                           shift: studentShift,
                           shiftFull,
+                          engShiftFull,
                           bookName,
                           englishName,
                           level: studentLevel,
                           engGender,
                           engRemarks: (s.totalScore === '' || s.totalScore == null) ? '' : engRemarks,
                           engTeacherName,
+                          photo: studentPhoto,
                           average: (s.totalScore === '' || s.totalScore == null) ? '' : avg.toFixed(2),
                           grade: (s.totalScore === '' || s.totalScore == null) ? '' : grade,
                           remarks: (s.totalScore === '' || s.totalScore == null) ? '' : remarks,
