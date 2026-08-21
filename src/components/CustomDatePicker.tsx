@@ -13,6 +13,38 @@ interface CustomDatePickerProps {
   required?: boolean;
 }
 
+function parseSafeDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  // Check if it's DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Check if it's YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Fallback to standard new Date()
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) return d;
+
+  return null;
+}
+
 const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, onChange, placeholder, className, style, required }, ref) => (
   <input
     value={value}
@@ -39,10 +71,10 @@ CustomInput.displayName = "CustomInput";
 
 export default function CustomDatePicker({ selected, onChange, placeholderText = "ជ្រើសរើសកាលបរិច្ឆេទ", className, style, required }: CustomDatePickerProps) {
   const datePickerRef = useRef<any>(null);
-  const selectedDate = selected ? new Date(selected) : null;
+  const selectedDate = parseSafeDate(selected);
   
   const handleChange = (date: Date | null) => {
-    if (!date) {
+    if (!date || isNaN(date.getTime())) {
       onChange('');
       return;
     }
