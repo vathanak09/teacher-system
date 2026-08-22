@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const { spreadsheetId, classesData, selectedMonth } = data;
+    const { spreadsheetId, classesData, selectedMonth, monthExtra } = data;
 
     if (!process.env.GOOGLE_CREDENTIALS_JSON) {
       return NextResponse.json({ error: 'Missing Google credentials in environment variables.' }, { status: 500 });
@@ -70,7 +70,11 @@ export async function POST(req: Request) {
       'Eng_Gender',
       'Eng មូលវិចារណ៍',
       'Eng_Teacher Name',
-      'Photo Link'
+      'Photo Link',
+      'ឈ្មោះខែ',
+      'Eng_ឈ្មោះខែ',
+      'ថ្ងៃចេញ',
+      'Eng_ថ្ងៃចេញ'
     ]);
 
     let globalIndex = 1;
@@ -82,6 +86,7 @@ export async function POST(req: Request) {
 
       if (classItem.scores && classItem.scores.length > 0) {
         classItem.scores.forEach((s: any) => {
+          const isFirstRow = globalIndex === 1;
           values.push([
             globalIndex++,
             s.studentIdCode || '',
@@ -108,7 +113,11 @@ export async function POST(req: Request) {
             s.engGender || '',
             s.engRemarks || '',
             s.engTeacherName || '',
-            s.photo ? (s.photo.startsWith('http') ? s.photo : `https://drive.google.com/uc?export=view&id=${s.photo}`) : (s.photoLink || '')
+            s.photo ? (s.photo.startsWith('http') ? s.photo : `https://drive.google.com/uc?export=view&id=${s.photo}`) : (s.photoLink || ''),
+            isFirstRow ? (monthExtra?.monthKhmer || '') : '',
+            isFirstRow ? (monthExtra?.monthEnglish || '') : '',
+            isFirstRow ? (monthExtra?.issueDateKhmer || '') : '',
+            isFirstRow ? (monthExtra?.issueDateEnglish || '') : ''
           ]);
         });
       }
@@ -117,8 +126,8 @@ export async function POST(req: Request) {
     // Spacer
     values.push([]);
     values.push([]);
-    values.push(['របាយការណ៍ខែ៖', selectedMonth]);
-    values.push(['ថ្ងៃខែឆ្នាំបញ្ចេញរបាយការណ៍៖', new Date().toLocaleDateString('km-KH')]);
+    values.push(['របាយការណ៍ខែ៖', monthExtra?.monthKhmer || selectedMonth]);
+    values.push(['ថ្ងៃខែឆ្នាំបញ្ចេញរបាយការណ៍៖', monthExtra?.issueDateKhmer || new Date().toLocaleDateString('km-KH')]);
 
     // Clear entire sheet first to avoid leftover columns and rows from previous syncs
     try {
@@ -157,7 +166,7 @@ export async function POST(req: Request) {
                   sheetId: targetSheetId,
                   dimension: 'COLUMNS',
                   startIndex: 0,
-                  endIndex: 26
+                  endIndex: 30
                 }
               }
             },

@@ -107,6 +107,82 @@ export default function ScoresPage() {
     customMaxScore: 250
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
+  const [isSavingExtraData, setIsSavingExtraData] = useState(false);
+  const [monthExtraData, setMonthExtraData] = useState<{
+    monthKhmer: string;
+    monthEnglish: string;
+    issueDateKhmer: string;
+    issueDateEnglish: string;
+  }>({
+    monthKhmer: '',
+    monthEnglish: '',
+    issueDateKhmer: '',
+    issueDateEnglish: ''
+  });
+
+  const khmerMonthNames = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+  const englishMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const toKhmerNum = (num: number | string) => {
+    const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+    return String(num).replace(/[0-9]/g, (d) => khmerDigits[parseInt(d, 10)]);
+  };
+
+  const getDefaultMonthExtra = (monthStr: string) => {
+    if (!monthStr) return { monthKhmer: '', monthEnglish: '', issueDateKhmer: '', issueDateEnglish: '' };
+    const [yearStr, mStr] = monthStr.split('-');
+    const mIndex = parseInt(mStr, 10) - 1;
+    const yearNum = parseInt(yearStr, 10);
+    
+    const kmMonthName = khmerMonthNames[mIndex] || '';
+    const engMonthName = englishMonthNames[mIndex] || '';
+    
+    const now = new Date();
+    const day = now.getDate();
+    const currentMonthIndex = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    return {
+      monthKhmer: `ខែ${kmMonthName} ឆ្នាំ${toKhmerNum(yearNum)}`,
+      monthEnglish: `${engMonthName} ${yearNum}`,
+      issueDateKhmer: `ថ្ងៃទី${toKhmerNum(day)} ខែ${khmerMonthNames[currentMonthIndex]} ឆ្នាំ${toKhmerNum(currentYear)}`,
+      issueDateEnglish: `${englishMonthNames[currentMonthIndex]} ${day}, ${currentYear}`
+    };
+  };
+
+  useEffect(() => {
+    if (!selectedMonth) return;
+    const docId = `monthExtra_${selectedMonth}`;
+    const unsub = settingsService.subscribeOne(docId, (data: any) => {
+      if (data) {
+        setMonthExtraData({
+          monthKhmer: data.monthKhmer || '',
+          monthEnglish: data.monthEnglish || '',
+          issueDateKhmer: data.issueDateKhmer || '',
+          issueDateEnglish: data.issueDateEnglish || ''
+        });
+      } else {
+        setMonthExtraData(getDefaultMonthExtra(selectedMonth));
+      }
+    });
+    return () => unsub();
+  }, [selectedMonth]);
+
+  const handleSaveExtraData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMonth) return;
+    setIsSavingExtraData(true);
+    try {
+      const docId = `monthExtra_${selectedMonth}`;
+      await settingsService.add(monthExtraData, docId);
+      setIsExtraDataModalOpen(false);
+      alert('បានរក្សាទុកទិន្នន័យបន្ថែមដោយជោគជ័យ!');
+    } catch (err: any) {
+      alert('Error saving extra data: ' + err.message);
+    } finally {
+      setIsSavingExtraData(false);
+    }
+  };
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
   const [clearDropdownAlignRight, setClearDropdownAlignRight] = useState(true);
   const [classFilterAlignRight, setClassFilterAlignRight] = useState(true);
@@ -862,7 +938,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                         body: JSON.stringify({
                           spreadsheetId: sheetId,
                           classesData: data,
-                          selectedMonth
+                          selectedMonth,
+                          monthExtra: monthExtraData
                         })
                       });
                       const resData = await response.json();
@@ -885,6 +962,14 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                   )}
                   {isSyncingSheets ? 'កំពុងភ្ជាប់...' : 'Sync Selected to Sheets'}
+                </button>
+                <button 
+                  onClick={() => setIsExtraDataModalOpen(true)}
+                  style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
+                  title="ទិន្នន័យបន្ថែមសម្រាប់របាយការណ៍ (ឈ្មោះខែ និងថ្ងៃចេញ Sync ចូល AA1...)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M12 14v4"></path><path d="M10 16h4"></path></svg>
+                  ទិន្នន័យបន្ថែម
                 </button>
                 <button 
                   onClick={() => setIsSettingsModalOpen(true)}
@@ -1145,6 +1230,109 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                   <button type="button" className="btn" onClick={() => setIsSettingsModalOpen(false)} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>បោះបង់</button>
                   <button type="submit" className="btn btn-primary">រក្សាទុក</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {isExtraDataModalOpen && (
+          <div onClick={() => setIsExtraDataModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '2rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '520px', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>ទិន្នន័យបន្ថែម (Extra Data)</h2>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ខែ៖ <b style={{ color: 'var(--accent-primary, #0ea5e9)' }}>{selectedMonth}</b> (Sync ចូល Cell AA1...)</p>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setIsExtraDataModalOpen(false)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)', lineHeight: 1 }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveExtraData} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* 1. Month Names */}
+                <div style={{ background: 'var(--bg-secondary, rgba(0,0,0,0.02))', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    ១. ឈ្មោះខែ (Month Name)
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>ឈ្មោះខែ (ភាសាខ្មែរ)</span>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={monthExtraData.monthKhmer} 
+                        onChange={e => setMonthExtraData({ ...monthExtraData, monthKhmer: e.target.value })} 
+                        placeholder="ឧទាហរណ៍៖ ខែសីហា ឆ្នាំ២០២៦" 
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Month Name (English)</span>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={monthExtraData.monthEnglish} 
+                        onChange={e => setMonthExtraData({ ...monthExtraData, monthEnglish: e.target.value })} 
+                        placeholder="Example: August 2026" 
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Issue Dates */}
+                <div style={{ background: 'var(--bg-secondary, rgba(0,0,0,0.02))', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                    ២. ថ្ងៃចេញរបាយការណ៍ (Issue Date)
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>ថ្ងៃចេញ (ភាសាខ្មែរ)</span>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={monthExtraData.issueDateKhmer} 
+                        onChange={e => setMonthExtraData({ ...monthExtraData, issueDateKhmer: e.target.value })} 
+                        placeholder="ឧទាហរណ៍៖ ថ្ងៃទី២១ ខែសីហា ឆ្នាំ២០២៦" 
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Issue Date (English)</span>
+                      <input 
+                        type="text" 
+                        className="input-field" 
+                        value={monthExtraData.issueDateEnglish} 
+                        onChange={e => setMonthExtraData({ ...monthExtraData, issueDateEnglish: e.target.value })} 
+                        placeholder="Example: August 21, 2026" 
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    onClick={() => setIsExtraDataModalOpen(false)} 
+                    style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '0.6rem 1.25rem', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    បោះបង់
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSavingExtraData}
+                    className="btn btn-primary" 
+                    style={{ background: 'var(--accent-primary, #0ea5e9)', color: '#fff', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: '600', cursor: isSavingExtraData ? 'not-allowed' : 'pointer', opacity: isSavingExtraData ? 0.7 : 1 }}
+                  >
+                    {isSavingExtraData ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក'}
+                  </button>
                 </div>
               </form>
             </div>
