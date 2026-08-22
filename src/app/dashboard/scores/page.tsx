@@ -846,24 +846,65 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                           engGender = rawGender;
                         }
 
+                        const englishName = student?.englishName || '';
+                        // Lookup Level directly from student record
+                        const studentLevel = student?.level || s.level || '';
+
+                        const matchLevel = (bookLevelStr: any, studentLevelStr: any) => {
+                          const bL = cleanStr(bookLevelStr);
+                          const sL = cleanStr(studentLevelStr);
+                          if (!bL || !sL) return false;
+                          if (bL === sL) return true;
+                          const bNum = bL.match(/\d+/)?.[0];
+                          const sNum = sL.match(/\d+/)?.[0];
+                          if (bNum && sNum && bNum === sNum) return true;
+                          return bL.includes(sL) || sL.includes(bL);
+                        };
+
                         let bookName = '';
-                        if (c.books && Array.isArray(c.books)) {
-                          bookName = c.books
-                            .map((b: any) => typeof b === 'string' ? b : (b.name || b.title || ''))
-                            .filter(Boolean)
-                            .join(', ');
-                        } else if (typeof c.books === 'string') {
-                          bookName = c.books;
-                        } else if (c.book) {
-                          bookName = typeof c.book === 'string' ? c.book : (c.book.name || '');
+                        // 1. Match book in current class books by student level
+                        if (c.books && Array.isArray(c.books) && c.books.length > 0 && studentLevel) {
+                          const matchedBook = c.books.find((b: any) => matchLevel(b.level || b.levelId || '', studentLevel));
+                          if (matchedBook) {
+                            bookName = typeof matchedBook === 'string' ? matchedBook : (matchedBook.name || matchedBook.title || '');
+                          }
                         }
+
+                        // 2. If not found, search across all classes for this level
+                        if (!bookName && studentLevel && classes && Array.isArray(classes)) {
+                          for (const otherClass of classes) {
+                            if (otherClass.books && Array.isArray(otherClass.books)) {
+                              const matchedBook = otherClass.books.find((b: any) => matchLevel(b.level || b.levelId || '', studentLevel));
+                              if (matchedBook && (matchedBook.name || matchedBook.title)) {
+                                bookName = typeof matchedBook === 'string' ? matchedBook : (matchedBook.name || matchedBook.title || '');
+                                break;
+                              }
+                            }
+                          }
+                        }
+
+                        // 3. Fallbacks
+                        if (!bookName) {
+                          if (c.books && Array.isArray(c.books) && c.books.length > 0) {
+                            if (c.books.length === 1) {
+                              const b = c.books[0];
+                              bookName = typeof b === 'string' ? b : (b.name || b.title || '');
+                            } else {
+                              bookName = c.books
+                                .map((b: any) => typeof b === 'string' ? b : (b.name || b.title || ''))
+                                .filter(Boolean)
+                                .join(', ');
+                            }
+                          } else if (typeof c.books === 'string') {
+                            bookName = c.books;
+                          } else if (c.book) {
+                            bookName = typeof c.book === 'string' ? c.book : (c.book.name || '');
+                          }
+                        }
+
                         if (!bookName && c.className) {
                           bookName = c.className;
                         }
-
-                        const englishName = student?.englishName || '';
-                        // Lookup Level directly from student record
-                        const studentLevel = student?.level || '';
                         const engTeacherName = teacher?.englishName || c.teacherName || '';
                         const studentPhoto = student?.photo || student?.photoLink || '';
 
