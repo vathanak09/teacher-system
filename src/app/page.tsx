@@ -9,8 +9,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
-  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [dbUsers, setDbUsers] = useState<any[]>([{ id: "1", username: "admin1", password: "123", role: "admin", name: "Admin User" }]);
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     // Check auto-login
@@ -29,8 +30,10 @@ export default function LoginPage() {
           // Default admin if nothing exists in Firebase
           setDbUsers([{ id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' }]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load settings:", err);
+        setError("Error loading users: " + err.message);
+        setDbUsers([{ id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' }]);
       }
     };
     fetchSettings();
@@ -39,15 +42,19 @@ export default function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const user = dbUsers.find((u: any) => u.username === username && u.password === password);
+    const userByUsername = dbUsers.find((u: any) => u.username === username);
 
-    if (user) {
-      localStorage.setItem('userRole', user.role);
-      localStorage.setItem('userName', user.name);
-      localStorage.setItem('userId', user.id); // store ID for targeted notifications
-      router.push('/dashboard');
+    if (userByUsername) {
+      if (userByUsername.password === password) {
+        localStorage.setItem('userRole', userByUsername.role);
+        localStorage.setItem('userName', userByUsername.name);
+        localStorage.setItem('userId', userByUsername.id); // store ID for targeted notifications
+        router.push('/dashboard');
+      } else {
+        setError('លេខសម្ងាត់មិនត្រឹមត្រូវទេ!');
+      }
     } else {
-      setError('ឈ្មោះគណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវទេ! សូមព្យាយាមម្តងទៀត។');
+      setError('មិនមានឈ្មោះគណនីនេះទេ!');
     }
   };
 
@@ -85,13 +92,39 @@ export default function LoginPage() {
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
               លេខសម្ងាត់ (Password)
             </label>
-            <input 
-              type="password" 
-              className="input-field" 
-              placeholder="បញ្ចូលលេខសម្ងាត់របស់អ្នក" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div style={{ position: 'relative' }}>
+              <input 
+                type={showPassword ? "text" : "password"} 
+                className="input-field" 
+                placeholder="បញ្ចូលលេខសម្ងាត់របស់អ្នក" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ 
+                  position: 'absolute', 
+                  right: '0.75rem', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)', 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 0
+                }}
+              >
+                {showPassword ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {error && (
