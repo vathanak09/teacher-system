@@ -92,7 +92,7 @@ export default function StudentsPage() {
   const handleCellSave = async () => {
     if (!editingCell) return;
     try {
-      await studentService.update(editingCell.id, { [editingCell.field]: editingCell.field === 'fee' ? Number(editingCell.value) || 0 : editingCell.value });
+      await studentService.update(editingCell.id, { [editingCell.field]: editingCell.field === 'fee' ? editingCell.value.trim() !== '' && !isNaN(Number(editingCell.value)) ? Number(editingCell.value) : 0 : editingCell.value });
       setEditingCell(null);
     } catch (error) {
       console.error('Error updating cell', error);
@@ -362,7 +362,7 @@ export default function StudentsPage() {
     setStudentLevelField(student.level || '');
     setStudentShiftField(student.shift || '');
     setStudentEnrollDateField(student.enrollDate || '');
-    setStudentFeeField((student.fee || 120).toString());
+    setStudentFeeField(student.fee !== undefined && student.fee !== null ? student.fee.toString() : '120');
     setStudentClassNameField(student.className || '');
     setStudentTeacherField(student.teacherName || '');
     setStudentDobField(student.dob || '');
@@ -400,7 +400,7 @@ export default function StudentsPage() {
 
   const handleSaveStudent = () => {
     // Validate all Part 1 fields (Mandatory)
-    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
+    if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || studentFeeField.trim() === '') {
       alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
       return;
     }
@@ -427,7 +427,7 @@ export default function StudentsPage() {
       level: studentLevelField,
       shift: studentShiftField,
       enrollDate: studentEnrollDateField,
-      fee: Number(studentFeeField) || 0,
+      fee: studentFeeField.trim() !== '' && !isNaN(Number(studentFeeField)) ? Number(studentFeeField) : 0,
       className: studentClassNameField,
       teacherName: studentTeacherField,
       dob: studentDobField,
@@ -538,7 +538,7 @@ export default function StudentsPage() {
       s.shift || '',
       s.className || '',
       s.enrollDate || '',
-      s.fee || '',
+      s.fee !== undefined && s.fee !== null ? s.fee : '',
       s.status || 'កំពុងសិក្សា',
       s.teacherName || '',
       s.dob || '',
@@ -608,7 +608,7 @@ export default function StudentsPage() {
             shift: fields[6] || '',
             className: fields[7] || '',
             enrollDate: fields[8] || '',
-            fee: Number(fields[9]) || 120,
+            fee: fields[9] && !isNaN(Number(fields[9])) ? Number(fields[9]) : 120,
             status: fields[10] || 'កំពុងសិក្សា',
             teacherName: fields[11] || '',
             dob: fields[12] || '',
@@ -1084,7 +1084,7 @@ export default function StudentsPage() {
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>វេន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.shift || 'N/A'}</strong></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>គ្រូបន្ទុកថ្នាក់៖</span> <strong style={{ color: 'var(--text-primary)' }}>{student.teacherName || 'N/A'}</strong></div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន៖</span> <strong style={{ color: 'var(--text-primary)' }}>{formatEnrollToDay(student.enrollDate) || 'N/A'}</strong></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្លៃសិក្សា៖</span> <strong style={{ color: '#10b981' }}>{student.fee ? `${student.fee} ពាន់រៀល` : 'N/A'}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>ថ្លៃសិក្សា៖</span> <strong style={{ color: '#10b981' }}>{student.fee !== undefined && student.fee !== null ? `${student.fee} ពាន់រៀល` : 'N/A'}</strong></div>
                           </div>
                         </div>
 

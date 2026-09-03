@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         s.shift || '',
         s.className || '',
         s.enrollDate || '',
-        s.fee || '',
+        s.fee !== undefined && s.fee !== null ? s.fee : '',
         s.status || '',
         s.teacherName || '',
         s.dob || '',
