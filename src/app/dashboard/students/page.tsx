@@ -286,7 +286,26 @@ export default function StudentsPage() {
   const handleOpenAddStudent = () => {
     if (isStudentTableLocked) return;
     setStudentEditId(null);
-    setStudentIdField('');
+    
+    // Auto-generate next largest student ID (Format: BS####)
+    let nextId = 'BS0001';
+    if (students && students.length > 0) {
+      let max = 0;
+      students.forEach((s: any) => {
+        if (s && s.studentId) {
+          // Extract only digits from the ID string
+          const numStr = s.studentId.replace(/\D/g, '');
+          const idNum = parseInt(numStr, 10);
+          if (!isNaN(idNum) && idNum > max) {
+            max = idNum;
+          }
+        }
+      });
+      if (max > 0) {
+        nextId = 'BS' + (max + 1).toString().padStart(4, '0');
+      }
+    }
+    setStudentIdField(nextId);
     setStudentFullNameField('');
     setStudentEnglishNameField('');
     setStudentGenderField(genderOptions.length > 0 ? genderOptions[0] : '');
@@ -385,6 +404,17 @@ export default function StudentsPage() {
     // Validate all Part 1 fields (Mandatory)
     if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || !studentFeeField) {
       alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
+      return;
+    }
+
+    // Validate uniqueness of studentId
+    const isDuplicate = students.some((s: any) => 
+      s.studentId?.toLowerCase() === studentIdField.trim().toLowerCase() && 
+      s.id !== studentEditId
+    );
+
+    if (isDuplicate) {
+      alert('អត្តលេខនេះមានរួចហើយក្នុងប្រព័ន្ធ! សូមបញ្ចូលអត្តលេខផ្សេង (Student ID must be unique).');
       return;
     }
 
@@ -1242,7 +1272,7 @@ export default function StudentsPage() {
               <div className="animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អត្តលេខ (Student ID) *</label>
-                  <input type="text" className="input-field" value={studentIdField} onChange={e => setStudentIdField(e.target.value)} placeholder="ឧ. 9201" />
+                  <input type="text" className="input-field" value={studentIdField} onChange={e => setStudentIdField(e.target.value)} placeholder="ឧ. BS0001" />
                 </div>
                 
                 <div>
