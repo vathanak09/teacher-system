@@ -500,14 +500,16 @@ export default function StudentsPage() {
 
   const downloadSampleCSV = () => {
     const headers = [
-      "ID", "Full Name", "English Name", "Gender", "Level", "Shift", 
-      "Enroll Date", "Fee", "Class", "Teacher", "DOB", "Address", 
-      "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
+      'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
+      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
     const sampleRow = [
-      "9201", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", 
-      "2026-05-10", "120", "10C", "ស៊ុន សុខ", "27-06-2012", "ភ្នំពេញ", 
-      "ច្បារអំពៅ", "Personal", "", "កំពុងសិក្សា", "មាស សុខ", "លី សុវណ្ណ", "មាស សុខ", "012345678"
+      "1", "BS0001", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", 
+      "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", "10C", "2026-05-10", "កំពុងសិក្សា", "ស៊ុន សុខ", 
+      "27-06-2012", "ភ្នំពេញ", "ច្បារអំពៅ", "Personal", "មាស សុខ", 
+      "លី សុវណ្ណ", "មាស សុខ", "012345678", ""
     ];
     const csvContent = "\uFEFF" + [headers.join(","), sampleRow.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(",")].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -523,15 +525,32 @@ export default function StudentsPage() {
   // CSV Export & Import
   const exportToCSV = () => {
     const headers = [
-      "ID", "Full Name", "English Name", "Gender", "Level", "Shift", 
-      "Enroll Date", "Fee", "Class", "Teacher", "DOB", "Address", 
-      "Location", "Transport", "Photo", "Status", "Contact", "Father", "Mother", "Phone Num"
+      'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
+      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
-    const rows = augmentedStudents.map(s => [
-      s.studentId, s.fullName, s.englishName, s.gender, s.level, s.shift,
-      s.enrollDate, s.fee, s.className, s.teacherName, s.dob, s.address,
-      s.location, s.transport, s.photo, s.status || 'កំពុងសិក្សា',
-      s.contact || '', s.father || '', s.mother || '', s.phoneNum || ''
+    const rows = augmentedStudents.map((s, index) => [
+      index + 1,
+      s.studentId || '',
+      s.fullName || '',
+      s.englishName || '',
+      s.gender || '',
+      s.level || '',
+      s.shift || '',
+      s.className || '',
+      s.enrollDate || '',
+      s.status || 'កំពុងសិក្សា',
+      s.teacherName || '',
+      s.dob || '',
+      s.address || '',
+      s.location || '',
+      s.transport || '',
+      s.contact || '',
+      s.father || '',
+      s.mother || '',
+      s.phoneNum || '',
+      s.photo || ''
     ]);
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -582,26 +601,25 @@ export default function StudentsPage() {
 
         if (fields.length >= 10) {
           imported.push({
-            studentId: fields[0] || '',
-            fullName: fields[1] || '',
-            englishName: fields[2] || '',
-            gender: fields[3] || '',
-            level: fields[4] || '',
-            shift: fields[5] || '',
-            enrollDate: fields[6] || '',
-            fee: Number(fields[7]) || 120,
-            className: fields[8] || '',
-            teacherName: fields[9] || '',
-            dob: fields[10] || '',
-            address: fields[11] || '',
-            location: fields[12] || '',
-            transport: fields[13] || '',
-            photo: fields[14] || '',
-            status: fields[15] || 'កំពុងសិក្សា',
-            contact: fields[16] || '',
-            father: fields[17] || '',
-            mother: fields[18] || '',
-            phoneNum: fields[19] || ''
+            studentId: fields[1] || '',
+            fullName: fields[2] || '',
+            englishName: fields[3] || '',
+            gender: fields[4] || '',
+            level: fields[5] || '',
+            shift: fields[6] || '',
+            className: fields[7] || '',
+            enrollDate: fields[8] || '',
+            status: fields[9] || 'កំពុងសិក្សា',
+            teacherName: fields[10] || '',
+            dob: fields[11] || '',
+            address: fields[12] || '',
+            location: fields[13] || '',
+            transport: fields[14] || '',
+            contact: fields[15] || '',
+            father: fields[16] || '',
+            mother: fields[17] || '',
+            phoneNum: fields[18] || '',
+            photo: fields[19] || ''
           });
         }
       }
