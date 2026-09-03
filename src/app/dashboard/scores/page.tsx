@@ -746,15 +746,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             />
           </div>
           
-          <div style={{ flex: 1, maxWidth: '300px', minWidth: '200px' }}>
-            <input 
-              type="text" 
-              placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
-              value={classSearch}
-              onChange={e => setClassSearch(e.target.value)}
-              style={{ width: '100%', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
-            />
-          </div>
+          
           
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {role === 'admin' && (

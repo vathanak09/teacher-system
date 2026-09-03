@@ -497,6 +497,16 @@ export default function ClassesPage() {
         <div style={{ flex: '1 1 350px', minWidth: '350px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>ថ្នាក់រៀន</h1>
+            
+            <div style={{ flex: 1, maxWidth: '300px', marginLeft: '1rem', marginRight: '1rem' }}>
+              <input 
+                type="text" 
+                placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
+                value={classSearch}
+                onChange={e => setClassSearch(e.target.value)}
+                style={{ width: '100%', padding: '0.45rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
+              />
+            </div>
             <button 
               onClick={handleOpenAddClass}
               style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
