@@ -36,8 +36,6 @@ export default function StudentsPage() {
     { id: 'shift', label: 'វេន' },
     { id: 'enrollDate', label: 'ថ្ងៃចូលរៀន' },
     { id: 'fee', label: 'ថ្លៃសិក្សា (Fee)' },
-    { id: 'nextPaymentDate', label: 'ថ្ងៃបង់បន្ទាប់' },
-    { id: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
     { id: 'status', label: 'ស្ថានភាពសិក្សា' },
     { id: 'className', label: 'ថ្នាក់' },
     { id: 'teacherName', label: 'គ្រូ' },
@@ -919,8 +917,6 @@ export default function StudentsPage() {
               { value: 'shift', label: 'វេន' },
               { value: 'enrollDate', label: 'ថ្ងៃខែចុះឈ្មោះ' },
               { value: 'fee', label: 'តម្លៃសិក្សា' },
-              { value: 'nextPaymentDate', label: 'ថ្ងៃបង់ប្រាក់បន្ទាប់' },
-              { value: 'paymentStatus', label: 'ស្ថានភាពបង់ប្រាក់' },
               { value: 'status', label: 'ស្ថានភាពសិក្សា' },
               { value: 'className', label: 'ថ្នាក់រៀន' },
               { value: 'teacherName', label: 'គ្រូបង្រៀន' },
@@ -1158,17 +1154,9 @@ export default function StudentsPage() {
                   {renderCell(student, 'fee', student.fee)}
                 </td>}
 
-                {visibleColumns.includes('nextPaymentDate') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'nextPaymentDate', student.nextPaymentDate || 'N/A')}</td>}
                 
-                {visibleColumns.includes('paymentStatus') && <td style={{ padding: '0.75rem 1.25rem' }}>
-                  <span style={{ 
-                    fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '20px', fontWeight: 600,
-                    background: student.statusInfo.bg,
-                    color: student.statusInfo.color
-                  }}>
-                    {student.statusInfo.label}
-                  </span>
-                </td>}
+                
+                
 
                 {visibleColumns.includes('status') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'status', <span style={{ 
