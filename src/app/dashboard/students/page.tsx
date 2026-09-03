@@ -719,6 +719,17 @@ export default function StudentsPage() {
       return studentSortOrder === 'asc' ? comparison : -comparison;
     });
 
+    const duplicateStudentIds = useMemo(() => {
+    const idCounts: Record<string, number> = {};
+    students.forEach(s => {
+      if (s.studentId) {
+        const id = s.studentId.toLowerCase();
+        idCounts[id] = (idCounts[id] || 0) + 1;
+      }
+    });
+    return new Set(Object.keys(idCounts).filter(id => idCounts[id] > 1));
+  }, [students]);
+
   const totalInFilter = filteredAndSortedStudents.length;
   const femaleCount = filteredAndSortedStudents.filter(s => s.gender === 'ស្រី').length;
   const maleCount = filteredAndSortedStudents.filter(s => s.gender === 'ប្រុស').length;
@@ -1025,7 +1036,8 @@ export default function StudentsPage() {
                 onDoubleClick={() => handleOpenEditStudent(student)}
                 style={{ 
                   borderBottom: '1px solid var(--border-color)', 
-                  background: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
+                  background: student.studentId && duplicateStudentIds.has(student.studentId.toLowerCase()) ? 'rgba(239, 68, 68, 0.15)' : (index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'),
+                  borderLeft: student.studentId && duplicateStudentIds.has(student.studentId.toLowerCase()) ? '4px solid #ef4444' : 'none',
                   cursor: isStudentTableLocked ? 'default' : 'pointer',
                   transition: 'background 0.2s'
                 }}
