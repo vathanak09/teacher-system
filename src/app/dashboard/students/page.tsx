@@ -499,13 +499,13 @@ export default function StudentsPage() {
   const downloadSampleCSV = () => {
     const headers = [
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
     const sampleRow = [
       "1", "BS0001", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", 
-      "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", "10C", "2026-05-10", "កំពុងសិក្សា", "ស៊ុន សុខ", 
+      "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", "10C", "2026-05-10", "120", "កំពុងសិក្សា", "ស៊ុន សុខ", 
       "27-06-2012", "ភ្នំពេញ", "ច្បារអំពៅ", "Personal", "មាស សុខ", 
       "លី សុវណ្ណ", "មាស សុខ", "012345678", ""
     ];
@@ -524,7 +524,7 @@ export default function StudentsPage() {
   const exportToCSV = () => {
     const headers = [
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
@@ -538,6 +538,7 @@ export default function StudentsPage() {
       s.shift || '',
       s.className || '',
       s.enrollDate || '',
+      s.fee || '',
       s.status || 'កំពុងសិក្សា',
       s.teacherName || '',
       s.dob || '',
@@ -607,17 +608,18 @@ export default function StudentsPage() {
             shift: fields[6] || '',
             className: fields[7] || '',
             enrollDate: fields[8] || '',
-            status: fields[9] || 'កំពុងសិក្សា',
-            teacherName: fields[10] || '',
-            dob: fields[11] || '',
-            address: fields[12] || '',
-            location: fields[13] || '',
-            transport: fields[14] || '',
-            contact: fields[15] || '',
-            father: fields[16] || '',
-            mother: fields[17] || '',
-            phoneNum: fields[18] || '',
-            photo: fields[19] || ''
+            fee: Number(fields[9]) || 120,
+            status: fields[10] || 'កំពុងសិក្សា',
+            teacherName: fields[11] || '',
+            dob: fields[12] || '',
+            address: fields[13] || '',
+            location: fields[14] || '',
+            transport: fields[15] || '',
+            contact: fields[16] || '',
+            father: fields[17] || '',
+            mother: fields[18] || '',
+            phoneNum: fields[19] || '',
+            photo: fields[20] || ''
           });
         }
       }

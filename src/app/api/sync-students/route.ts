@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
     const studentHeaders = [
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
         s.shift || '',
         s.className || '',
         s.enrollDate || '',
+        s.fee || '',
         s.status || '',
         s.teacherName || '',
         s.dob || '',
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
 
         // Write to sheets
     const sheetsToUpdate = [
-      { info: studentSheetInfo, values: studentValues, cols: 'A:T', endCol: 'T' }
+      { info: studentSheetInfo, values: studentValues, cols: 'A:U', endCol: 'U' }
     ];
 
     const uniqueSheets = new Set();
