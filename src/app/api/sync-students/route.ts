@@ -52,14 +52,12 @@ export async function POST(req: Request) {
 
     const studentHeaders = [
       'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា',
-      'ថ្ងៃបង់បន្ទាប់', 'ស្ថានភាពបង់ប្រាក់', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
       'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
       'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
     ];
 
     const generateStudentRow = (s: any, index: number) => {
-      const paymentStatus = s.statusInfo?.label || s.paymentStatus || '';
       return [
         index,
         s.studentId || '',
@@ -70,9 +68,6 @@ export async function POST(req: Request) {
         s.shift || '',
         s.className || '',
         s.enrollDate || '',
-        s.fee || '',
-        s.nextPaymentDate || '',
-        paymentStatus,
         s.status || '',
         s.teacherName || '',
         s.dob || '',
@@ -95,33 +90,9 @@ export async function POST(req: Request) {
       studentValues.push(generateStudentRow(s, studentIndex++));
     }
 
-    // 2. Process Due Students Tab (ដល់ថ្ងៃបង់ប្រាក់)
-    const dueSheetInfo = await getOrCreateSheet('ដល់ថ្ងៃបង់ប្រាក់', ['Due', 'ជំពាក់', 'ដល់ថ្ងៃបង់']);
-    const dueValues: any[][] = [studentHeaders];
-    let dueIndex = 1;
-    for (const s of studentsData || []) {
-      const pStatus = s.statusInfo?.label || '';
-      if (pStatus !== 'បានបង់') {
-        dueValues.push(generateStudentRow(s, dueIndex++));
-      }
-    }
-
-    // 3. Process Paid Students Tab (បង់ប្រាក់រួច)
-    const paidSheetInfo = await getOrCreateSheet('បង់ប្រាក់រួច', ['Paid', 'បានបង់']);
-    const paidValues: any[][] = [studentHeaders];
-    let paidIndex = 1;
-    for (const s of studentsData || []) {
-      const pStatus = s.statusInfo?.label || '';
-      if (pStatus === 'បានបង់') {
-        paidValues.push(generateStudentRow(s, paidIndex++));
-      }
-    }
-
-    // Write to sheets
+        // Write to sheets
     const sheetsToUpdate = [
-      { info: studentSheetInfo, values: studentValues, cols: 'A:W', endCol: 'W' },
-      { info: dueSheetInfo, values: dueValues, cols: 'A:W', endCol: 'W' },
-      { info: paidSheetInfo, values: paidValues, cols: 'A:W', endCol: 'W' }
+      { info: studentSheetInfo, values: studentValues, cols: 'A:T', endCol: 'T' }
     ];
 
     const uniqueSheets = new Set();
