@@ -51,6 +51,8 @@ export default function ClassesPage() {
   
   // States
   const [classes, setClasses] = useState<any[]>([]);
+  const [classSearchFilterInput, setClassSearchFilterInput] = useState('');
+  const [classSearch, setClassSearch] = useState('');
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -505,7 +507,7 @@ export default function ClassesPage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {classes.map(c => {
+            {classes.filter(c => (c.className || '').toLowerCase().includes(classSearch.toLowerCase()) || (c.classCode || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => {
               const IconComp = ICONS.find(i => i.id === c.icon)?.icon || ICONS[0].icon;
               const colorHex = COLORS.find(co => co.id === c.color)?.value || COLORS[0].value;
               return (

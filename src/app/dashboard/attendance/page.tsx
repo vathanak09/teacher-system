@@ -9,6 +9,8 @@ export default function AttendancePage() {
   const [userName, setUserName] = useState('');
   
   const [classes, setClasses] = useState<any[]>([]);
+  const [classSearchFilterInput, setClassSearchFilterInput] = useState('');
+  const [classSearch, setClassSearch] = useState('');
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   
@@ -151,7 +153,7 @@ export default function AttendancePage() {
   const renderClassList = () => {
     // Group classes by teacher
     const grouped: Record<string, any[]> = {};
-    classes.forEach(c => {
+    classes.filter(c => (c.className || '').toLowerCase().includes(classSearchFilterInput.toLowerCase()) || (c.classCode || '').toLowerCase().includes(classSearchFilterInput.toLowerCase())).forEach(c => {
       const teacherName = c.teacherName || 'មិនទាន់កំណត់ (Unassigned)';
       if (!grouped[teacherName]) grouped[teacherName] = [];
       grouped[teacherName].push(c);
@@ -462,6 +464,18 @@ export default function AttendancePage() {
             </button>
           )}
           <h1 style={{ margin: 0 }}>បញ្ជីវត្តមាន (Attendance)</h1>
+          
+          {!selectedClassId && (
+            <div style={{ flex: 1, maxWidth: '300px', marginLeft: '1rem', minWidth: '200px' }}>
+              <input 
+                type="text" 
+                placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
+                value={classSearchFilterInput}
+                onChange={e => setClassSearchFilterInput(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
+              />
+            </div>
+          )}
         </div>
       </div>
       

@@ -44,6 +44,8 @@ export default function ScoresPage() {
   const [teacherProfileId, setTeacherProfileId] = useState('');
   
   const [classes, setClasses] = useState<any[]>([]);
+  const [classMainSearchFilter, setClassMainSearchFilter] = useState('');
+  const [classSearch, setClassSearch] = useState('');
   const [allStudents, setAllStudents] = useState<any[]>([]); // Global live students
   const [allTeachers, setAllTeachers] = useState<any[]>([]); // Global teachers
   const [scores, setScores] = useState<any[]>([]); // Snapshot score records for the selected month/class
@@ -734,6 +736,26 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         <div className="flex-between" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)' }}>បញ្ចូលពិន្ទុ (Scores)</h1>
           
+          <div style={{ flex: 1, maxWidth: '300px', minWidth: '200px' }}>
+            <input 
+              type="text" 
+              placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
+              value={classMainSearchFilter}
+              onChange={e => setClassMainSearchFilter(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
+            />
+          </div>
+          
+          <div style={{ flex: 1, maxWidth: '300px', minWidth: '200px' }}>
+            <input 
+              type="text" 
+              placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
+              value={classSearch}
+              onChange={e => setClassSearch(e.target.value)}
+              style={{ width: '100%', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+            />
+          </div>
+          
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {role === 'admin' && (
               <>
@@ -1156,7 +1178,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-          {filteredDisplayClasses.map(c => {
+          {filteredDisplayClasses.filter(c => (c.className || '').toLowerCase().includes(classSearch.toLowerCase()) || (c.classCode || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => {
             const IconComp = ICONS.find(i => i.id === c.icon)?.icon || ICONS[0].icon;
             const colorHex = COLORS.find(co => co.id === c.color)?.value || COLORS[0].value;
             
