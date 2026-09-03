@@ -625,8 +625,27 @@ export default function StudentsPage() {
       }
 
       if (imported.length > 0) {
-        imported.forEach(student => studentService.add(student));
-        alert(`កំពុងនាំចូលទិន្នន័យសិស្សចំនួន ${imported.length} នាក់...`);
+        let updatedCount = 0;
+        let addedCount = 0;
+        
+        imported.forEach(studentData => {
+          if (!studentData.studentId) {
+            studentService.add(studentData);
+            addedCount++;
+            return;
+          }
+          
+          const existingStudent = students.find(s => s.studentId?.toLowerCase() === studentData.studentId.toLowerCase());
+          if (existingStudent) {
+            studentService.update(existingStudent.id, studentData);
+            updatedCount++;
+          } else {
+            studentService.add(studentData);
+            addedCount++;
+          }
+        });
+        
+        alert(`បាននាំចូលជោគជ័យ! បន្ថែមថ្មី ${addedCount} នាក់ និងកែប្រែទិន្នន័យចាស់ដែលមានស្រាប់ ${updatedCount} នាក់។`);
       } else {
         alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');
       }
