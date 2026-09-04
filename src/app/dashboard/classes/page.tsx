@@ -60,6 +60,7 @@ export default function ClassesPage() {
 
   // Student interaction states
   const [hoveredStudent, setHoveredStudent] = useState<any | null>(null);
+  const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
   const [isEditStudentModalOpen, setIsEditStudentModalOpen] = useState(false);
   const [editStudentData, setEditStudentData] = useState<any | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
