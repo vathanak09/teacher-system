@@ -11,6 +11,7 @@ interface CustomDatePickerProps {
   className?: string;
   style?: React.CSSProperties;
   required?: boolean;
+  disabled?: boolean;
 }
 
 function parseSafeDate(dateStr: string | null | undefined): Date | null {
@@ -93,6 +94,7 @@ export default function CustomDatePicker({ selected, onChange, placeholderText =
   return (
     <div style={{ width: '100%' }}>
       <DatePicker
+        disabled={disabled}
         ref={datePickerRef}
         selected={selectedDate}
         onChange={handleChange}

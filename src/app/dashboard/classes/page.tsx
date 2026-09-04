@@ -1668,7 +1668,7 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
-                      <CustomDatePicker selected={editStudentData.enrollDate} onChange={(date) => setEditStudentData({...editStudentData, enrollDate: date})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required />
+                      <CustomDatePicker selected={editStudentData.enrollDate} onChange={(date) => setEditStudentData({...editStudentData, enrollDate: date})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: role === 'teacher' ? 'var(--bg-secondary)' : 'var(--main-bg)', color: 'var(--text-primary)' }} required disabled={role === 'teacher'} />
                     </div>
 
                   </div>
