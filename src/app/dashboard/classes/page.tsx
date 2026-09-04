@@ -686,7 +686,7 @@ export default function ClassesPage() {
                             <div key={s.id} style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="table-row-hover">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
+                                  {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} onClick={() => setFullScreenPhoto(convertDriveImageLink(s.photo))} style={{ cursor: 'pointer',  width: '100%', height: '100%', objectFit: 'cover' }} /> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>}
                                 </div>
                                 <div>
                                   <p style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>{s.fullName} ({s.studentId})</p>
@@ -900,7 +900,7 @@ export default function ClassesPage() {
                                   {classVisibleColumns.includes('photo') && (
                                     <td style={{ padding: '0.5rem', position: 'relative' }} >
                                       <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', /* cursor: 'help' removed */ }}>
-                                        {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>{getFirstLetter(s.fullName)}</div>}
+                                        {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} onClick={() => setFullScreenPhoto(convertDriveImageLink(s.photo))} style={{ cursor: 'pointer',  width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>{getFirstLetter(s.fullName)}</div>}
                                       </div>
                                       
                                       {/* Centered Hover Profile Popup */}
@@ -913,7 +913,7 @@ export default function ClassesPage() {
                                               {/* Header */}
                                               <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '1.5rem' }}>
                                                 {s.photo && String(s.photo).trim() !== '' ? (
-                                                  <img src={convertDriveImageLink(s.photo)} alt={s.fullName} style={{ width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
+                                                  <img src={convertDriveImageLink(s.photo)} alt={s.fullName} onClick={() => setFullScreenPhoto(convertDriveImageLink(s.photo))} style={{ cursor: 'pointer',  width: '100px', height: '100px', borderRadius: '24px', objectFit: 'cover', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }} />
                                                 ) : (
                                                   <div style={{ width: '100px', height: '100px', borderRadius: '24px', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '3rem', border: '3px solid var(--accent-primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>{getFirstLetter(s.fullName)}</div>
                                                 )}
@@ -1739,7 +1739,25 @@ export default function ClassesPage() {
             </div>
           </div>
         )}
-    </>
+    
+      {fullScreenPhoto && typeof window !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }} onClick={() => setFullScreenPhoto(null)}>
+          <img src={fullScreenPhoto} alt="Full Size" style={{ maxWidth: '90%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '4px solid rgba(255,255,255,0.1)' }} onClick={e => e.stopPropagation()} />
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => handleDownloadPhoto(fullScreenPhoto)} className="btn btn-primary" style={{ padding: '0.85rem 1.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '14px', border: 'none', fontWeight: 600, fontSize: '1.05rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', cursor: 'pointer' }}>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+               ទាញយករូបថត
+            </button>
+            <button onClick={() => setFullScreenPhoto(null)} style={{ padding: '0.85rem 1.75rem', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '1.05rem', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'} onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+               បិទ (Close)
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+  
+</>
   );
 }
 
