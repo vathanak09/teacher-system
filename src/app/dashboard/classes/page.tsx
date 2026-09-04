@@ -140,6 +140,24 @@ export default function ClassesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+
+  const handleDownloadPhoto = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `student_photo_${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      window.open(url, '_blank');
+    }
+  };
+
   const getFirstLetter = (name: string) => {
     if (!name) return '?';
     const parts = name.trim().split(' ');
