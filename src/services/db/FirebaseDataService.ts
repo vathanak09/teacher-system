@@ -132,19 +132,23 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   }
 
   async add(data: any, id?: string): Promise<string> {
+    const timestamp = new Date().toISOString();
+    const dataWithTimestamp = { ...data, updatedAt: timestamp, createdAt: data.createdAt || timestamp };
     if (id) {
       const docRef = doc(this.dbInstance, this.collectionName, id);
-      await setDoc(docRef, data, { merge: true });
+      await setDoc(docRef, dataWithTimestamp, { merge: true });
       return id;
     } else {
-      const docRef = await addDoc(this.collectionRef, data);
+      const docRef = await addDoc(this.collectionRef, dataWithTimestamp);
       return docRef.id;
     }
   }
 
   async update(id: string, data: any): Promise<void> {
+    const timestamp = new Date().toISOString();
+    const dataWithTimestamp = { ...data, updatedAt: timestamp };
     const docRef = doc(this.dbInstance, this.collectionName, id);
-    await updateDoc(docRef, data);
+    await updateDoc(docRef, dataWithTimestamp);
   }
 
   async delete(id: string): Promise<void> {

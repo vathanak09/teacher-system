@@ -46,7 +46,8 @@ export default function StudentsPage() {
     { id: 'contact', label: 'អ្នកទំនាក់ទំនង' },
     { id: 'father', label: 'ឪពុក' },
     { id: 'mother', label: 'ម្តាយ' },
-    { id: 'phoneNum', label: 'លេខទូរស័ព្ទ' }
+    { id: 'phoneNum', label: 'លេខទូរស័ព្ទ' },
+    { id: 'updatedAt', label: 'កែប្រែចុងក្រោយ' }
   ];
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
@@ -668,6 +669,17 @@ export default function StudentsPage() {
     return year || dateStr;
   };
 
+  const formatLastModified = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return isoString;
+      return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return isoString;
+    }
+  };
+
   const formatEnrollToDay = (dateStr: string) => {
     return formatDateToDMY(dateStr);
   };
@@ -1248,6 +1260,10 @@ export default function StudentsPage() {
                 {visibleColumns.includes('father') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'father', student.father)}</td>}
                 {visibleColumns.includes('mother') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'mother', student.mother)}</td>}
                 {visibleColumns.includes('phoneNum') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'phoneNum', student.phoneNum)}</td>}
+                
+                {visibleColumns.includes('updatedAt') && <td style={{ padding: '0.75rem 1.25rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  {formatLastModified(student.updatedAt)}
+                </td>}
                 
                 {/* Actions */}
                 <td style={{ padding: '0.75rem 1.25rem', textAlign: 'right' }}>
