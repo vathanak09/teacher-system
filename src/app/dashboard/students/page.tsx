@@ -983,7 +983,8 @@ export default function StudentsPage() {
               { value: 'status', label: 'ស្ថានភាពសិក្សា' },
               { value: 'className', label: 'ថ្នាក់រៀន' },
               { value: 'teacherName', label: 'គ្រូបង្រៀន' },
-              { value: 'dob', label: 'ថ្ងៃខែឆ្នាំកំណើត' }
+              { value: 'dob', label: 'ថ្ងៃខែឆ្នាំកំណើត' },
+              { value: 'updatedAt', label: 'កែប្រែចុងក្រោយ' }
             ]}
             sortBy={studentSortBy}
             sortOrder={studentSortOrder}
