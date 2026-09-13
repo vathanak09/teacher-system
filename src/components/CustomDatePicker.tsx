@@ -70,7 +70,7 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, onChang
 ));
 CustomInput.displayName = "CustomInput";
 
-export default function CustomDatePicker({ selected, onChange, placeholderText = "ជ្រើសរើសកាលបរិច្ឆេទ", className, style, required }: CustomDatePickerProps) {
+export default function CustomDatePicker({ selected, onChange, placeholderText = "ជ្រើសរើសកាលបរិច្ឆេទ", className, style, required, disabled }: CustomDatePickerProps) {
   const datePickerRef = useRef<any>(null);
   const selectedDate = parseSafeDate(selected);
   
