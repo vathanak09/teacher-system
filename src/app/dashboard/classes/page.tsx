@@ -1199,7 +1199,7 @@ export default function ClassesPage() {
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {sortedEnrolledStudents.map((student, idx) => (
+                                          {enrolledStudents.map((student: any, idx: number) => (
                                             <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                               <td style={{ padding: '0.5rem 0.75rem' }}>{idx + 1}</td>
                                               <td style={{ padding: '0.5rem 0.75rem' }}>{student.studentId}</td>
