@@ -56,8 +56,6 @@ export default function PaymentsPage() {
       });
       setMonthlyPaymentsMap(map);
     });
-      setMonthlyPaymentsMap(map);
-    });
 
     return () => { unsubStudents(); unsubPayments(); unsubClasses(); unsubMonthlyPayments(); };
   }, [router, paymentYear]);
@@ -95,41 +93,27 @@ export default function PaymentsPage() {
       return { label: '????????', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
     }
   };
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const nextDate = new Date(nextDateStr);
-    nextDate.setHours(0, 0, 0, 0);
-    
-    const diffTime = nextDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 0) return { label: 'ហួសកំណត់', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
-    if (!hasPaid) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
-    if (diffDays <= 10) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
-    return { label: 'បានបង់', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
-  };
 
   const toggleMonthlyPayment = async (studentId: string, month: number) => {
     const docId = `${studentId}_${paymentYear}`;
-    const doc = monthlyPaymentsMap[studentId];
-    const currentStatus = doc?.records?.[month] || '';
+    const studentData = monthlyPaymentsMap[studentId] || {};
+    const yearRecords = studentData[paymentYear] || {};
+    const currentStatus = yearRecords[month] || '';
     
     let nextStatus = 'paid';
     if (currentStatus === 'paid') nextStatus = 'unpaid';
     else if (currentStatus === 'unpaid') nextStatus = '';
     
     const newRecords = {
-      ...(doc?.records || {}),
+      ...yearRecords,
       [month]: nextStatus
     };
     
-    // Optimistic update
     setMonthlyPaymentsMap(prev => ({
       ...prev,
       [studentId]: {
-        ...prev[studentId],
-        records: newRecords
+        ...(prev[studentId] || {}),
+        [paymentYear]: newRecords
       }
     }));
     
@@ -141,11 +125,10 @@ export default function PaymentsPage() {
         updatedAt: new Date().toISOString()
       }, docId);
     } catch (err) {
-      console.error("Error saving payment", err);
+      console.error('Error saving payment', err);
     }
   };
-
-  // Process data
+// Process data
   const augmentedStudents = students
     .filter(s => s.status === 'កំពុងសិក្សា')
     .map(s => {
@@ -623,6 +606,10 @@ export default function PaymentsPage() {
     </>
   );
 }
+
+
+
+
 
 
 
