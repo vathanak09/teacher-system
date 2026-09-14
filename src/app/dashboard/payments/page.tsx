@@ -18,6 +18,7 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [paymentYear, setPaymentYear] = useState(new Date().getFullYear());
+  const [displayMonths, setDisplayMonths] = useState(12);
   const [monthlyPaymentsMap, setMonthlyPaymentsMap] = useState<Record<string, any>>({});
 
   // Modal State
@@ -50,10 +51,11 @@ export default function PaymentsPage() {
     const unsubMonthlyPayments = monthlyPaymentService.subscribeAll(data => {
       const map: any = {};
       data.forEach(d => {
-        if (d.year === paymentYear) {
-          map[d.id] = d;
-        }
+        if (!map[d.studentId]) map[d.studentId] = {};
+        map[d.studentId][d.year] = d.records || {};
       });
+      setMonthlyPaymentsMap(map);
+    });
       setMonthlyPaymentsMap(map);
     });
 
@@ -67,8 +69,32 @@ export default function PaymentsPage() {
     return date.toISOString().slice(0, 10);
   };
 
-  const getStatusInfo = (nextDateStr: string | null, hasPaid: boolean) => {
-    if (!nextDateStr) return { label: 'មិនទាន់មានទិន្នន័យ', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
+  const getStatusInfo = (student: any) => {
+    if (!student.enrollDate) return { label: '????????????????????', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.1)', code: 'unknown' };
+    
+    let totalPaidMonths = 0;
+    const studentRecords = monthlyPaymentsMap[student.id] || {};
+    Object.values(studentRecords).forEach((yearRecords: any) => {
+      Object.values(yearRecords).forEach(status => {
+        if (status === 'paid') totalPaidMonths++;
+      });
+    });
+
+    const enrollDate = new Date(student.enrollDate);
+    const today = new Date();
+    const yearDiff = today.getFullYear() - enrollDate.getFullYear();
+    const monthDiff = today.getMonth() - enrollDate.getMonth();
+    let expectedMonths = yearDiff * 12 + monthDiff + 1;
+    if (expectedMonths < 1) expectedMonths = 1;
+
+    if (totalPaidMonths >= expectedMonths) {
+      return { label: '??????', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
+    } else if (totalPaidMonths === expectedMonths - 1) {
+      return { label: '??????????', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
+    } else {
+      return { label: '????????', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', code: 'overdue' };
+    }
+  };
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -130,7 +156,7 @@ export default function PaymentsPage() {
     const lastPayment = sPayments.length > 0 ? sPayments[0] : null;
     const nextDate = s.nextPaymentDate || (lastPayment ? lastPayment.validUntil : null) || s.enrollDate;
     const hasPaid = sPayments.length > 0;
-    const statusInfo = getStatusInfo(nextDate, hasPaid);
+    const statusInfo = getStatusInfo(s);
     
     let computedLastPaymentDate = null;
     if (lastPayment) {
@@ -346,7 +372,7 @@ export default function PaymentsPage() {
                     <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.computedClass}</td>
                     <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? student.fee + ' $' : 'N/A'}</td>
                     {Array.from({length: 12}, (_, i) => i + 1).map(month => {
-                      const status = monthlyPaymentsMap[student.id]?.records?.[month] || '';
+                      const status = monthlyPaymentsMap[student.id]?.[paymentYear]?.[month] || '';
                       let bgColor = 'transparent';
                       let color = 'inherit';
                       let icon = '';
@@ -597,3 +623,7 @@ export default function PaymentsPage() {
     </>
   );
 }
+
+
+
+
