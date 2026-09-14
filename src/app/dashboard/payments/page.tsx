@@ -18,7 +18,8 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
   const [paymentYear, setPaymentYear] = useState(new Date().getFullYear());
-  const [displayMonths, setDisplayMonths] = useState(12);
+  const [visibleMonths, setVisibleMonths] = useState<number[]>([1,2,3,4,5,6,7,8,9,10,11,12]);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [monthlyPaymentsMap, setMonthlyPaymentsMap] = useState<Record<string, any>>({});
 
   // Modal State
@@ -340,18 +341,33 @@ export default function PaymentsPage() {
             ))}
           </select>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', position: 'relative' }}>
           <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>បង្ហាញ៖</span>
-          <select 
-            value={displayMonths} 
-            onChange={(e) => setDisplayMonths(Number(e.target.value))}
-            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer' }}
+          <button 
+            onClick={() => setShowMonthDropdown(!showMonthDropdown)} 
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', cursor: 'pointer' }}
           >
-            <option value={3}>៣ ខែ</option>
-            <option value={6}>៦ ខែ</option>
-            <option value={9}>៩ ខែ</option>
-            <option value={12}>១២ ខែ</option>
-          </select>
+            រើសខែ ▾
+          </button>
+          {showMonthDropdown && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', zIndex: 10, boxShadow: 'var(--shadow-lg)' }}>
+              {Array.from({length: 12}, (_, i) => i + 1).map(m => (
+                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={visibleMonths.includes(m)} 
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setVisibleMonths(prev => [...prev, m].sort((a,b) => a - b));
+                      } else {
+                        setVisibleMonths(prev => prev.filter(x => x !== m));
+                      }
+                    }} 
+                  /> ខែ {m}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -365,7 +381,9 @@ export default function PaymentsPage() {
                   <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ឈ្មោះសិស្ស</th>
                   <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ថ្នាក់</th>
                   <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>តម្លៃសិក្សា</th>
-                  {Array.from({length: 12}, (_, i) => i + 1).map(month => (
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>បង់ចុងក្រោយ</th>
+                  {visibleMonths.map(month => (
                     <th key={month} style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center' }}>ខែ {month}</th>
                   ))}
                   <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>សកម្មភាព</th>
@@ -378,8 +396,10 @@ export default function PaymentsPage() {
                     <td style={{ padding: '1rem', fontWeight: 500 }}>{student.studentId}</td>
                     <td style={{ padding: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>{student.fullName}</td>
                     <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.computedClass}</td>
-                    <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? student.fee + ' $' : 'N/A'}</td>
-                    {Array.from({length: 12}, (_, i) => i + 1).map(month => {
+                    <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? student.fee : 'N/A'}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.enrollDate || 'N/A'}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.lastPaymentDate ? new Date(student.lastPaymentDate).toISOString().slice(0, 10) : 'N/A'}</td>
+                    {visibleMonths.map(month => {
                       const status = monthlyPaymentsMap[student.id]?.[paymentYear]?.[month] || '';
                       let bgColor = 'transparent';
                       let color = 'inherit';
