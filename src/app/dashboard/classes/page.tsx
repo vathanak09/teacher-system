@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService } from '@/services/db';
+import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService, monthlyPaymentService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 
@@ -99,6 +99,8 @@ export default function ClassesPage() {
   const [viewingClass, setViewingClass] = useState<any | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
   const [activeTab, setActiveTab] = useState('students');
+  const [paymentYear, setPaymentYear] = useState(new Date().getFullYear());
+  const [monthlyPaymentRecords, setMonthlyPaymentRecords] = useState<Record<string, Record<string, string>>>({});
 
   // Teaching Records State
   const [teachingRecords, setTeachingRecords] = useState<any[]>([]);
@@ -139,6 +141,57 @@ export default function ClassesPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+
+  
+  const loadMonthlyPayments = async () => {
+    if (!viewingClass || activeTab !== 'payments') return;
+    const docId = `${viewingClass.id}_${paymentYear}`;
+    try {
+      const doc = await monthlyPaymentService.getById(docId);
+      if (doc && doc.records) {
+        setMonthlyPaymentRecords(doc.records);
+      } else {
+        setMonthlyPaymentRecords({});
+      }
+    } catch (e) {
+      setMonthlyPaymentRecords({});
+    }
+  };
+
+  useEffect(() => {
+    loadMonthlyPayments();
+  }, [viewingClass?.id, paymentYear, activeTab]);
+
+  const toggleMonthlyPayment = async (studentId: string, month: number) => {
+    if (!viewingClass) return;
+    const currentStatus = monthlyPaymentRecords[studentId]?.[month] || '';
+    let nextStatus = 'paid';
+    if (currentStatus === 'paid') nextStatus = 'unpaid';
+    else if (currentStatus === 'unpaid') nextStatus = '';
+    
+    const newRecords = {
+      ...monthlyPaymentRecords,
+      [studentId]: {
+        ...(monthlyPaymentRecords[studentId] || {}),
+        [month]: nextStatus
+      }
+    };
+    
+    setMonthlyPaymentRecords(newRecords);
+    
+    const docId = `${viewingClass.id}_${paymentYear}`;
+    try {
+      await monthlyPaymentService.add({
+        classId: viewingClass.id,
+        year: paymentYear,
+        records: newRecords,
+        updatedAt: new Date().toISOString()
+      }, docId);
+    } catch (err) {
+      console.error("Error saving payment", err);
+    }
+  };
 
 
   const handleDownloadPhoto = async (url: string) => {
@@ -1113,6 +1166,79 @@ export default function ClassesPage() {
                     </div>
                   </div>
                 )}
+
+                                
+                                {activeTab === 'payments' && (
+                                  <div className="animate-fade-in" style={{ padding: '1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                                      <h3 style={{ margin: 0 }}>តាមដានការបង់ប្រាក់ប្រចាំខែ</h3>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <label style={{ fontWeight: 600 }}>ឆ្នាំ៖</label>
+                                        <select 
+                                          value={paymentYear} 
+                                          onChange={(e) => setPaymentYear(Number(e.target.value))}
+                                          style={{ padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', outline: 'none' }}
+                                        >
+                                          {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    </div>
+                                    
+                                    <div style={{ overflowX: 'auto', background: 'var(--main-bg)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                                        <thead>
+                                          <tr style={{ background: 'var(--bg-secondary)' }}>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', minWidth: '50px' }}>ល.រ</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', minWidth: '100px' }}>អត្តលេខ</th>
+                                            <th style={{ padding: '0.75rem', textAlign: 'left', minWidth: '150px' }}>ឈ្មោះសិស្ស</th>
+                                            {Array.from({length: 12}, (_, i) => i + 1).map(month => (
+                                              <th key={month} style={{ padding: '0.75rem', textAlign: 'center', minWidth: '45px' }}>{month}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {filteredStudentsForView.map((student, idx) => (
+                                            <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                              <td style={{ padding: '0.5rem 0.75rem' }}>{idx + 1}</td>
+                                              <td style={{ padding: '0.5rem 0.75rem' }}>{student.studentId}</td>
+                                              <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600 }}>{student.fullName}</td>
+                                              {Array.from({length: 12}, (_, i) => i + 1).map(month => {
+                                                const status = monthlyPaymentRecords[student.id]?.[month] || '';
+                                                let bgColor = 'transparent';
+                                                let color = 'inherit';
+                                                let icon = '';
+                                                
+                                                if (status === 'paid') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#10b981'; icon = '✔'; }
+                                                else if (status === 'unpaid') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; icon = '✘'; }
+                                                
+                                                return (
+                                                  <td 
+                                                    key={month} 
+                                                    onClick={() => toggleMonthlyPayment(student.id, month)}
+                                                    style={{ 
+                                                      padding: '0.5rem 0.25rem', 
+                                                      textAlign: 'center', 
+                                                      cursor: 'pointer',
+                                                      borderLeft: '1px solid var(--border-color)',
+                                                      background: bgColor,
+                                                      color: color,
+                                                      fontWeight: 'bold',
+                                                      userSelect: 'none'
+                                                    }}
+                                                  >
+                                                    {icon}
+                                                  </td>
+                                                )
+                                              })}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {activeTab === 'tasks' && (
                   <div style={{ marginTop: '0.5rem' }}>
