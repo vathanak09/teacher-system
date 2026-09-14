@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { useRouter } from 'next/navigation';
-import { studentService, paymentService, classService } from '@/services/db';
+import { studentService, paymentService, classService, monthlyPaymentService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 
 export default function PaymentsPage() {
@@ -17,6 +17,8 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
+  const [paymentYear, setPaymentYear] = useState(new Date().getFullYear());
+  const [monthlyPaymentsMap, setMonthlyPaymentsMap] = useState<Record<string, any>>({});
 
   // Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -45,9 +47,18 @@ export default function PaymentsPage() {
     const unsubPayments = paymentService.subscribeAll(setPayments);
 
     const unsubClasses = classService.subscribeAll(setClassesData);
+    const unsubMonthlyPayments = monthlyPaymentService.subscribeAll(data => {
+      const map: any = {};
+      data.forEach(d => {
+        if (d.year === paymentYear) {
+          map[d.id] = d;
+        }
+      });
+      setMonthlyPaymentsMap(map);
+    });
 
-    return () => { unsubStudents(); unsubPayments(); unsubClasses(); };
-  }, [router]);
+    return () => { unsubStudents(); unsubPayments(); unsubClasses(); unsubMonthlyPayments(); };
+  }, [router, paymentYear]);
 
   // Utility to add months to a date
   const addMonths = (dateString: string, months: number) => {
@@ -71,6 +82,41 @@ export default function PaymentsPage() {
     if (!hasPaid) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
     if (diffDays <= 10) return { label: 'មិនទាន់បង់', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', code: 'due_soon' };
     return { label: 'បានបង់', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', code: 'paid' };
+  };
+
+  const toggleMonthlyPayment = async (studentId: string, month: number) => {
+    const docId = `${studentId}_${paymentYear}`;
+    const doc = monthlyPaymentsMap[studentId];
+    const currentStatus = doc?.records?.[month] || '';
+    
+    let nextStatus = 'paid';
+    if (currentStatus === 'paid') nextStatus = 'unpaid';
+    else if (currentStatus === 'unpaid') nextStatus = '';
+    
+    const newRecords = {
+      ...(doc?.records || {}),
+      [month]: nextStatus
+    };
+    
+    // Optimistic update
+    setMonthlyPaymentsMap(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        records: newRecords
+      }
+    }));
+    
+    try {
+      await monthlyPaymentService.add({
+        studentId,
+        year: paymentYear,
+        records: newRecords,
+        updatedAt: new Date().toISOString()
+      }, docId);
+    } catch (err) {
+      console.error("Error saving payment", err);
+    }
   };
 
   // Process data
@@ -277,55 +323,75 @@ export default function PaymentsPage() {
 
       {/* Table */}
       <div style={{ overflowX: 'auto', background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-md)' }}>
-        <table className="table-responsive" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-color)' }}>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>អត្តលេខ</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ឈ្មោះសិស្ស</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ថ្នាក់</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>តម្លៃសិក្សា</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>បង់ចុងក្រោយ</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ត្រូវបង់បន្ទាប់</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ស្ថានភាព</th>
-              <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>សកម្មភាព</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map(student => (
-              <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                <td style={{ padding: '1rem', fontWeight: 500 }}>{student.studentId}</td>
-                <td style={{ padding: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>{student.fullName}</td>
-                <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.computedClass}</td>
-                <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? `${student.fee} K` : 'N/A'}</td>
-                <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{formatDateToDMY(student.lastPaymentDate) || 'N/A'}</td>
-                <td style={{ padding: '1rem', fontWeight: 600 }}>{formatDateToDMY(student.nextPaymentDate) || 'N/A'}</td>
-                <td style={{ padding: '1rem' }}>
-                  <span style={{ 
-                    padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
-                    background: student.statusInfo.bg, color: student.statusInfo.color 
-                  }}>
-                    {student.statusInfo.label}
-                  </span>
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button onClick={() => { setHistoryStudentId(student.id); setIsHistoryModalOpen(true); }} className="btn" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', padding: '0.4rem 0.6rem' }} title="ប្រវត្តិបង់ប្រាក់">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    </button>
-                    <button onClick={() => openPaymentModal(student)} className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>
-                      បង់ប្រាក់
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredStudents.length === 0 && (
-              <tr>
-                <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>គ្មានទិន្នន័យ</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <table className="table-responsive" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
+              <thead>
+                <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ល.រ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>អត្តលេខ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ឈ្មោះសិស្ស</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ថ្នាក់</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>តម្លៃសិក្សា</th>
+                  {Array.from({length: 12}, (_, i) => i + 1).map(month => (
+                    <th key={month} style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center' }}>ខែ {month}</th>
+                  ))}
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>សកម្មភាព</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((student, idx) => (
+                  <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="table-row-hover">
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{idx + 1}</td>
+                    <td style={{ padding: '1rem', fontWeight: 500 }}>{student.studentId}</td>
+                    <td style={{ padding: '1rem', fontWeight: 600, fontSize: '1.05rem' }}>{student.fullName}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{student.computedClass}</td>
+                    <td style={{ padding: '1rem', color: 'var(--accent-primary)', fontWeight: 600 }}>{student.fee ? student.fee + ' $' : 'N/A'}</td>
+                    {Array.from({length: 12}, (_, i) => i + 1).map(month => {
+                      const status = monthlyPaymentsMap[student.id]?.records?.[month] || '';
+                      let bgColor = 'transparent';
+                      let color = 'inherit';
+                      let icon = '';
+                      
+                      if (status === 'paid') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#10b981'; icon = '✔'; }
+                      else if (status === 'unpaid') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; icon = '✘'; }
+                      
+                      return (
+                        <td 
+                          key={month} 
+                          onClick={() => toggleMonthlyPayment(student.id, month)}
+                          style={{ 
+                            padding: '1rem 0.25rem', 
+                            textAlign: 'center', 
+                            cursor: 'pointer',
+                            borderLeft: '1px solid var(--border-color)',
+                            background: bgColor,
+                            color: color,
+                            fontWeight: 'bold',
+                            userSelect: 'none'
+                          }}
+                        >
+                          {icon}
+                        </td>
+                      )
+                    })}
+                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <button onClick={() => { setHistoryStudentId(student.id); setIsHistoryModalOpen(true); }} className="btn" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', padding: '0.4rem 0.6rem' }} title="ប្រវត្តិបង់ប្រាក់">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        </button>
+                        <button onClick={() => openPaymentModal(student)} className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}>
+                          បង់ប្រាក់
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredStudents.length === 0 && (
+                  <tr>
+                    <td colSpan={18} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>រកមិនឃើញទិន្នន័យ</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
       </div>
     </div>
 
