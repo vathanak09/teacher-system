@@ -328,6 +328,31 @@ export default function PaymentsPage() {
           <option value="all">គ្រប់ថ្នាក់ទាំងអស់</option>
           {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ជ្រើសរើសឆ្នាំ៖</span>
+          <select 
+            value={paymentYear} 
+            onChange={(e) => setPaymentYear(Number(e.target.value))}
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--primary-color)', background: 'rgba(59, 130, 246, 0.05)', color: 'var(--primary-color)', outline: 'none', fontWeight: 600, cursor: 'pointer' }}
+          >
+            {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+              <option key={y} value={y}>ឆ្នាំ {y}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>បង្ហាញ៖</span>
+          <select 
+            value={displayMonths} 
+            onChange={(e) => setDisplayMonths(Number(e.target.value))}
+            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer' }}
+          >
+            <option value={3}>៣ ខែ</option>
+            <option value={6}>៦ ខែ</option>
+            <option value={9}>៩ ខែ</option>
+            <option value={12}>១២ ខែ</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -606,6 +631,7 @@ export default function PaymentsPage() {
     </>
   );
 }
+
 
 
 
