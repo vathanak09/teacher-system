@@ -1177,14 +1177,13 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             // Count live students for this class
             const classStudentIds = c.studentIds || (c.studentsData ? c.studentsData.map((s: any) => s.id) : []);
             const classStudents = allStudents.filter((s: any) => classStudentIds.includes(s.id) && s.status !== 'ឈប់រៀន');
-            const totalStudents = classStudents.length;
-            
-            // Calculate score entry progress for selected month
-            const classScores = allScores.filter((sc: any) => sc.classId === c.id && sc.month === selectedMonth);
-            const scoredStudentsCount = classStudents.filter((st: any) => {
-              const sc = classScores.find((sc: any) => sc.studentId === st.id);
-              return sc && sc.totalScore !== undefined && sc.totalScore !== null && sc.totalScore !== '';
-            }).length;
+              
+              // Calculate score entry progress for selected month
+              const classScores = allScores.filter((sc: any) => sc.classId === c.id && sc.month === selectedMonth);
+              const totalStudents = classScores.length;
+              const scoredStudentsCount = classScores.filter((sc: any) => {
+                return sc.totalScore !== undefined && sc.totalScore !== null && sc.totalScore !== '';
+              }).length;
             
             const progressPercent = totalStudents > 0 ? Math.min(100, Math.round((scoredStudentsCount / totalStudents) * 100)) : 0;
             const isCompleted = totalStudents > 0 && progressPercent >= 80;
