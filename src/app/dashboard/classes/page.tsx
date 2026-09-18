@@ -348,7 +348,8 @@ export default function ClassesPage() {
       const matchingStudents = allStudents.filter(s => {
         const matchLevel = targetLevelsField.length === 0 || targetLevelsField.includes(s.level);
         const matchShift = targetShiftsField.length === 0 || targetShiftsField.includes(s.shift);
-        return matchLevel && matchShift && !existingIds.includes(s.id);
+        const matchStatus = s.status === 'កំពុងសិក្សា';
+        return matchLevel && matchShift && matchStatus && !existingIds.includes(s.id);
       });
       if (matchingStudents.length > 0) {
         baseStudentIds = [...baseStudentIds, ...matchingStudents.map(s => s.id)];
