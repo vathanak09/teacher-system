@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { classService, studentService, messageService, taskService, teachingRecordService, postService } from '@/services/db';
+import { classService, studentService, taskService, teachingRecordService, postService } from '@/services/db';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 export default function DashboardPage() {
@@ -10,7 +10,6 @@ export default function DashboardPage() {
   
   const [classes, setClasses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [teachingRecords, setTeachingRecords] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
@@ -34,14 +33,6 @@ export default function DashboardPage() {
        setStudents(data);
     });
     
-    const unsubMessages = messageService.listenAll(data => {
-      if (currentRole === 'admin') {
-         setMessages(data.filter((m: any) => m.receiverId === 'admin' || m.receiverId === 'all_teachers'));
-      } else {
-         setMessages(data.filter((m: any) => m.receiverId === currentUserId || m.receiverId === 'all_teachers'));
-      }
-    });
-    
     const unsubTasks = taskService.subscribeAll(setTasks);
     const unsubRecords = teachingRecordService.subscribeAll(setTeachingRecords);
     const unsubPosts = postService.subscribeAll(setPosts);
@@ -49,7 +40,6 @@ export default function DashboardPage() {
     return () => {
       unsubClasses();
       unsubStudents();
-      unsubMessages();
       unsubTasks();
       unsubRecords();
       unsubPosts();
@@ -99,8 +89,6 @@ export default function DashboardPage() {
     };
   }).slice(0, 10); // Show max 10 classes in graph
 
-  const unreadMessagesCount = messages.filter(m => !m.isRead).length;
-  
   // Filter relevant tasks
   const relevantTasks = role === 'admin' ? tasks : tasks.filter(t => {
      return classes.some(c => c.id === t.classId);
@@ -125,10 +113,6 @@ export default function DashboardPage() {
         <div className="glass-panel" style={{ padding: '1.5rem', borderLeft: '4px solid #10b981', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>សិស្សសរុប</div>
           <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{myStudents.length}</div>
-        </div>
-        <div className="glass-panel" style={{ padding: '1.5rem', borderLeft: '4px solid #8b5cf6', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>សារមិនទាន់អាន</div>
-          <div style={{ fontSize: '2rem', fontWeight: 700, color: unreadMessagesCount > 0 ? '#8b5cf6' : 'var(--text-primary)' }}>{unreadMessagesCount}</div>
         </div>
         <div className="glass-panel" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}>កិច្ចការមិនទាន់រួចរាល់</div>
@@ -190,27 +174,6 @@ export default function DashboardPage() {
 
       {/* Lists Section */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
-        {/* Messages List */}
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between' }}>
-            <span>សារថ្មីៗ (Recent Messages)</span>
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {messages.slice(0, 5).map(msg => (
-              <div key={msg.id} style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px', borderLeft: !msg.isRead ? '4px solid #8b5cf6' : 'none' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>{msg.title || msg.senderName}</strong>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(msg.createdAt).toLocaleDateString('km-KH')}</span>
-                </div>
-                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-            {messages.length === 0 && <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem 0' }}>មិនមានសារថ្មីៗទេ</div>}
-          </div>
-        </div>
-
         {/* Tasks List */}
         <div className="glass-panel" style={{ padding: '1.5rem' }}>
           <h2 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>កិច្ចការកំពុងអនុវត្ត (Ongoing Tasks)</h2>

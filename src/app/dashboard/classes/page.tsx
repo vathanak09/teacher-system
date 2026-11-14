@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, classService, studentService, messageService, settingsService, teachingRecordService, taskService, postService, monthlyPaymentService } from '@/services/db';
+import { teacherService, classService, studentService, settingsService, teachingRecordService, taskService, postService, monthlyPaymentService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 
@@ -484,8 +484,6 @@ export default function ClassesPage() {
   const handleRequestStudentEdit = async (e?: React.FormEvent) => {
       if (e) e.preventDefault();
       if (!editStudentData || !viewingClass) return;
-      
-      const originalStudent = allStudents.find(s => s.id === editStudentData.id);
 
       if (role === 'admin' || viewingClass?.allowTeacherEditStudent) {
          try {
@@ -500,64 +498,8 @@ export default function ClassesPage() {
          }
          return;
       }
-      
-      let changedFieldsText = [];
-      let changesData = [];
-      if (originalStudent) {
-        const fieldsToCheck = [
-          { key: 'fullName', label: 'ឈ្មោះពេញ' }, { key: 'englishName', label: 'ឈ្មោះអង់គ្លេស' },
-          { key: 'gender', label: 'ភេទ' }, { key: 'level', label: 'កម្រិតសិក្សា' }, { key: 'shift', label: 'វេន' },
-          { key: 'enrollDate', label: 'ថ្ងៃចូលរៀន' }, { key: 'fee', label: 'ថ្លៃសិក្សា' },
-          { key: 'dob', label: 'ថ្ងៃខែឆ្នាំកំណើត' }, { key: 'address', label: 'អាសយដ្ឋាន' },
-          { key: 'location', label: 'ទីតាំង' }, { key: 'transport', label: 'មធ្យោបាយ' },
-          { key: 'photo', label: 'រូបថត' }, { key: 'status', label: 'ស្ថានភាព' },
-          { key: 'contact', label: 'អ្នកទំនាក់ទំនង' }, { key: 'father', label: 'ឈ្មោះឪពុក' },
-          { key: 'mother', label: 'ឈ្មោះម្តាយ' }, { key: 'phoneNum', label: 'លេខទូរស័ព្ទ' }
-        ];
-        
-        for (const field of fieldsToCheck) {
-          if (String(originalStudent[field.key] || '') !== String(editStudentData[field.key] || '')) {
-            changedFieldsText.push(`- ${field.label}: [ចាស់]: ${originalStudent[field.key] || 'ទទេ'} -> [ថ្មី]: **${editStudentData[field.key] || 'ទទេ'}**`);
-            changesData.push({
-              key: field.key,
-              label: field.label,
-              oldVal: originalStudent[field.key] || '',
-              newVal: editStudentData[field.key] || ''
-            });
-          }
-        }
-      }
-      
-      const changesText = changedFieldsText.length > 0 
-        ? `មានព័ត៌មានដែលបានកែប្រែ៖\n${changedFieldsText.join('\n')}`
-        : 'មិនមានព័ត៌មានត្រូវបានកែប្រែទេប៉ុន្តែបានស្នើសុំពិនិត្យមើល។';
 
-      const msg = {
-        text: `សួស្តី Admin សូមជួយកែប្រែព័ត៌មានសិស្សខាងក្រោម៖ \n${editStudentData.fullName} (អត្តលេខ: ${editStudentData.studentId})\n\n${changesText}`,
-        senderId: userId,
-        senderName: userName,
-        senderRole: role,
-        receiverId: 'admin',
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        type: 'student_edit_request',
-        editRequestData: {
-          studentId: editStudentData.id,
-          studentName: editStudentData.fullName,
-          studentIdCode: editStudentData.studentId,
-          changes: changesData
-        }
-      };
-      
-      try {
-        await messageService.add(msg);
-        alert('សំណើកែប្រែព័ត៌មានសិស្សត្រូវបានបញ្ជូនទៅកាន់ Admin ដោយជោគជ័យ!');
-        setIsEditStudentModalOpen(false);
-        setEditStudentData(null);
-      } catch (error) {
-        console.error("Error sending request:", error);
-        alert("មានបញ្ហាក្នុងការបញ្ជូនសំណើ។ សូមព្យាយាមម្តងទៀត។");
-      }
+      alert('អ្នកមិនមានសិទ្ធិកែប្រែព័ត៌មានសិស្សទេ!');
     };
   
     if (!role) return null;
@@ -1044,10 +986,12 @@ export default function ClassesPage() {
                                                 </div>
                                               </div>
                                               
+                                              {(role === 'admin' || viewingClass?.allowTeacherEditStudent) && (
                                               <button onClick={() => { setHoveredStudent(null); setEditStudentData(s); setIsEditStudentModalOpen(true); }} className="btn btn-primary" style={{ width: '100%', padding: '0.85rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.75rem', borderRadius: '14px', border: 'none', fontSize: '1.05rem', fontWeight: 700, marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
                                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                 កែប្រែព័ត៌មានសិស្ស
                                               </button>
+                                              )}
                                             </div>
                                           </div>,
                                           document.body
@@ -1081,9 +1025,11 @@ export default function ClassesPage() {
 
                                   <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                      <button onClick={(e) => { e.stopPropagation(); setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
+                                      {(role === 'admin' || viewingClass?.allowTeacherEditStudent) && (
+                                        <button onClick={(e) => { e.stopPropagation(); setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                       </button>
+                                      )}
                                       <button onClick={(e) => { e.stopPropagation(); handleRemoveStudentFromClass(s.id); }} style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="ដកចេញ">
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                       </button>
@@ -1629,7 +1575,7 @@ export default function ClassesPage() {
                   />
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--primary-color)', fontSize: '0.95rem' }}>អនុញ្ញាតឱ្យគ្រូកែប្រែព័ត៌មានសិស្ស</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>អនុញ្ញាតឱ្យគ្រូបង្រៀនកែប្រែព័ត៌មានសិស្សដោយមិនចាំបាច់ស្នើសុំមកកាន់ Admin។</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>អនុញ្ញាតឱ្យគ្រូបង្រៀនកែប្រែព័ត៌មានសិស្សក្នុងថ្នាក់នេះដោយផ្ទាល់។</div>
                   </div>
                 </label>
               </div>
@@ -1877,8 +1823,8 @@ export default function ClassesPage() {
 
                 <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <button type="button" onClick={() => { setIsEditStudentModalOpen(false); setEditStudentData(null); }} style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', fontWeight: '500' }}>បោះបង់</button>
-                  <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
-                    ស្នើសុំកែប្រែទៅ Admin
+                  <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
+                    រក្សាទុក
                   </button>
                 </div>
               </form>

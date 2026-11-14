@@ -1,16 +1,6 @@
 "use client";
-function renderContentWithEmbeds(html: string, embeddedCodes?: string[]) {
-  if (!html) return '';
-  let result = html;
-  if (embeddedCodes && embeddedCodes.length > 0) {
-    embeddedCodes.forEach((code, i) => {
-      result = result.replace(`[EMBED_${i}]`, `<div class="embed-wrapper" style="margin: 1.5rem 0; width: 100%; overflow: hidden;">${code}</div>`);
-    });
-  }
-  return result;
-}
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
 
@@ -18,21 +8,21 @@ import ImageUploadBox from '@/components/ImageUploadBox';
 import AdvancedEditor from '@/components/AdvancedEditor';
 import SortDropdown from '@/components/SortDropdown';
 
-export default function LessonsPage() {
+type PostCategory = 'lessons' | 'methodologies';
+
+export default function LessonsAndMethodologiesPage() {
   const router = useRouter();
 
+  const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
+  const [methodsPosts, setMethodsPosts] = useState<any[]>([]);
 
-  const [posts, setPosts] = useState<any[]>([]);
-  
   // Modals state
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [isReadModalOpen, setIsReadModalOpen] = useState(false);
-  
+
   const [coverPhotoField, setCoverPhotoField] = useState('');
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [isUploadSuccess, setIsUploadSuccess] = useState(false);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [role, setRole] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [userId, setUserId] = useState('');
@@ -41,6 +31,7 @@ export default function LessonsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [postCodeField, setPostCodeField] = useState('');
+  const [filterType, setFilterType] = useState<'all' | PostCategory>('all');
   const [filterAuthor, setFilterAuthor] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -56,31 +47,40 @@ export default function LessonsPage() {
   const [content, setContent] = useState('');
   const [embeddedCodes, setEmbeddedCodes] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [postCategory, setPostCategory] = useState<PostCategory>('lessons');
+  const [editingOriginalCollection, setEditingOriginalCollection] = useState<PostCategory>('lessons');
+  const [editingPostLikes, setEditingPostLikes] = useState<string[]>([]);
+  const [editingPostViews, setEditingPostViews] = useState<number>(0);
   const [editorMode, setEditorMode] = useState<'word' | 'html'>('word');
 
-  // Read post state
-  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const getService = (collName: PostCategory) =>
+    collName === 'lessons' ? lessonService : methodologyService;
 
   // --- Caching Logic ---
   useEffect(() => {
     const cached_searchQuery = sessionStorage.getItem('lessons_searchQuery');
-    if (cached_searchQuery !== null) setSearchQuery(cached_searchQuery as any);
+    if (cached_searchQuery !== null) setSearchQuery(cached_searchQuery);
     const cached_viewMode = sessionStorage.getItem('lessons_viewMode');
-    if (cached_viewMode !== null) setViewMode(cached_viewMode as any);
+    if (cached_viewMode === 'grid' || cached_viewMode === 'list') setViewMode(cached_viewMode);
+    const cached_filterType = sessionStorage.getItem('lessons_filterType');
+    if (cached_filterType === 'all' || cached_filterType === 'lessons' || cached_filterType === 'methodologies') {
+      setFilterType(cached_filterType);
+    }
     const cached_filterAuthor = sessionStorage.getItem('lessons_filterAuthor');
-    if (cached_filterAuthor !== null) setFilterAuthor(cached_filterAuthor as any);
+    if (cached_filterAuthor !== null) setFilterAuthor(cached_filterAuthor);
     const cached_sortBy = sessionStorage.getItem('lessons_sortBy');
     const cached_sortOrder = sessionStorage.getItem('lessons_sortOrder');
-    if (cached_sortBy !== null) setSortBy(cached_sortBy as any);
-    if (cached_sortOrder !== null) setSortOrder(cached_sortOrder as any);
+    if (cached_sortBy !== null) setSortBy(cached_sortBy);
+    if (cached_sortOrder === 'asc' || cached_sortOrder === 'desc') setSortOrder(cached_sortOrder);
   }, []);
 
   useEffect(() => { sessionStorage.setItem('lessons_searchQuery', searchQuery); }, [searchQuery]);
   useEffect(() => { sessionStorage.setItem('lessons_viewMode', viewMode); }, [viewMode]);
+  useEffect(() => { sessionStorage.setItem('lessons_filterType', filterType); }, [filterType]);
   useEffect(() => { sessionStorage.setItem('lessons_filterAuthor', filterAuthor); }, [filterAuthor]);
-  useEffect(() => { 
-    sessionStorage.setItem('lessons_sortBy', sortBy); 
-    sessionStorage.setItem('lessons_sortOrder', sortOrder); 
+  useEffect(() => {
+    sessionStorage.setItem('lessons_sortBy', sortBy);
+    sessionStorage.setItem('lessons_sortOrder', sortOrder);
   }, [sortBy, sortOrder]);
   // ----------------------
 
@@ -96,54 +96,80 @@ export default function LessonsPage() {
       }
     });
 
-    // Load Posts
-    const unsubscribe = lessonService.listenAll(setPosts);
+    const unsubLessons = lessonService.listenAll((data) => {
+      setLessonsPosts(data.map((d: any) => ({ ...d, collectionName: 'lessons' as PostCategory })));
+    });
+
+    const unsubMethods = methodologyService.listenAll((data) => {
+      setMethodsPosts(data.map((d: any) => ({ ...d, collectionName: 'methodologies' as PostCategory })));
+    });
 
     return () => {
-      unsubscribe();
+      unsubLessons();
+      unsubMethods();
       unsubSettings();
     };
   }, []);
 
+  const generatePostCode = () => {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  };
+
   const openCreateModal = () => {
+    const defaultCategory: PostCategory = filterType === 'methodologies' ? 'methodologies' : 'lessons';
     setTitle('');
     setContent('');
+    setEmbeddedCodes([]);
     setSelectedTags([]);
     setPostCodeField(generatePostCode());
     setEditingId(null);
+    setPostCategory(defaultCategory);
+    setEditingOriginalCollection(defaultCategory);
+    setEditingPostLikes([]);
+    setEditingPostViews(0);
     setEditorMode('word');
     setCoverPhotoField('');
-    
+
     setIsEditorOpen(true);
   };
 
   const openEditModal = (post: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    const coll: PostCategory = post.collectionName === 'methodologies' ? 'methodologies' : 'lessons';
     setTitle(post.title);
     setContent(post.content);
     setEmbeddedCodes(post.embeddedCodes || []);
     setSelectedTags(post.tags || []);
     setPostCodeField(post.postCode || '');
     setEditingId(post.id);
+    setPostCategory(coll);
+    setEditingOriginalCollection(coll);
+    setEditingPostLikes(post.likes || []);
+    setEditingPostViews(post.views || 0);
     setEditorMode(post.editorMode || 'word');
     setCoverPhotoField(post.coverPhoto || '');
-    
+
     setIsEditorOpen(true);
   };
 
-  const openReadModal = (post: any) => { router.push(`/dashboard/view/${post.postCode || post.id}`); };
+  const openReadModal = (post: any) => {
+    router.push(`/dashboard/view/${post.postCode || post.id}`);
+  };
 
   const handleSave = async () => {
     if (!title) return alert("សូមបំពេញចំណងជើង!");
     if (!postCodeField) return alert("សូមបញ្ចូលលេខកូដ (ID)!");
-    
+
     // Check for uniqueness across lessons and methodologies
     try {
       const [res1, res2] = await Promise.all([
         lessonService.getByQuery('postCode', '==', postCodeField),
         methodologyService.getByQuery('postCode', '==', postCodeField)
       ]);
-      const isDuplicate = [...res1, ...res2].some((d: any) => d.id !== editingId);
+      const isDuplicate = [
+        ...res1.map((d: any) => ({ ...d, _coll: 'lessons' })),
+        ...res2.map((d: any) => ({ ...d, _coll: 'methodologies' }))
+      ].some((d: any) => !(d.id === editingId && d._coll === editingOriginalCollection));
       if (isDuplicate) {
         return alert("លេខកូដនេះមានរួចហើយ សូមប្រើលេខកូដផ្សេង!");
       }
@@ -166,12 +192,23 @@ export default function LessonsPage() {
       editorMode,
       coverPhoto: coverPhotoField
     };
+
     if (editingId) {
-      await lessonService.update(editingId.toString(), postData);
+      if (postCategory === editingOriginalCollection) {
+        await getService(postCategory).update(editingId.toString(), postData);
+      } else {
+        await getService(postCategory).add({
+          ...postData,
+          likes: editingPostLikes,
+          views: editingPostViews
+        });
+        await getService(editingOriginalCollection).delete(editingId.toString());
+      }
     } else {
       postData.likes = [];
-      await lessonService.add(postData);
+      await getService(postCategory).add(postData);
     }
+
     setIsEditorOpen(false);
     setTitle('');
     setContent('');
@@ -201,10 +238,11 @@ export default function LessonsPage() {
     }
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = (id: string, collName: PostCategory, e: React.MouseEvent) => {
     e.stopPropagation();
-    if(confirm("តើអ្នកពិតជាចង់លុបមេរៀននេះមែនទេ?")) {
-      lessonService.delete(id);
+    const label = collName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ';
+    if (confirm(`តើអ្នកពិតជាចង់លុប${label}នេះមែនទេ?`)) {
+      getService(collName).delete(id);
     }
   };
 
@@ -213,29 +251,11 @@ export default function LessonsPage() {
     if (!userId) return;
     const currentLikes = post.likes || [];
     const hasLiked = currentLikes.includes(userId);
-    const newLikes = hasLiked 
+    const newLikes = hasLiked
       ? currentLikes.filter((id: string) => id !== userId)
       : [...currentLikes, userId];
-    
-    lessonService.update(post.id, { likes: newLikes });
-  };
 
-  // Enhanced Quill Modules with size, color, background-color, alignment
-  const modules = {
-    toolbar: [
-      [{ 'font': [] }, { 'size': ['small', false, 'large', 'huge'] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-      [{ 'align': [] }],
-      ['link', 'image', 'video'],
-      ['code-block'],
-      ['clean']
-    ],
-  };
-
-  const generatePostCode = () => {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    getService(post.collectionName).update(post.id, { likes: newLikes });
   };
 
   const handleShare = (e: React.MouseEvent, postCode: string | undefined, id: string) => {
@@ -247,7 +267,6 @@ export default function LessonsPage() {
     });
   };
 
-  // Helper function to strip HTML for preview
   const getExcerpt = (html: string) => {
     if (typeof window !== 'undefined') {
       const tmp = document.createElement("DIV");
@@ -258,614 +277,576 @@ export default function LessonsPage() {
     return "";
   };
 
-  // Filter and Sort logic
-  const filteredAndSortedPosts = posts
+  const allPosts = [...lessonsPosts, ...methodsPosts];
+
+  const filteredAndSortedPosts = allPosts
     .filter(post => {
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = post.title.toLowerCase().includes(searchLower) || (post.postCode && post.postCode.toString().includes(searchLower));
-      const matchesFilter = filterAuthor === 'all' || 
+      const matchesSearch =
+        (post.title || '').toLowerCase().includes(searchLower) ||
+        (post.postCode && post.postCode.toString().toLowerCase().includes(searchLower));
+      const matchesType = filterType === 'all' || post.collectionName === filterType;
+      const matchesFilter =
+        filterAuthor === 'all' ||
         (filterAuthor === 'mine' && post.author === authorName) ||
         (filterAuthor === 'others' && post.author !== authorName) ||
         (filterAuthor === 'favorites' && post.likes && post.likes.includes(userId));
-      
+
       const matchesGroupTags = Object.keys(filterTagsByGroup).every(groupId => {
         const tagId = filterTagsByGroup[Number(groupId)];
         if (!tagId || tagId === 'all') return true;
         return post.tags && post.tags.includes(Number(tagId));
       });
-      
-      return matchesSearch && matchesFilter && matchesGroupTags;
+
+      return matchesSearch && matchesType && matchesFilter && matchesGroupTags;
     })
-      .sort((a, b) => {
-        let comparison = 0;
-        if (sortBy === 'popular') {
-          comparison = ((a.views || 0) + (a.likes?.length || 0)) - ((b.views || 0) + (b.likes?.length || 0));
-        } else if (sortBy === 'views') {
-          comparison = (a.views || 0) - (b.views || 0);
-        } else if (sortBy === 'title') {
-          comparison = (a.title || '').localeCompare(b.title || '', 'km-KH');
-        } else if (sortBy === 'postCode') {
-          comparison = (a.postCode || '').localeCompare(b.postCode || '');
-        } else {
-          comparison = (a.timestamp || 0) - (b.timestamp || 0);
-        }
-        return sortOrder === 'asc' ? comparison : -comparison;
-      });
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'popular') {
+        comparison = ((a.views || 0) + (a.likes?.length || 0)) - ((b.views || 0) + (b.likes?.length || 0));
+      } else if (sortBy === 'views') {
+        comparison = (a.views || 0) - (b.views || 0);
+      } else if (sortBy === 'title') {
+        comparison = (a.title || '').localeCompare(b.title || '', 'km-KH');
+      } else if (sortBy === 'postCode') {
+        comparison = (a.postCode || '').localeCompare(b.postCode || '');
+      } else {
+        comparison = (a.timestamp || 0) - (b.timestamp || 0);
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <>
-    <div className="page-container animate-fade-in">
-      <div className="flex-between" style={{ marginBottom: '2rem' }}>
-        <div>
-          <h1>មេរៀន</h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>កន្លែងចែករំលែកមេរៀន និងឯកសារសម្រាប់សិស្ស</p>
+      <div className="page-container animate-fade-in">
+        <div className="flex-between" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ margin: 0 }}>មេរៀន & វិធីសាស្ត្រ</h1>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>
+              កន្លែងចែករំលែកមេរៀន វិធីសាស្ត្របង្រៀន និងឯកសារផ្សេងៗ
+            </p>
+          </div>
+          {(role === 'admin' || role === 'teacher') && (
+            <button className="btn btn-primary" onClick={openCreateModal}>
+              + បង្កើតថ្មី
+            </button>
+          )}
         </div>
-        {(role === 'admin' || role === 'teacher') && (
-          <button className="btn btn-primary" onClick={openCreateModal}>
-            + បង្កើតមេរៀនថ្មី
-          </button>
-        )}
-      </div>
 
-      {/* Search, Filter, Sort Controls */}
-      <div className="glass-panel" style={{ padding: '0.5rem 0.75rem', marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
-          <input 
-            type="text" 
-            className="input-field" 
-            placeholder="ស្វែងរកចំណងជើងមេរៀន..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {/* Dynamic Tag Group Filters */}
-          {tagGroups.map(group => {
-            const groupTags = availableTags.filter(tag => tag.groupId === group.id);
-            if (groupTags.length === 0) return null;
+        {/* Category Tabs (All / Lessons / Methodologies) */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          {[
+            { value: 'all', label: `ទាំងអស់ (${allPosts.length})` },
+            { value: 'lessons', label: `មេរៀន (${lessonsPosts.length})` },
+            { value: 'methodologies', label: `វិធីសាស្ត្រ (${methodsPosts.length})` }
+          ].map(tab => {
+            const isSelected = filterType === tab.value;
             return (
-              <select 
-                key={group.id}
-                className="input-field" 
-                value={filterTagsByGroup[group.id] || 'all'} 
-                onChange={e => setFilterTagsByGroup({...filterTagsByGroup, [group.id]: e.target.value})}
-                style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
+              <button
+                key={tab.value}
+                onClick={() => setFilterType(tab.value as 'all' | PostCategory)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${isSelected ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                  background: isSelected ? 'var(--primary-color)' : 'var(--card-bg)',
+                  color: isSelected ? 'white' : 'var(--text-primary)',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
               >
-                <option value="all">{group.name}ទាំងអស់</option>
-                {groupTags.map(tag => (
-                  <option key={tag.id} value={tag.id}>{tag.name}</option>
-                ))}
-              </select>
+                {tab.label}
+              </button>
             );
           })}
+        </div>
 
-          <select 
-            className="input-field" 
-            value={filterAuthor} 
-            onChange={e => setFilterAuthor(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
-          >
-            <option value="all">មេរៀនទាំងអស់</option>
-            <option value="favorites">មេរៀនដែលខ្ញុំពេញចិត្ត</option>
-            <option value="mine">មេរៀនរបស់ខ្ញុំ</option>
-            <option value="others">មេរៀនអ្នកដទៃ</option>
-          </select>
+        {/* Search, Filter, Sort Controls */}
+        <div className="glass-panel" style={{ padding: '0.5rem 0.75rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="ស្វែងរកតាមចំណងជើង ឬ លេខកូដ..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: '1rem', background: 'var(--main-bg)' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {/* Dynamic Tag Group Filters */}
+            {tagGroups.map(group => {
+              const groupTags = availableTags.filter(tag => tag.groupId === group.id);
+              if (groupTags.length === 0) return null;
+              return (
+                <select
+                  key={group.id}
+                  className="input-field"
+                  value={filterTagsByGroup[group.id] || 'all'}
+                  onChange={e => setFilterTagsByGroup({ ...filterTagsByGroup, [group.id]: e.target.value })}
+                  style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
+                >
+                  <option value="all">{group.name}ទាំងអស់</option>
+                  {groupTags.map(tag => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
+                  ))}
+                </select>
+              );
+            })}
 
-          <SortDropdown 
-            options={[
-              { value: 'popular', label: 'ពេញនិយមជាងគេ' },
-              { value: 'views', label: 'អ្នកចូលមើល' },
-              { value: 'date', label: 'កាលបរិច្ឆេទ' },
-              { value: 'title', label: 'ចំណងជើង' },
-              { value: 'postCode', label: 'លេខកូដ' }
-            ]}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSortChange={(by, order) => {
-              setSortBy(by);
-              setSortOrder(order);
-            }}
-          />
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'grid' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'grid' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="Grid View">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            </button>
-            <button onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'list' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'list' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="List View">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-            </button>
+            <select
+              className="input-field"
+              value={filterAuthor}
+              onChange={e => setFilterAuthor(e.target.value)}
+              style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
+            >
+              <option value="all">ទាំងអស់</option>
+              <option value="favorites">ដែលខ្ញុំពេញចិត្ត</option>
+              <option value="mine">របស់ខ្ញុំ</option>
+              <option value="others">របស់អ្នកដទៃ</option>
+            </select>
+
+            <SortDropdown
+              options={[
+                { value: 'popular', label: 'ពេញនិយមជាងគេ' },
+                { value: 'views', label: 'អ្នកចូលមើល' },
+                { value: 'date', label: 'កាលបរិច្ឆេទ' },
+                { value: 'title', label: 'ចំណងជើង' },
+                { value: 'postCode', label: 'លេខកូដ' }
+              ]}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortChange={(by, order) => {
+                setSortBy(by);
+                setSortOrder(order);
+              }}
+            />
+            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'grid' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'grid' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="Grid View">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              </button>
+              <button onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '6px', border: 'none', background: viewMode === 'list' ? 'var(--primary-color)' : 'transparent', color: viewMode === 'list' ? 'white' : 'var(--text-secondary)', cursor: 'pointer' }} title="List View">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {filteredAndSortedPosts.length === 0 ? (
-        <div className="glass-panel" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          {searchQuery ? "រកមិនឃើញមេរៀនដែលត្រូវគ្នានឹងការស្វែងរកទេ!" : "មិនទាន់មានមេរៀនណាមួយនៅឡើយទេ!"}
-        </div>
-      ) : viewMode === 'list' ? (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>លេខកូដ</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>ចំណងជើង</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap', cursor: 'default' }}>ស្លាក (Tags)</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>ប្រភេទ</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>អ្នកនិពន្ធ</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>កាលបរិច្ឆេទ</th>
-                <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap', cursor: 'default' }}>សកម្មភាព</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSortedPosts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>រកមិនឃើញទិន្នន័យឡើយ!</td>
+        {filteredAndSortedPosts.length === 0 ? (
+          <div className="glass-panel" style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            {searchQuery ? "រកមិនឃើញទិន្នន័យដែលត្រូវគ្នានឹងការស្វែងរកទេ!" : "មិនទាន់មានមេរៀន ឬ វិធីសាស្ត្រណាមួយនៅឡើយទេ!"}
+          </div>
+        ) : viewMode === 'list' ? (
+          <div className="glass-panel" style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>លេខកូដ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>ចំណងជើង</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap', cursor: 'default' }}>ស្លាក (Tags)</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>ប្រភេទ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>អ្នកនិពន្ធ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>កាលបរិច្ឆេទ</th>
+                  <th style={{ padding: '1rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap', cursor: 'default' }}>សកម្មភាព</th>
                 </tr>
-              ) : (
-                filteredAndSortedPosts.map(post => (
-                  <tr key={post.id} onClick={() => openReadModal(post)} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s', cursor: 'pointer' }} className="hover-row">
-                    
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--accent-primary)' }}>
-                      #{post.postCode || 'N/A'}
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {post.title}
-                        {post.views > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg> {post.views}</span>}
-                        {post.likes?.length > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg> {post.likes.length}</span>}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
-                        {post.tags && post.tags.map((tagId: number) => {
-                          const t = availableTags.find((tg: any) => tg.id === tagId);
-                          if (!t) return null;
-                          return (
-                            <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                              {t.name}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <span style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
-                        មេរៀន
+              </thead>
+              <tbody>
+                {filteredAndSortedPosts.map(post => {
+                  const isLesson = post.collectionName === 'lessons';
+                  return (
+                    <tr key={`${post.collectionName}-${post.id}`} onClick={() => openReadModal(post)} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s', cursor: 'pointer' }} className="hover-row">
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--accent-primary)' }}>
+                        #{post.postCode || 'N/A'}
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: 500, maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {post.title}
+                          {post.views > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg> {post.views}</span>}
+                          {post.likes?.length > 0 && <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg> {post.likes.length}</span>}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'nowrap' }}>
+                          {post.tags && post.tags.map((tagId: number) => {
+                            const t = availableTags.find((tg: any) => tg.id === tagId);
+                            if (!t) return null;
+                            return (
+                              <span key={tagId} style={{ background: `${t.color}15`, color: t.color, border: `1px solid ${t.color}30`, padding: '0.15rem 0.4rem', borderRadius: '4px', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                                {t.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <span style={{
+                          background: isLesson ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: isLesson ? '#3b82f6' : '#ef4444',
+                          padding: '0.15rem 0.4rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600
+                        }}>
+                          {isLesson ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                          {post.author}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        {post.date}
+                      </td>
+                      <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                          {(role === 'admin' || post.author === authorName) ? (
+                            <>
+                              <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              </button>
+                              <button onClick={(e) => handleDelete(post.id, post.collectionName, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+            {filteredAndSortedPosts.map(post => {
+              const isLesson = post.collectionName === 'lessons';
+              return (
+                <div
+                  key={`${post.collectionName}-${post.id}`}
+                  className="glass-panel"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    overflow: 'hidden',
+                    minHeight: '200px'
+                  }}
+                  onClick={() => openReadModal(post)}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  {/* Cover Photo - Top Section */}
+                  {post.coverPhoto && (
+                    <div style={{
+                      width: '100%',
+                      height: '180px',
+                      backgroundImage: `url(${post.coverPhoto})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      borderBottom: '1px solid var(--border-color)'
+                    }}></div>
+                  )}
+
+                  <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                      <h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4' }}>{post.title}</h3>
+                      {userId && (
+                        <button
+                          onClick={(e) => toggleLike(e, post)}
+                          className="btn"
+                          style={{ background: 'transparent', border: 'none', padding: '0.25rem', fontSize: '1.25rem', color: post.likes?.includes(userId) ? '#ef4444' : '#ccc', lineHeight: 1 }}
+                          title={post.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
+                        >
+                          {post.likes?.includes(userId) ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#f43f5e" stroke="#f43f5e" strokeWidth="2" style={{ filter: "drop-shadow(0 2px 4px rgba(244,63,94,0.3))" }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg> : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Render Category, PostCode, and Tag Badges on Cards */}
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                      <span style={{
+                        background: isLesson ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
+                        color: isLesson ? '#3b82f6' : '#ef4444',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600
+                      }}>
+                        {isLesson ? 'មេរៀន' : 'វិធីសាស្ត្រ'}
                       </span>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        {post.author}
+                      {post.postCode && (
+                        <span style={{ background: 'var(--accent-primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                          #{post.postCode}
+                        </span>
+                      )}
+                      {post.tags && post.tags.map((tagId: number) => {
+                        const tag = availableTags.find(t => t.id === tagId);
+                        if (!tag) return null;
+                        return (
+                          <span key={tagId} style={{ background: tag.color, color: 'white', padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
+                            {tag.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {!post.coverPhoto && (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
+                        {getExcerpt(post.content)}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                          {post.author}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                          {post.date}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          {post.views || 0}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                          {post.likes?.length || 0}
+                        </span>
                       </div>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      {post.date}
-                    </td>
-                  <td style={{ padding: '1rem', fontSize: '0.95rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={(e) => handleShare(e, post.postCode, post.id)} className="btn" style={{ padding: '0.4rem', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: 'none' }} title="Share">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        </button>
                         {(role === 'admin' || post.author === authorName) ? (
                           <>
-                            <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
-                            <button onClick={(e) => handleDelete(post.id, e)} className="btn" style={{ padding: '0.35rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <button onClick={(e) => handleDelete(post.id, post.collectionName, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                           </>
                         ) : null}
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-          {filteredAndSortedPosts.map(post => (
-            <div key={post.id} className="glass-panel" style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              cursor: 'pointer', 
-              transition: 'transform 0.2s, box-shadow 0.2s', 
-              overflow: 'hidden',
-              minHeight: '200px'
-            }} onClick={() => openReadModal(post)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              
-              {/* Cover Photo - Top Section */}
-              {post.coverPhoto && (
-                <div style={{
-                  width: '100%',
-                  height: '180px',
-                  backgroundImage: `url(${post.coverPhoto})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  borderBottom: '1px solid var(--border-color)'
-                }}></div>
-              )}
-
-              <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div className="flex-between" style={{ alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <h3 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '1.25rem', lineHeight: '1.4' }}>{post.title}</h3>
-                  {userId && (
-                    <button 
-                      onClick={(e) => toggleLike(e, post)} 
-                      className="btn" 
-                      style={{ background: 'transparent', border: 'none', padding: '0.25rem', fontSize: '1.25rem', color: post.likes?.includes(userId) ? '#ef4444' : '#ccc', lineHeight: 1 }} 
-                      title={post.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
-                    >
-                      {post.likes?.includes(userId) ? <svg width="22" height="22" viewBox="0 0 24 24" fill="#f43f5e" stroke="#f43f5e" strokeWidth="2" style={{ filter: "drop-shadow(0 2px 4px rgba(244,63,94,0.3))" }}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg> : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>}
-                    </button>
-                  )}
-                </div>
-                
-                {/* Render Tag Badges on Cards */}
-                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                  {post.postCode && (
-                    <span style={{ background: 'var(--accent-primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
-                      #{post.postCode}
-                    </span>
-                  )}
-                  {post.tags && post.tags.map((tagId: number) => {
-                    const tag = availableTags.find(t => t.id === tagId);
-                    if (!tag) return null;
-                    return (
-                      <span key={tagId} style={{ background: tag.color, color: 'white', padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                        {tag.name}
-                      </span>
-                    );
-                  })}
-                </div>
-
-                {!post.coverPhoto && (
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.6', flex: 1, marginBottom: '0.75rem' }}>
-                    {getExcerpt(post.content)}
-                  </p>
-                )}
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                      {post.author}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                      {post.date}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                      {post.views || 0}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                      {post.likes?.length || 0}
-                    </span>
+                    </div>
                   </div>
-                  
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button onClick={(e) => handleShare(e, post.postCode, post.id)} className="btn" style={{ padding: '0.4rem', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: 'none' }} title="Share">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                    </button>
-                  {(role === 'admin' || post.author === authorName) ? (
-                    <>
-                      <button onClick={(e) => openEditModal(post, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none' }} title="កែប្រែ">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                      </button>
-                      <button onClick={(e) => handleDelete(post.id, e)} className="btn" style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: 'none' }} title="លុប">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                      </button>
-                    </>
-                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* EDITOR MODAL */}
+      {isEditorOpen && (
+        <div
+          onClick={() => setIsEditorOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="glass-panel animate-fade-in post-editor-modal"
+            style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}
+          >
+            <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
+              <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{editingId ? 'កែប្រែអត្ថបទ' : 'សរសេរអត្ថបទថ្មី'}</h2>
+            </div>
+
+            <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '250px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ចំណងជើង</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="វាយបញ្ចូលចំណងជើង..."
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
+                  />
+                </div>
+                <div style={{ width: '180px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ប្រភេទ</label>
+                  <select
+                    className="input-field"
+                    value={postCategory}
+                    onChange={e => setPostCategory(e.target.value as PostCategory)}
+                    style={{ fontSize: '1.05rem', padding: '1rem', background: 'var(--main-bg)' }}
+                  >
+                    <option value="lessons">មេរៀន</option>
+                    <option value="methodologies">វិធីសាស្ត្រ</option>
+                  </select>
+                </div>
+                <div style={{ width: '150px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>លេខកូដ (ID)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    value={postCodeField}
+                    onChange={e => setPostCodeField(e.target.value)}
+                    placeholder="XXXX"
+                    style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>រូបថតគម្រប (Cover Photo)</label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <ImageUploadBox
+                    onFileSelect={handleCoverUpload}
+                    currentImage={coverPhotoField || undefined}
+                    isUploading={isUploadingCover}
+                    isUploadSuccess={isUploadSuccess}
+                    shape="rect"
+                    width="120px"
+                    height="80px"
+                    emptyText="គ្មានរូបថត"
+                    isActiveModal={isEditorOpen}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input type="text" className="input-field" value={coverPhotoField} onChange={e => setCoverPhotoField(e.target.value)} placeholder="URL រូបថត" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} />
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។ (ទាញរូបថតទម្លាក់លើប្រអប់ផ្ទាល់ ឬ Paste (Ctrl+V) ក៏បាន)</span>
                   </div>
                 </div>
               </div>
+
+              {/* Grouped Tag Selection in Editor */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>ស្លាកពាក្យ (Tags)</label>
+                {availableTags.length === 0 ? (
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>មិនទាន់មានស្លាកពាក្យនៅឡើយទេ។ (គ្រប់គ្រងស្លាកពាក្យក្នុងទំព័រ Settings)</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    {/* Grouped Tags */}
+                    {tagGroups.map(group => {
+                      const groupTags = availableTags.filter(t => t.groupId === group.id);
+                      if (groupTags.length === 0) return null;
+                      return (
+                        <div key={group.id}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                            📂 {group.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {groupTags.map(tag => {
+                              const isSelected = selectedTags.includes(tag.id);
+                              return (
+                                <div
+                                  key={tag.id}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                                    } else {
+                                      setSelectedTags([...selectedTags, tag.id]);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '0.4rem 0.8rem',
+                                    borderRadius: '20px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    background: isSelected ? tag.color : 'var(--modal-bg)',
+                                    color: isSelected ? 'white' : 'var(--text-secondary)',
+                                    border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  {tag.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Ungrouped Tags */}
+                    {(() => {
+                      const ungroupedTags = availableTags.filter(t => !t.groupId);
+                      if (ungroupedTags.length === 0) return null;
+                      return (
+                        <div>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                            🏷️ ស្លាកពាក្យផ្សេងៗ (Others)
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {ungroupedTags.map(tag => {
+                              const isSelected = selectedTags.includes(tag.id);
+                              return (
+                                <div
+                                  key={tag.id}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                                    } else {
+                                      setSelectedTags([...selectedTags, tag.id]);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '0.4rem 0.8rem',
+                                    borderRadius: '20px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer',
+                                    background: isSelected ? tag.color : 'var(--modal-bg)',
+                                    color: isSelected ? 'white' : 'var(--text-secondary)',
+                                    border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
+                                    transition: 'all 0.2s'
+                                  }}
+                                >
+                                  {tag.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ខ្លឹមសារ</label>
+                <AdvancedEditor
+                  content={content}
+                  onChange={setContent}
+                  embeddedCodes={embeddedCodes}
+                  onEmbeddedCodesChange={setEmbeddedCodes}
+                  placeholder="សរសេរទីនេះ..."
+                  editorMode={editorMode}
+                  onEditorModeChange={setEditorMode}
+                />
+              </div>
             </div>
-          ))}
+
+            <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', background: 'var(--modal-bg)' }}>
+              <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsEditorOpen(false)}>បោះបង់</button>
+              <button className="btn btn-primary" onClick={handleSave} style={{ minWidth: '150px' }}>{editingId ? 'រក្សាទុក (Update)' : 'ផ្សព្វផ្សាយ (Publish)'}</button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
 
-    {/* EDITOR MODAL (Solid Background Fixed) */}
-    {isEditorOpen && (
-      <div 
-        onClick={() => setIsEditorOpen(false)}
-        style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-      >
-        <div 
-          onClick={e => e.stopPropagation()}
-          className="glass-panel animate-fade-in post-editor-modal" 
-          style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)' }}
-        >
-          <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
-            <h2 style={{ margin: 0, fontSize: '1.3rem' }}>{editingId ? 'កែប្រែមេរៀន' : 'សរសេរមេរៀនថ្មី'}</h2>
-            
-            
-          </div>
-          
-          <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '300px' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ចំណងជើងមេរៀន</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  placeholder="វាយបញ្ចូលចំណងជើង..." 
-                  value={title} 
-                  onChange={e => setTitle(e.target.value)} 
-                  style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
-                />
-              </div>
-              <div style={{ width: '150px' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>លេខកូដ (ID)</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={postCodeField}
-                  onChange={e => setPostCodeField(e.target.value)}
-                  placeholder="XXXX"
-                  style={{ fontSize: '1.1rem', padding: '1rem', background: 'var(--main-bg)' }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>រូបថតគម្រប (Cover Photo)</label>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <ImageUploadBox
-                  onFileSelect={handleCoverUpload}
-                  currentImage={coverPhotoField || undefined}
-                  isUploading={isUploadingCover}
-                  isUploadSuccess={isUploadSuccess}
-                  shape="rect"
-                  width="120px"
-                  height="80px"
-                  emptyText="គ្មានរូបថត"
-                  isActiveModal={isEditorOpen}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input type="text" className="input-field" value={coverPhotoField} onChange={e => setCoverPhotoField(e.target.value)} placeholder="URL រូបថត" style={{ flex: 1, padding: '0.5rem', fontSize: '0.875rem' }} />
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ខ្នាតដែលល្អបំផុត (Ratio 16:9)។ វានឹងប្រើឈ្មោះកូដផុសជាឈ្មោះរូបថត។ (ទាញរូបថតទម្លាក់លើប្រអប់ផ្ទាល់ ឬ Paste (Ctrl+V) ក៏បាន)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Grouped Tag Selection in Editor */}
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600 }}>ស្លាកពាក្យ (Tags)</label>
-              {availableTags.length === 0 ? (
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>មិនទាន់មានស្លាកពាក្យនៅឡើយទេ។ (គ្រប់គ្រងស្លាកពាក្យក្នុងទំព័រ Settings)</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--main-bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  
-                  {/* Grouped Tags */}
-                  {tagGroups.map(group => {
-                    const groupTags = availableTags.filter(t => t.groupId === group.id);
-                    if (groupTags.length === 0) return null;
-                    return (
-                      <div key={group.id}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                          📂 {group.name}
-                        </span>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          {groupTags.map(tag => {
-                            const isSelected = selectedTags.includes(tag.id);
-                            return (
-                              <div 
-                                key={tag.id}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setSelectedTags(selectedTags.filter(id => id !== tag.id));
-                                  } else {
-                                    setSelectedTags([...selectedTags, tag.id]);
-                                  }
-                                }}
-                                style={{
-                                  padding: '0.4rem 0.8rem',
-                                  borderRadius: '20px',
-                                  fontSize: '0.85rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  background: isSelected ? tag.color : 'var(--modal-bg)',
-                                  color: isSelected ? 'white' : 'var(--text-secondary)',
-                                  border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
-                                  transition: 'all 0.2s'
-                                }}
-                              >
-                                {tag.name}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Ungrouped Tags */}
-                  {(() => {
-                    const ungroupedTags = availableTags.filter(t => !t.groupId);
-                    if (ungroupedTags.length === 0) return null;
-                    return (
-                      <div>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                          🏷️ ស្លាកពាក្យផ្សេងៗ (Others)
-                        </span>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          {ungroupedTags.map(tag => {
-                            const isSelected = selectedTags.includes(tag.id);
-                            return (
-                              <div 
-                                key={tag.id}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setSelectedTags(selectedTags.filter(id => id !== tag.id));
-                                  } else {
-                                    setSelectedTags([...selectedTags, tag.id]);
-                                  }
-                                }}
-                                style={{
-                                  padding: '0.4rem 0.8rem',
-                                  borderRadius: '20px',
-                                  fontSize: '0.85rem',
-                                  fontWeight: 500,
-                                  cursor: 'pointer',
-                                  background: isSelected ? tag.color : 'var(--modal-bg)',
-                                  color: isSelected ? 'white' : 'var(--text-secondary)',
-                                  border: `1px solid ${isSelected ? tag.color : 'var(--border-color)'}`,
-                                  transition: 'all 0.2s'
-                                }}
-                              >
-                                {tag.name}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-            
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ខ្លឹមសារមេរៀន</label>
-              <AdvancedEditor 
-                content={content} 
-                onChange={setContent} 
-                embeddedCodes={embeddedCodes} 
-                onEmbeddedCodesChange={setEmbeddedCodes} 
-                placeholder="សរសេរទីនេះ..." 
-                editorMode={editorMode}
-                onEditorModeChange={setEditorMode}
-              />
-            </div>
-          </div>
-
-          <div style={{ padding: '1.5rem 2rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', background: 'var(--modal-bg)' }}>
-            <button className="btn" style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} onClick={() => setIsEditorOpen(false)}>បោះបង់</button>
-            <button className="btn btn-primary" onClick={handleSave} style={{ minWidth: '150px' }}>{editingId ? 'រក្សាទុក (Update)' : 'ផ្សព្វផ្សាយ (Publish)'}</button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* READ MODAL (Solid Background Fixed) */}
-    {isReadModalOpen && selectedPost && (
-      <div 
-        onClick={() => setIsReadModalOpen(false)} // Exit when clicking outside
-        style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-      >
-        <div 
-          onClick={e => e.stopPropagation()} // Stop propagation to prevent closing
-          className="glass-panel animate-fade-in post-read-modal" 
-          style={{ display: 'flex', flexDirection: 'column', background: 'var(--modal-bg)', overflow: 'hidden' }}
-        >
-          
-          <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--modal-bg)' }}>
-             <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem' }}>
-               <h2 style={{ margin: 0, color: 'var(--accent-primary)', fontSize: '1.4rem' }}>{selectedPost.title}</h2>
-               {/* Display Tags in Reader Header */}
-               {selectedPost.tags && selectedPost.tags.length > 0 && (
-                 <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                   {selectedPost.tags.map((tagId: number) => {
-                     const tag = availableTags.find(t => t.id === tagId);
-                     if (!tag) return null;
-                     return (
-                       <span key={tagId} style={{ background: tag.color, color: 'white', padding: '0.15rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 500 }}>
-                         {tag.name}
-                       </span>
-                     );
-                   })}
-                 </div>
-               )}
-             </div>
-             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-               {userId && (
-                 <button 
-                   onClick={(e) => {
-                     toggleLike(e, selectedPost);
-                     // Optimistically update selectedPost for the modal view
-                     const currentLikes = selectedPost.likes || [];
-                     const hasLiked = currentLikes.includes(userId);
-                     setSelectedPost({
-                       ...selectedPost,
-                       likes: hasLiked ? currentLikes.filter((id: string) => id !== userId) : [...currentLikes, userId]
-                     });
-                   }} 
-                   style={{ background: 'var(--bg-secondary)', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-                   title={selectedPost.likes?.includes(userId) ? "ដកចេញពីការពេញចិត្ត" : "បន្ថែមទៅការពេញចិត្ត"}
-                 >
-                   {selectedPost.likes?.includes(userId) ? '❤️' : '🤍'}
-                 </button>
-               )}
-               <button onClick={() => setIsReadModalOpen(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-               </button>
-             </div>
-          </div>
-
-          <div style={{ flex: 1, background: 'white', position: 'relative' }}>
-            <iframe 
-              srcDoc={`
-                <!DOCTYPE html>
-                <html>
-                  <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-                    <style>
-                      body {
-                        font-family: 'Kantumruy Pro', 'Inter', sans-serif;
-                        margin: 0;
-                        padding: 2.5rem;
-                        color: #0f172a;
-                        background-color: #ffffff;
-                        line-height: 1.8;
-                        font-size: 1.05rem;
-                      }
-                      img { max-width: 100%; height: auto; border-radius: 8px; margin: 1.5rem 0; }
-                      pre { background: #0f172a; color: #f8fafc; padding: 1.5rem; border-radius: 8px; overflow-x: auto; margin: 1.5rem 0; }
-                      code { font-family: monospace; }
-                      h1, h2, h3, h4 { color: #1e3a8a; margin-top: 1.5rem; margin-bottom: 1rem; }
-                      p { margin-bottom: 1.2rem; }
-                      ul, ol { padding-left: 2rem; margin-bottom: 1.5rem; }
-                      li { margin-bottom: 0.5rem; }
-                      blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; color: #475569; font-style: italic; margin: 1.5rem 0; }
-                      
-                      /* Quill alignments */
-                      .ql-align-center { text-align: center; }
-                      .ql-align-right { text-align: right; }
-                      .ql-align-justify { text-align: justify; }
-                      
-                      /* Custom styles if user pastes HTML buttons */
-                      button {
-                        cursor: pointer;
-                      }
-                    </style>
-                  </head>
-                  <body>
-                    ${selectedPost.content}
-                  </body>
-                </html>
-              `}
-              title={selectedPost.title}
-              style={{ width: '100%', height: '100%', border: 'none' }}
-            />
-          </div>
-          
-        </div>
-      </div>
-    )}
-
-    <style dangerouslySetInnerHTML={{__html: `
-      .ql-container { flex: 1; overflow-y: auto; font-family: inherit !important; font-size: 1rem !important; }
-      .ql-editor { min-height: 300px; padding: 1.5rem !important; }
-      .ql-toolbar { border: none !important; border-bottom: 1px solid #e2e8f0 !important; background: #f8fafc; padding: 12px !important; }
-    `}} />
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .ql-container { flex: 1; overflow-y: auto; font-family: inherit !important; font-size: 1rem !important; }
+          .ql-editor { min-height: 300px; padding: 1.5rem !important; }
+          .ql-toolbar { border: none !important; border-bottom: 1px solid #e2e8f0 !important; background: #f8fafc; padding: 12px !important; }
+        `
+      }} />
     </>
   );
 }

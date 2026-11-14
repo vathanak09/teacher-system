@@ -9,7 +9,6 @@ export const methodologyService = new FirebaseDataService<any>('methodologies');
 export const settingsService = new FirebaseDataService<any>('settings');
 export const postService = new FirebaseDataService<any>('posts');
 export const resourceService = new FirebaseDataService<any>('resources');
-export const messageService = new FirebaseDataService<any>('messages');
 
 // NEW DATABASE (Student & Class Management)
 export const studentService = new FirebaseDataService<any>('students', studentDb);
@@ -22,4 +21,3 @@ export const taskService = new FirebaseDataService<any>('tasks', studentDb);
 export const monthlyPaymentService = new FirebaseDataService<any>('monthlyPayments', studentDb);
 export const attendanceService = new FirebaseDataService<any>('attendance', studentDb);
 export const scoreService = new FirebaseDataService<any>('scores', studentDb);
-
