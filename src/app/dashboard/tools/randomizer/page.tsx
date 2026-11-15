@@ -6,8 +6,10 @@ import GroupGenerator from '@/components/GroupGenerator';
 import RaceVisualizer from '@/components/RaceVisualizer';
 import confetti from 'canvas-confetti';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function RandomizerPage() {
+  const confirmDialog = useConfirm();
   const [activeTab, setActiveTab] = useState<'picker' | 'groups'>('picker');
   const [subTab, setSubTab] = useState<'wheel' | 'running' | 'bicycle'>('wheel');
   
@@ -150,14 +152,14 @@ export default function RandomizerPage() {
     setHistory(history.filter(n => n !== nameToRestore));
   };
 
-  const handleClearAll = () => {
-    if (confirm('តើអ្នកពិតជាចង់លុបឈ្មោះទាំងអស់មែនទេ?')) {
+  const handleClearAll = async () => {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបឈ្មោះទាំងអស់មែនទេ?')) {
       setNames([]);
     }
   };
   
-  const handleClearHistory = () => {
-    if (confirm('តើអ្នកពិតជាចង់លុបប្រវត្តិទាំងអស់មែនទេ?')) {
+  const handleClearHistory = async () => {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបប្រវត្តិទាំងអស់មែនទេ?')) {
       setHistory([]);
     }
   };

@@ -8,10 +8,12 @@ import ImageUploadBox from '@/components/ImageUploadBox';
 import AdvancedEditor from '@/components/AdvancedEditor';
 import SortDropdown from '@/components/SortDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 type PostCategory = 'lessons' | 'methodologies';
 
 export default function LessonsAndMethodologiesPage() {
+  const confirmDialog = useConfirm();
   const router = useRouter();
 
   const [lessonsPosts, setLessonsPosts] = useState<any[]>([]);
@@ -239,10 +241,10 @@ export default function LessonsAndMethodologiesPage() {
     }
   };
 
-  const handleDelete = (id: string, collName: PostCategory, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, collName: PostCategory, e: React.MouseEvent) => {
     e.stopPropagation();
     const label = collName === 'lessons' ? 'មេរៀន' : 'វិធីសាស្ត្រ';
-    if (confirm(`តើអ្នកពិតជាចង់លុប${label}នេះមែនទេ?`)) {
+    if (await confirmDialog(`តើអ្នកពិតជាចង់លុប${label}នេះមែនទេ?`)) {
       getService(collName).delete(id);
     }
   };

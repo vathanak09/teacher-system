@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { resourceService } from '@/services/db';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function ResourcesPage() {
+  const confirmDialog = useConfirm();
   const [resources, setResources] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,7 +118,7 @@ export default function ResourcesPage() {
       return;
     }
     
-    if (confirm('តើអ្នកពិតជាចង់លុបធនធាននេះមែនទេ?')) {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបធនធាននេះមែនទេ?')) {
       try {
         await resourceService.delete(id);
       } catch (error) {

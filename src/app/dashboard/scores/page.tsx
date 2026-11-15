@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { classService, studentService, scoreService, settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
 import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 
 
@@ -40,6 +41,7 @@ const ICONS = [
 
 
 export default function ScoresPage() {
+  const confirmDialog = useConfirm();
   const [role, setRole] = useState('');
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
@@ -358,7 +360,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
 
 
   const handleClearColumn = async (columnKey: string, columnName: string) => {
-    if (!window.confirm(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`)) return;
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`))) return;
     setIsClearDropdownOpen(false);
     
     const updatedScores = scores.map(s => {
@@ -416,7 +418,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   };
 
   const handleClearAllScores = async () => {
-    if (!window.confirm(`តើអ្នកពិតជាចង់លុបពិន្ទុគ្រប់ជួរឈរទាំងអស់មែនទេ? (ឈ្មោះសិស្សនឹងត្រូវរក្សាទុកនៅដដែល)`)) return;
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុគ្រប់ជួរឈរទាំងអស់មែនទេ? (ឈ្មោះសិស្សនឹងត្រូវរក្សាទុកនៅដដែល)`))) return;
     setIsClearDropdownOpen(false);
 
     const updatedScores = scores.map(s => ({
@@ -438,7 +440,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យបញ្ជីឈ្មោះទាំងអស់ក្នុងខែនេះមែនទេ?`)) return;
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបទិន្នន័យបញ្ជីឈ្មោះទាំងអស់ក្នុងខែនេះមែនទេ?`))) return;
     setIsClearDropdownOpen(false);
     await Promise.all(scores.map(s => scoreService.delete(s.id)));
     setScores([]);
@@ -674,7 +676,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   };
 
   const removeScoreRecord = async (scoreId: string) => {
-    if (confirm('តើអ្នកពិតជាចង់លុបសិស្សនេះចេញពីបញ្ជីពិន្ទុខែនេះមែនទេ? (វាមិនប៉ះពាល់ដល់បញ្ជីសិស្សក្នុងថ្នាក់ទេ)')) {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបសិស្សនេះចេញពីបញ្ជីពិន្ទុខែនេះមែនទេ? (វាមិនប៉ះពាល់ដល់បញ្ជីសិស្សក្នុងថ្នាក់ទេ)')) {
       await scoreService.delete(scoreId);
     }
   };

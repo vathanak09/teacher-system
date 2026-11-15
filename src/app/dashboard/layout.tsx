@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { teacherService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { ConfirmProvider } from '@/components/ConfirmDialog';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const allowedLinks = navLinks.filter(link => link.roles.includes(role));
 
   return (
+    <ConfirmProvider>
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <div className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -220,5 +222,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+    </ConfirmProvider>
   );
 }

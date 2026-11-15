@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 type SettingsTab = 'school' | 'users' | 'studentOptions' | 'tags';
 type OptionCategoryKey = 'gender' | 'level' | 'shift' | 'status' | 'address' | 'transport';
@@ -76,6 +77,7 @@ const OPTION_CATEGORIES: {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const [role, setRole] = useState('');
   const [activeTab, setActiveTab] = useState<SettingsTab>('tags');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -303,7 +305,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteOption = async (val: string) => {
-    if (!confirm(`តើអ្នកពិតជាចង់លុប "${val}" មែនទេ?`)) return;
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុប "${val}" មែនទេ?`))) return;
     const current = getOptionsList(activeOptionCategory);
     const updated = current.filter(x => x.id !== val);
     await saveOptionsList(activeOptionCategory, updated);
@@ -340,7 +342,7 @@ export default function SettingsPage() {
 
   const handleDeleteGroup = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('តើអ្នកពិតជាចង់លុបក្រុមស្លាកពាក្យនេះមែនទេ? (ស្លាកពាក្យនៅក្នុងក្រុមនេះនឹងត្រូវប្តូរទៅជាគ្មានក្រុម)')) return;
+    if (!(await confirmDialog('តើអ្នកពិតជាចង់លុបក្រុមស្លាកពាក្យនេះមែនទេ? (ស្លាកពាក្យនៅក្នុងក្រុមនេះនឹងត្រូវប្តូរទៅជាគ្មានក្រុម)'))) return;
     const updatedGroups = tagGroups.filter(g => g.id !== id);
     const updatedTags = tags.map(t => (t.groupId === id ? { ...t, groupId: null } : t));
     setTagGroups(updatedGroups);
@@ -387,7 +389,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteTag = async (id: number) => {
-    if (!confirm('តើអ្នកពិតជាចង់លុបស្លាកពាក្យនេះមែនទេ?')) return;
+    if (!(await confirmDialog('តើអ្នកពិតជាចង់លុបស្លាកពាក្យនេះមែនទេ?'))) return;
     const updatedTags = tags.filter(t => t.id !== id);
     setTags(updatedTags);
     await updateSettings({ appTags: updatedTags });
@@ -441,7 +443,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteUser = async (id: string) => {
-    if (!confirm('តើអ្នកពិតជាចង់លុបគណនីនេះមែនទេ?')) return;
+    if (!(await confirmDialog('តើអ្នកពិតជាចង់លុបគណនីនេះមែនទេ?'))) return;
     const updated = users.filter(u => u.id !== id);
     setUsers(updated);
     await updateSettings({ appUsers: updated });

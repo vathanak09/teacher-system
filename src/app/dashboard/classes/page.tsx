@@ -10,6 +10,7 @@ import { teacherService, classService, studentService, settingsService, teaching
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 // 15 Icons
 const ICONS = [
@@ -46,6 +47,7 @@ const COLORS = [
 
 export default function ClassesPage() {
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const [role, setRole] = useState('');
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
@@ -328,8 +330,8 @@ export default function ClassesPage() {
     setIsClassModalOpen(true);
   };
 
-  const handleDeleteClass = (id: string) => {
-    if (confirm('តើអ្នកពិតជាចង់លុបថ្នាក់រៀននេះមែនទេ? ទិន្នន័យសិស្សក្នុងថ្នាក់ក៏នឹងត្រូវលុបចេញពីថ្នាក់នេះដែរ។')) {
+  const handleDeleteClass = async (id: string) => {
+    if (await confirmDialog({ title: 'បញ្ជាក់ការលុបថ្នាក់រៀន', message: 'តើអ្នកពិតជាចង់លុបថ្នាក់រៀននេះមែនទេ? ទិន្នន័យសិស្សក្នុងថ្នាក់ក៏នឹងត្រូវលុបចេញពីថ្នាក់នេះដែរ។', confirmText: 'លុបថ្នាក់រៀន', variant: 'danger' })) {
       classService.delete(id);
       if (viewingClass?.id === id) setViewingClass(null);
     }
@@ -401,9 +403,9 @@ export default function ClassesPage() {
     setViewingClass(updatedClass);
   };
 
-  const handleRemoveStudentFromClass = (studentId: string) => {
+  const handleRemoveStudentFromClass = async (studentId: string) => {
     if (!viewingClass) return;
-    if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
+    if (await confirmDialog({ title: 'ដកសិស្សចេញពីថ្នាក់', message: 'តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?', confirmText: 'ដកចេញ', variant: 'danger' })) {
       const existingIds = viewingClass.studentIds || (viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : []);
       const newIds = existingIds.filter((id: string) => id !== studentId);
       const updatedClass = { ...viewingClass, studentIds: newIds };
@@ -440,9 +442,9 @@ export default function ClassesPage() {
     }
   };
 
-  const calculateStudentOverallScore = (studentId: string) => {
+  const calculateStudentOverallScore = async (studentId: string) => {
     if (!viewingClass) return;
-    if (confirm('តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?')) {
+    if (await confirmDialog({ title: 'ដកសិស្សចេញពីថ្នាក់', message: 'តើអ្នកពិតជាចង់ដកសិស្សនេះចេញពីថ្នាក់មែនទេ?', confirmText: 'ដកចេញ', variant: 'danger' })) {
       const existingIds = viewingClass.studentIds || (viewingClass.studentsData ? viewingClass.studentsData.map((s: any) => s.id) : []);
       const filteredIds = existingIds.filter((id: string) => id !== studentId);
       
@@ -1099,7 +1101,7 @@ export default function ClassesPage() {
                               <td style={{ padding: '1rem' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                   <button onClick={() => { setRecordEditId(record.id); setRecordDateField(record.date); setRecordBookField(record.bookId); setRecordPagesField(record.pages); setRecordContentField(record.content); setRecordOtherField(record.other || ''); setIsRecordModalOpen(true); }} style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', cursor: 'pointer' }}>កែ</button>
-                                  <button onClick={() => { if(confirm('តើអ្នកចង់លុបកំណត់ត្រានេះទេ?')) teachingRecordService.delete(record.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}>លុប</button>
+                                  <button onClick={async () => { if (await confirmDialog('តើអ្នកចង់លុបកំណត់ត្រានេះទេ?')) teachingRecordService.delete(record.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}>លុប</button>
                                 </div>
                               </td>
                             </tr>
@@ -1232,7 +1234,7 @@ export default function ClassesPage() {
 
                           <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem' }}>
                              <button onClick={() => { setTaskEditId(task.id); setTaskTitleField(task.title); setTaskSourceTypeField(task.sourceType); setTaskSourceValueField(task.sourceValue); setTaskDetailField(task.detail || ''); setTaskDurationTypeField(task.durationType); setTaskDurationValueField(task.durationValue); setTaskProgressField(task.progress || 0); setTaskSuccessField(task.success || false); setIsTaskModalOpen(true); }} style={{ background: 'rgba(59, 130, 246, 0.1)', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
-                             <button onClick={() => { if(confirm('តើអ្នកចង់លុបកិច្ចការនេះទេ?')) taskService.delete(task.id); }} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                             <button onClick={async () => { if (await confirmDialog('តើអ្នកចង់លុបកិច្ចការនេះទេ?')) taskService.delete(task.id); }} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', display: 'flex' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                           </div>
                         </div>
                       ))}

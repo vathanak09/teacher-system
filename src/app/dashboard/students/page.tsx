@@ -12,6 +12,7 @@ import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 function InlineDateCellEditor({
   initialValue,
@@ -73,6 +74,7 @@ function InlineDateCellEditor({
 
 export default function StudentsPage() {
   const router = useRouter();
+  const confirmDialog = useConfirm();
   const [role, setRole] = useState('');
   
   // Student States
@@ -633,9 +635,9 @@ export default function StudentsPage() {
     setIsStudentModalOpen(false);
   };
 
-  const handleDeleteStudent = (id: string) => {
+  const handleDeleteStudent = async (id: string) => {
     if (isStudentTableLocked) return;
-    if (confirm('តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សនេះមែនទេ?')) {
+    if (await confirmDialog({ title: 'បញ្ជាក់ការលុបសិស្ស', message: 'តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សនេះមែនទេ?', confirmText: 'លុបទិន្នន័យ', variant: 'danger' })) {
       const studentToDelete = students.find(s => s.id === id);
       
       // Update classes that contain this student to preserve their final data
@@ -654,10 +656,10 @@ export default function StudentsPage() {
     }
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (isStudentTableLocked) return;
     if (selectedStudentIds.length === 0) return;
-    if (confirm(`តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សទាំង ${selectedStudentIds.length} នាក់នេះមែនទេ?`)) {
+    if (await confirmDialog({ title: 'បញ្ជាក់ការលុបសិស្សច្រើននាក់', message: `តើអ្នកពិតជាចង់លុបទិន្នន័យសិស្សទាំង ${selectedStudentIds.length} នាក់នេះមែនទេ?`, confirmText: 'លុបទាំងអស់', variant: 'danger' })) {
       selectedStudentIds.forEach(id => {
         const studentToDelete = students.find(s => s.id === id);
         
@@ -1242,8 +1244,8 @@ export default function StudentsPage() {
       )}
 
       {/* Table Container (Horizontal Scrollable) */}
-      <div className="glass-panel" style={{ overflow: 'hidden', overflowX: 'auto', border: '1px solid var(--border-color)' }}>
-        <div className="table-responsive">
+      <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+        <div className="table-responsive" style={{ overflowX: 'auto' }}>
 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1800px', fontSize: '0.95rem' }}>
           <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)' }}>
@@ -1255,19 +1257,53 @@ export default function StudentsPage() {
                 />
               </th>
               <th style={{ padding: '0.85rem 1.25rem', width: '60px' }}>ល.រ</th>
-              {AVAILABLE_COLUMNS.map(col => visibleColumns.includes(col.id) && <th key={col.id} style={{ padding: '0.85rem 1.25rem' }}>{col.label}</th>)}
+              {AVAILABLE_COLUMNS.map(col => {
+                if (!visibleColumns.includes(col.id)) return null;
+                const isPhotoCol = col.id === 'photo';
+                const isStudentIdCol = col.id === 'studentId';
+                const isSticky = isPhotoCol || isStudentIdCol;
+                const isLastSticky = isStudentIdCol || (isPhotoCol && !visibleColumns.includes('studentId'));
+                const stickyLeft = isPhotoCol ? '0px' : (visibleColumns.includes('photo') ? '80px' : '0px');
+                return (
+                  <th
+                    key={col.id}
+                    style={{
+                      padding: '0.85rem 1.25rem',
+                      ...(isPhotoCol ? { width: '80px', minWidth: '80px', maxWidth: '80px', boxSizing: 'border-box' } : {}),
+                      ...(isStudentIdCol ? { width: '115px', minWidth: '115px', boxSizing: 'border-box' } : {}),
+                      ...(isSticky ? {
+                        position: 'sticky',
+                        left: stickyLeft,
+                        zIndex: isPhotoCol ? 12 : 11,
+                        background: 'var(--main-bg)',
+                        borderRight: isLastSticky ? '1px solid var(--border-color)' : undefined,
+                        boxShadow: isLastSticky ? '4px 0 8px -2px rgba(0, 0, 0, 0.08)' : undefined,
+                      } : {})
+                    }}
+                  >
+                    {col.label}
+                  </th>
+                );
+              })}
               <th style={{ padding: '0.85rem 1.25rem', textAlign: 'right', width: '120px' }}>ជម្រើស</th>
             </tr>
           </thead>
           <tbody>
-            {filteredAndSortedStudents.map((student, index) => (
+            {filteredAndSortedStudents.map((student, index) => {
+              const isDuplicate = !!(student.studentId && duplicateStudentIds.has(student.studentId.toLowerCase()));
+              const stickyRowBg = isDuplicate
+                ? 'color-mix(in srgb, #ef4444 15%, var(--modal-bg))'
+                : 'var(--modal-bg)';
+              const studentIdLeft = visibleColumns.includes('photo') ? '80px' : '0px';
+              const isPhotoLastSticky = !visibleColumns.includes('studentId');
+              return (
               <tr 
                 key={student.id} 
                 onDoubleClick={() => handleOpenEditStudent(student)}
                 style={{ 
                   borderBottom: '1px solid var(--border-color)', 
-                  background: student.studentId && duplicateStudentIds.has(student.studentId.toLowerCase()) ? 'rgba(239, 68, 68, 0.15)' : (index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'),
-                  borderLeft: student.studentId && duplicateStudentIds.has(student.studentId.toLowerCase()) ? '4px solid #ef4444' : 'none',
+                  background: isDuplicate ? 'rgba(239, 68, 68, 0.15)' : (index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)'),
+                  borderLeft: isDuplicate ? '4px solid #ef4444' : 'none',
                   cursor: isStudentTableLocked ? 'default' : 'pointer',
                   transition: 'background 0.2s'
                 }}
@@ -1282,7 +1318,19 @@ export default function StudentsPage() {
                 </td>
                 <td style={{ padding: '0.75rem 1.25rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
                 
-                {visibleColumns.includes('photo') && <td style={{ padding: '0.75rem 1.25rem', position: 'relative' }} onMouseEnter={() => handleMouseEnterPhoto(student.id)} onMouseLeave={handleMouseLeavePhoto}>
+                {visibleColumns.includes('photo') && <td style={{
+                  padding: '0.75rem 1.25rem',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 5,
+                  width: '80px',
+                  minWidth: '80px',
+                  maxWidth: '80px',
+                  boxSizing: 'border-box',
+                  background: stickyRowBg,
+                  borderRight: isPhotoLastSticky ? '1px solid var(--border-color)' : undefined,
+                  boxShadow: isPhotoLastSticky ? '4px 0 8px -2px rgba(0, 0, 0, 0.08)' : undefined,
+                }} onMouseEnter={() => handleMouseEnterPhoto(student.id)} onMouseLeave={handleMouseLeavePhoto}>
                   {student.photo && String(student.photo).trim() !== '' && !String(student.photo).includes('1SvTDHG3zdMHxOkER5Tii3Ac0alK3EqHi') ? (
                     <img src={convertDriveImageLink(student.photo)} alt={student.fullName} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} />
                   ) : (
@@ -1395,7 +1443,18 @@ export default function StudentsPage() {
                   ) : <span style={{ color: 'var(--text-secondary)' }}>គ្មាន</span>)}
                 </td>}
 
-                {visibleColumns.includes('studentId') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'studentId', <code>{student.studentId}</code>)}</td>}
+                {visibleColumns.includes('studentId') && <td style={{
+                  padding: '0.75rem 1.25rem',
+                  position: 'sticky',
+                  left: studentIdLeft,
+                  zIndex: 4,
+                  width: '115px',
+                  minWidth: '115px',
+                  boxSizing: 'border-box',
+                  background: stickyRowBg,
+                  borderRight: '1px solid var(--border-color)',
+                  boxShadow: '4px 0 8px -2px rgba(0, 0, 0, 0.08)',
+                }}>{renderCell(student, 'studentId', <code>{student.studentId}</code>)}</td>}
                 {visibleColumns.includes('fullName') && <td style={{ padding: '0.75rem 1.25rem', fontWeight: 600, fontSize: '1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'fullName', <span style={{ fontSize: '1.25rem' }}>{student.fullName}</span>)}</td>}
                 {visibleColumns.includes('englishName') && <td style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}>{renderCell(student, 'englishName', student.englishName)}</td>}
                 
@@ -1488,7 +1547,8 @@ export default function StudentsPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
             {filteredAndSortedStudents.length === 0 && (
               <tr>
                 <td colSpan={22} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>

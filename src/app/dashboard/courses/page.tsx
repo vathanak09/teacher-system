@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { courseService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function CoursesPage() {
+  const confirmDialog = useConfirm();
   const [role, setRole] = useState('');
   const [courses, setCourses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,8 +42,8 @@ export default function CoursesPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('តើអ្នកពិតជាចង់លុបវគ្គសិក្សានេះមែនទេ?')) {
+  const handleDelete = async (id: number) => {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបវគ្គសិក្សានេះមែនទេ?')) {
       courseService.delete(id.toString());
     }
   };

@@ -7,8 +7,10 @@ import { studentService, paymentService, classService, monthlyPaymentService } f
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function PaymentsPage() {
+  const confirmDialog = useConfirm();
   const router = useRouter();
   const [role, setRole] = useState('');
   
@@ -248,7 +250,7 @@ export default function PaymentsPage() {
   };
 
   const deletePayment = async (paymentId: string, studentId: string) => {
-    if (!window.confirm('តើអ្នកពិតជាចង់លុបប្រវត្តិបង់ប្រាក់នេះមែនទេ?')) return;
+    if (!(await confirmDialog('តើអ្នកពិតជាចង់លុបប្រវត្តិបង់ប្រាក់នេះមែនទេ?'))) return;
     try {
       await paymentService.delete(paymentId);
       

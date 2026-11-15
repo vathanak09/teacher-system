@@ -8,10 +8,12 @@ import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
 export default function PostsManagementPage() {
+  const confirmDialog = useConfirm();
   const router = useRouter();
 
 
@@ -92,7 +94,7 @@ export default function PostsManagementPage() {
 
   const handleDelete = async (id: string, collName: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("តើអ្នកពិតជាចង់លុបផុសនេះមែនទេ?")) {
+    if (await confirmDialog("តើអ្នកពិតជាចង់លុបផុសនេះមែនទេ?")) {
       if (collName === 'lessons') await lessonService.delete(id);
       else await methodologyService.delete(id);
     }
@@ -294,7 +296,7 @@ export default function PostsManagementPage() {
         }
         
         const confirmMsg = `តើអ្នកពិតជាចង់បញ្ចូលទិន្នន័យចំនួន ${data.length} ចូលក្នុងមេរៀនមែនទេ?`;
-        if (!confirm(confirmMsg)) return;
+        if (!(await confirmDialog({ title: 'បញ្ជាក់ការនាំចូលទិន្នន័យ', message: confirmMsg, confirmText: 'បញ្ចូលទិន្នន័យ', variant: 'info' }))) return;
 
         let successCount = 0;
         let failCount = 0;

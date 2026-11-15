@@ -7,8 +7,10 @@ import SortDropdown from '@/components/SortDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { convertDriveImageLink } from '@/utils/driveLink';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 export default function TeachersPage() {
+  const confirmDialog = useConfirm();
   const router = useRouter();
   const [role, setRole] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
@@ -130,8 +132,8 @@ export default function TeachersPage() {
     setIsTeacherModalOpen(true);
   };
 
-  const handleDeleteTeacher = (id: string) => {
-    if (confirm('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
+  const handleDeleteTeacher = async (id: string) => {
+    if (await confirmDialog('តើអ្នកពិតជាចង់លុបគ្រូនេះមែនទេ?')) {
       teacherService.delete(id);
     }
   };
