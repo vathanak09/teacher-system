@@ -680,161 +680,285 @@ export default function StudentsPage() {
     }
   };
 
-  const downloadSampleCSV = () => {
-    const headers = [
-      'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
-      'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
-      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
-    ];
-    const sampleRow = [
-      "1", "BS0001", "លី តិចស្រេង", "Ly Tichsreng", "ស្រី", 
-      "កម្រិតមធ្យមសិក្សា", "វេនព្រឹក", "10C", "2026-05-10", "120", "កំពុងសិក្សា", "ស៊ុន សុខ", 
-      "27-06-2012", "ភ្នំពេញ", "ច្បារអំពៅ", "Personal", "មាស សុខ", 
-      "លី សុវណ្ណ", "មាស សុខ", "012345678", ""
-    ];
-    const csvContent = "\uFEFF" + [headers.join(","), sampleRow.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(",")].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `sample_students_import.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const STUDENT_EXPORT_HEADERS = [
+    'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
+    'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
+    'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
+    'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
+  ];
+
+  const DROPPED_STATUSES = new Set(['ឈប់រៀន', 'បោះបង់ការសិក្សា']);
+  const SUSPENDED_STATUSES = new Set(['ព្យួរការសិក្សា', 'ផ្អាក']);
+
+  const partitionStudentsByStatus = (sourceList: any[]) => {
+    const studying: any[] = [];
+    const dropped: any[] = [];
+    const suspended: any[] = [];
+
+    sourceList.forEach((s) => {
+      const st = (s.status || 'កំពុងសិក្សា').trim();
+      if (DROPPED_STATUSES.has(st)) {
+        dropped.push(s);
+      } else if (SUSPENDED_STATUSES.has(st)) {
+        suspended.push(s);
+      } else {
+        studying.push(s);
+      }
+    });
+
+    return { studying, dropped, suspended };
   };
 
-  // CSV Export & Import
-  const exportToCSV = () => {
-    const headers = [
-      'ល.រ', 'អត្តលេខ', 'ឈ្មោះពេញ', 'ឈ្មោះអង់គ្លេស', 'ភេទ',
-      'កម្រិតសិក្សា', 'វេន', 'ថ្នាក់', 'ថ្ងៃចូលរៀន', 'ថ្លៃសិក្សា', 'ស្ថានភាព', 'ឈ្មោះគ្រូ',
-      'ថ្ងៃកំណើត', 'អាសយដ្ឋាន', 'ទីតាំង', 'មធ្យោបាយ', 'អ្នកទំនាក់ទំនង',
-      'ឪពុក', 'ម្តាយ', 'លេខទូរស័ព្ទ', 'តំណភ្ជាប់រូបថត (Photo Link)'
+  const writeThreeSheetStudentWorkbook = async (
+    studying: any[],
+    dropped: any[],
+    suspended: any[],
+    filename: string
+  ) => {
+    const XLSX = await import('xlsx');
+    const buildSheetData = (list: any[]) => [
+      STUDENT_EXPORT_HEADERS,
+      ...list.map((s, index) => [
+        index + 1,
+        s.studentId || '',
+        s.fullName || '',
+        s.englishName || '',
+        s.gender || '',
+        s.level || '',
+        s.shift || '',
+        s.className || '',
+        s.enrollDate || '',
+        s.fee !== undefined && s.fee !== null && s.fee !== '' && !isNaN(Number(s.fee)) ? Number(s.fee) : '',
+        s.status || 'កំពុងសិក្សា',
+        s.teacherName || '',
+        s.dob || '',
+        s.address || '',
+        s.location || '',
+        s.transport || '',
+        s.contact || '',
+        s.father || '',
+        s.mother || '',
+        s.phoneNum || '',
+        s.photo || ''
+      ])
     ];
-    const rows = augmentedStudents.map((s, index) => [
-      index + 1,
-      s.studentId || '',
-      s.fullName || '',
-      s.englishName || '',
-      s.gender || '',
-      s.level || '',
-      s.shift || '',
-      s.className || '',
-      s.enrollDate || '',
-      s.fee !== undefined && s.fee !== null ? s.fee : '',
-      s.status || 'កំពុងសិក្សា',
-      s.teacherName || '',
-      s.dob || '',
-      s.address || '',
-      s.location || '',
-      s.transport || '',
-      s.contact || '',
-      s.father || '',
-      s.mother || '',
-      s.phoneNum || '',
-      s.photo || ''
-    ]);
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.map(val => `"${(val || '').toString().replace(/"/g, '""')}"`).join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `student_data_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    const appendSheetWithWidths = (wb: any, sheetName: string, list: any[]) => {
+      const aoa = buildSheetData(list);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = STUDENT_EXPORT_HEADERS.map((h, colIdx) => {
+        const maxLen = aoa.reduce((acc, row) => {
+          const cellVal = row[colIdx] !== undefined && row[colIdx] !== null ? String(row[colIdx]) : '';
+          return Math.max(acc, cellVal.length);
+        }, h.length);
+        return { wch: Math.min(Math.max(maxLen + 3, 8), 38) };
+      });
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    };
+
+    const workbook = XLSX.utils.book_new();
+    appendSheetWithWidths(workbook, 'កំពុងសិក្សា', studying);
+    appendSheetWithWidths(workbook, 'ឈប់រៀន', dropped);
+    appendSheetWithWidths(workbook, 'ព្យួរការសិក្សា', suspended);
+
+    XLSX.writeFile(workbook, filename);
   };
 
-  const importFromCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const downloadSampleExcel = async () => {
+    const { studying, dropped, suspended } = partitionStudentsByStatus(augmentedStudents);
+
+    const fallbackSample = {
+      studentId: 'BS0001',
+      fullName: 'លី តិចស្រេង',
+      englishName: 'Ly Tichsreng',
+      gender: 'ស្រី',
+      level: 'កម្រិតមធ្យមសិក្សា',
+      shift: 'វេនព្រឹក',
+      className: '10C',
+      enrollDate: '2026-05-10',
+      fee: 120,
+      status: 'កំពុងសិក្សា',
+      teacherName: 'ស៊ុន សុខ',
+      dob: '2012-06-27',
+      address: 'ភ្នំពេញ',
+      location: 'ច្បារអំពៅ',
+      transport: 'Personal',
+      contact: 'មាស សុខ',
+      father: 'លី សុវណ្ណ',
+      mother: 'មាស សុខ',
+      phoneNum: '012345678',
+      photo: ''
+    };
+
+    const sampleStudying = studying.length > 0 ? studying.slice(0, 3) : (augmentedStudents.length === 0 ? [fallbackSample] : []);
+    const sampleDropped = dropped.slice(0, 2);
+    const sampleSuspended = suspended.slice(0, 2);
+
+    await writeThreeSheetStudentWorkbook(
+      sampleStudying,
+      sampleDropped,
+      sampleSuspended,
+      'sample_students_import.xlsx'
+    );
+  };
+
+  // Excel Export (3 Sheets in 1 File) & Excel/CSV Import
+  const exportToExcel = async () => {
+    const { studying, dropped, suspended } = partitionStudentsByStatus(augmentedStudents);
+    await writeThreeSheetStudentWorkbook(
+      studying,
+      dropped,
+      suspended,
+      `student_data_${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  };
+
+  const mapRowToStudentData = (fields: any[], defaultStatus = 'កំពុងសិក្សា') => {
+    const getStr = (idx: number) => (fields[idx] !== undefined && fields[idx] !== null ? String(fields[idx]).trim() : '');
+    const className = getStr(7);
+    const matchedClass = className
+      ? classesData.find((c: any) => (c.classCode || c.className) === className)
+      : null;
+    const rawFee = getStr(9);
+    const parsedFee = rawFee !== '' && !isNaN(Number(rawFee)) ? Number(rawFee) : 0;
+    const rawTeacher = getStr(11);
+
+    return {
+      studentId: getStr(1),
+      fullName: getStr(2),
+      englishName: getStr(3),
+      gender: getStr(4),
+      level: getStr(5),
+      shift: getStr(6),
+      className,
+      enrollDate: getStr(8),
+      fee: parsedFee,
+      status: getStr(10) || defaultStatus,
+      teacherName: rawTeacher || (matchedClass?.teacherName || ''),
+      dob: getStr(12),
+      address: getStr(13),
+      location: getStr(14),
+      transport: getStr(15),
+      contact: getStr(16),
+      father: getStr(17),
+      mother: getStr(18),
+      phoneNum: getStr(19),
+      photo: getStr(20)
+    };
+  };
+
+  const importFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (!text) return;
+    const lowerName = file.name.toLowerCase();
+    const imported: any[] = [];
 
-      const lines = text.split('\n');
-      if (lines.length <= 1) return;
+    try {
+      if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+        const XLSX = await import('xlsx');
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
 
-      const imported: any[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
+        for (const sheetName of workbook.SheetNames) {
+          const ws = workbook.Sheets[sheetName];
+          if (!ws) continue;
 
-        const fields: string[] = [];
-        let current = '';
-        let inQuotes = false;
-        for (let j = 0; j < line.length; j++) {
-          const char = line[j];
-          if (char === '"' && line[j+1] === '"') {
-            current += '"';
-            j++;
-          } else if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            fields.push(current.trim());
-            current = '';
-          } else {
-            current += char;
-          }
-        }
-        fields.push(current.trim());
-
-        if (fields.length >= 10) {
-          imported.push({
-            studentId: fields[1] || '',
-            fullName: fields[2] || '',
-            englishName: fields[3] || '',
-            gender: fields[4] || '',
-            level: fields[5] || '',
-            shift: fields[6] || '',
-            className: fields[7] || '',
-            enrollDate: fields[8] || '',
-            fee: fields[9] && !isNaN(Number(fields[9])) ? Number(fields[9]) : 120,
-            status: fields[10] || 'កំពុងសិក្សា',
-            teacherName: fields[11] || '',
-            dob: fields[12] || '',
-            address: fields[13] || '',
-            location: fields[14] || '',
-            transport: fields[15] || '',
-            contact: fields[16] || '',
-            father: fields[17] || '',
-            mother: fields[18] || '',
-            phoneNum: fields[19] || '',
-            photo: fields[20] || ''
+          const rows = XLSX.utils.sheet_to_json<any[]>(ws, {
+            header: 1,
+            defval: '',
+            raw: false,
           });
+          if (!rows || rows.length <= 1) continue;
+
+          let sheetDefaultStatus = 'កំពុងសិក្សា';
+          if (sheetName.includes('ឈប់រៀន') || sheetName.includes('បោះបង់')) {
+            sheetDefaultStatus = 'ឈប់រៀន';
+          } else if (sheetName.includes('ព្យួរ') || sheetName.includes('ផ្អាក')) {
+            sheetDefaultStatus = 'ព្យួរការសិក្សា';
+          }
+
+          for (let i = 1; i < rows.length; i++) {
+            const fields = rows[i];
+            if (!Array.isArray(fields)) continue;
+            const idVal = fields[1] !== undefined && fields[1] !== null ? String(fields[1]).trim() : '';
+            const nameVal = fields[2] !== undefined && fields[2] !== null ? String(fields[2]).trim() : '';
+            if (!idVal && !nameVal) continue;
+            imported.push(mapRowToStudentData(fields, sheetDefaultStatus));
+          }
+        }
+      } else {
+        const text = await file.text();
+        if (!text) return;
+
+        const lines = text.split(/\r?\n/);
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const fields: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"' && line[j + 1] === '"') {
+              current += '"';
+              j++;
+            } else if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              fields.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          fields.push(current.trim());
+
+          if ((fields[1] && fields[1].trim()) || (fields[2] && fields[2].trim())) {
+            imported.push(mapRowToStudentData(fields, 'កំពុងសិក្សា'));
+          }
         }
       }
 
-      if (imported.length > 0) {
-        let updatedCount = 0;
-        let addedCount = 0;
-        
-        imported.forEach(studentData => {
-          if (!studentData.studentId) {
-            studentService.add(studentData);
-            addedCount++;
-            return;
-          }
-          
-          const existingStudent = students.find(s => s.studentId?.toLowerCase() === studentData.studentId.toLowerCase());
-          if (existingStudent) {
-            studentService.update(existingStudent.id, studentData);
-            updatedCount++;
-          } else {
-            studentService.add(studentData);
-            addedCount++;
-          }
-        });
-        
-        alert(`បាននាំចូលជោគជ័យ! បន្ថែមថ្មី ${addedCount} នាក់ និងកែប្រែទិន្នន័យចាស់ដែលមានស្រាប់ ${updatedCount} នាក់។`);
-      } else {
-        alert('សូមពិនិត្យមើលទម្រង់ហ្វាយ CSV របស់អ្នកឡើងវិញ!');
+      if (imported.length === 0) {
+        alert('រកមិនឃើញទិន្នន័យសិស្សទេ! សូមពិនិត្យមើលឯកសារ Excel ឬ CSV របស់អ្នកឡើងវិញ។');
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      let updatedCount = 0;
+      let addedCount = 0;
+      const seenStudentIds = new Map<string, string>();
+      students.forEach((s) => {
+        if (s.studentId) {
+          seenStudentIds.set(s.studentId.toLowerCase(), s.id);
+        }
+      });
+
+      const ops: Promise<any>[] = [];
+      for (const studentData of imported) {
+        const key = studentData.studentId ? studentData.studentId.toLowerCase() : '';
+        const existingDocId = key ? seenStudentIds.get(key) : undefined;
+        if (existingDocId) {
+          ops.push(studentService.update(existingDocId, studentData));
+          updatedCount++;
+        } else {
+          ops.push(
+            studentService.add(studentData).then((newId) => {
+              if (key && newId) seenStudentIds.set(key, newId);
+            })
+          );
+          addedCount++;
+        }
+      }
+
+      await Promise.all(ops);
+      alert(`បាននាំចូលជោគជ័យ! បន្ថែមថ្មី ${addedCount} នាក់ និងកែប្រែទិន្នន័យចាស់ដែលមានស្រាប់ ${updatedCount} នាក់។`);
+    } catch (err) {
+      console.error('Import error:', err);
+      alert('មានបញ្ហាក្នុងការអានឯកសារ! សូមពិនិត្យទម្រង់ឯកសារ Excel (.xlsx) ឬ CSV របស់អ្នក។');
+    }
   };
 
   const getFirstLetter = (name: string) => {
@@ -1198,19 +1322,20 @@ export default function StudentsPage() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </button>
 
-          <button onClick={exportToCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Export CSV">
+          <button onClick={exportToExcel} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="Export Excel (3 Sheets: កំពុងសិក្សា, ឈប់រៀន, ព្យួរការសិក្សា)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Excel
           </button>
           
-          <button onClick={() => !isStudentTableLocked && fileInputRef.current?.click()} className="btn" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', opacity: isStudentTableLocked ? 0.6 : 1 }} title="Import CSV">
+          <button onClick={() => !isStudentTableLocked && fileInputRef.current?.click()} className="btn" disabled={isStudentTableLocked} style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' , opacity: isStudentTableLocked ? 0.6 : 1 }} title="Import Excel (.xlsx) ឬ CSV">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </button>
           
-          <button onClick={downloadSampleCSV} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="ទាញយកគំរូ CSV">
+          <button onClick={downloadSampleExcel} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem' }} title="ទាញយកគំរូ Excel (ប្រើសិស្សពិតជាឧទាហរណ៍)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            គំរូ CSV
+            គំរូ Excel
           </button>
-          <input ref={fileInputRef} type="file" accept=".csv" onChange={importFromCSV} style={{ display: 'none' }} />
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={importFromFile} style={{ display: 'none' }} />
 
           {/* Lock Toggle SVG Button */}
           <button 
