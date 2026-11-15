@@ -13,6 +13,64 @@ import SortDropdown from '@/components/SortDropdown';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
+function InlineDateCellEditor({
+  initialValue,
+  onSave,
+  onCancel,
+}: {
+  initialValue: string;
+  onSave: (val: string) => void;
+  onCancel: () => void;
+}) {
+  const [dateVal, setDateVal] = useState(initialValue);
+  const latestRef = useRef(initialValue);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (wrapperRef.current && wrapperRef.current.contains(target)) return;
+      if (target?.closest?.('#date-picker-portal')) return;
+      onSave(latestRef.current);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [onSave, onCancel]);
+
+  return (
+    <div ref={wrapperRef} onClick={(e) => e.stopPropagation()} style={{ minWidth: '175px' }}>
+      <CustomDatePicker
+        autoFocus
+        selected={dateVal}
+        onChange={(val) => {
+          latestRef.current = val;
+          setDateVal(val);
+        }}
+        onConfirm={(iso) => {
+          const finalVal = iso || latestRef.current;
+          onSave(finalVal);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onSave(latestRef.current);
+          } else if (e.key === 'Escape') {
+            onCancel();
+          }
+        }}
+        style={{ padding: '0.35rem 0.5rem', fontSize: '0.88rem' }}
+      />
+    </div>
+  );
+}
+
 export default function StudentsPage() {
   const router = useRouter();
   const [role, setRole] = useState('');
@@ -110,23 +168,96 @@ export default function StudentsPage() {
   
   const renderCell = (student: any, field: string, defaultRender: React.ReactNode) => {
     if (editingCell && editingCell.id === student.id && editingCell.field === field) {
+      if (field === 'enrollDate' || field === 'dob') {
+        return (
+          <InlineDateCellEditor
+            initialValue={editingCell.value}
+            onCancel={() => setEditingCell(null)}
+            onSave={async (val) => {
+              try {
+                await studentService.update(student.id, { [field]: val });
+                setEditingCell(null);
+              } catch (error) {
+                console.error('Error updating date cell', error);
+              }
+            }}
+          />
+        );
+      }
+
+      if (field === 'className') {
+        const matchedClass =
+          classesData.find((c: any) => c.studentIds && c.studentIds.includes(student.id)) ||
+          classesData.find((c: any) => (c.classCode || c.className) && (c.classCode || c.className) === student.className);
+        const currentClassId = matchedClass ? matchedClass.id : '';
+
+        return (
+          <div onClick={(e) => e.stopPropagation()} style={{ minWidth: '170px' }}>
+            <CustomSelectDropdown
+              autoOpen
+              value={currentClassId}
+              placeholder="-- ជ្រើសរើសថ្នាក់រៀន --"
+              emptyOptionLabel="-- មិនទាន់កំណត់ថ្នាក់ --"
+              searchPlaceholder="ស្វែងរកលេខថ្នាក់ ឬ ឈ្មោះគ្រូ..."
+              options={classesData.map((c: any) => {
+                const code = c.classCode || c.className || 'គ្មានលេខថ្នាក់';
+                const nameSuffix = c.classCode && c.className && c.classCode !== c.className ? ` (${c.className})` : '';
+                return {
+                  value: c.id,
+                  label: `${code}${nameSuffix}`,
+                  sublabel: `គ្រូ៖ ${c.teacherName || 'មិនទាន់កំណត់'}`,
+                };
+              })}
+              onChange={async (newClassId) => {
+                try {
+                  const selectedClass = classesData.find((c: any) => c.id === newClassId);
+                  await studentService.update(student.id, {
+                    className: selectedClass ? (selectedClass.classCode || selectedClass.className || '') : '',
+                    teacherName: selectedClass ? (selectedClass.teacherName || '') : '',
+                  });
+                  if (newClassId !== currentClassId) {
+                    if (matchedClass) {
+                      const updatedPrevIds = (matchedClass.studentIds || []).filter((id: string) => id !== student.id);
+                      await classService.update(matchedClass.id, { studentIds: updatedPrevIds });
+                    }
+                    if (selectedClass) {
+                      const currentIds = selectedClass.studentIds || [];
+                      if (!currentIds.includes(student.id)) {
+                        await classService.update(selectedClass.id, { studentIds: [...currentIds, student.id] });
+                      }
+                    }
+                  }
+                  setEditingCell(null);
+                } catch (error) {
+                  console.error('Error updating class cell', error);
+                }
+              }}
+              onMenuClose={() => setEditingCell(null)}
+              style={{ width: '100%', minWidth: '140px', padding: '0.25rem 0.5rem', border: '1px solid var(--accent)', borderRadius: '6px', background: 'var(--main-bg)' }}
+            />
+          </div>
+        );
+      }
+
       const selectFields = ['gender', 'level', 'shift', 'status', 'address', 'transport'];
       if (selectFields.includes(field)) {
-        let options: string[] = [];
-        if (field === 'gender') options = ['ប្រុស', 'ស្រី'];
-        else if (field === 'level') options = levelOptions;
-        else if (field === 'shift') options = shiftOptions;
-        else if (field === 'status') options = ['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន'];
-        else if (field === 'address') options = addressOptions;
-        else if (field === 'transport') options = transportOptions;
-        
+        let baseOptions: string[] = [];
+        if (field === 'gender') baseOptions = genderOptions;
+        else if (field === 'level') baseOptions = levelOptions;
+        else if (field === 'shift') baseOptions = shiftOptions;
+        else if (field === 'status') baseOptions = statusOptions;
+        else if (field === 'address') baseOptions = addressOptions;
+        else if (field === 'transport') baseOptions = transportOptions;
+
+        const mergedOptions = Array.from(new Set(editingCell.value ? [...baseOptions, editingCell.value] : baseOptions));
+
         return (
           <div onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
             <CustomSelectDropdown
               autoOpen
               value={editingCell.value}
-              options={options}
-              searchable={options.length > 6}
+              options={mergedOptions}
+              searchable={mergedOptions.length > 6}
               onChange={async (val) => {
                 try {
                   await studentService.update(editingCell.id, { [editingCell.field]: val });
@@ -290,7 +421,14 @@ export default function StudentsPage() {
         statusInfo
       };
     }
-    return { ...s, statusInfo };
+    const matchedByClassName = s.className
+      ? classesData.find(c => (c.classCode || c.className) === s.className)
+      : null;
+    return {
+      ...s,
+      teacherName: matchedByClassName ? (matchedByClassName.teacherName || '') : (s.className ? (s.teacherName || '') : ''),
+      statusInfo
+    };
   });
 
   // Student CRUD Functions
@@ -1294,7 +1432,7 @@ export default function StudentsPage() {
                 </td>}
                 
                 {visibleColumns.includes('className') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'className', student.className)}</td>}
-                {visibleColumns.includes('teacherName') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'teacherName', student.teacherName)}</td>}
+                {visibleColumns.includes('teacherName') && <td style={{ padding: '0.75rem 1.25rem', cursor: 'default' }}>{student.teacherName}</td>}
                 {visibleColumns.includes('dob') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'dob', formatDOBToYear(student.dob))}</td>}
                 {visibleColumns.includes('address') && <td style={{ padding: '0.75rem 1.25rem' }}>{renderCell(student, 'address', student.address)}</td>}
                 

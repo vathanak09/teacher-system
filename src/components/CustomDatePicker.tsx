@@ -12,6 +12,9 @@ interface CustomDatePickerProps {
   style?: React.CSSProperties;
   required?: boolean;
   disabled?: boolean;
+  autoFocus?: boolean;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onConfirm?: (isoDate: string) => void;
 }
 
 function isValidYMD(year: number, monthIndex: number, day: number): Date | null {
@@ -80,6 +83,7 @@ interface DateInputWrapperProps {
   onTextChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onTextBlur: () => void;
   onTextFocus: () => void;
+  onTextKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onClear: () => void;
   onToggleCalendar: () => void;
   toggleBtnRef: React.RefObject<HTMLButtonElement | null>;
@@ -88,6 +92,7 @@ interface DateInputWrapperProps {
   style?: React.CSSProperties;
   required?: boolean;
   disabled?: boolean;
+  autoFocus?: boolean;
 }
 
 const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
@@ -97,6 +102,7 @@ const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
       onTextChange,
       onTextBlur,
       onTextFocus,
+      onTextKeyDown,
       onClear,
       onToggleCalendar,
       toggleBtnRef,
@@ -105,6 +111,7 @@ const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
       style,
       required,
       disabled,
+      autoFocus,
     },
     ref
   ) => (
@@ -120,10 +127,12 @@ const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
       <input
         type="text"
         inputMode="numeric"
+        autoFocus={autoFocus}
         value={textValue}
         onChange={onTextChange}
         onBlur={onTextBlur}
         onFocus={onTextFocus}
+        onKeyDown={onTextKeyDown}
         placeholder={placeholder || 'dd/mm/yyyy'}
         className={className || 'input-field'}
         required={required}
@@ -223,6 +232,9 @@ export default function CustomDatePicker({
   style,
   required,
   disabled,
+  autoFocus = false,
+  onKeyDown,
+  onConfirm,
 }: CustomDatePickerProps) {
   const datePickerRef = useRef<any>(null);
   const toggleBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -324,8 +336,29 @@ export default function CustomDatePicker({
     onChange('');
   };
 
+  const handleTextKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const trimmed = textValue.trim();
+      if (!trimmed) {
+        onChange('');
+      } else {
+        const parsed = parseSafeDate(trimmed);
+        if (parsed) {
+          const normalized = formatDateToDisplay(parsed);
+          setTextValue(normalized);
+          prevRawLengthRef.current = normalized.length;
+          const iso = formatDateToISO(parsed);
+          onChange(iso);
+        }
+      }
+    }
+    onKeyDown?.(e);
+  };
+
   const handleConfirm = () => {
     setIsOpen(false);
+    const iso = selectedDate ? formatDateToISO(selectedDate) : '';
+    onConfirm?.(iso);
   };
 
   return (
@@ -351,6 +384,7 @@ export default function CustomDatePicker({
             onTextChange={handleTextChange}
             onTextBlur={handleTextBlur}
             onTextFocus={handleTextFocus}
+            onTextKeyDown={handleTextKeyDown}
             onClear={handleClear}
             onToggleCalendar={() => setIsOpen((prev) => !prev)}
             toggleBtnRef={toggleBtnRef}
@@ -359,6 +393,7 @@ export default function CustomDatePicker({
             style={style}
             required={required}
             disabled={disabled}
+            autoFocus={autoFocus}
           />
         }
         showMonthDropdown
