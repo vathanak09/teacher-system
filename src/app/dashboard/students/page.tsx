@@ -719,6 +719,9 @@ export default function StudentsPage() {
     return formatDateToDMY(dateStr);
   };
 
+  const toSelectOptions = (opts: string[], currentVal?: string) =>
+    Array.from(new Set(currentVal ? [...opts, currentVal] : opts)).map((opt) => ({ value: opt, label: opt }));
+
   // Dynamic Class Options based on current students
   const classOptions = Array.from(new Set(augmentedStudents.flatMap(s => (s.className || '').split(',').map((c: string) => c.trim())).filter(Boolean)));
 
@@ -1412,26 +1415,35 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ភេទ (Gender) *</label>
-                  <select className="input-field" value={studentGenderField} onChange={e => setStudentGenderField(e.target.value)}>
-                      {genderOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      {genderOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
-                    </select>
+                  <CustomSelectDropdown
+                    value={studentGenderField}
+                    onChange={setStudentGenderField}
+                    searchable={false}
+                    placeholder="-- ជ្រើសរើសភេទ --"
+                    options={toSelectOptions(genderOptions, studentGenderField)}
+                  />
                 </div>
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>កម្រិតសិក្សា (Level) *</label>
-                  <select className="input-field" value={studentLevelField} onChange={e => setStudentLevelField(e.target.value)}>
-                    {levelOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    {!levelOptions.includes(studentLevelField) && studentLevelField && <option value={studentLevelField}>{studentLevelField}</option>}
-                  </select>
+                  <CustomSelectDropdown
+                    value={studentLevelField}
+                    onChange={setStudentLevelField}
+                    searchable={levelOptions.length > 6}
+                    placeholder="-- ជ្រើសរើសកម្រិត --"
+                    options={toSelectOptions(levelOptions, studentLevelField)}
+                  />
                 </div>
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>វេនសិក្សា (Shift) *</label>
-                  <select className="input-field" value={studentShiftField} onChange={e => setStudentShiftField(e.target.value)}>
-                    {shiftOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    {!shiftOptions.includes(studentShiftField) && studentShiftField && <option value={studentShiftField}>{studentShiftField}</option>}
-                  </select>
+                  <CustomSelectDropdown
+                    value={studentShiftField}
+                    onChange={setStudentShiftField}
+                    searchable={shiftOptions.length > 6}
+                    placeholder="-- ជ្រើសរើសវេន --"
+                    options={toSelectOptions(shiftOptions, studentShiftField)}
+                  />
                 </div>
 
                 <div>
@@ -1507,10 +1519,13 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>អាសយដ្ឋាន (Address)</label>
-                  <select className="input-field" value={studentAddressField} onChange={e => setStudentAddressField(e.target.value)}>
-                    {addressOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    {!addressOptions.includes(studentAddressField) && studentAddressField && <option value={studentAddressField}>{studentAddressField}</option>}
-                  </select>
+                  <CustomSelectDropdown
+                    value={studentAddressField}
+                    onChange={setStudentAddressField}
+                    searchable={addressOptions.length > 6}
+                    placeholder="-- ជ្រើសរើសអាសយដ្ឋាន --"
+                    options={toSelectOptions(addressOptions, studentAddressField)}
+                  />
                 </div>
 
                 <div>
@@ -1520,10 +1535,13 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>មធ្យោបាយធ្វើដំណើរ (Transport)</label>
-                  <select className="input-field" value={studentTransportField} onChange={e => setStudentTransportField(e.target.value)}>
-                    {transportOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                    {!transportOptions.includes(studentTransportField) && studentTransportField && <option value={studentTransportField}>{studentTransportField}</option>}
-                  </select>
+                  <CustomSelectDropdown
+                    value={studentTransportField}
+                    onChange={setStudentTransportField}
+                    searchable={transportOptions.length > 6}
+                    placeholder="-- ជ្រើសរើសមធ្យោបាយ --"
+                    options={toSelectOptions(transportOptions, studentTransportField)}
+                  />
                 </div>
 
                 <div>
@@ -1545,10 +1563,13 @@ export default function StudentsPage() {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ស្ថានភាពសិក្សា (Status)</label>
-                  <select className="input-field" value={studentStatusField} onChange={e => setStudentStatusField(e.target.value)}>
-                      {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      {statusOptions.length === 0 && <option value="" disabled>-- គ្មានជម្រើស --</option>}
-                    </select>
+                  <CustomSelectDropdown
+                    value={studentStatusField}
+                    onChange={setStudentStatusField}
+                    searchable={false}
+                    placeholder="-- ជ្រើសរើសស្ថានភាព --"
+                    options={toSelectOptions(statusOptions, studentStatusField)}
+                  />
                 </div>
 
                 <div>
