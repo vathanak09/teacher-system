@@ -2,7 +2,7 @@
 import { convertDriveImageLink } from '../../../utils/driveLink';
 import ImageUploadBox from '@/components/ImageUploadBox';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -54,9 +54,11 @@ export default function ClassesPage() {
   
   // States
   const [classes, setClasses] = useState<any[]>([]);
+  const [allClasses, setAllClasses] = useState<any[]>([]);
   const [classSearchFilterInput, setClassSearchFilterInput] = useState('');
   const [classSearch, setClassSearch] = useState('');
   const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [classEditId, setClassEditId] = useState<string | null>(null);
@@ -256,6 +258,7 @@ export default function ClassesPage() {
     const unsubscribeTeachers = teacherService.subscribeAll(setAllTeachers);
 
     const unsubscribeClasses = classService.subscribeAll((classesData) => {
+      setAllClasses(classesData);
       const teacherProfileId = localStorage.getItem('teacherProfileId') || '';
       const filtered = classesData.filter((data: any) => currentRole === 'admin' || data.teacherId === teacherProfileId || data.teacherId === currentUserId || data.teacherName === currentUserName);
       setClasses(filtered);
@@ -266,7 +269,10 @@ export default function ClassesPage() {
       });
     });
 
-    const unsubscribeStudents = studentService.subscribeAll(setAllStudents);
+    const unsubscribeStudents = studentService.subscribeAll((studentsData) => {
+      setAllStudents(studentsData);
+      setStudentsLoaded(true);
+    });
     const unsubscribeRecords = teachingRecordService.subscribeAll(setTeachingRecords);
     const unsubscribeTasks = taskService.subscribeAll(setClassTasks);
     const unsubscribePosts = postService.subscribeAll(setPosts);
@@ -458,6 +464,32 @@ export default function ClassesPage() {
 
 
 
+  const getClassMemberIds = (cls: any): string[] =>
+    cls?.studentIds || (cls?.studentsData ? cls.studentsData.map((s: any) => s.id) : []);
+
+  const studentMap = useMemo(() => {
+    const map = new Map<string, any>();
+    allStudents.forEach((s: any) => {
+      if (s?.id) map.set(s.id, s);
+    });
+    return map;
+  }, [allStudents]);
+
+  const studentClassesMap = useMemo(() => {
+    const map = new Map<string, { id: string; label: string }[]>();
+    allClasses.forEach((cls: any) => {
+      const ids = Array.from(new Set(getClassMemberIds(cls).filter(Boolean)));
+      const label = cls.className || cls.classCode || cls.id;
+      ids.forEach((sid) => {
+        const list = map.get(sid);
+        const entry = { id: cls.id, label };
+        if (list) list.push(entry);
+        else map.set(sid, [entry]);
+      });
+    });
+    return map;
+  }, [allClasses]);
+
   const searchResults = studentSearch.trim() === '' ? [] : allStudents.filter(s => {
     const existingIds = viewingClass?.studentIds || (viewingClass?.studentsData ? viewingClass.studentsData.map((ms: any) => ms.id) : []);
     return !existingIds.includes(s.id) && 
@@ -579,6 +611,87 @@ export default function ClassesPage() {
                            <span style={{ margin: '0 0.25rem', color: 'var(--text-secondary)' }}>•</span>
                            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData && c.studentsData.length > 0 ? c.studentsData.length : (c.studentIds?.length || 0)} នាក់</span>
                         </div>
+                        {/* Deleted / Dropped Out / Multi-Class Student Alerts */}
+                        {(() => {
+                          const memberIds = Array.from(new Set(getClassMemberIds(c).filter(Boolean)));
+                          let deletedFromMainCount = 0;
+                          let droppedOutCount = 0;
+                          let multiClassCount = 0;
+                          memberIds.forEach((sid) => {
+                            const st = studentMap.get(sid);
+                            if (studentsLoaded) {
+                              if (!st) deletedFromMainCount++;
+                              else if (st.status === 'ឈប់រៀន') droppedOutCount++;
+                            }
+                            if ((studentClassesMap.get(sid)?.length || 0) > 1) {
+                              multiClassCount++;
+                            }
+                          });
+                          if (deletedFromMainCount === 0 && droppedOutCount === 0 && multiClassCount === 0) {
+                            return null;
+                          }
+                          return (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
+                              {deletedFromMainCount > 0 && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    padding: '0.18rem 0.55rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.28)'
+                                  }}
+                                  title="សិស្សដែលត្រូវបានលុបចេញពីបញ្ជីធំ ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
+                                >
+                                  លុបពីបញ្ជីធំ៖ {deletedFromMainCount} នាក់
+                                </span>
+                              )}
+                              {droppedOutCount > 0 && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    padding: '0.18rem 0.55rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    background: 'rgba(245, 158, 11, 0.12)',
+                                    color: '#d97706',
+                                    border: '1px solid rgba(245, 158, 11, 0.28)'
+                                  }}
+                                  title="សិស្សមានស្ថានភាពឈប់រៀន ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
+                                >
+                                  ឈប់រៀន៖ {droppedOutCount} នាក់
+                                </span>
+                              )}
+                              {multiClassCount > 0 && (
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    padding: '0.18rem 0.55rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    background: 'rgba(139, 92, 246, 0.12)',
+                                    color: '#7c3aed',
+                                    border: '1px solid rgba(139, 92, 246, 0.28)'
+                                  }}
+                                  title="សិស្សដែលមានឈ្មោះនៅក្នុងថ្នាក់លើសពីមួយថ្នាក់"
+                                >
+                                  លើសពី ១ ថ្នាក់៖ {multiClassCount} នាក់
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {/* Book Progress */}
                         {(() => {
                           if (!c.books || c.books.length === 0) return null;
@@ -1003,7 +1116,26 @@ export default function ClassesPage() {
                                   )}
                                   
                                   {classVisibleColumns.includes('studentId') && <td style={{ padding: '0.5rem', fontWeight: '500' }}>{s.studentId}</td>}
-                                  {classVisibleColumns.includes('fullName') && <td style={{ padding: '0.5rem', fontWeight: '500', color: 'var(--text-primary)' }}>{s.fullName}</td>}
+                                  {classVisibleColumns.includes('fullName') && (
+                                    <td style={{ padding: '0.5rem', fontWeight: '500', color: 'var(--text-primary)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                        <span>{s.fullName}</span>
+                                        {s.status === 'ឈប់រៀន' && (
+                                          <span style={{ padding: '0.1rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.14)', color: '#d97706' }}>
+                                            ឈប់រៀន
+                                          </span>
+                                        )}
+                                        {(studentClassesMap.get(s.id)?.length || 0) > 1 && (
+                                          <span
+                                            title={`កំពុងស្ថិតនៅក្នុងថ្នាក់៖ ${studentClassesMap.get(s.id)!.map(x => x.label).join(', ')}`}
+                                            style={{ padding: '0.1rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(139, 92, 246, 0.14)', color: '#7c3aed' }}
+                                          >
+                                            {studentClassesMap.get(s.id)!.length} ថ្នាក់
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                  )}
                                   {classVisibleColumns.includes('englishName') && <td style={{ padding: '1rem' }}>{s.englishName}</td>}
                                   {classVisibleColumns.includes('gender') && <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{s.gender}</td>}
                                   {classVisibleColumns.includes('level') && <td style={{ padding: '1rem' }}>{s.level}</td>}

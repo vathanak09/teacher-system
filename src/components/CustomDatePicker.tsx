@@ -1,6 +1,7 @@
 "use client";
 
 import React, { forwardRef, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -187,6 +188,10 @@ const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
         ref={toggleBtnRef}
         type="button"
         disabled={disabled}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -199,6 +204,8 @@ const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
           right: '0.4rem',
           top: '50%',
           transform: 'translateY(-50%)',
+          zIndex: 2,
+          touchAction: 'manipulation',
           background: 'rgba(var(--primary-rgb, 59, 130, 246), 0.1)',
           border: '1px solid var(--border-color)',
           color: 'var(--primary-color, var(--accent-primary, #0ea5e9))',
@@ -361,68 +368,141 @@ export default function CustomDatePicker({
     onConfirm?.(iso);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen]);
+
+  const inputElement = (
+    <DateInputWrapper
+      textValue={textValue}
+      onTextChange={handleTextChange}
+      onTextBlur={handleTextBlur}
+      onTextFocus={handleTextFocus}
+      onTextKeyDown={handleTextKeyDown}
+      onClear={handleClear}
+      onToggleCalendar={() => {
+        if (disabled) return;
+        setIsOpen((prev) => !prev);
+      }}
+      toggleBtnRef={toggleBtnRef}
+      placeholder={placeholderText}
+      className={className}
+      style={style}
+      required={required}
+      disabled={disabled}
+      autoFocus={autoFocus}
+    />
+  );
+
+  const calendarConfirmFooter = (
+    <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-color, #eee)', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: 'var(--modal-bg, #fff)' }}>
+      {isMobile && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(false)}
+          style={{
+            background: 'var(--bg-secondary, #f1f5f9)',
+            color: 'var(--text-primary, #334155)',
+            border: '1px solid var(--border-color, #cbd5e1)',
+            padding: '0.5rem 1rem',
+            borderRadius: '8px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontSize: '0.95rem',
+          }}
+        >
+          បិទ
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={handleConfirm}
+        style={{
+          background: 'var(--accent-primary, #0ea5e9)',
+          color: '#fff',
+          border: 'none',
+          padding: '0.5rem 2rem',
+          borderRadius: '8px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          flex: 1,
+          fontSize: '1rem',
+        }}
+      >
+        បញ្ជាក់
+      </button>
+    </div>
+  );
+
   return (
     <div style={{ width: '100%' }}>
-      <DatePicker
-        disabled={disabled}
-        ref={datePickerRef}
-        selected={selectedDate}
-        onChange={handleCalendarChange}
-        open={isOpen}
-        preventOpenOnFocus={true}
-        onClickOutside={(e: MouseEvent) => {
-          if (toggleBtnRef.current && toggleBtnRef.current.contains(e.target as Node)) {
-            return;
-          }
-          setIsOpen(false);
-        }}
-        dateFormat="dd/MM/yyyy"
-        placeholderText={placeholderText}
-        customInput={
-          <DateInputWrapper
-            textValue={textValue}
-            onTextChange={handleTextChange}
-            onTextBlur={handleTextBlur}
-            onTextFocus={handleTextFocus}
-            onTextKeyDown={handleTextKeyDown}
-            onClear={handleClear}
-            onToggleCalendar={() => setIsOpen((prev) => !prev)}
-            toggleBtnRef={toggleBtnRef}
-            placeholder={placeholderText}
-            className={className}
-            style={style}
-            required={required}
-            disabled={disabled}
-            autoFocus={autoFocus}
-          />
-        }
-        showMonthDropdown
-        showYearDropdown
-        dropdownMode="select"
-        shouldCloseOnSelect={false}
-        portalId="date-picker-portal"
-        withPortal={isMobile}
-      >
-        <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-color, #eee)', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--modal-bg, #fff)' }}>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            style={{
-              background: 'var(--accent-primary, #0ea5e9)',
-              color: '#fff',
-              border: 'none',
-              padding: '0.5rem 2rem',
-              borderRadius: '8px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              width: '100%',
-              fontSize: '1rem',
-            }}
-          >
-            បញ្ជាក់
-          </button>
-        </div>
-      </DatePicker>
+      {isMobile ? (
+        <>
+          {inputElement}
+          {isOpen && typeof document !== 'undefined' && createPortal(
+            <div
+              id="date-picker-portal"
+              onClick={() => setIsOpen(false)}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 999999,
+                backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                backdropFilter: 'blur(3px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.75rem',
+              }}
+            >
+              <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100%' }}>
+                <DatePicker
+                  inline
+                  selected={selectedDate}
+                  onChange={handleCalendarChange}
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                >
+                  {calendarConfirmFooter}
+                </DatePicker>
+              </div>
+            </div>,
+            document.body
+          )}
+        </>
+      ) : (
+        <DatePicker
+          disabled={disabled}
+          ref={datePickerRef}
+          selected={selectedDate}
+          onChange={handleCalendarChange}
+          open={isOpen}
+          preventOpenOnFocus={true}
+          onClickOutside={(e: MouseEvent) => {
+            if (toggleBtnRef.current && toggleBtnRef.current.contains(e.target as Node)) {
+              return;
+            }
+            setIsOpen(false);
+          }}
+          dateFormat="dd/MM/yyyy"
+          placeholderText={placeholderText}
+          customInput={inputElement}
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          shouldCloseOnSelect={false}
+          portalId="date-picker-portal"
+        >
+          {calendarConfirmFooter}
+        </DatePicker>
+      )}
       <style jsx global>{`
         .react-datepicker-popper {
           z-index: 999999 !important;
