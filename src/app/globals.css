@@ -562,3 +562,33 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 .no-spinner {
   -moz-appearance: textfield;
 }
+
+@media print {
+  body.printing-payment-doc > *:not(#payment-print-portal-root) {
+    display: none !important;
+  }
+
+  body.printing-payment-doc #payment-print-portal-root {
+    position: static !important;
+    inset: auto !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  body.printing-payment-doc #payment-print-portal-root .no-print {
+    display: none !important;
+  }
+
+  body.printing-payment-doc #printable-payment-doc {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+  }
+}
