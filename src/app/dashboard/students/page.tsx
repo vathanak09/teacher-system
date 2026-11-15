@@ -10,6 +10,8 @@ import { settingsService, studentService, classService, paymentService } from '@
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
+import MultiSelectDropdown from '@/components/MultiSelectDropdown';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function StudentsPage() {
   const router = useRouter();
@@ -165,6 +167,8 @@ export default function StudentsPage() {
   const [studentShiftField, setStudentShiftField] = useState('');
   const [studentEnrollDateField, setStudentEnrollDateField] = useState('');
   const [studentFeeField, setStudentFeeField] = useState('120'); // 1 = 1000 Riels
+  const [studentClassIdField, setStudentClassIdField] = useState('');
+  const [initialStudentClassId, setInitialStudentClassId] = useState('');
   const [studentClassNameField, setStudentClassNameField] = useState('');
   const [studentTeacherField, setStudentTeacherField] = useState('');
   const [studentDobField, setStudentDobField] = useState('');
@@ -187,10 +191,10 @@ export default function StudentsPage() {
 
   // Student Filters
   const [studentSearch, setStudentSearch] = useState('');
-  const [studentClassFilter, setStudentClassFilter] = useState('all');
-  const [studentLevelFilter, setStudentLevelFilter] = useState('all');
-  const [studentShiftFilter, setStudentShiftFilter] = useState('all');
-  const [studentStatusFilter, setStudentStatusFilter] = useState('កំពុងសិក្សា');
+  const [studentClassFilter, setStudentClassFilter] = useState<string[]>([]);
+  const [studentLevelFilter, setStudentLevelFilter] = useState<string[]>([]);
+  const [studentShiftFilter, setStudentShiftFilter] = useState<string[]>([]);
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string[]>(['កំពុងសិក្សា']);
   const [studentSortBy, setStudentSortBy] = useState('studentId');
   const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -313,6 +317,8 @@ export default function StudentsPage() {
     setStudentShiftField(shiftOptions.length > 0 ? shiftOptions[0] : '');
     setStudentEnrollDateField(new Date().toISOString().slice(0, 10));
     setStudentFeeField('120');
+    setStudentClassIdField('');
+    setInitialStudentClassId('');
     setStudentClassNameField('');
     setStudentTeacherField('');
     setStudentDobField('');
@@ -365,6 +371,12 @@ export default function StudentsPage() {
     setStudentShiftField(student.shift || '');
     setStudentEnrollDateField(student.enrollDate || '');
     setStudentFeeField(student.fee !== undefined && student.fee !== null ? student.fee.toString() : '120');
+    const matchedClass =
+      classesData.find((c: any) => c.studentIds && c.studentIds.includes(student.id)) ||
+      classesData.find((c: any) => (c.classCode || c.className) && (c.classCode || c.className) === student.className);
+    const matchedClassId = matchedClass ? matchedClass.id : '';
+    setStudentClassIdField(matchedClassId);
+    setInitialStudentClassId(matchedClassId);
     setStudentClassNameField(student.className || '');
     setStudentTeacherField(student.teacherName || '');
     setStudentDobField(student.dob || '');
@@ -400,7 +412,7 @@ export default function StudentsPage() {
     return url;
   };
 
-  const handleSaveStudent = () => {
+  const handleSaveStudent = async () => {
     // Validate all Part 1 fields (Mandatory)
     if (!studentIdField.trim() || !studentFullNameField.trim() || !studentEnglishNameField.trim() || !studentGenderField || !studentLevelField || !studentShiftField || !studentEnrollDateField || studentFeeField.trim() === '') {
       alert('សូមបំពេញរាល់ព័ត៌មានសិក្សានៅផ្នែកទី១ ឱ្យបានគ្រប់ជ្រុងជ្រោយ (មិនអាចរំលងបានឡើយ)!');
@@ -419,8 +431,14 @@ export default function StudentsPage() {
     }
 
     const directPhotoUrl = convertDriveUrl(studentPhotoField);
-    
-    let updated;
+    const selectedClass = classesData.find((c: any) => c.id === studentClassIdField);
+    const resolvedClassName = selectedClass
+      ? (selectedClass.classCode || selectedClass.className || '')
+      : (initialStudentClassId ? '' : studentClassNameField);
+    const resolvedTeacherName = selectedClass
+      ? (selectedClass.teacherName || '')
+      : (initialStudentClassId ? '' : studentTeacherField);
+
     const studentData = {
       studentId: studentIdField,
       fullName: studentFullNameField,
@@ -430,8 +448,8 @@ export default function StudentsPage() {
       shift: studentShiftField,
       enrollDate: studentEnrollDateField,
       fee: studentFeeField.trim() !== '' && !isNaN(Number(studentFeeField)) ? Number(studentFeeField) : 0,
-      className: studentClassNameField,
-      teacherName: studentTeacherField,
+      className: resolvedClassName,
+      teacherName: resolvedTeacherName,
       dob: studentDobField,
       address: studentAddressField,
       location: studentLocationField,
@@ -444,10 +462,27 @@ export default function StudentsPage() {
       phoneNum: studentPhoneNumField
     };
 
+    let savedStudentDocId = studentEditId;
     if (studentEditId) {
-      studentService.update(studentEditId, studentData);
+      await studentService.update(studentEditId, studentData);
     } else {
-      studentService.add(studentData);
+      savedStudentDocId = await studentService.add(studentData);
+    }
+
+    if (savedStudentDocId && studentClassIdField !== initialStudentClassId) {
+      if (initialStudentClassId) {
+        const prevClass = classesData.find((c: any) => c.id === initialStudentClassId);
+        if (prevClass) {
+          const updatedPrevIds = (prevClass.studentIds || []).filter((id: string) => id !== savedStudentDocId);
+          await classService.update(prevClass.id, { studentIds: updatedPrevIds });
+        }
+      }
+      if (selectedClass) {
+        const currentIds = selectedClass.studentIds || [];
+        if (!currentIds.includes(savedStudentDocId)) {
+          await classService.update(selectedClass.id, { studentIds: [...currentIds, savedStudentDocId] });
+        }
+      }
     }
 
     setIsStudentModalOpen(false);
@@ -685,7 +720,7 @@ export default function StudentsPage() {
   };
 
   // Dynamic Class Options based on current students
-  const classOptions = Array.from(new Set(augmentedStudents.map(s => s.className).filter(Boolean)));
+  const classOptions = Array.from(new Set(augmentedStudents.flatMap(s => (s.className || '').split(',').map((c: string) => c.trim())).filter(Boolean)));
 
   // Selection Checkbox Logic
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -711,10 +746,11 @@ export default function StudentsPage() {
         s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) || 
         s.englishName.toLowerCase().includes(studentSearch.toLowerCase()) || 
         s.studentId.includes(studentSearch);
-      const matchesClass = studentClassFilter === 'all' || s.className === studentClassFilter;
-      const matchesLevel = studentLevelFilter === 'all' || s.level === studentLevelFilter;
-      const matchesShift = studentShiftFilter === 'all' || s.shift === studentShiftFilter;
-      const matchesStatus = s.status === studentStatusFilter;
+      const studentClassList = (s.className || '').split(',').map((c: string) => c.trim()).filter(Boolean);
+      const matchesClass = studentClassFilter.length === 0 || studentClassFilter.some(f => s.className === f || studentClassList.includes(f));
+      const matchesLevel = studentLevelFilter.length === 0 || studentLevelFilter.includes(s.level);
+      const matchesShift = studentShiftFilter.length === 0 || studentShiftFilter.includes(s.shift);
+      const matchesStatus = studentStatusFilter.length === 0 || studentStatusFilter.includes(s.status);
       return matchesSearch && matchesClass && matchesLevel && matchesShift && matchesStatus;
     })
     .sort((a, b) => {
@@ -798,35 +834,49 @@ export default function StudentsPage() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           
           {/* Level Filter */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select className="input-field" value={studentLevelFilter} onChange={e => setStudentLevelFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់កម្រិត</option>
-              {levelOptions.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            options={levelOptions}
+            selectedValues={studentLevelFilter}
+            onChange={setStudentLevelFilter}
+            allLabel="គ្រប់កម្រិត"
+            title="កម្រិតសិក្សា"
+            multiLabel="កម្រិត"
+            searchPlaceholder="ស្វែងរកកម្រិត..."
+          />
 
           {/* Shift Filter */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select className="input-field" value={studentShiftFilter} onChange={e => setStudentShiftFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់វេន</option>
-              {shiftOptions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            options={shiftOptions}
+            selectedValues={studentShiftFilter}
+            onChange={setStudentShiftFilter}
+            allLabel="គ្រប់វេន"
+            title="វេនសិក្សា"
+            multiLabel="វេន"
+            searchPlaceholder="ស្វែងរកវេន..."
+          />
 
           {/* Class Filter */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <select className="input-field" value={studentClassFilter} onChange={e => setStudentClassFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-              <option value="all">គ្រប់ថ្នាក់</option>
-              {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            options={classOptions}
+            selectedValues={studentClassFilter}
+            onChange={setStudentClassFilter}
+            allLabel="គ្រប់ថ្នាក់"
+            title="ថ្នាក់រៀន"
+            multiLabel="ថ្នាក់"
+            searchable
+            searchPlaceholder="ស្វែងរកថ្នាក់..."
+          />
 
           {/* Status Filter */}
-          <select className="input-field" value={studentStatusFilter} onChange={e => setStudentStatusFilter(e.target.value)} style={{ width: 'auto', background: 'var(--main-bg)', padding: '0.4rem 2rem 0.4rem 1rem', fontSize: '0.9rem' }}>
-            <option value="កំពុងសិក្សា">កំពុងសិក្សា</option>
-            <option value="ព្យួរការសិក្សា">ព្យួរការសិក្សា</option>
-            <option value="ឈប់រៀន">ឈប់រៀន</option>
-          </select>
+          <MultiSelectDropdown
+            options={['កំពុងសិក្សា', 'ព្យួរការសិក្សា', 'ឈប់រៀន']}
+            selectedValues={studentStatusFilter}
+            onChange={setStudentStatusFilter}
+            allLabel="គ្រប់ស្ថានភាព"
+            title="ស្ថានភាពសិស្ស"
+            multiLabel="ស្ថានភាព"
+            searchable={false}
+          />
 
           {/* Search Box */}
           <input 
@@ -994,7 +1044,7 @@ export default function StudentsPage() {
             }}
           />
           
-          <button onClick={() => { setStudentSearch(''); setStudentClassFilter('all'); setStudentLevelFilter('all'); setStudentShiftFilter('all'); setStudentStatusFilter('កំពុងសិក្សា'); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
+          <button onClick={() => { setStudentSearch(''); setStudentClassFilter([]); setStudentLevelFilter([]); setStudentShiftFilter([]); setStudentStatusFilter(['កំពុងសិក្សា']); setSelectedStudentIds([]); }} className="btn" style={{ padding: '0.45rem 0.75rem', background: 'var(--main-bg)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center' }} title="Refresh">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
           </button>
 
@@ -1392,6 +1442,36 @@ export default function StudentsPage() {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្លៃសិក្សា (Fee) [1 = 1000៛] *</label>
                   <input type="number" className="input-field" value={studentFeeField} onChange={e => setStudentFeeField(e.target.value)} placeholder="ឧ. 120 (120,000៛)" />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 500 }}>ថ្នាក់រៀន (Class)</label>
+                  <CustomSelectDropdown
+                    value={studentClassIdField}
+                    onChange={(classId) => {
+                      setStudentClassIdField(classId);
+                      const cls = classesData.find((c: any) => c.id === classId);
+                      if (cls) {
+                        setStudentClassNameField(cls.classCode || cls.className || '');
+                        setStudentTeacherField(cls.teacherName || '');
+                      } else {
+                        setStudentClassNameField('');
+                        setStudentTeacherField('');
+                      }
+                    }}
+                    placeholder="-- ជ្រើសរើសថ្នាក់រៀន --"
+                    emptyOptionLabel="-- មិនទាន់កំណត់ថ្នាក់ --"
+                    searchPlaceholder="ស្វែងរកលេខថ្នាក់ ឬ ឈ្មោះគ្រូ..."
+                    options={classesData.map((c: any) => {
+                      const code = c.classCode || c.className || 'គ្មានលេខថ្នាក់';
+                      const nameSuffix = c.classCode && c.className && c.classCode !== c.className ? ` (${c.className})` : '';
+                      return {
+                        value: c.id,
+                        label: `${code}${nameSuffix}`,
+                        sublabel: `គ្រូ៖ ${c.teacherName || 'មិនទាន់កំណត់'}`,
+                      };
+                    })}
+                  />
                 </div>
               </div>
             )}
