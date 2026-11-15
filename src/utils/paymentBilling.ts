@@ -13,6 +13,33 @@ export const KHMER_MONTHS = [
   'ធ្នូ',
 ];
 
+/**
+ * Master student.fee stores shorthand values (e.g. 80 = 80,000 Riels).
+ * Keeps master student record untouched while converting to Riels in payment views.
+ */
+export function feeToRiels(rawFee: any): number {
+  const num = Number(rawFee || 0);
+  if (!isFinite(num) || num <= 0) return 0;
+  return num < 5000 ? Math.round(num * 1000) : Math.round(num);
+}
+
+/**
+ * Legacy payment records stored shorthand numbers (e.g. 80, 240, 320),
+ * whereas KHR-tagged records store exact Riels (e.g. 80000, 320000).
+ */
+export function normalizePaymentRiels(rawValue: any, paymentRecord?: any): number {
+  const num = Number(rawValue || 0);
+  if (!isFinite(num) || num <= 0) return 0;
+  if (paymentRecord?.currency === 'KHR') return Math.round(num);
+  return num < 5000 ? Math.round(num * 1000) : Math.round(num);
+}
+
+export function formatRiels(amountRiels: number, includeUnit = true): string {
+  const rounded = Math.round(Number(amountRiels || 0));
+  const formatted = rounded.toLocaleString('en-US');
+  return includeUnit ? `${formatted} រៀល` : formatted;
+}
+
 export function parseLocalDate(dateStr: string | null | undefined): Date | null {
   if (!dateStr || typeof dateStr !== 'string') return null;
   const trimmed = dateStr.trim();
@@ -29,9 +56,12 @@ export function parseLocalDate(dateStr: string | null | undefined): Date | null 
 
   const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmyMatch) {
-    const d = parseInt(dmyMatch[1], 10);
-    const m = parseInt(dmyMatch[2], 10) - 1;
+    const p1 = parseInt(dmyMatch[1], 10);
+    const p2 = parseInt(dmyMatch[2], 10);
     const y = parseInt(dmyMatch[3], 10);
+    // Support M/D/YYYY when the middle segment exceeds 12 (e.g. "8/19/2026")
+    const d = p2 > 12 && p1 <= 12 ? p2 : p1;
+    const m = (p2 > 12 && p1 <= 12 ? p1 : p2) - 1;
     const dt = new Date(y, m, d);
     return !isNaN(dt.getTime()) && dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d ? dt : null;
   }
@@ -175,7 +205,7 @@ export function computeStudentBillingInfo(
   const today = new Date(todayBase.getFullYear(), todayBase.getMonth(), todayBase.getDate());
 
   const { classCode, teacherName, roomAndTeacher } = getStudentClassInfo(student, classesData);
-  const monthlyFee = Number(student.fee || 0) || 0;
+  const monthlyFee = feeToRiels(student.fee);
 
   const studentPayments = (payments || [])
     .filter((p: any) => p.studentDocId === student.id || p.studentId === student.id)

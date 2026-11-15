@@ -170,6 +170,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // Format "ចំនួនប្រាក់ត្រូវបង់" (Column I, index 8) in the due/overdue sheet as Riels
+    formatRequests.push({
+      repeatCell: {
+        range: {
+          sheetId: dueSheetInfo.sheetId,
+          startRowIndex: 1,
+          endRowIndex: Math.max(2, dueValues.length),
+          startColumnIndex: 8,
+          endColumnIndex: 9,
+        },
+        cell: {
+          userEnteredFormat: {
+            numberFormat: { type: 'NUMBER', pattern: '#,##0 "រៀល"' },
+          },
+        },
+        fields: 'userEnteredFormat.numberFormat',
+      },
+    });
+
     try {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,

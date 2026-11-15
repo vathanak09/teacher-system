@@ -3,9 +3,12 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  feeToRiels,
   formatDMYSlash,
   formatKhmerFullDate,
   formatKhmerValidityPeriod,
+  formatRiels,
+  normalizePaymentRiels,
 } from '@/utils/paymentBilling';
 
 export type PrintDocPayload =
@@ -74,9 +77,15 @@ export default function PaymentPrintModal({
       payment.validityPeriod ||
       formatKhmerValidityPeriod(payment.validFrom || payment.paymentDate, payment.validUntil);
     const monthsCount = Number(payment.monthsPaid || 1);
-    const unitFee = Number(payment.unitFee ?? student?.fee ?? 0);
-    const discount = Number(payment.discount || 0);
-    const totalPaid = Number(payment.amount ?? Math.max(0, unitFee * monthsCount - discount));
+    const unitFee =
+      payment.unitFee !== undefined && payment.unitFee !== null
+        ? normalizePaymentRiels(payment.unitFee, payment)
+        : feeToRiels(student?.fee);
+    const discount = normalizePaymentRiels(payment.discount || 0, payment);
+    const totalPaid =
+      payment.amount !== undefined && payment.amount !== null
+        ? normalizePaymentRiels(payment.amount, payment)
+        : Math.max(0, unitFee * monthsCount - discount);
 
     return (
       <div
@@ -222,7 +231,7 @@ export default function PaymentPrintModal({
           <tbody>
             <tr>
               <td style={{ padding: '0.75rem', border: '1px solid #cbd5e1' }}>
-                ថ្លៃសិក្សា ({monthsCount} ខែ{unitFee > 0 ? ` × $${unitFee}` : ''})
+                ថ្លៃសិក្សា ({monthsCount} ខែ{unitFee > 0 ? ` × ${formatRiels(unitFee)}` : ''})
                 {payment.note && (
                   <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.25rem' }}>
                     សម្គាល់៖ {payment.note}
@@ -236,7 +245,7 @@ export default function PaymentPrintModal({
                 {formatDMYSlash(payment.validUntil) || '-'}
               </td>
               <td style={{ padding: '0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                ${(totalPaid + discount).toFixed(2)}
+                {formatRiels(totalPaid + discount)}
               </td>
             </tr>
             {discount > 0 && (
@@ -245,7 +254,7 @@ export default function PaymentPrintModal({
                   បញ្ចុះតម្លៃ (Discount)
                 </td>
                 <td style={{ padding: '0.55rem 0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', color: '#dc2626' }}>
-                  -${discount.toFixed(2)}
+                  -{formatRiels(discount)}
                 </td>
               </tr>
             )}
@@ -254,7 +263,7 @@ export default function PaymentPrintModal({
                 ទឹកប្រាក់សរុបបានបង់ (TOTAL PAID)
               </td>
               <td style={{ padding: '0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '1.05rem', color: '#059669' }}>
-                ${totalPaid.toFixed(2)}
+                {formatRiels(totalPaid)}
               </td>
             </tr>
           </tbody>
@@ -461,7 +470,7 @@ export default function PaymentPrintModal({
                 ចំនួនខែដែលត្រូវបង់ ឬលើស
               </td>
               <td style={{ padding: '0.6rem 0.85rem', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                {monthsDue} ខែ {monthlyFee > 0 ? `($${monthlyFee}/ខែ)` : ''}
+                {monthsDue} ខែ {monthlyFee > 0 ? `(${formatRiels(monthlyFee)}/ខែ)` : ''}
               </td>
             </tr>
             <tr style={{ background: '#fef2f2' }}>
@@ -469,7 +478,7 @@ export default function PaymentPrintModal({
                 ចំនួនប្រាក់ត្រូវបង់សរុប
               </td>
               <td style={{ padding: '0.75rem 0.85rem', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '1.08rem', color: '#dc2626' }}>
-                ${amountDue.toFixed(2)}
+                {formatRiels(amountDue)}
               </td>
             </tr>
           </tbody>

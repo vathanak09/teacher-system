@@ -16,9 +16,12 @@ import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintMod
 import {
   addMonthsWithAnniversary,
   computeStudentBillingInfo,
+  feeToRiels,
   formatDMYSlash,
   formatKhmerValidityPeriod,
+  formatRiels,
   getStudentClassInfo,
+  normalizePaymentRiels,
   parseLocalDate,
   StudentBillingInfo,
   toISODateString,
@@ -260,7 +263,7 @@ export default function PaymentsPage() {
           roomAndTeacher: classInfo.roomAndTeacher || p.roomAndTeacher || '',
           classCode: classInfo.classCode,
           paymentDate: p.paymentDate || '',
-          amount: Number(p.amount || 0),
+          amount: normalizePaymentRiels(p.amount, p),
         };
       })
       .sort((a, b) => {
@@ -318,7 +321,7 @@ export default function PaymentsPage() {
     const currentYM = toISODateString(new Date()).slice(0, 7);
     const currentMonthRevenue = payments
       .filter((p) => typeof p.paymentDate === 'string' && p.paymentDate.startsWith(currentYM))
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      .reduce((sum, p) => sum + normalizePaymentRiels(p.amount, p), 0);
 
     return {
       overdueCount,
@@ -357,7 +360,7 @@ export default function PaymentsPage() {
     const todayStr = paymentDateOverride || toISODateString(new Date());
     const startFrom = billing.dueDateStr || billing.enrollDateStr || todayStr;
     const defaultMonths = monthsOverride ?? Math.max(1, billing.monthsDue || 1);
-    const unitFee = Number(student.fee || 0);
+    const unitFee = feeToRiels(student.fee);
     const nextUntil = addMonthsWithAnniversary(
       startFrom,
       defaultMonths,
@@ -453,9 +456,10 @@ export default function PaymentsPage() {
         validUntil: payValidUntil,
         validityPeriod,
         monthsPaid,
-        unitFee,
-        discount,
-        amount,
+        unitFee: Math.round(unitFee),
+        discount: Math.round(discount),
+        amount: Math.round(amount),
+        currency: 'KHR',
         method: payMethod,
         note: payNote.trim(),
         recordedBy: currentUserName,
@@ -763,7 +767,7 @@ export default function PaymentsPage() {
             {stats.dueOverdueTotalCount} នាក់
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            ដល់ថ្ងៃ៖ {stats.dueTodayCount} | លើសថ្ងៃ៖ {stats.overdueCount} (${stats.totalDueAmount.toFixed(0)})
+            ដល់ថ្ងៃ៖ {stats.dueTodayCount} | លើសថ្ងៃ៖ {stats.overdueCount} ({formatRiels(stats.totalDueAmount)})
           </div>
         </div>
 
@@ -829,7 +833,7 @@ export default function PaymentsPage() {
             ចំណូលបង់ប្រាក់ខែនេះ
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0.25rem 0' }}>
-            ${stats.currentMonthRevenue.toFixed(2)}
+            {formatRiels(stats.currentMonthRevenue)}
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             គិតពីវិក្កយបត្រក្នុងខែបច្ចុប្បន្ន
@@ -1027,7 +1031,7 @@ export default function PaymentsPage() {
                     </td>
                     <td style={{ fontWeight: 600 }}>{formatDMYSlash(item.dueDateStr) || '-'}</td>
                     <td style={{ fontWeight: 700, color: '#ef4444' }}>
-                      ${item.amountDue.toFixed(2)}
+                      {formatRiels(item.amountDue)}
                     </td>
                     <td>
                       {item.statusKey === 'overdue' ? (
@@ -1272,7 +1276,7 @@ export default function PaymentsPage() {
                       {[b.student.level, b.student.shift].filter(Boolean).join(' / ') || '-'}
                     </td>
                     <td>{b.roomAndTeacher || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>${b.monthlyFee.toFixed(2)}</td>
+                    <td style={{ fontWeight: 600 }}>{formatRiels(b.monthlyFee)}</td>
                     <td>{formatDMYSlash(b.enrollDateStr) || '-'}</td>
                     <td style={{ fontWeight: 600 }}>{formatDMYSlash(b.dueDateStr) || '-'}</td>
                     <td>
@@ -1414,7 +1418,7 @@ export default function PaymentsPage() {
                     return {
                       value: s.id,
                       label: `${s.studentId || 'គ្មានកូដ'} - ${s.fullName}`,
-                      sublabel: `${c.roomAndTeacher || 'មិនទាន់កំណត់ថ្នាក់'} | $${Number(s.fee || 0)}/ខែ`,
+                      sublabel: `${c.roomAndTeacher || 'មិនទាន់កំណត់ថ្នាក់'} | ${formatRiels(feeToRiels(s.fee))}/ខែ`,
                     };
                   })}
                 />
@@ -1518,7 +1522,7 @@ export default function PaymentsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                    ថ្លៃសិក្សា/ខែ ($)
+                    ថ្លៃសិក្សា/ខែ (រៀល)
                   </label>
                   <input
                     type="number"
@@ -1541,7 +1545,7 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                    បញ្ចុះតម្លៃ ($)
+                    បញ្ចុះតម្លៃ (រៀល)
                   </label>
                   <input
                     type="number"
@@ -1564,7 +1568,7 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                    ប្រាក់សរុប ($)
+                    ប្រាក់សរុប (រៀល)
                   </label>
                   <input
                     type="number"
@@ -1727,7 +1731,7 @@ export default function PaymentsPage() {
                       >
                         <div>
                           <div style={{ fontWeight: 700 }}>
-                            {p.receiptNo || 'INV'} — ${Number(p.amount || 0).toFixed(2)} ({p.monthsPaid || 1} ខែ)
+                            {p.receiptNo || 'INV'} — {formatRiels(normalizePaymentRiels(p.amount, p))} ({p.monthsPaid || 1} ខែ)
                           </div>
                           <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
                             បង់ថ្ងៃ {formatDMYSlash(p.paymentDate)} | សុពលភាព៖ {validity || '-'} | ថ្ងៃបន្ទាប់៖{' '}
