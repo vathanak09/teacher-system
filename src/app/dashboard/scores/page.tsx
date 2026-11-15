@@ -5,6 +5,7 @@ import { classService, studentService, scoreService, settingsService, teacherSer
 import SortDropdown from '@/components/SortDropdown';
 import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
+import ScoresGuideModal from '@/components/ScoresGuideModal';
 
 
 
@@ -113,6 +114,34 @@ export default function ScoresPage() {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
+  const guideButton = (
+    <button
+      type="button"
+      onClick={() => setIsGuideOpen(true)}
+      style={{
+        padding: '0.5rem 0.95rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        background: 'rgba(245, 158, 11, 0.14)',
+        border: '1px solid rgba(245, 158, 11, 0.45)',
+        borderRadius: '8px',
+        color: '#d97706',
+        cursor: 'pointer',
+        fontWeight: 600,
+      }}
+      title="ការណែនាំអំពីការប្រើប្រាស់ផ្ទាំងបញ្ជីពិន្ទុ"
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span>ការណែនាំ</span>
+    </button>
+  );
   const [isSavingExtraData, setIsSavingExtraData] = useState(false);
   const [monthExtraData, setMonthExtraData] = useState<{
     monthKhmer: string;
@@ -1145,6 +1174,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
               />
             </div>
+
+            {guideButton}
           </div>
         </div>
         
@@ -1375,6 +1406,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             </div>
           </div>
         )}
+        <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       </div>
     );
   }
@@ -1403,7 +1435,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
             />
           </div>
-          
+          {guideButton}
         </div>
       </div>
 
@@ -1838,6 +1870,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             </div>
           </div>
         )}
+      <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 }
