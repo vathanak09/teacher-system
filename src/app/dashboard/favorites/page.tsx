@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService, lessonService, methodologyService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function FavoritesPage() {
   const router = useRouter();
@@ -176,16 +177,18 @@ export default function FavoritesPage() {
           />
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <select 
-            className="input-field" 
-            value={filterType} 
-            onChange={e => setFilterType(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)' }}
-          >
-            <option value="all">ប្រភេទទាំងអស់</option>
-            <option value="lessons">មេរៀន</option>
-            <option value="methodologies">វិធីសាស្ត្រ</option>
-          </select>
+          <CustomSelectDropdown
+            value={filterType}
+            onChange={setFilterType}
+            searchable={false}
+            menuMinWidth={190}
+            style={{ width: 'auto', minWidth: '150px', background: 'var(--main-bg)', padding: '0.45rem 0.75rem' }}
+            options={[
+              { value: 'all', label: 'ប្រភេទទាំងអស់' },
+              { value: 'lessons', label: 'មេរៀន' },
+              { value: 'methodologies', label: 'វិធីសាស្ត្រ' },
+            ]}
+          />
 
           <SortDropdown 
             options={[

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function TTSPage() {
   const [text, setText] = useState('');
@@ -22,8 +23,7 @@ export default function TTSPage() {
     };
   }, [audioUrl]);
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const lang = e.target.value;
+  const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
     if (lang === 'km-KH') {
       setVoiceName('km-KH-Standard-A');
@@ -100,29 +100,33 @@ export default function TTSPage() {
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ភាសា (Language)</label>
-            <select className="input-field" value={language} onChange={handleLanguageChange}>
-              <option value="km-KH">ភាសាខ្មែរ (Khmer)</option>
-              <option value="en-US">ភាសាអង់គ្លេស (English US)</option>
-            </select>
+            <CustomSelectDropdown
+              value={language}
+              onChange={handleLanguageChange}
+              searchable={false}
+              options={[
+                { value: 'km-KH', label: 'ភាសាខ្មែរ (Khmer)' },
+                { value: 'en-US', label: 'ភាសាអង់គ្លេស (English US)' },
+              ]}
+            />
           </div>
           
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>សំឡេង (Voice Type)</label>
-            <select className="input-field" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
-              {language === 'km-KH' ? (
-                <>
-                  <option value="km-KH-Standard-A">សំឡេងស្រី ១ (Standard A)</option>
-                  <option value="km-KH-Standard-B">សំឡេងប្រុស ១ (Standard B)</option>
-                </>
-              ) : (
-                <>
-                  <option value="en-US-Neural2-F">សំឡេងស្រី ពិរោះ (Neural2 F)</option>
-                  <option value="en-US-Neural2-J">សំឡេងប្រុស ពិរោះ (Neural2 J)</option>
-                  <option value="en-US-Standard-C">សំឡេងស្រី ធម្មតា (Standard C)</option>
-                  <option value="en-US-Standard-D">សំឡេងប្រុស ធម្មតា (Standard D)</option>
-                </>
-              )}
-            </select>
+            <CustomSelectDropdown
+              value={voiceName}
+              onChange={setVoiceName}
+              searchable={false}
+              options={language === 'km-KH' ? [
+                { value: 'km-KH-Standard-A', label: 'សំឡេងស្រី ១ (Standard A)' },
+                { value: 'km-KH-Standard-B', label: 'សំឡេងប្រុស ១ (Standard B)' },
+              ] : [
+                { value: 'en-US-Neural2-F', label: 'សំឡេងស្រី ពិរោះ (Neural2 F)' },
+                { value: 'en-US-Neural2-J', label: 'សំឡេងប្រុស ពិរោះ (Neural2 J)' },
+                { value: 'en-US-Standard-C', label: 'សំឡេងស្រី ធម្មតា (Standard C)' },
+                { value: 'en-US-Standard-D', label: 'សំឡេងប្រុស ធម្មតា (Standard D)' },
+              ]}
+            />
           </div>
         </div>
 

@@ -121,17 +121,24 @@ export default function StudentsPage() {
         else if (field === 'transport') options = transportOptions;
         
         return (
-          <select
-            autoFocus
-            value={editingCell.value}
-            onChange={e => setEditingCell({ ...editingCell, value: e.target.value })}
-            onBlur={handleCellSave}
-            onKeyDown={handleCellKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: '100%', minWidth: '80px', padding: '0.25rem', border: '1px solid var(--accent)', borderRadius: '4px', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-          >
-            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
+          <div onClick={(e) => e.stopPropagation()} style={{ minWidth: '120px' }}>
+            <CustomSelectDropdown
+              autoOpen
+              value={editingCell.value}
+              options={options}
+              searchable={options.length > 6}
+              onChange={async (val) => {
+                try {
+                  await studentService.update(editingCell.id, { [editingCell.field]: val });
+                  setEditingCell(null);
+                } catch (error) {
+                  console.error('Error updating cell', error);
+                }
+              }}
+              onMenuClose={() => setEditingCell(null)}
+              style={{ width: '100%', minWidth: '100px', padding: '0.25rem 0.5rem', border: '1px solid var(--accent)', borderRadius: '6px', background: 'var(--main-bg)' }}
+            />
+          </div>
         );
       }
       return (

@@ -4,6 +4,7 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 import { useRouter } from 'next/navigation';
 import { settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import { convertDriveImageLink } from '@/utils/driveLink';
 
@@ -391,10 +392,13 @@ export default function TeachersPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភេទ</label>
-                    <select value={genderField} onChange={e => setGenderField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                      <option value="ប្រុស">ប្រុស</option>
-                      <option value="ស្រី">ស្រី</option>
-                    </select>
+                    <CustomSelectDropdown
+                      value={genderField}
+                      onChange={setGenderField}
+                      searchable={false}
+                      options={['ប្រុស', 'ស្រី']}
+                      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                    />
                   </div>
                 </div>
               </div>
@@ -422,20 +426,25 @@ export default function TeachersPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ស្ថានភាព</label>
-                  <select value={statusField} onChange={e => setStatusField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                    <option value="កំពុងបង្រៀន">កំពុងបង្រៀន</option>
-                    <option value="ឈប់បង្រៀន">ឈប់បង្រៀន</option>
-                  </select>
+                  <CustomSelectDropdown
+                    value={statusField}
+                    onChange={setStatusField}
+                    searchable={false}
+                    options={['កំពុងបង្រៀន', 'ឈប់បង្រៀន']}
+                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                  />
                 </div>
                 {role === 'admin' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ភ្ជាប់ជាមួយគណនី (Linked User)</label>
-                    <select value={linkedUserIdField} onChange={e => setLinkedUserIdField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                      <option value="">-- មិនទាន់ភ្ជាប់ --</option>
-                      {appUsers.map(u => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                      ))}
-                    </select>
+                    <CustomSelectDropdown
+                      value={linkedUserIdField}
+                      onChange={setLinkedUserIdField}
+                      emptyOptionLabel="-- មិនទាន់ភ្ជាប់ --"
+                      searchable={appUsers.length > 6}
+                      options={appUsers.map(u => ({ value: u.id, label: `${u.name} (${u.role})` }))}
+                      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                    />
                   </div>
                 )}
               </div>

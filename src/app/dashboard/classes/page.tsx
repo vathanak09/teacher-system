@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { teacherService, classService, studentService, settingsService, teachingRecordService, taskService, postService, monthlyPaymentService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 // 15 Icons
 const ICONS = [
@@ -1121,15 +1122,17 @@ export default function ClassesPage() {
                                       <h3 style={{ margin: 0 }}>តាមដានការបង់ប្រាក់ប្រចាំខែ</h3>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <label style={{ fontWeight: 600 }}>ឆ្នាំ៖</label>
-                                        <select 
-                                          value={paymentYear} 
-                                          onChange={(e) => setPaymentYear(Number(e.target.value))}
-                                          style={{ padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', outline: 'none' }}
-                                        >
-                                          {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-                                            <option key={y} value={y}>{y}</option>
-                                          ))}
-                                        </select>
+                                        <CustomSelectDropdown
+                                          value={String(paymentYear)}
+                                          onChange={(v) => setPaymentYear(Number(v))}
+                                          searchable={false}
+                                          menuMinWidth={120}
+                                          style={{ width: 'auto', minWidth: '100px', padding: '0.4rem 0.75rem', background: 'var(--main-bg)' }}
+                                          options={Array.from({length: 5}, (_, i) => {
+                                            const y = new Date().getFullYear() - 2 + i;
+                                            return { value: String(y), label: String(y) };
+                                          })}
+                                        />
                                       </div>
                                     </div>
                                     
@@ -1298,12 +1301,18 @@ export default function ClassesPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សៀវភៅ / កម្រិតសិក្សា</label>
-                <select value={recordBookField} onChange={e => setRecordBookField(e.target.value)} required style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                  <option value="">-- ជ្រើសរើសសៀវភៅ --</option>
-                  {(viewingClass?.books || []).map((b: any) => (
-                    <option key={b.id} value={b.id}>{b.name} ({b.level}) - {b.totalPages} ទំព័រ</option>
-                  ))}
-                </select>
+                <CustomSelectDropdown
+                  value={recordBookField}
+                  onChange={setRecordBookField}
+                  emptyOptionLabel="-- ជ្រើសរើសសៀវភៅ --"
+                  placeholder="-- ជ្រើសរើសសៀវភៅ --"
+                  searchable={(viewingClass?.books || []).length > 6}
+                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                  options={(viewingClass?.books || []).map((b: any) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.level}) - ${b.totalPages} ទំព័រ`
+                  }))}
+                />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>បង្រៀនដល់ទំព័រទី</label>
@@ -1482,16 +1491,19 @@ export default function ClassesPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ឈ្មោះគ្រូ</label>
                   {role === 'admin' ? (
-                    <select value={teacherIdField} onChange={(e) => {
-                       const t = allTeachers.find(x => x.id === e.target.value);
-                       setTeacherIdField(t?.id || '');
-                       setTeacherNameField(t?.fullName || '');
-                    }} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                      <option value="">-- ជ្រើសរើសគ្រូ --</option>
-                      {allTeachers.map(t => (
-                        <option key={t.id} value={t.id}>{t.fullName}</option>
-                      ))}
-                    </select>
+                    <CustomSelectDropdown
+                      value={teacherIdField}
+                      onChange={(val) => {
+                        const t = allTeachers.find(x => x.id === val);
+                        setTeacherIdField(t?.id || '');
+                        setTeacherNameField(t?.fullName || '');
+                      }}
+                      emptyOptionLabel="-- ជ្រើសរើសគ្រូ --"
+                      placeholder="-- ជ្រើសរើសគ្រូ --"
+                      searchable={allTeachers.length > 6}
+                      style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                      options={allTeachers.map(t => ({ value: t.id, label: t.fullName }))}
+                    />
                   ) : (
                     <input type="text" value={teacherNameField} readOnly style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', opacity: 0.7, cursor: 'not-allowed' }} />
                   )}
@@ -1505,18 +1517,13 @@ export default function ClassesPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>វេនសិក្សា</label>
-                  <select value={shiftField} onChange={e => setShiftField(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                    {shiftsOptions.length > 0 ? shiftsOptions.map(opt => (
-                       <option key={opt.id} value={opt.id}>{opt.id}</option>
-                    )) : (
-                       <>
-                         <option value="វេនព្រឹក">វេនព្រឹក</option>
-                         <option value="វេនរសៀល">វេនរសៀល</option>
-                         <option value="វេនល្ងាច">វេនល្ងាច</option>
-                         <option value="សៅរ៍-អាទិត្យ">សៅរ៍-អាទិត្យ</option>
-                       </>
-                    )}
-                  </select>
+                  <CustomSelectDropdown
+                    value={shiftField}
+                    onChange={setShiftField}
+                    searchable={false}
+                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}
+                    options={shiftsOptions.length > 0 ? shiftsOptions.map(opt => opt.id) : ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']}
+                  />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>ពេលសិក្សា (ម៉ោង)</label>
@@ -1650,10 +1657,17 @@ export default function ClassesPage() {
                 </div>
                 {booksField.map((book, index) => (
                   <div key={book.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem' }}>
-                    <select value={book.level} onChange={e => { const newB = [...booksField]; newB[index].level = e.target.value; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', flex: '1' }}>
-                      <option value="">ជ្រើសរើសកម្រិត</option>
-                      {levelsOptions.map(l => <option key={l.id} value={l.id}>{l.id}</option>)}
-                    </select>
+                    <div style={{ flex: '1', minWidth: '120px' }}>
+                      <CustomSelectDropdown
+                        value={book.level}
+                        onChange={(val) => { const newB = [...booksField]; newB[index].level = val; setBooksField(newB); }}
+                        emptyOptionLabel="ជ្រើសរើសកម្រិត"
+                        placeholder="ជ្រើសរើសកម្រិត"
+                        searchable={levelsOptions.length > 6}
+                        style={{ padding: '0.5rem 0.65rem', borderRadius: '6px', background: 'var(--main-bg)' }}
+                        options={levelsOptions.map(l => l.id)}
+                      />
+                    </div>
                     <input type="text" placeholder="ឈ្មោះសៀវភៅ" value={book.name} onChange={e => { const newB = [...booksField]; newB[index].name = e.target.value; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', flex: '2' }} />
                     <input type="number" placeholder="ទំព័រសរុប" value={book.totalPages || ''} onChange={e => { const newB = [...booksField]; newB[index].totalPages = parseInt(e.target.value) || 0; setBooksField(newB); }} style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', width: '100px' }} />
                     <button type="button" onClick={() => setBooksField(booksField.filter(b => b.id !== book.id))} style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', padding: '0.5rem', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1720,24 +1734,39 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ភេទ (Gender) *</label>
-                      <select value={editStudentData.gender} onChange={e => setEditStudentData({...editStudentData, gender: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
-                        <option value="">ជ្រើសរើស</option>
-                        {genderOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.gender || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, gender: val})}
+                        emptyOptionLabel="ជ្រើសរើស"
+                        placeholder="ជ្រើសរើស"
+                        searchable={false}
+                        options={genderOptions}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>កម្រិតសិក្សា (Level) *</label>
-                      <select value={editStudentData.level || ''} onChange={e => setEditStudentData({...editStudentData, level: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required>
-                        <option value="">ជ្រើសរើសកម្រិត</option>
-                        {levelsOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.id}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.level || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, level: val})}
+                        emptyOptionLabel="ជ្រើសរើសកម្រិត"
+                        placeholder="ជ្រើសរើសកម្រិត"
+                        searchable={levelsOptions.length > 6}
+                        options={levelsOptions.map(opt => opt.id)}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>វេនសិក្សា (Shift) *</label>
-                      <select value={editStudentData.shift || ''} onChange={e => setEditStudentData({...editStudentData, shift: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }} required>
-                        <option value="">ជ្រើសរើសវេន</option>
-                        {shiftsOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.id}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.shift || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, shift: val})}
+                        emptyOptionLabel="ជ្រើសរើសវេន"
+                        placeholder="ជ្រើសរើសវេន"
+                        searchable={shiftsOptions.length > 6}
+                        options={shiftsOptions.map(opt => opt.id)}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ថ្ងៃចូលរៀន (Enroll Date) *</label>
@@ -1762,10 +1791,15 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>អាសយដ្ឋាន (Address)</label>
-                      <select value={editStudentData.address || ''} onChange={e => setEditStudentData({...editStudentData, address: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
-                        <option value="">ជ្រើសរើស</option>
-                        {addressOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.address || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, address: val})}
+                        emptyOptionLabel="ជ្រើសរើស"
+                        placeholder="ជ្រើសរើស"
+                        searchable={addressOptions.length > 6}
+                        options={addressOptions}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ទីតាំង (Google Maps Link)</label>
@@ -1773,10 +1807,15 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មធ្យោបាយធ្វើដំណើរ (Transport)</label>
-                      <select value={editStudentData.transport || ''} onChange={e => setEditStudentData({...editStudentData, transport: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
-                        <option value="">ជ្រើសរើស</option>
-                        {transportOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.transport || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, transport: val})}
+                        emptyOptionLabel="ជ្រើសរើស"
+                        placeholder="ជ្រើសរើស"
+                        searchable={transportOptions.length > 6}
+                        options={transportOptions}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: 'span 2' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>តំណភ្ជាប់រូបថត (Photo URL / Google Drive)</label>
@@ -1796,10 +1835,15 @@ export default function ClassesPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 200px' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>ស្ថានភាពសិក្សា (Status)</label>
-                      <select value={editStudentData.status || ''} onChange={e => setEditStudentData({...editStudentData, status: e.target.value})} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}>
-                        <option value="">ជ្រើសរើស</option>
-                        {statusOptions.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
-                      </select>
+                      <CustomSelectDropdown
+                        value={editStudentData.status || ''}
+                        onChange={(val) => setEditStudentData({...editStudentData, status: val})}
+                        emptyOptionLabel="ជ្រើសរើស"
+                        placeholder="ជ្រើសរើស"
+                        searchable={false}
+                        options={statusOptions}
+                        style={{ padding: '0.75rem', borderRadius: '8px', background: 'var(--main-bg)' }}
+                      />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', gridColumn: 'span 2' }}>
                       <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>អ្នកទំនាក់ទំនង (Social Media Link)</label>

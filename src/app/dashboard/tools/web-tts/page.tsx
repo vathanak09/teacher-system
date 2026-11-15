@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function WebTTSPage() {
   const [text, setText] = useState('');
@@ -104,22 +105,17 @@ export default function WebTTSPage() {
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 2, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសសំឡេង (Voice)</label>
-            <select 
-              className="input-field" 
-              value={selectedVoiceURI} 
-              onChange={(e) => setSelectedVoiceURI(e.target.value)}
+            <CustomSelectDropdown
+              value={selectedVoiceURI}
+              onChange={setSelectedVoiceURI}
               disabled={voices.length === 0}
-            >
-              {voices.length === 0 ? (
-                <option value="">កំពុងស្វែងរកសំឡេង...</option>
-              ) : (
-                voices.map((voice, index) => (
-                  <option key={index} value={voice.voiceURI}>
-                    {voice.name} ({voice.lang}) {voice.default ? ' - លំនាំដើម' : ''}
-                  </option>
-                ))
-              )}
-            </select>
+              placeholder="កំពុងស្វែងរកសំឡេង..."
+              searchable={voices.length > 6}
+              options={voices.map((voice) => ({
+                value: voice.voiceURI,
+                label: `${voice.name} (${voice.lang})${voice.default ? ' - លំនាំដើម' : ''}`
+              }))}
+            />
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 interface GroupGeneratorProps {
   items: string[];
@@ -134,21 +135,22 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
                 បានចម្លង ✓
               </span>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <select 
-                  onChange={(e) => {
-                    if (e.target.value === 'all') copyAllGroups();
-                    else if (e.target.value !== '') copyGroup(Number(e.target.value));
-                    e.target.value = ''; // Reset select
+                <CustomSelectDropdown
+                  value=""
+                  resetOnSelect
+                  searchable={groups.length > 6}
+                  placeholder="ចម្លងអត្ថបទ..."
+                  menuMinWidth={200}
+                  style={{ width: 'auto', minWidth: '160px', padding: '0.45rem 0.75rem', background: 'var(--card-bg)' }}
+                  onChange={(val) => {
+                    if (val === 'all') copyAllGroups();
+                    else if (val !== '') copyGroup(Number(val));
                   }}
-                  className="input-field"
-                  style={{ width: 'auto', padding: '0.4rem 2rem 0.4rem 1rem', background: 'var(--card-bg)' }}
-                >
-                  <option value="">ចម្លងអត្ថបទ...</option>
-                  <option value="all">ចម្លងទាំងអស់ (Copy All)</option>
-                  {groups.map((_, idx) => (
-                    <option key={`opt-${idx}`} value={idx}>ចម្លង ក្រុម {idx + 1}</option>
-                  ))}
-                </select>
+                  options={[
+                    { value: 'all', label: 'ចម្លងទាំងអស់ (Copy All)' },
+                    ...groups.map((_, idx) => ({ value: String(idx), label: `ចម្លង ក្រុម ${idx + 1}` }))
+                  ]}
+                />
               </div>
             </div>
           </div>

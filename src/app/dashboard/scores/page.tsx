@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { classService, studentService, scoreService, settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
+import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 
 
 
@@ -61,7 +63,6 @@ export default function ScoresPage() {
   });
   const [isClassFilterOpen, setIsClassFilterOpen] = useState(false);
   const [classSearchFilter, setClassSearchFilter] = useState('');
-  const classFilterRef = useRef<HTMLDivElement>(null);
   const [isSyncingSheets, setIsSyncingSheets] = useState(false);
 
   useEffect(() => {
@@ -186,30 +187,22 @@ export default function ScoresPage() {
     }
   };
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
-  const [clearDropdownAlignRight, setClearDropdownAlignRight] = useState(true);
-  const [classFilterAlignRight, setClassFilterAlignRight] = useState(true);
-
-  useEffect(() => {
-    if (isClearDropdownOpen && clearDropdownRef.current) {
-      const rect = clearDropdownRef.current.getBoundingClientRect();
-      if (rect.left < window.innerWidth / 2) {
-        setClearDropdownAlignRight(false);
-      } else {
-        setClearDropdownAlignRight(true);
-      }
-    }
-  }, [isClearDropdownOpen]);
-
-  useEffect(() => {
-    if (isClassFilterOpen && classFilterRef.current) {
-      const rect = classFilterRef.current.getBoundingClientRect();
-      if (rect.left < window.innerWidth / 2) {
-        setClassFilterAlignRight(false);
-      } else {
-        setClassFilterAlignRight(true);
-      }
-    }
-  }, [isClassFilterOpen]);
+  const closeClearDropdown = useCallback(() => setIsClearDropdownOpen(false), []);
+  const closeClassFilter = useCallback(() => setIsClassFilterOpen(false), []);
+  const clearPortal = usePortalMenuPosition({
+    isOpen: isClearDropdownOpen,
+    onClose: closeClearDropdown,
+    minWidth: 230,
+    maxPreferredHeight: 360,
+    preferAlignRight: true,
+  });
+  const classFilterPortal = usePortalMenuPosition({
+    isOpen: isClassFilterOpen,
+    onClose: closeClassFilter,
+    minWidth: 260,
+    maxPreferredHeight: 380,
+    preferAlignRight: true,
+  });
 
   const computedScores = useMemo(() => {
     let maxTotalScore = 0;
@@ -296,7 +289,6 @@ export default function ScoresPage() {
     return () => clearTimeout(timer);
   }, [computedScores, scores]);
 const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
-  const clearDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,15 +355,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     reader.readAsText(file);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (clearDropdownRef.current && !clearDropdownRef.current.contains(event.target as Node)) {
-        setIsClearDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
 
   const handleClearColumn = async (columnKey: string, columnName: string) => {
     if (!window.confirm(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`)) return;
@@ -1037,8 +1021,10 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               </>
             )}
             {/* Filter Dropdown to tick class names */}
-            <div style={{ position: 'relative' }} ref={classFilterRef}>
+            <div style={{ position: 'relative' }} ref={classFilterPortal.containerRef}>
               <button 
+                ref={classFilterPortal.triggerRef}
+                type="button"
                 onClick={() => setIsClassFilterOpen(!isClassFilterOpen)}
                 className="btn"
                 style={{ 
@@ -1059,25 +1045,19 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: isClassFilterOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
               </button>
 
-              {isClassFilterOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  ...(classFilterAlignRight ? { right: 0, left: 'auto' } : { left: 0, right: 'auto' }),
-                  marginTop: '0.5rem',
+              {isClassFilterOpen && typeof document !== 'undefined' && createPortal(
+                <div ref={classFilterPortal.menuRef} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} style={{
+                  ...classFilterPortal.menuStyle,
                   background: 'var(--modal-bg, var(--main-bg))',
                   border: '1px solid var(--border-color)',
                   borderRadius: '12px',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                  width: '280px',
-                  maxWidth: 'calc(100vw - 2rem)',
-                  maxHeight: '380px',
-                  zIndex: 100,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                  maxHeight: `${classFilterPortal.maxListHeight}px`,
                   padding: '0.75rem',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.5rem',
-                  animation: 'fadeIn 0.2s ease-out'
+                  animation: 'fadeIn 0.15s ease-out'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
                     <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>តម្រងថ្នាក់រៀន</span>
@@ -1143,12 +1123,13 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                               }}
                               style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                             />
-                            <span style={{ fontWeight: isChecked ? 600 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.className}</span>
+                            <span style={{ fontWeight: isChecked ? 600 : 400, flex: 1, whiteSpace: 'normal', wordBreak: 'break-word' }}>{c.className}</span>
                           </label>
                         );
                       })}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
 
@@ -1466,8 +1447,10 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             }}
           />
 
-          <div style={{ position: 'relative' }} ref={clearDropdownRef}>
+          <div style={{ position: 'relative' }} ref={clearPortal.containerRef}>
             <button 
+              ref={clearPortal.triggerRef}
+              type="button"
               onClick={() => setIsClearDropdownOpen(!isClearDropdownOpen)} 
               className="btn" 
               style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
@@ -1477,14 +1460,12 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               លុបទិន្នន័យ
             </button>
             
-            {isClearDropdownOpen && (
-              <div style={{
-                position: 'absolute', top: '100%',
-                ...(clearDropdownAlignRight ? { right: 0, left: 'auto' } : { left: 0, right: 'auto' }),
-                marginTop: '0.5rem',
-                background: 'var(--main-bg)', border: '1px solid var(--border-color)', borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', width: '220px', maxWidth: 'calc(100vw - 2rem)', zIndex: 50, padding: '0.5rem 0',
-                animation: 'fadeIn 0.2s ease-out'
+            {isClearDropdownOpen && typeof document !== 'undefined' && createPortal(
+              <div ref={clearPortal.menuRef} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} style={{
+                ...clearPortal.menuStyle,
+                background: 'var(--modal-bg, var(--main-bg))', border: '1px solid var(--border-color)', borderRadius: '10px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.22)', maxHeight: `${clearPortal.maxListHeight}px`, overflowY: 'auto', padding: '0.5rem 0',
+                animation: 'fadeIn 0.15s ease-out'
               }}>
                 <div style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ជ្រើសរើសជួរឈរត្រូវលុប</div>
                 {[
@@ -1536,7 +1517,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="12"></line></svg>
                   លុបបញ្ជីឈ្មោះទាំងអស់ (Delete List)
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { courseService } from '@/services/db';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function CoursesPage() {
   const [role, setRole] = useState('');
@@ -137,11 +138,12 @@ export default function CoursesPage() {
 
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ស្ថានភាព</label>
-              <select className="input-field" value={status} onChange={e => setStatus(e.target.value)}>
-                <option value="កំពុងសិក្សា">កំពុងសិក្សា</option>
-                <option value="បញ្ចប់រួចរាល់">បញ្ចប់រួចរាល់</option>
-                <option value="មិនទាន់ចាប់ផ្តើម">មិនទាន់ចាប់ផ្តើម</option>
-              </select>
+              <CustomSelectDropdown
+                value={status}
+                onChange={setStatus}
+                searchable={false}
+                options={['កំពុងសិក្សា', 'បញ្ចប់រួចរាល់', 'មិនទាន់ចាប់ផ្តើម']}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

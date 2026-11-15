@@ -7,6 +7,7 @@ import { settingsService, lessonService, methodologyService } from '@/services/d
 import ImageUploadBox from '@/components/ImageUploadBox';
 import AdvancedEditor from '@/components/AdvancedEditor';
 import SortDropdown from '@/components/SortDropdown';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 type PostCategory = 'lessons' | 'methodologies';
 
@@ -381,32 +382,34 @@ export default function LessonsAndMethodologiesPage() {
               const groupTags = availableTags.filter(tag => tag.groupId === group.id);
               if (groupTags.length === 0) return null;
               return (
-                <select
+                <CustomSelectDropdown
                   key={group.id}
-                  className="input-field"
                   value={filterTagsByGroup[group.id] || 'all'}
-                  onChange={e => setFilterTagsByGroup({ ...filterTagsByGroup, [group.id]: e.target.value })}
-                  style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
-                >
-                  <option value="all">{group.name}ទាំងអស់</option>
-                  {groupTags.map(tag => (
-                    <option key={tag.id} value={tag.id}>{tag.name}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setFilterTagsByGroup({ ...filterTagsByGroup, [group.id]: v })}
+                  searchable={groupTags.length > 6}
+                  menuMinWidth={190}
+                  style={{ width: 'auto', minWidth: '140px', background: 'var(--main-bg)', padding: '0.45rem 0.75rem' }}
+                  options={[
+                    { value: 'all', label: `${group.name}ទាំងអស់` },
+                    ...groupTags.map(tag => ({ value: tag.id, label: tag.name }))
+                  ]}
+                />
               );
             })}
 
-            <select
-              className="input-field"
+            <CustomSelectDropdown
               value={filterAuthor}
-              onChange={e => setFilterAuthor(e.target.value)}
-              style={{ width: 'auto', background: 'var(--main-bg)', paddingRight: '2rem' }}
-            >
-              <option value="all">ទាំងអស់</option>
-              <option value="favorites">ដែលខ្ញុំពេញចិត្ត</option>
-              <option value="mine">របស់ខ្ញុំ</option>
-              <option value="others">របស់អ្នកដទៃ</option>
-            </select>
+              onChange={setFilterAuthor}
+              searchable={false}
+              menuMinWidth={180}
+              style={{ width: 'auto', minWidth: '130px', background: 'var(--main-bg)', padding: '0.45rem 0.75rem' }}
+              options={[
+                { value: 'all', label: 'ទាំងអស់' },
+                { value: 'favorites', label: 'ដែលខ្ញុំពេញចិត្ត' },
+                { value: 'mine', label: 'របស់ខ្ញុំ' },
+                { value: 'others', label: 'របស់អ្នកដទៃ' },
+              ]}
+            />
 
             <SortDropdown
               options={[
@@ -676,15 +679,16 @@ export default function LessonsAndMethodologiesPage() {
                 </div>
                 <div style={{ width: '180px' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ប្រភេទ</label>
-                  <select
-                    className="input-field"
+                  <CustomSelectDropdown
                     value={postCategory}
-                    onChange={e => setPostCategory(e.target.value as PostCategory)}
-                    style={{ fontSize: '1.05rem', padding: '1rem', background: 'var(--main-bg)' }}
-                  >
-                    <option value="lessons">មេរៀន</option>
-                    <option value="methodologies">វិធីសាស្ត្រ</option>
-                  </select>
+                    onChange={(v) => setPostCategory(v as PostCategory)}
+                    searchable={false}
+                    style={{ fontSize: '1.05rem', padding: '0.95rem 1rem', background: 'var(--main-bg)' }}
+                    options={[
+                      { value: 'lessons', label: 'មេរៀន' },
+                      { value: 'methodologies', label: 'វិធីសាស្ត្រ' },
+                    ]}
+                  />
                 </div>
                 <div style={{ width: '150px' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>លេខកូដ (ID)</label>

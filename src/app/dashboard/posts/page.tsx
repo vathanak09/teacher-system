@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import dynamic from 'next/dynamic';
 import 'react-quill-new/dist/quill.snow.css';
 import ImageUploadBox from '@/components/ImageUploadBox';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
@@ -362,27 +363,29 @@ export default function PostsManagementPage() {
           />
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <select 
-            className="input-field" 
-            value={filterType} 
-            onChange={e => setFilterType(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)' }}
-          >
-            <option value="all">ប្រភេទទាំងអស់</option>
-            <option value="lessons">មេរៀន</option>
-            <option value="methodologies">វិធីសាស្ត្រ</option>
-          </select>
-          <select 
-            className="input-field" 
-            value={filterTag} 
-            onChange={e => setFilterTag(e.target.value)}
-            style={{ width: 'auto', background: 'var(--main-bg)' }}
-          >
-            <option value="all">ស្លាកទាំងអស់</option>
-            {availableTags.map(tag => (
-              <option key={tag.id} value={tag.id}>{tag.name}</option>
-            ))}
-          </select>
+          <CustomSelectDropdown
+            value={filterType}
+            onChange={setFilterType}
+            searchable={false}
+            menuMinWidth={190}
+            style={{ width: 'auto', minWidth: '150px', background: 'var(--main-bg)', padding: '0.45rem 0.75rem' }}
+            options={[
+              { value: 'all', label: 'ប្រភេទទាំងអស់' },
+              { value: 'lessons', label: 'មេរៀន' },
+              { value: 'methodologies', label: 'វិធីសាស្ត្រ' },
+            ]}
+          />
+          <CustomSelectDropdown
+            value={filterTag}
+            onChange={setFilterTag}
+            searchable={availableTags.length > 6}
+            menuMinWidth={200}
+            style={{ width: 'auto', minWidth: '150px', background: 'var(--main-bg)', padding: '0.45rem 0.75rem' }}
+            options={[
+              { value: 'all', label: 'ស្លាកទាំងអស់' },
+              ...availableTags.map(tag => ({ value: tag.id, label: tag.name }))
+            ]}
+          />
         </div>
       </div>
 

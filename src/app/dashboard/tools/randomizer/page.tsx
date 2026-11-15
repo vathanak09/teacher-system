@@ -5,6 +5,7 @@ import SpinningWheel from '@/components/SpinningWheel';
 import GroupGenerator from '@/components/GroupGenerator';
 import RaceVisualizer from '@/components/RaceVisualizer';
 import confetti from 'canvas-confetti';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function RandomizerPage() {
   const [activeTab, setActiveTab] = useState<'picker' | 'groups'>('picker');
@@ -254,17 +255,19 @@ export default function RandomizerPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', background: 'var(--main-bg)', padding: '0.75rem', borderRadius: '12px' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>ទាញយកពីថ្នាក់រៀន</label>
                 {classes.length > 1 ? (
-                  <select 
-                    value={selectedClassId} 
-                    onChange={e => setSelectedClassId(e.target.value)}
-                    className="input-field"
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px' }}
-                  >
-                    <option value="">ជ្រើសរើសថ្នាក់...</option>
-                    {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.className} - {c.teacherName || 'គ្មានគ្រូ'}</option>
-                    ))}
-                  </select>
+                  <CustomSelectDropdown
+                    value={selectedClassId}
+                    onChange={setSelectedClassId}
+                    emptyOptionLabel="ជ្រើសរើសថ្នាក់..."
+                    placeholder="ជ្រើសរើសថ្នាក់..."
+                    searchable={classes.length > 6}
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '8px' }}
+                    options={classes.map(c => ({
+                      value: c.id,
+                      label: c.className,
+                      sublabel: `គ្រូ៖ ${c.teacherName || 'គ្មានគ្រូ'}`
+                    }))}
+                  />
                 ) : (
                   <div style={{ color: 'var(--primary-color)', fontSize: '0.9rem', padding: '0.25rem 0' }}>
                     {classes.length === 1 ? `${classes[0].className} (ទាញយកស្វ័យប្រវត្តិ)` : 'មិនមានថ្នាក់ទេ'}

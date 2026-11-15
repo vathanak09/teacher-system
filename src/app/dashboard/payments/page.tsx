@@ -5,6 +5,8 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 import { useRouter } from 'next/navigation';
 import { studentService, paymentService, classService, monthlyPaymentService } from '@/services/db';
 import { formatDateToDMY } from '@/utils/dateFormatter';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -189,8 +191,7 @@ export default function PaymentsPage() {
     setIsPaymentModalOpen(true);
   };
 
-  const handleDurationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const dur = e.target.value;
+  const handleDurationChange = (dur: string) => {
     setPaymentDuration(dur);
     const student = students.find(s => s.id === selectedStudentId);
     if (student && student.fee && dur !== 'custom') {
@@ -319,55 +320,56 @@ export default function PaymentsPage() {
           onChange={e => setSearchQuery(e.target.value)}
           style={{ width: '250px' }}
         />
-        <select className="input-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ width: 'auto' }}>
-          <option value="all">គ្រប់ស្ថានភាពទាំងអស់</option>
-          <option value="paid">បានបង់</option>
-          <option value="due_soon">មិនទាន់បង់</option>
-          <option value="overdue">ហួសកំណត់</option>
-        </select>
-        <select className="input-field" value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ width: 'auto' }}>
-          <option value="all">គ្រប់ថ្នាក់ទាំងអស់</option>
-          {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <CustomSelectDropdown
+          value={statusFilter}
+          onChange={setStatusFilter}
+          searchable={false}
+          menuMinWidth={200}
+          style={{ width: 'auto', minWidth: '170px', padding: '0.45rem 0.75rem' }}
+          options={[
+            { value: 'all', label: 'គ្រប់ស្ថានភាពទាំងអស់' },
+            { value: 'paid', label: 'បានបង់' },
+            { value: 'due_soon', label: 'មិនទាន់បង់' },
+            { value: 'overdue', label: 'ហួសកំណត់' },
+          ]}
+        />
+        <CustomSelectDropdown
+          value={classFilter}
+          onChange={setClassFilter}
+          searchable={classOptions.length > 6}
+          menuMinWidth={200}
+          style={{ width: 'auto', minWidth: '160px', padding: '0.45rem 0.75rem' }}
+          options={[
+            { value: 'all', label: 'គ្រប់ថ្នាក់ទាំងអស់' },
+            ...classOptions.map(c => ({ value: c, label: c }))
+          ]}
+        />
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ជ្រើសរើសឆ្នាំ៖</span>
-          <select 
-            value={paymentYear} 
-            onChange={(e) => setPaymentYear(Number(e.target.value))}
-            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--primary-color)', background: 'rgba(59, 130, 246, 0.05)', color: 'var(--primary-color)', outline: 'none', fontWeight: 600, cursor: 'pointer' }}
-          >
-            {Array.from({length: 5}, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-              <option key={y} value={y}>ឆ្នាំ {y}</option>
-            ))}
-          </select>
+          <CustomSelectDropdown
+            value={String(paymentYear)}
+            onChange={(v) => setPaymentYear(Number(v))}
+            searchable={false}
+            menuMinWidth={140}
+            style={{ width: 'auto', minWidth: '120px', padding: '0.5rem 0.75rem', border: '1px solid var(--primary-color)', background: 'rgba(59, 130, 246, 0.05)', color: 'var(--primary-color)', fontWeight: 600 }}
+            options={Array.from({length: 5}, (_, i) => {
+              const y = new Date().getFullYear() - 2 + i;
+              return { value: String(y), label: `ឆ្នាំ ${y}` };
+            })}
+          />
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', position: 'relative' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>បង្ហាញ៖</span>
-          <button 
-            onClick={() => setShowMonthDropdown(!showMonthDropdown)} 
-            style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', cursor: 'pointer' }}
-          >
-            រើសខែ ▾
-          </button>
-          {showMonthDropdown && (
-            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', zIndex: 10, boxShadow: 'var(--shadow-lg)' }}>
-              {Array.from({length: 12}, (_, i) => i + 1).map(m => (
-                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.9rem' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={visibleMonths.includes(m)} 
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setVisibleMonths(prev => [...prev, m].sort((a,b) => a - b));
-                      } else {
-                        setVisibleMonths(prev => prev.filter(x => x !== m));
-                      }
-                    }} 
-                  /> ខែ {m}
-                </label>
-              ))}
-            </div>
-          )}
+          <MultiSelectDropdown
+            columns={3}
+            searchable={false}
+            allLabel="រើសខែ"
+            fixedTriggerLabel={`រើសខែ (${visibleMonths.length})`}
+            title="ជ្រើសរើសខែត្រូវបង្ហាញ"
+            options={Array.from({length: 12}, (_, i) => ({ value: String(i + 1), label: `ខែ ${i + 1}` }))}
+            selectedValues={visibleMonths.map(String)}
+            onChange={(vals) => setVisibleMonths(vals.map(Number).sort((a, b) => a - b))}
+          />
         </div>
       </div>
 
@@ -460,9 +462,12 @@ export default function PaymentsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>សិស្ស</label>
-                    <select className="input-field" value={selectedStudentId} onChange={e => setSelectedStudentId(e.target.value)} disabled>
-                      {augmentedStudents.map(s => <option key={s.id} value={s.id}>{s.fullName} ({s.studentId})</option>)}
-                    </select>
+                    <CustomSelectDropdown
+                      value={selectedStudentId}
+                      onChange={setSelectedStudentId}
+                      disabled
+                      options={augmentedStudents.map(s => ({ value: s.id, label: `${s.fullName} (${s.studentId})` }))}
+                    />
                   </div>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -473,13 +478,20 @@ export default function PaymentsPage() {
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>រយៈពេលបង់</label>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <select className="input-field" value={paymentDuration === 'custom' ? 'custom' : paymentDuration} onChange={handleDurationChange} style={{ flex: 1 }}>
-                          <option value="1">១ ខែ</option>
-                          <option value="3">៣ ខែ</option>
-                          <option value="6">៦ ខែ</option>
-                          <option value="12">១ ឆ្នាំ (១២ ខែ)</option>
-                          <option value="custom">ផ្សេងៗ...</option>
-                        </select>
+                        <div style={{ flex: 1 }}>
+                          <CustomSelectDropdown
+                            value={paymentDuration === 'custom' ? 'custom' : paymentDuration}
+                            onChange={handleDurationChange}
+                            searchable={false}
+                            options={[
+                              { value: '1', label: '១ ខែ' },
+                              { value: '3', label: '៣ ខែ' },
+                              { value: '6', label: '៦ ខែ' },
+                              { value: '12', label: '១ ឆ្នាំ (១២ ខែ)' },
+                              { value: 'custom', label: 'ផ្សេងៗ...' },
+                            ]}
+                          />
+                        </div>
                         {paymentDuration === 'custom' || isNaN(Number(paymentDuration)) ? (
                           <input 
                             type="number" 
@@ -502,11 +514,16 @@ export default function PaymentsPage() {
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.9rem' }}>វិធីសាស្ត្របង់ប្រាក់</label>
-                      <select className="input-field" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                        <option value="Cash">សាច់ប្រាក់ (Cash)</option>
-                        <option value="ABA">ABA Bank</option>
-                        <option value="Acleda">Acleda Bank</option>
-                      </select>
+                      <CustomSelectDropdown
+                        value={paymentMethod}
+                        onChange={setPaymentMethod}
+                        searchable={false}
+                        options={[
+                          { value: 'Cash', label: 'សាច់ប្រាក់ (Cash)' },
+                          { value: 'ABA', label: 'ABA Bank' },
+                          { value: 'Acleda', label: 'Acleda Bank' },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>

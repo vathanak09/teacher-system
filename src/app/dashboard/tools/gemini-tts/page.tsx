@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function GeminiTTSPage() {
   const [text, setText] = useState('');
@@ -99,31 +100,46 @@ export default function GeminiTTSPage() {
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសម៉ូដែល (Model)</label>
-            <select className="input-field" value={modelName} onChange={(e) => setModelName(e.target.value)}>
-              <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (ណែនាំ & លំនាំដើម)</option>
-              <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (សាកល្បងថ្មី)</option>
-            </select>
+            <CustomSelectDropdown
+              value={modelName}
+              onChange={setModelName}
+              searchable={false}
+              options={[
+                { value: 'gemini-2.5-flash-preview-tts', label: 'Gemini 2.5 Flash TTS (ណែនាំ & លំនាំដើម)' },
+                { value: 'gemini-3.1-flash-tts-preview', label: 'Gemini 3.1 Flash TTS (សាកល្បងថ្មី)' },
+              ]}
+            />
           </div>
           <div style={{ flex: 1, minWidth: '200px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសទឹកដមសំឡេង (Voice)</label>
-            <select className="input-field" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
-              <option value="Aoede">សំឡេង Aoede (ស្រី - ស្រទន់និងច្បាស់)</option>
-              <option value="Puck">សំឡេង Puck (ប្រុស - រស់រវើកនិងកក់ក្ដៅ)</option>
-              <option value="Charon">សំឡេង Charon (ប្រុស - ធ្ងន់និងមានអំណាច)</option>
-              <option value="Kore">សំឡេង Kore (ស្រី - ស្រស់ស្រាយនិងក្មេងខ្ចី)</option>
-              <option value="Fenrir">សំឡេង Fenrir (ប្រុស - រាងក្រាស់និងទាក់ទាញ)</option>
-            </select>
+            <CustomSelectDropdown
+              value={voiceName}
+              onChange={setVoiceName}
+              searchable={false}
+              options={[
+                { value: 'Aoede', label: 'សំឡេង Aoede (ស្រី - ស្រទន់និងច្បាស់)' },
+                { value: 'Puck', label: 'សំឡេង Puck (ប្រុស - រស់រវើកនិងកក់ក្ដៅ)' },
+                { value: 'Charon', label: 'សំឡេង Charon (ប្រុស - ធ្ងន់និងមានអំណាច)' },
+                { value: 'Kore', label: 'សំឡេង Kore (ស្រី - ស្រស់ស្រាយនិងក្មេងខ្ចី)' },
+                { value: 'Fenrir', label: 'សំឡេង Fenrir (ប្រុស - រាងក្រាស់និងទាក់ទាញ)' },
+              ]}
+            />
           </div>
           <div style={{ flex: 1, minWidth: '150px' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ល្បឿន (Speed)</label>
-            <select className="input-field" value={speed} onChange={(e) => setSpeed(parseFloat(e.target.value))}>
-              <option value="0.5">០.៥x (យឺតខ្លាំង)</option>
-              <option value="0.75">០.៧៥x (យឺតបន្តិច)</option>
-              <option value="1">១.០x (ធម្មតា)</option>
-              <option value="1.25">១.២៥x (លឿនបន្តិច)</option>
-              <option value="1.5">១.៥x (លឿន)</option>
-              <option value="2">២.០x (លឿនខ្លាំង)</option>
-            </select>
+            <CustomSelectDropdown
+              value={String(speed)}
+              onChange={(v) => setSpeed(parseFloat(v))}
+              searchable={false}
+              options={[
+                { value: '0.5', label: '០.៥x (យឺតខ្លាំង)' },
+                { value: '0.75', label: '០.៧៥x (យឺតបន្តិច)' },
+                { value: '1', label: '១.០x (ធម្មតា)' },
+                { value: '1.25', label: '១.២៥x (លឿនបន្តិច)' },
+                { value: '1.5', label: '១.៥x (លឿន)' },
+                { value: '2', label: '២.០x (លឿនខ្លាំង)' },
+              ]}
+            />
           </div>
         </div>
 

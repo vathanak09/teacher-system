@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService } from '@/services/db';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 type SettingsTab = 'school' | 'users' | 'studentOptions' | 'tags';
 type OptionCategoryKey = 'gender' | 'level' | 'shift' | 'status' | 'address' | 'transport';
@@ -1277,12 +1278,13 @@ export default function SettingsPage() {
 
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>ក្រុមស្លាកពាក្យ (Tag Group)</label>
-              <select className="input-field" value={tagGroupId} onChange={e => setTagGroupId(e.target.value)}>
-                <option value="">-- គ្មានក្រុម (Ungrouped) --</option>
-                {tagGroups.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
+              <CustomSelectDropdown
+                value={String(tagGroupId ?? '')}
+                onChange={setTagGroupId}
+                emptyOptionLabel="-- គ្មានក្រុម (Ungrouped) --"
+                searchable={tagGroups.length > 6}
+                options={tagGroups.map(g => ({ value: String(g.id), label: g.name }))}
+              />
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
@@ -1363,11 +1365,16 @@ export default function SettingsPage() {
 
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>តួនាទី</label>
-              <select className="input-field" value={userRoleField} onChange={e => setUserRoleField(e.target.value)}>
-                <option value="student">សិស្ស (Student)</option>
-                <option value="teacher">គ្រូបង្រៀន (Teacher)</option>
-                <option value="admin">អ្នកគ្រប់គ្រង (Admin)</option>
-              </select>
+              <CustomSelectDropdown
+                value={userRoleField}
+                onChange={setUserRoleField}
+                searchable={false}
+                options={[
+                  { value: 'student', label: 'សិស្ស (Student)' },
+                  { value: 'teacher', label: 'គ្រូបង្រៀន (Teacher)' },
+                  { value: 'admin', label: 'អ្នកគ្រប់គ្រង (Admin)' },
+                ]}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

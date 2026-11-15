@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
 import { playRunningSound, playTadaSound } from '@/utils/audioUtils';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 interface RaceVisualizerProps {
   items: string[];
@@ -126,18 +127,20 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           <label style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>រយៈពេល៖</label>
-          <select 
-            value={raceDuration} 
-            onChange={e => setRaceDuration(Number(e.target.value))}
-            className="input-field"
-            style={{ padding: '0.25rem 0.5rem', width: 'auto', minWidth: '80px', height: 'auto', background: 'transparent', border: 'none' }}
+          <CustomSelectDropdown
+            value={String(raceDuration)}
+            onChange={(v) => setRaceDuration(Number(v))}
+            searchable={false}
+            menuMinWidth={140}
             disabled={raceState !== 'idle' && raceState !== 'finished'}
-          >
-            <option value={3000}>៣ វិនាទី</option>
-            <option value={5000}>៥ វិនាទី</option>
-            <option value={10000}>១០ វិនាទី</option>
-            <option value={15000}>១៥ វិនាទី</option>
-          </select>
+            style={{ padding: '0.25rem 0.5rem', width: 'auto', minWidth: '105px', background: 'transparent', border: 'none' }}
+            options={[
+              { value: '3000', label: '៣ វិនាទី' },
+              { value: '5000', label: '៥ វិនាទី' },
+              { value: '10000', label: '១០ វិនាទី' },
+              { value: '15000', label: '១៥ វិនាទី' },
+            ]}
+          />
         </div>
 
         <button

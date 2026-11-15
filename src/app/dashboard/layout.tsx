@@ -5,11 +5,13 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { teacherService } from '@/services/db';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [themeColor, setThemeColor] = useState<string>('ocean');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const savedColor = localStorage.getItem('theme-color') || 'ocean';
+    setThemeColor(savedColor);
     document.body.classList.add('theme-' + savedColor);
     
     // Fetch user profile from teachers collection if applicable
@@ -183,22 +186,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className="dashboard-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="top-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <select 
-                value={typeof window !== 'undefined' ? localStorage.getItem('theme-color') || 'ocean' : 'ocean'}
-                onChange={(e) => {
-                  const newTheme = e.target.value;
+              <CustomSelectDropdown
+                value={themeColor}
+                onChange={(newTheme) => {
+                  setThemeColor(newTheme);
                   localStorage.setItem('theme-color', newTheme);
                   document.body.className = document.body.className.replace(/theme-\w+/, '');
                   document.body.classList.add('theme-' + newTheme);
                 }}
-                style={{ padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', outline: 'none' }}
-              >
-                <option value="ocean">Ocean</option>
-                <option value="emerald">Emerald</option>
-                <option value="rose">Rose</option>
-                <option value="amber">Amber</option>
-                <option value="violet">Violet</option>
-              </select>
+                searchable={false}
+                menuMinWidth={150}
+                style={{ width: 'auto', minWidth: '115px', padding: '0.4rem 0.75rem', background: 'var(--bg-secondary)' }}
+                options={[
+                  { value: 'ocean', label: 'Ocean' },
+                  { value: 'emerald', label: 'Emerald' },
+                  { value: 'rose', label: 'Rose' },
+                  { value: 'amber', label: 'Amber' },
+                  { value: 'violet', label: 'Violet' },
+                ]}
+              />
               <button onClick={toggleTheme} className="theme-toggle-btn" title="ប្តូរពណ៌ (Theme)">
                 {theme === 'dark' ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { forwardRef, useRef } from 'react';
+import React, { forwardRef, useRef, useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -14,81 +14,318 @@ interface CustomDatePickerProps {
   disabled?: boolean;
 }
 
+function isValidYMD(year: number, monthIndex: number, day: number): Date | null {
+  if (year < 1900 || year > 2100 || monthIndex < 0 || monthIndex > 11 || day < 1 || day > 31) {
+    return null;
+  }
+  const d = new Date(year, monthIndex, day);
+  if (
+    isNaN(d.getTime()) ||
+    d.getFullYear() !== year ||
+    d.getMonth() !== monthIndex ||
+    d.getDate() !== day
+  ) {
+    return null;
+  }
+  return d;
+}
+
 function parseSafeDate(dateStr: string | null | undefined): Date | null {
   if (!dateStr || typeof dateStr !== 'string') return null;
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
-  // Check if it's DD-MM-YYYY or DD/MM/YYYY
+  // DD/MM/YYYY or DD-MM-YYYY
   const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmyMatch) {
-    const day = parseInt(dmyMatch[1], 10);
-    const month = parseInt(dmyMatch[2], 10) - 1;
-    const year = parseInt(dmyMatch[3], 10);
-    const d = new Date(year, month, day);
-    if (!isNaN(d.getTime())) return d;
+    return isValidYMD(parseInt(dmyMatch[3], 10), parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10));
   }
 
-  // Check if it's YYYY-MM-DD or YYYY/MM/DD
+  // 8 digits DDMMYYYY
+  const compactMatch = trimmed.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (compactMatch) {
+    return isValidYMD(parseInt(compactMatch[3], 10), parseInt(compactMatch[2], 10) - 1, parseInt(compactMatch[1], 10));
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
   const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (ymdMatch) {
-    const year = parseInt(ymdMatch[1], 10);
-    const month = parseInt(ymdMatch[2], 10) - 1;
-    const day = parseInt(ymdMatch[3], 10);
-    const d = new Date(year, month, day);
-    if (!isNaN(d.getTime())) return d;
+    return isValidYMD(parseInt(ymdMatch[1], 10), parseInt(ymdMatch[2], 10) - 1, parseInt(ymdMatch[3], 10));
   }
 
-  // Fallback to standard new Date()
   const d = new Date(trimmed);
   if (!isNaN(d.getTime())) return d;
 
   return null;
 }
 
-const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, onChange, placeholder, className, style, required }, ref) => (
-  <input
-    value={value}
-    onClick={onClick}
-    onChange={onChange}
-    ref={ref}
-    placeholder={placeholder}
-    className={className || "input-field"}
-    required={required}
-    style={{
-      width: '100%',
-      padding: '0.75rem',
-      borderRadius: '8px',
-      border: '1px solid var(--border-color)',
-      background: 'var(--bg-secondary, var(--main-bg))',
-      color: 'var(--text-primary)',
-      cursor: 'pointer',
-      ...style
-    }}
-    readOnly
-  />
-));
-CustomInput.displayName = "CustomInput";
+function formatDateToDisplay(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
 
-export default function CustomDatePicker({ selected, onChange, placeholderText = "ជ្រើសរើសកាលបរិច្ឆេទ", className, style, required, disabled }: CustomDatePickerProps) {
+function formatDateToISO(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+interface DateInputWrapperProps {
+  textValue: string;
+  onTextChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onTextBlur: () => void;
+  onTextFocus: () => void;
+  onClear: () => void;
+  onToggleCalendar: () => void;
+  toggleBtnRef: React.RefObject<HTMLButtonElement | null>;
+  placeholder?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  required?: boolean;
+  disabled?: boolean;
+}
+
+const DateInputWrapper = forwardRef<HTMLDivElement, DateInputWrapperProps>(
+  (
+    {
+      textValue,
+      onTextChange,
+      onTextBlur,
+      onTextFocus,
+      onClear,
+      onToggleCalendar,
+      toggleBtnRef,
+      placeholder,
+      className,
+      style,
+      required,
+      disabled,
+    },
+    ref
+  ) => (
+    <div
+      ref={ref}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
+      <input
+        type="text"
+        inputMode="numeric"
+        value={textValue}
+        onChange={onTextChange}
+        onBlur={onTextBlur}
+        onFocus={onTextFocus}
+        placeholder={placeholder || 'dd/mm/yyyy'}
+        className={className || 'input-field'}
+        required={required}
+        disabled={disabled}
+        maxLength={10}
+        style={{
+          width: '100%',
+          padding: '0.75rem',
+          borderRadius: '8px',
+          border: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary, var(--main-bg))',
+          color: 'var(--text-primary)',
+          ...style,
+          paddingRight: textValue && !disabled ? '4.25rem' : '2.75rem',
+        }}
+      />
+
+      {textValue && !disabled && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClear();
+          }}
+          title="សម្អាតកាលបរិច្ឆេទ"
+          aria-label="សម្អាតកាលបរិច្ឆេទ"
+          style={{
+            position: 'absolute',
+            right: '2.3rem',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '4px',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      )}
+
+      <button
+        ref={toggleBtnRef}
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!disabled) onToggleCalendar();
+        }}
+        title="ជ្រើសរើសតាមប្រតិទិន"
+        aria-label="ជ្រើសរើសតាមប្រតិទិន"
+        style={{
+          position: 'absolute',
+          right: '0.4rem',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'rgba(var(--primary-rgb, 59, 130, 246), 0.1)',
+          border: '1px solid var(--border-color)',
+          color: 'var(--primary-color, var(--accent-primary, #0ea5e9))',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          padding: '0.35rem 0.45rem',
+          borderRadius: '6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
+          transition: 'background 0.15s',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </button>
+    </div>
+  )
+);
+DateInputWrapper.displayName = "DateInputWrapper";
+
+export default function CustomDatePicker({
+  selected,
+  onChange,
+  placeholderText = "dd/mm/yyyy",
+  className,
+  style,
+  required,
+  disabled,
+}: CustomDatePickerProps) {
   const datePickerRef = useRef<any>(null);
+  const toggleBtnRef = useRef<HTMLButtonElement | null>(null);
+  const isEditingRef = useRef(false);
+  const prevRawLengthRef = useRef(0);
+
   const selectedDate = parseSafeDate(selected);
-  
-  const handleChange = (date: Date | null) => {
+  const [textValue, setTextValue] = useState<string>(() => formatDateToDisplay(selectedDate));
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!isEditingRef.current) {
+      const formatted = formatDateToDisplay(parseSafeDate(selected));
+      setTextValue(formatted);
+      prevRawLengthRef.current = formatted.length;
+    }
+  }, [selected]);
+
+  const handleCalendarChange = (date: Date | null) => {
+    isEditingRef.current = false;
     if (!date || isNaN(date.getTime())) {
+      setTextValue('');
+      prevRawLengthRef.current = 0;
       onChange('');
       return;
     }
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    onChange(`${year}-${month}-${day}`);
+    const display = formatDateToDisplay(date);
+    setTextValue(display);
+    prevRawLengthRef.current = display.length;
+    onChange(formatDateToISO(date));
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^\d/\-]/g, '');
+    const isAdding = val.length > prevRawLengthRef.current;
+
+    if (isAdding) {
+      // Auto-insert '/' while typing DDMMYYYY forward
+      if (val.length === 2 && !val.includes('/')) {
+        val = val + '/';
+      } else if (val.length === 5 && /^\d{2}\/\d{2}$/.test(val)) {
+        val = val + '/';
+      }
+    }
+
+    prevRawLengthRef.current = val.length;
+    setTextValue(val);
+
+    if (val.trim() === '') {
+      onChange('');
+      return;
+    }
+
+    const parsed = parseSafeDate(val);
+    if (parsed) {
+      onChange(formatDateToISO(parsed));
+    }
+  };
+
+  const handleTextFocus = () => {
+    isEditingRef.current = true;
+    prevRawLengthRef.current = textValue.length;
+  };
+
+  const handleTextBlur = () => {
+    isEditingRef.current = false;
+    const trimmed = textValue.trim();
+    if (!trimmed) {
+      setTextValue('');
+      onChange('');
+      return;
+    }
+    const parsed = parseSafeDate(trimmed);
+    if (parsed) {
+      const normalized = formatDateToDisplay(parsed);
+      setTextValue(normalized);
+      prevRawLengthRef.current = normalized.length;
+      onChange(formatDateToISO(parsed));
+    } else {
+      // Revert to last valid selected date if input was incomplete/invalid
+      const fallback = formatDateToDisplay(parseSafeDate(selected));
+      setTextValue(fallback);
+      prevRawLengthRef.current = fallback.length;
+    }
+  };
+
+  const handleClear = () => {
+    isEditingRef.current = false;
+    setTextValue('');
+    prevRawLengthRef.current = 0;
+    onChange('');
   };
 
   const handleConfirm = () => {
-    if (datePickerRef.current) {
-      datePickerRef.current.setOpen(false);
-    }
+    setIsOpen(false);
   };
 
   return (
@@ -97,31 +334,54 @@ export default function CustomDatePicker({ selected, onChange, placeholderText =
         disabled={disabled}
         ref={datePickerRef}
         selected={selectedDate}
-        onChange={handleChange}
-        dateFormat="yyyy-MM-dd"
+        onChange={handleCalendarChange}
+        open={isOpen}
+        preventOpenOnFocus={true}
+        onClickOutside={(e: MouseEvent) => {
+          if (toggleBtnRef.current && toggleBtnRef.current.contains(e.target as Node)) {
+            return;
+          }
+          setIsOpen(false);
+        }}
+        dateFormat="dd/MM/yyyy"
         placeholderText={placeholderText}
-        customInput={<CustomInput className={className} style={style} required={required} />}
+        customInput={
+          <DateInputWrapper
+            textValue={textValue}
+            onTextChange={handleTextChange}
+            onTextBlur={handleTextBlur}
+            onTextFocus={handleTextFocus}
+            onClear={handleClear}
+            onToggleCalendar={() => setIsOpen((prev) => !prev)}
+            toggleBtnRef={toggleBtnRef}
+            placeholder={placeholderText}
+            className={className}
+            style={style}
+            required={required}
+            disabled={disabled}
+          />
+        }
         showMonthDropdown
         showYearDropdown
         dropdownMode="select"
-        isClearable
         shouldCloseOnSelect={false}
         portalId="date-picker-portal"
+        withPortal={isMobile}
       >
         <div style={{ padding: '0.75rem', borderTop: '1px solid var(--border-color, #eee)', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--modal-bg, #fff)' }}>
-          <button 
-            type="button" 
-            onClick={handleConfirm} 
-            style={{ 
-              background: 'var(--accent-primary, #0ea5e9)', 
-              color: '#fff', 
-              border: 'none', 
-              padding: '0.5rem 2rem', 
-              borderRadius: '8px', 
-              fontWeight: 600, 
+          <button
+            type="button"
+            onClick={handleConfirm}
+            style={{
+              background: 'var(--accent-primary, #0ea5e9)',
+              color: '#fff',
+              border: 'none',
+              padding: '0.5rem 2rem',
+              borderRadius: '8px',
+              fontWeight: 600,
               cursor: 'pointer',
               width: '100%',
-              fontSize: '1rem'
+              fontSize: '1rem',
             }}
           >
             បញ្ជាក់
@@ -132,6 +392,10 @@ export default function CustomDatePicker({ selected, onChange, placeholderText =
         .react-datepicker-popper {
           z-index: 999999 !important;
         }
+        .react-datepicker__portal {
+          z-index: 999999 !important;
+          background-color: rgba(0, 0, 0, 0.55) !important;
+        }
         .react-datepicker-wrapper {
           width: 100%;
         }
@@ -140,11 +404,12 @@ export default function CustomDatePicker({ selected, onChange, placeholderText =
         }
         .react-datepicker {
           font-family: inherit;
-          border: none;
+          border: 1px solid var(--border-color, #e2e8f0) !important;
           border-radius: 12px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.25) !important;
           background-color: var(--modal-bg, #fff) !important;
           overflow: hidden;
+          max-width: calc(100vw - 16px);
         }
         .react-datepicker__header {
           background-color: var(--modal-bg, #fff) !important;
@@ -165,9 +430,16 @@ export default function CustomDatePicker({ selected, onChange, placeholderText =
         }
         .react-datepicker__day-name, .react-datepicker__day, .react-datepicker__time-name {
           color: var(--text-primary, #333) !important;
-          width: 2.5rem;
-          line-height: 2.5rem;
-          margin: 0.166rem;
+          width: 2.35rem;
+          line-height: 2.35rem;
+          margin: 0.12rem;
+        }
+        @media (max-width: 400px) {
+          .react-datepicker__day-name, .react-datepicker__day, .react-datepicker__time-name {
+            width: 2rem;
+            line-height: 2rem;
+            margin: 0.1rem;
+          }
         }
         .react-datepicker__day--selected, .react-datepicker__day--in-selecting-range, .react-datepicker__day--in-range,
         .react-datepicker__month-text--selected, .react-datepicker__month-text--in-selecting-range, .react-datepicker__month-text--in-range,

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 export default function AttendancePage() {
   const [role, setRole] = useState('');
@@ -299,19 +300,25 @@ export default function AttendancePage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ fontWeight: 600 }}>ខែ៖</label>
-              <select className="input-field" value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))} style={{ padding: '0.5rem', background: 'var(--bg-secondary)', width: 'auto' }}>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                  <option key={m} value={m}>ខែ {m}</option>
-                ))}
-              </select>
+              <CustomSelectDropdown
+                value={String(selectedMonth)}
+                onChange={(v) => setSelectedMonth(Number(v))}
+                searchable={false}
+                menuMinWidth={140}
+                style={{ padding: '0.45rem 0.75rem', background: 'var(--bg-secondary)', width: 'auto', minWidth: '105px' }}
+                options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `ខែ ${i + 1}` }))}
+              />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label style={{ fontWeight: 600 }}>ឆ្នាំ៖</label>
-              <select className="input-field" value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))} style={{ padding: '0.5rem', background: 'var(--bg-secondary)', width: 'auto' }}>
-                {[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <CustomSelectDropdown
+                value={String(selectedYear)}
+                onChange={(v) => setSelectedYear(Number(v))}
+                searchable={false}
+                menuMinWidth={130}
+                style={{ padding: '0.45rem 0.75rem', background: 'var(--bg-secondary)', width: 'auto', minWidth: '100px' }}
+                options={[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map(y => ({ value: String(y), label: String(y) }))}
+              />
             </div>
           </div>
         </div>

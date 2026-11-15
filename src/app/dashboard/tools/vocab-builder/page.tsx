@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 
 type VocabItem = {
   word: string;
@@ -225,11 +226,18 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
         
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ជ្រើសរើសម៉ូដែល (Model)</label>
-          <select className="input-field" value={modelName} onChange={(e) => setModelName(e.target.value)} style={{ maxWidth: '300px' }}>
-            <option value="gemini-3.5-flash">Gemini 3.5 Flash (ឆ្លាត និងល្អបំផុត)</option>
-            <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (លឿន)</option>
-            <option value="gemini-flash-latest">Gemini Flash Latest</option>
-          </select>
+          <div style={{ maxWidth: '320px' }}>
+            <CustomSelectDropdown
+              value={modelName}
+              onChange={setModelName}
+              searchable={false}
+              options={[
+                { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (ឆ្លាត និងល្អបំផុត)' },
+                { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite (លឿន)' },
+                { value: 'gemini-flash-latest', label: 'Gemini Flash Latest' },
+              ]}
+            />
+          </div>
         </div>
 
         {/* Input Tabs */}
@@ -304,17 +312,19 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
                           ទាញយកពាក្យពិបាកៗតាមកម្រិត៖
                         </label>
                         {options.extractDifficult && (
-                          <select 
-                            className="input-field" 
-                            style={{ padding: '0.3rem 0.5rem', width: 'auto' }}
-                            value={options.difficultLevel} 
-                            onChange={(e) => handleOptionChange('difficultLevel', e.target.value)}
-                          >
-                            <option value="beginner">កម្រិតងាយ (Beginner)</option>
-                            <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
-                            <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
-                            <option value="native">ដូចម្ចាស់ភាសា (Native)</option>
-                          </select>
+                          <CustomSelectDropdown
+                            value={options.difficultLevel}
+                            onChange={(v) => handleOptionChange('difficultLevel', v)}
+                            searchable={false}
+                            menuMinWidth={220}
+                            style={{ padding: '0.4rem 0.75rem', width: 'auto', minWidth: '180px' }}
+                            options={[
+                              { value: 'beginner', label: 'កម្រិតងាយ (Beginner)' },
+                              { value: 'intermediate', label: 'កម្រិតមធ្យម (Intermediate)' },
+                              { value: 'advanced', label: 'កម្រិតខ្ពស់ (Advanced)' },
+                              { value: 'native', label: 'ដូចម្ចាស់ភាសា (Native)' },
+                            ]}
+                          />
                         )}
                       </div>
                       <div>
@@ -371,16 +381,18 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
             </label>
             {options.example && (
               <>
-                <select 
-                  className="input-field" 
-                  style={{ padding: '0.4rem', width: 'auto', minWidth: '150px' }}
-                  value={options.exampleLevel} 
-                  onChange={(e) => handleOptionChange('exampleLevel', e.target.value)}
-                >
-                  <option value="beginner">កម្រិតងាយ (Beginner)</option>
-                  <option value="intermediate">កម្រិតមធ្យម (Intermediate)</option>
-                  <option value="advanced">កម្រិតខ្ពស់ (Advanced)</option>
-                </select>
+                <CustomSelectDropdown
+                  value={options.exampleLevel}
+                  onChange={(v) => handleOptionChange('exampleLevel', v)}
+                  searchable={false}
+                  menuMinWidth={220}
+                  style={{ padding: '0.4rem 0.75rem', width: 'auto', minWidth: '170px' }}
+                  options={[
+                    { value: 'beginner', label: 'កម្រិតងាយ (Beginner)' },
+                    { value: 'intermediate', label: 'កម្រិតមធ្យម (Intermediate)' },
+                    { value: 'advanced', label: 'កម្រិតខ្ពស់ (Advanced)' },
+                  ]}
+                />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <label>ចំនួន៖</label>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
