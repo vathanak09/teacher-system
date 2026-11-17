@@ -16,15 +16,16 @@ import {
   DocumentData,
   CollectionReference,
   getCountFromServer,
-  getDocsFromCache,
-  getDocsFromServer,
-  getFirestore
+  getFirestore,
 } from 'firebase/firestore';
 import { IDataService, WhereFilterOp, OrderByDirection } from './types';
+import { SharedStream, subscribeToSharedStream } from './sharedStream';
 
 export class FirebaseDataService<T extends { id?: string }> implements IDataService<T> {
   private collectionName: string;
   private dbInstance: ReturnType<typeof getFirestore>;
+  private listStreams = new Map<string, SharedStream<T[]>>();
+  private docStreams = new Map<string, SharedStream<T | null>>();
 
   constructor(collectionName: string, customDb?: ReturnType<typeof getFirestore>) {
     this.collectionName = collectionName;
@@ -40,40 +41,65 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
     orderByField?: string,
     orderDirection?: OrderByDirection
   ): () => void {
+    const key = `all:${orderByField || ''}:${orderDirection || 'asc'}`;
     let q: Query<DocumentData> = this.collectionRef;
     if (orderByField) {
       q = query(this.collectionRef, orderBy(orderByField, orderDirection || 'asc'));
     }
 
-    return onSnapshot(q, (snapshot) => {
-      const data: T[] = [];
-      snapshot.forEach((docSnap) => {
-        data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
-      });
-      callback(data);
-    });
+    return subscribeToSharedStream<T[]>(
+      this.listStreams,
+      key,
+      [],
+      callback,
+      `Firestore:${this.collectionName}`,
+      (onNext, onError) =>
+        onSnapshot(
+          q,
+          (snapshot) => {
+            const data: T[] = [];
+            snapshot.forEach((docSnap) => {
+              data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
+            });
+            onNext(data);
+          },
+          onError
+        )
+    );
   }
 
   subscribeAll(
     callback: (data: T[]) => void,
     orderByField?: string,
     orderDirection?: OrderByDirection,
-    forceRefresh?: boolean
+    _forceRefresh?: boolean
   ): () => void {
-    // Delegate to listenAll to leverage Firestore's built-in caching and real-time delta sync.
-    // This fixes the issue where the manual getDocsFromCache was permanently blocking new data.
     return this.listenAll(callback, orderByField, orderDirection);
   }
 
   subscribeOne(id: string, callback: (data: T | null) => void): () => void {
+    const key = `doc:${id}`;
     const docRef = doc(this.dbInstance, this.collectionName, id);
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        callback({ ...docSnap.data(), id: docSnap.id } as unknown as T);
-      } else {
-        callback(null);
-      }
-    });
+
+    return subscribeToSharedStream<T | null>(
+      this.docStreams,
+      key,
+      null,
+      callback,
+      `Firestore:${this.collectionName}`,
+      (onNext, onError) =>
+        onSnapshot(
+          docRef,
+          (docSnap) => {
+            if (docSnap.exists()) {
+              onNext({ ...docSnap.data(), id: docSnap.id } as unknown as T);
+            } else {
+              onNext(null);
+            }
+          },
+          onError
+        )
+    );
   }
 
   subscribeByQuery(
@@ -82,17 +108,36 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
     value: any,
     callback: (data: T[]) => void
   ): () => void {
+    const key = `q:${field}:${op}:${JSON.stringify(value)}`;
     const q = query(this.collectionRef, where(field, op as any, value));
-    return onSnapshot(q, (snapshot) => {
-      const data: T[] = [];
-      snapshot.forEach((docSnap) => {
-        data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
-      });
-      callback(data);
-    });
+
+    return subscribeToSharedStream<T[]>(
+      this.listStreams,
+      key,
+      [],
+      callback,
+      `Firestore:${this.collectionName}`,
+      (onNext, onError) =>
+        onSnapshot(
+          q,
+          (snapshot) => {
+            const data: T[] = [];
+            snapshot.forEach((docSnap) => {
+              data.push({ ...docSnap.data(), id: docSnap.id } as unknown as T);
+            });
+            onNext(data);
+          },
+          onError
+        )
+    );
   }
 
   async getAll(): Promise<T[]> {
+    const warmStream = this.listStreams.get('all::asc');
+    if (warmStream?.hasData && warmStream.unsubscribeSource) {
+      return [...warmStream.latestData];
+    }
+
     const snapshot = await getDocs(this.collectionRef);
     const data: T[] = [];
     snapshot.forEach((docSnap) => {
@@ -113,6 +158,16 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
   }
 
   async getById(id: string): Promise<T | null> {
+    const warmDoc = this.docStreams.get(`doc:${id}`);
+    if (warmDoc?.hasData && warmDoc.unsubscribeSource) {
+      return warmDoc.latestData ? { ...warmDoc.latestData } : null;
+    }
+    const warmAll = this.listStreams.get('all::asc');
+    if (warmAll?.hasData && warmAll.unsubscribeSource) {
+      const found = warmAll.latestData.find((item) => item.id === id);
+      return found ? { ...found } : null;
+    }
+
     const docRef = doc(this.dbInstance, this.collectionName, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {

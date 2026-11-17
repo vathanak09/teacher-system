@@ -1,5 +1,12 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
+import { getDatabase } from "firebase/database";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCjnEE5_5WyDxj_9kFcaCkW_-jN_hZ-YOg",
@@ -21,21 +28,40 @@ const studentFirebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_STUDENT_FIREBASE_STORAGE_BUCKET || "student-list-c866b.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_STUDENT_FIREBASE_MESSAGING_SENDER_ID || "787865105415",
   appId: process.env.NEXT_PUBLIC_STUDENT_FIREBASE_APP_ID || "1:787865105415:web:4895fbc276406ee92d26a2",
-  measurementId: process.env.NEXT_PUBLIC_STUDENT_FIREBASE_MEASUREMENT_ID || "G-W7P8TFLNFH"
+  measurementId: process.env.NEXT_PUBLIC_STUDENT_FIREBASE_MEASUREMENT_ID || "G-W7P8TFLNFH",
+  databaseURL:
+    process.env.NEXT_PUBLIC_STUDENT_FIREBASE_DATABASE_URL ||
+    "https://student-list-c866b-default-rtdb.asia-southeast1.firebasedatabase.app",
 };
 
 const studentApp = getApps().find(a => a.name === 'StudentApp') || initializeApp(studentFirebaseConfig, 'StudentApp');
 
-import { getStorage } from "firebase/storage";
+// Initialize Firestore with multi-tab IndexedDB persistent cache in browser
+// so page reloads serve cached docs immediately and only fetch server deltas.
+function createFirestoreInstance(firebaseApp: FirebaseApp) {
+  if (typeof window === "undefined") {
+    return getFirestore(firebaseApp);
+  }
+  try {
+    return initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    // Fallback if already initialized during Next.js HMR or IndexedDB is unavailable
+    return getFirestore(firebaseApp);
+  }
+}
 
-// Initialize Firestore (using default memory cache to prevent IndexedDB HMR issues)
-const db = getFirestore(app);
+const db = createFirestoreInstance(app);
 
-// Initialize Student Firestore
-const studentDb = getFirestore(studentApp);
+// Initialize Student Firestore & Student Realtime Database (Hybrid)
+const studentDb = createFirestoreInstance(studentApp);
+const studentRtdb = getDatabase(studentApp, studentFirebaseConfig.databaseURL);
 
 // Initialize Storage
 const storage = getStorage(app);
 const studentStorage = getStorage(studentApp);
 
-export { app, db, storage, studentApp, studentDb, studentStorage };
+export { app, db, storage, studentApp, studentDb, studentRtdb, studentStorage };

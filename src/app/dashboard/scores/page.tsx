@@ -498,31 +498,37 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
       setAllStudents(data);
     });
 
-    const unsubAllScores = scoreService.subscribeAll((data: any[]) => {
+    return () => {
+      unsubSettings();
+      unsubClasses();
+      unsubStudents();
+      unsubTeachers();
+    };
+  }, []);
+
+  // Only fetch scores for the active month (avoids reading all historical months and avoids duplicate listeners)
+  useEffect(() => {
+    if (!selectedMonth) {
+      setAllScores([]);
+      return;
+    }
+    const unsubMonthScores = scoreService.subscribeByQuery('month', '==', selectedMonth, (data: any[]) => {
       setAllScores(data);
     });
 
     return () => {
-      unsubSettings();
-      unsubClasses();
-        unsubStudents();
-        unsubTeachers();
-      unsubAllScores();
+      unsubMonthScores();
     };
-  }, []);
+  }, [selectedMonth]);
 
   useEffect(() => {
     if (selectedClassId) {
-      const unsubScores = scoreService.subscribeAll((data: any[]) => {
-        const filteredScores = data.filter((s: any) => s.classId === selectedClassId && s.month === selectedMonth);
-        setScores(filteredScores);
-      });
-
-      return () => {
-        unsubScores();
-      };
+      const filteredScores = allScores.filter((s: any) => s.classId === selectedClassId && s.month === selectedMonth);
+      setScores(filteredScores);
+    } else {
+      setScores([]);
     }
-  }, [selectedClassId, selectedMonth]);
+  }, [selectedClassId, selectedMonth, allScores]);
 
   // Derived filtered classes
   const displayClasses = role === 'admin' 
