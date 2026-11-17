@@ -626,12 +626,11 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
     justify-content: space-between;
     gap: 0.65rem;
     padding: 0.6rem 0.9rem;
-    background: color-mix(in srgb, var(--modal-bg) 86%, transparent);
+    background: color-mix(in srgb, var(--modal-bg) 90%, transparent);
     backdrop-filter: blur(18px) saturate(180%);
     -webkit-backdrop-filter: blur(18px) saturate(180%);
-    border-bottom: 2px solid transparent;
-    border-image: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899, #f59e0b) 1;
-    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
     position: sticky;
     top: 0;
     z-index: 40;
@@ -709,19 +708,20 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   }
 
   .mobile-header-avatar-btn {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    border: none;
-    padding: 2.5px;
+    border: 2px solid color-mix(in srgb, var(--accent-primary) 55%, var(--border-color));
+    padding: 0;
     overflow: hidden;
-    background: linear-gradient(135deg, #3b82f6, #ec4899, #f59e0b);
+    background: color-mix(in srgb, var(--accent-primary) 12%, var(--modal-bg));
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    text-decoration: none;
     touch-action: manipulation;
-    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
   }
 
   .mobile-header-avatar-img {
@@ -729,20 +729,20 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--modal-bg);
   }
 
   .mobile-header-avatar-fallback {
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: var(--modal-bg);
+    background: transparent;
     color: var(--accent-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700;
+    text-decoration: none;
   }
 
   /* Floating Colorful Sticky Bottom Bar with Auto-Hide */

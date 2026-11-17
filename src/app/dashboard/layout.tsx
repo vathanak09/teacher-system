@@ -202,8 +202,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span
                 className="mobile-header-page-badge"
                 style={{
-                  background: `linear-gradient(135deg, ${activeTint}, ${activeTint}cc)`,
-                  boxShadow: `0 4px 10px ${activeTint}40`,
+                  background: `${activeTint}18`,
+                  color: activeTint,
+                  border: `1px solid ${activeTint}30`,
                 }}
               >
                 {currentNavItem.icon}

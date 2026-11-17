@@ -205,29 +205,51 @@ export default function MobileBottomNav({
 
             {/* Scrollable Body */}
             <div className="mobile-sheet-body">
-              {/* UI Style Theme Selector (Classic / Glass / Minimal / Colorful) */}
-              <div>
-                <div className="mobile-sheet-section-title">រចនាបថ Theme កម្មវិធី</div>
-                <div className="mobile-style-theme-grid">
-                  {STYLE_THEME_OPTIONS.map((st) => {
-                    const selected = styleTheme === st.value;
-                    return (
-                      <button
-                        key={st.value}
-                        type="button"
-                        onClick={() => onChangeStyleTheme(st.value)}
-                        className={`mobile-style-card ${selected ? 'selected' : ''}`}
-                      >
-                        <span
-                          className="mobile-style-preview"
-                          style={{ background: st.preview }}
-                        />
-                        <span className="mobile-style-label">{st.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {/* Categorized Large App Grid Tiles */}
+              {CATEGORY_ORDER.map((cat) => {
+                const items = allowedLinks.filter((item) => item.category === cat);
+                if (items.length === 0) return null;
+                return (
+                  <div key={cat} className="mobile-sheet-section">
+                    <div className="mobile-sheet-section-title">
+                      {NAV_CATEGORY_LABELS[cat]}
+                    </div>
+                    <div className="mobile-sheet-grid">
+                      {items.map((item) => {
+                        const active = isNavPathActive(pathname, item.path);
+                        return (
+                          <Link
+                            key={item.path}
+                            href={item.path}
+                            onClick={onCloseMenu}
+                            className={`mobile-grid-tile ${active ? 'active' : ''}`}
+                            style={
+                              active
+                                ? {
+                                    borderColor: item.tint,
+                                    background: `${item.tint}14`,
+                                  }
+                                : undefined
+                            }
+                          >
+                            <span
+                              className="mobile-grid-tile-icon"
+                              style={{
+                                backgroundColor: active ? item.tint : `${item.tint}1c`,
+                                color: active ? '#ffffff' : item.tint,
+                                boxShadow: active ? `0 4px 12px ${item.tint}45` : undefined,
+                              }}
+                            >
+                              {item.icon}
+                            </span>
+                            <span className="mobile-grid-tile-label">{item.name}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
 
               {/* Color Accent Swatches + Dark/Light Mode */}
               <div className="mobile-theme-bar">
@@ -285,51 +307,29 @@ export default function MobileBottomNav({
                 </button>
               </div>
 
-              {/* Categorized Large App Grid Tiles */}
-              {CATEGORY_ORDER.map((cat) => {
-                const items = allowedLinks.filter((item) => item.category === cat);
-                if (items.length === 0) return null;
-                return (
-                  <div key={cat} className="mobile-sheet-section">
-                    <div className="mobile-sheet-section-title">
-                      {NAV_CATEGORY_LABELS[cat]}
-                    </div>
-                    <div className="mobile-sheet-grid">
-                      {items.map((item) => {
-                        const active = isNavPathActive(pathname, item.path);
-                        return (
-                          <Link
-                            key={item.path}
-                            href={item.path}
-                            onClick={onCloseMenu}
-                            className={`mobile-grid-tile ${active ? 'active' : ''}`}
-                            style={
-                              active
-                                ? {
-                                    borderColor: item.tint,
-                                    background: `${item.tint}14`,
-                                  }
-                                : undefined
-                            }
-                          >
-                            <span
-                              className="mobile-grid-tile-icon"
-                              style={{
-                                backgroundColor: active ? item.tint : `${item.tint}1c`,
-                                color: active ? '#ffffff' : item.tint,
-                                boxShadow: active ? `0 4px 12px ${item.tint}45` : undefined,
-                              }}
-                            >
-                              {item.icon}
-                            </span>
-                            <span className="mobile-grid-tile-label">{item.name}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+              {/* UI Style Theme Selector (At the bottom) */}
+              <div>
+                <div className="mobile-sheet-section-title">រចនាបថ Theme កម្មវិធី</div>
+                <div className="mobile-style-theme-grid">
+                  {STYLE_THEME_OPTIONS.map((st) => {
+                    const selected = styleTheme === st.value;
+                    return (
+                      <button
+                        key={st.value}
+                        type="button"
+                        onClick={() => onChangeStyleTheme(st.value)}
+                        className={`mobile-style-card ${selected ? 'selected' : ''}`}
+                      >
+                        <span
+                          className="mobile-style-preview"
+                          style={{ background: st.preview }}
+                        />
+                        <span className="mobile-style-label">{st.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Bottom Logout Footer */}
