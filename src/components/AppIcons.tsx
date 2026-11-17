@@ -42,7 +42,19 @@ export type AppIconName =
   | 'disc'
   | 'activity'
   | 'zap'
-  | 'sparkles';
+  | 'sparkles'
+  | 'plus'
+  | 'trash'
+  | 'edit'
+  | 'sunset'
+  | 'coffee'
+  | 'flag'
+  | 'printer'
+  | 'download'
+  | 'sliders'
+  | 'arrow-up'
+  | 'arrow-down'
+  | 'search';
 
 export function AppIcon({
   name,
@@ -381,6 +393,108 @@ export function AppIcon({
       return (
         <svg {...common}>
           <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3Z" />
+        </svg>
+      );
+    case 'plus':
+      return (
+        <svg {...common}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      );
+    case 'trash':
+      return (
+        <svg {...common}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      );
+    case 'edit':
+      return (
+        <svg {...common}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+      );
+    case 'sunset':
+      return (
+        <svg {...common}>
+          <path d="M17 18a5 5 0 0 0-10 0" />
+          <line x1="12" y1="9" x2="12" y2="2" />
+          <line x1="4.22" y1="10.22" x2="5.64" y2="11.64" />
+          <line x1="1" y1="18" x2="3" y2="18" />
+          <line x1="21" y1="18" x2="23" y2="18" />
+          <line x1="18.36" y1="11.64" x2="19.78" y2="10.22" />
+          <line x1="23" y1="22" x2="1" y2="22" />
+          <polyline points="16 5 12 9 8 5" />
+        </svg>
+      );
+    case 'coffee':
+      return (
+        <svg {...common}>
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+          <line x1="6" y1="1" x2="6" y2="4" />
+          <line x1="10" y1="1" x2="10" y2="4" />
+          <line x1="14" y1="1" x2="14" y2="4" />
+        </svg>
+      );
+    case 'flag':
+      return (
+        <svg {...common}>
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <line x1="4" y1="22" x2="4" y2="15" />
+        </svg>
+      );
+    case 'printer':
+      return (
+        <svg {...common}>
+          <polyline points="6 9 6 2 18 2 18 9" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="8" />
+        </svg>
+      );
+    case 'download':
+      return (
+        <svg {...common}>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      );
+    case 'sliders':
+      return (
+        <svg {...common}>
+          <line x1="4" y1="21" x2="4" y2="14" />
+          <line x1="4" y1="10" x2="4" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12" y2="3" />
+          <line x1="20" y1="21" x2="20" y2="16" />
+          <line x1="20" y1="12" x2="20" y2="3" />
+          <line x1="1" y1="14" x2="7" y2="14" />
+          <line x1="9" y1="8" x2="15" y2="8" />
+          <line x1="17" y1="16" x2="23" y2="16" />
+        </svg>
+      );
+    case 'arrow-up':
+      return (
+        <svg {...common}>
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      );
+    case 'arrow-down':
+      return (
+        <svg {...common}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <polyline points="19 12 12 19 5 12" />
+        </svg>
+      );
+    case 'search':
+      return (
+        <svg {...common}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       );
   }
