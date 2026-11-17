@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import CustomDatePicker from '@/components/CustomDatePicker';
+import { AppIcon } from '@/components/AppIcons';
 import { convertDriveImageLink } from '@/utils/driveLink';
 import {
   CompletionDropdownStatus,
@@ -251,6 +252,9 @@ export function StatusCountNoteCell({
               rel="noopener noreferrer"
               title="បើកមើលវីដេអូ"
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
                 padding: '0.26rem 0.45rem',
                 borderRadius: '6px',
                 background: 'rgba(59, 130, 246, 0.14)',
@@ -261,7 +265,8 @@ export function StatusCountNoteCell({
                 whiteSpace: 'nowrap',
               }}
             >
-              🔗 មើល
+              <AppIcon name="external-link" size={12} />
+              <span>មើល</span>
             </a>
           )}
         </div>
@@ -457,7 +462,7 @@ export function ExamStagesCell({
                   flexShrink: 0,
                 }}
               >
-                {checked ? '✓' : stage.step}
+                {checked ? <AppIcon name="check" size={10} strokeWidth={3} /> : stage.step}
               </span>
             </button>
           );
@@ -547,9 +552,25 @@ export function SpecialTaskCell({
             fontSize: '0.73rem',
             cursor: 'pointer',
             whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
           }}
         >
-          {entry.taskDone ? '✓ រួចរាល់' : assigned ? '⏳ កំពុងធ្វើ' : 'គ្មាន Task'}
+          {entry.taskDone ? (
+            <>
+              <AppIcon name="check" size={12} />
+              <span>រួចរាល់</span>
+            </>
+          ) : assigned ? (
+            <>
+              <AppIcon name="clock" size={12} />
+              <span>កំពុងធ្វើ</span>
+            </>
+          ) : (
+            <span>គ្មាន Task</span>
+          )}
         </button>
       </div>
 

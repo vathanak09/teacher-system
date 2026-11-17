@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { playRunningSound, playTadaSound } from '@/utils/audioUtils';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { AppIcon } from '@/components/AppIcons';
 
 interface RaceVisualizerProps {
   items: string[];
@@ -119,7 +120,7 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
     );
   }
 
-  const iconEmoji = raceType === 'running' ? '🏃‍♂️' : '🚴‍♂️';
+  const runnerIconName = raceType === 'running' ? 'activity' : 'zap';
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -163,9 +164,14 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
           borderRadius: '16px',
           fontSize: '1.5rem',
           fontWeight: 'bold',
-          boxShadow: '0 10px 25px rgba(99, 102, 241, 0.4)'
+          boxShadow: '0 10px 25px rgba(99, 102, 241, 0.4)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.6rem',
         }}>
-          🏆 {items[winnerIndex]} 🏆
+          <AppIcon name="award" size={24} />
+          <span>{items[winnerIndex]}</span>
+          <AppIcon name="award" size={24} />
         </div>
       )}
 
@@ -264,7 +270,11 @@ const RaceVisualizer: React.FC<RaceVisualizerProps> = ({ items, onWinner, raceTy
                   height: '36px',
                   flexShrink: 0
                 }}>
-                  {isWinner ? '🏆' : iconEmoji}
+                  {isWinner ? (
+                    <AppIcon name="award" size={18} style={{ color: '#b45309' }} />
+                  ) : (
+                    <AppIcon name={runnerIconName} size={18} style={{ color: '#0f172a' }} />
+                  )}
                 </div>
               </div>
             );

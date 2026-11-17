@@ -9,6 +9,7 @@ import 'react-quill-new/dist/quill.snow.css';
 import ImageUploadBox from '@/components/ImageUploadBox';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { AppIcon } from '@/components/AppIcons';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 
@@ -558,8 +559,8 @@ export default function PostsManagementPage() {
                       if (groupTags.length === 0) return null;
                       return (
                         <div key={group.id}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                            📂 {group.name}
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                            <AppIcon name="folder" size={15} /> {group.name}
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {groupTags.map(tag => {
@@ -600,8 +601,8 @@ export default function PostsManagementPage() {
                       if (ungroupedTags.length === 0) return null;
                       return (
                         <div>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-                            🏷️ ស្លាកពាក្យផ្សេងៗ (Others)
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                            <AppIcon name="tag" size={15} /> ស្លាកពាក្យផ្សេងៗ (Others)
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                             {ungroupedTags.map(tag => {

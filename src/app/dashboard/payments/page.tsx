@@ -13,6 +13,7 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
+import { AppIcon } from '@/components/AppIcons';
 import {
   addMonthsWithAnniversary,
   computeStudentBillingInfo,
@@ -1398,9 +1399,9 @@ export default function PaymentsPage() {
                 <button
                   type="button"
                   onClick={() => setIsPaymentModalOpen(false)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.35rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
                 >
-                  ✕
+                  <AppIcon name="x" size={20} />
                 </button>
               </div>
 
@@ -1698,9 +1699,9 @@ export default function PaymentsPage() {
                 <button
                   type="button"
                   onClick={() => setHistoryStudentBilling(null)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.35rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
                 >
-                  ✕
+                  <AppIcon name="x" size={20} />
                 </button>
               </div>
 
@@ -1820,9 +1821,9 @@ export default function PaymentsPage() {
                 <button
                   type="button"
                   onClick={() => setIsSyncSettingsOpen(false)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.35rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem' }}
                 >
-                  ✕
+                  <AppIcon name="x" size={20} />
                 </button>
               </div>
 

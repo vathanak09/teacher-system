@@ -18,6 +18,7 @@ import {
   isExamWeek,
   normalizeEntry,
 } from './trackingModel';
+import { AppIcon } from '@/components/AppIcons';
 import { TeacherAvatar } from './TrackingControls';
 
 export default function ScreenshotReportBoard({
@@ -230,7 +231,10 @@ export default function ScreenshotReportBoard({
             fontWeight: 700,
           }}
         >
-          <span>📝 កាលវិភាគវិញ្ញាសាប្រឡង៖</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <AppIcon name="file-text" size={14} />
+            <span>កាលវិភាគវិញ្ញាសាប្រឡង៖</span>
+          </span>
           {activeExamRibbons.map((item) => (
             <span key={item.label} style={{ display: 'inline-flex', gap: '0.55rem', flexWrap: 'wrap' }}>
               {isMonthlyScope && <strong>[{item.label}]</strong>}
@@ -489,9 +493,15 @@ export default function ScreenshotReportBoard({
                           fontWeight: 800,
                           fontSize: '0.74rem',
                           whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
                         }}
                       >
-                        {pct}% {pct === 100 ? '✓ ល្អប្រសើរ' : pct >= 70 ? 'ល្អបង្គួរ' : 'ត្រូវពង្រឹង'}
+                        {pct === 100 && <AppIcon name="check" size={11} strokeWidth={2.6} />}
+                        <span>
+                          {pct}% {pct === 100 ? 'ល្អប្រសើរ' : pct >= 70 ? 'ល្អបង្គួរ' : 'ត្រូវពង្រឹង'}
+                        </span>
                       </span>
                     </td>
                   </tr>
@@ -542,9 +552,13 @@ export default function ScreenshotReportBoard({
                               fontWeight: 700,
                               fontSize: '0.73rem',
                               whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
                             }}
                           >
-                            ✓ បានរៀន ({e.topicCount})
+                            <AppIcon name="check" size={11} strokeWidth={2.6} />
+                            <span>បានរៀន ({e.topicCount})</span>
                           </span>
                           {showDetails && e.topicTitle && (
                             <div
@@ -572,9 +586,13 @@ export default function ScreenshotReportBoard({
                             borderRadius: '999px',
                             fontWeight: 700,
                             fontSize: '0.73rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
                           }}
                         >
-                          ✕ មិនទាន់
+                          <AppIcon name="x" size={11} strokeWidth={2.6} />
+                          <span>មិនទាន់</span>
                         </span>
                       )}
                     </td>
@@ -590,10 +608,16 @@ export default function ScreenshotReportBoard({
                           fontWeight: 700,
                           fontSize: '0.73rem',
                           whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
                         }}
                       >
-                        {hwPal.icon} {HOMEWORK_STATUS_LABELS[e.homeworkStatus]}
-                        {e.homeworkCount > 0 ? ` (${e.homeworkCount})` : ''}
+                        <AppIcon name={hwPal.iconName} size={11} strokeWidth={2.6} />
+                        <span>
+                          {HOMEWORK_STATUS_LABELS[e.homeworkStatus]}
+                          {e.homeworkCount > 0 ? ` (${e.homeworkCount})` : ''}
+                        </span>
                       </span>
                       {showDetails && e.homeworkNote && (
                         <div
@@ -624,10 +648,16 @@ export default function ScreenshotReportBoard({
                           fontWeight: 700,
                           fontSize: '0.73rem',
                           whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
                         }}
                       >
-                        {vPal.icon} {VIDEO_STATUS_LABELS[e.videoStatus]}
-                        {e.videoCount > 0 ? ` (${e.videoCount})` : ''}
+                        <AppIcon name={vPal.iconName} size={11} strokeWidth={2.6} />
+                        <span>
+                          {VIDEO_STATUS_LABELS[e.videoStatus]}
+                          {e.videoCount > 0 ? ` (${e.videoCount})` : ''}
+                        </span>
                       </span>
                       {showDetails && e.videoNote && (
                         <div
@@ -669,9 +699,13 @@ export default function ScreenshotReportBoard({
                                         ? 'rgba(16, 185, 129, 0.16)'
                                         : 'rgba(148, 163, 184, 0.16)',
                                       color: ok ? '#059669' : textSub,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '0.2rem',
                                     }}
                                   >
-                                    {ok ? '✓' : st.step} {st.shortLabel}
+                                    {ok ? <AppIcon name="check" size={10} strokeWidth={2.8} /> : st.step}
+                                    <span>{st.shortLabel}</span>
                                   </span>
                                 );
                               })}
@@ -692,6 +726,9 @@ export default function ScreenshotReportBoard({
                         <div>
                           <span
                             style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                               padding: '0.18rem 0.5rem',
                               borderRadius: '999px',
                               fontWeight: 700,
@@ -703,8 +740,11 @@ export default function ScreenshotReportBoard({
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {e.taskDone ? '✓ រួចរាល់' : '⏳ កំពុងធ្វើ'}
-                            {e.taskCount > 0 ? ` (${e.taskCount})` : ''}
+                            <AppIcon name={e.taskDone ? 'check' : 'clock'} size={12} />
+                            <span>
+                              {e.taskDone ? 'រួចរាល់' : 'កំពុងធ្វើ'}
+                              {e.taskCount > 0 ? ` (${e.taskCount})` : ''}
+                            </span>
                           </span>
                           {showDetails && e.taskDescription && (
                             <div
@@ -789,6 +829,9 @@ export default function ScreenshotReportBoard({
                     <td style={{ padding: '0.52rem 0.65rem', textAlign: 'center' }}>
                       <span
                         style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
                           background: ev.isComplete
                             ? 'rgba(16, 185, 129, 0.16)'
                             : 'rgba(245, 158, 11, 0.16)',
@@ -800,9 +843,15 @@ export default function ScreenshotReportBoard({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {ev.isComplete
-                          ? '🌟 គ្រប់លក្ខខណ្ឌ'
-                          : `⚠️ ខ្វះ ${ev.missingLabels.length}`}
+                        <AppIcon
+                          name={ev.isComplete ? 'check-circle' : 'alert-triangle'}
+                          size={12}
+                        />
+                        <span>
+                          {ev.isComplete
+                            ? 'គ្រប់លក្ខខណ្ឌ'
+                            : `ខ្វះ ${ev.missingLabels.length}`}
+                        </span>
                       </span>
                       {showDetails && e.note && (
                         <div

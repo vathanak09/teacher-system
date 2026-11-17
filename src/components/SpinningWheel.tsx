@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { playTickSound, playTadaSound } from '@/utils/audioUtils';
+import { AppIcon } from '@/components/AppIcons';
 
 interface SpinningWheelProps {
   items: string[];
@@ -208,9 +209,14 @@ const SpinningWheel: React.FC<SpinningWheelProps> = ({ items, onWinner }) => {
           fontSize: '1.5rem',
           fontWeight: 'bold',
           boxShadow: '0 10px 25px rgba(99, 102, 241, 0.4)',
-          animation: 'bounce 1s infinite'
+          animation: 'bounce 1s infinite',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.6rem',
         }}>
-          🎉 {winner} 🎉
+          <AppIcon name="sparkles" size={22} />
+          <span>{winner}</span>
+          <AppIcon name="sparkles" size={22} />
         </div>
       )}
       <style>{`

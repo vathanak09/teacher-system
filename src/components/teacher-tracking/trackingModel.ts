@@ -419,13 +419,18 @@ export function normalizeExternalUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
-export function getStatusBadgePalette(status: CompletionDropdownStatus) {
+export function getStatusBadgePalette(status: CompletionDropdownStatus): {
+  bg: string;
+  border: string;
+  color: string;
+  iconName: 'check' | 'clock' | 'x';
+} {
   if (status === 'done') {
     return {
       bg: 'rgba(16, 185, 129, 0.14)',
       border: '#10b981',
       color: '#059669',
-      icon: '✓',
+      iconName: 'check',
     };
   }
   if (status === 'partial') {
@@ -433,14 +438,14 @@ export function getStatusBadgePalette(status: CompletionDropdownStatus) {
       bg: 'rgba(245, 158, 11, 0.16)',
       border: '#f59e0b',
       color: '#d97706',
-      icon: '◔',
+      iconName: 'clock',
     };
   }
   return {
     bg: 'rgba(239, 68, 68, 0.1)',
     border: 'rgba(239, 68, 68, 0.35)',
     color: '#dc2626',
-    icon: '✕',
+    iconName: 'x',
   };
 }
 
@@ -562,10 +567,10 @@ export function buildGroupChatSummaryText(params: {
   const lines: string[] = [];
 
   if (scope === 'monthly') {
-    lines.push(`📊 របាយការណ៍បូកសរុបការងារគ្រូបង្រៀន — ${monthDisplayKh}`);
+    lines.push(`របាយការណ៍បូកសរុបការងារគ្រូបង្រៀន — ${monthDisplayKh}`);
     lines.push(`━━━━━━━━━━━━━━━━━━━━`);
     monthlySummaries.forEach((s, idx) => {
-      const badge = s.completionPct === 100 ? '✅' : s.completionPct >= 70 ? '🟡' : '⚠️';
+      const badge = s.completionPct === 100 ? '[គ្រប់]' : s.completionPct >= 70 ? '[មធ្យម]' : '[ខ្វះ]';
       const absPart =
         s.totalAbsenceDays > 0
           ? `ច្បាប់:${s.permissionDays} | ឥតច្បាប់:${s.absentDays}`
@@ -595,10 +600,10 @@ export function buildGroupChatSummaryText(params: {
   const examCfg = examSchedules?.[scope];
   const scopeHasExam = isExamWeek(scope);
 
-  lines.push(`📋 របាយការណ៍តាមដានការងារគ្រូ — ${wMeta.label}${dateTag} • ${monthDisplayKh}`);
+  lines.push(`របាយការណ៍តាមដានការងារគ្រូ — ${wMeta.label}${dateTag} • ${monthDisplayKh}`);
   if (scopeHasExam && hasExamConfigActive(examCfg)) {
     lines.push(
-      `📝 កាលវិភាគប្រឡង៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
+      `កាលវិភាគប្រឡង៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
     );
   }
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
@@ -606,13 +611,13 @@ export function buildGroupChatSummaryText(params: {
   teachers.forEach((t, idx) => {
     const e = normalizeEntry(records?.[t.id]?.[scope]);
     const ev = evaluateWeekEntry(e, examCfg, scope);
-    const tStr = e.topicDone ? `✅(${e.topicCount})` : '❌';
-    const hwIcon = e.homeworkStatus === 'done' ? '✅' : e.homeworkStatus === 'partial' ? '🟡' : '❌';
+    const tStr = e.topicDone ? `✓(${e.topicCount})` : '✕';
+    const hwIcon = e.homeworkStatus === 'done' ? '✓' : e.homeworkStatus === 'partial' ? '◔' : '✕';
     const hwStr = `${hwIcon}(${e.homeworkCount})`;
-    const vIcon = e.videoStatus === 'done' ? '✅' : e.videoStatus === 'partial' ? '🟡' : '❌';
+    const vIcon = e.videoStatus === 'done' ? '✓' : e.videoStatus === 'partial' ? '◔' : '✕';
     const vStr = `${vIcon}(${e.videoCount})`;
     const exStr = ev.examActive ? ` | វិញ្ញាសា:${ev.examStagesDone}/3` : '';
-    const tkStr = ev.taskAssigned ? ` | Task:${e.taskCount}(${e.taskDone ? '✅' : '⏳'})` : '';
+    const tkStr = ev.taskAssigned ? ` | Task:${e.taskCount}(${e.taskDone ? '✓' : '...'})` : '';
     const absStr =
       e.permissionDays > 0 || e.absentDays > 0
         ? `ច្បាប់:${e.permissionDays} ឥតច្បាប់:${e.absentDays}`
@@ -621,7 +626,7 @@ export function buildGroupChatSummaryText(params: {
       e.lateCount > 0 || e.lateMinutes > 0 ? `យឺត:${e.lateCount}ដង(${e.lateMinutes}ន)` : 'យឺត:0';
 
     lines.push(
-      `${idx + 1}. ${ev.isComplete ? '🌟' : '⚠️'} ${t.fullName} — Topic:${tStr} | HW:${hwStr} | វីដេអូ:${vStr}${exStr}${tkStr} | ${absStr} | ${lateStr}`
+      `${idx + 1}. ${ev.isComplete ? '[គ្រប់]' : '[ខ្វះ]'} ${t.fullName} — Topic:${tStr} | HW:${hwStr} | វីដេអូ:${vStr}${exStr}${tkStr} | ${absStr} | ${lateStr}`
     );
   });
 

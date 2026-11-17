@@ -11,6 +11,7 @@ import { formatDateToDMY } from '@/utils/dateFormatter';
 import SortDropdown from '@/components/SortDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { AppIcon } from '@/components/AppIcons';
 
 // 15 Icons
 const ICONS = [
@@ -1292,10 +1293,10 @@ export default function ClassesPage() {
                                                 const status = monthlyPaymentRecords[student.id]?.[month] || '';
                                                 let bgColor = 'transparent';
                                                 let color = 'inherit';
-                                                let icon = '';
+                                                let iconNode: React.ReactNode = null;
                                                 
-                                                if (status === 'paid') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#10b981'; icon = '✔'; }
-                                                else if (status === 'unpaid') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; icon = '✘'; }
+                                                if (status === 'paid') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#10b981'; iconNode = <AppIcon name="check" size={14} />; }
+                                                else if (status === 'unpaid') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; iconNode = <AppIcon name="x" size={14} />; }
                                                 
                                                 return (
                                                   <td 
@@ -1312,7 +1313,7 @@ export default function ClassesPage() {
                                                       userSelect: 'none'
                                                     }}
                                                   >
-                                                    {icon}
+                                                    {iconNode}
                                                   </td>
                                                 )
                                               })}
@@ -1849,8 +1850,11 @@ export default function ClassesPage() {
                 {/* Section 1: Academic Info */}
                 <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                   <div onClick={() => setIsSection1Open(!isSection1Open)} style={{ cursor: 'pointer', background: 'rgba(139, 92, 246, 0.08)', padding: '0.75rem 1rem', borderBottom: isSection1Open ? '1px solid var(--border-color)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                    <span style={{ fontSize: '1.1rem' }}>🎓</span> ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Enroll Date)
-                    <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{isSection1Open ? '▼ លាក់ (Hide)' : '▶ បង្ហាញ (Show)'}</span>
+                    <AppIcon name="graduation-cap" size={18} style={{ color: '#8b5cf6' }} /> ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Enroll Date)
+                    <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <AppIcon name={isSection1Open ? 'chevron-down' : 'chevron-right'} size={14} />
+                      <span>{isSection1Open ? 'លាក់ (Hide)' : 'បង្ហាញ (Show)'}</span>
+                    </span>
                   </div>
                   {isSection1Open && (
                   <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
@@ -1914,8 +1918,11 @@ export default function ClassesPage() {
                 {/* Section 2: Personal & Contact Info */}
                 <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                   <div onClick={() => setIsSection2Open(!isSection2Open)} style={{ cursor: 'pointer', background: 'rgba(236, 72, 153, 0.08)', padding: '0.75rem 1rem', borderBottom: isSection2Open ? '1px solid var(--border-color)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                    <span style={{ fontSize: '1.1rem' }}>🏠</span> ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
-                    <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{isSection2Open ? '▼ លាក់ (Hide)' : '▶ បង្ហាញ (Show)'}</span>
+                    <AppIcon name="home" size={18} style={{ color: '#ec4899' }} /> ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
+                    <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <AppIcon name={isSection2Open ? 'chevron-down' : 'chevron-right'} size={14} />
+                      <span>{isSection2Open ? 'លាក់ (Hide)' : 'បង្ហាញ (Show)'}</span>
+                    </span>
                   </div>
                   {isSection2Open && (
                   <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>

@@ -7,6 +7,7 @@ import RaceVisualizer from '@/components/RaceVisualizer';
 import confetti from 'canvas-confetti';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { AppIcon } from '@/components/AppIcons';
 
 export default function RandomizerPage() {
   const confirmDialog = useConfirm();
@@ -205,7 +206,9 @@ export default function RandomizerPage() {
       {winnerPopup && (
         <div onClick={() => setWinnerPopup(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', maxWidth: '400px', width: '100%' }}>
-            <h2 style={{ color: 'var(--primary-color)', fontSize: '2rem', marginBottom: '1rem' }}>🎉 អបអរសាទរ!</h2>
+            <h2 style={{ color: 'var(--primary-color)', fontSize: '2rem', marginBottom: '1rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <AppIcon name="award" size={28} /> អបអរសាទរ!
+            </h2>
             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>{winnerPopup}</div>
             <button onClick={() => setWinnerPopup(null)} className="btn btn-primary" style={{ width: '100%' }}>យល់ព្រម</button>
           </div>
@@ -449,21 +452,21 @@ export default function RandomizerPage() {
                 className={subTab === 'wheel' ? 'btn btn-primary' : 'btn'}
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
               >
-                🎡 កង់រង្វិល
+                <AppIcon name="disc" size={16} /> កង់រង្វិល
               </button>
               <button
                 onClick={() => setSubTab('running')}
                 className={subTab === 'running' ? 'btn btn-primary' : 'btn'}
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
               >
-                🏃 ការរត់ប្រណាំង
+                <AppIcon name="activity" size={16} /> ការរត់ប្រណាំង
               </button>
               <button
                 onClick={() => setSubTab('bicycle')}
                 className={subTab === 'bicycle' ? 'btn btn-primary' : 'btn'}
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
               >
-                🚴 ការប្រណាំងកង់
+                <AppIcon name="zap" size={16} /> ការប្រណាំងកង់
               </button>
             </div>
           )}
@@ -535,9 +538,10 @@ export default function RandomizerPage() {
                 <button 
                   onClick={() => setWinnerPopup(null)}
                   className="btn btn-primary"
-                  style={{ padding: '1rem 3rem', fontSize: '1.25rem', borderRadius: '50px' }}
+                  style={{ padding: '1rem 3rem', fontSize: '1.25rem', borderRadius: '50px', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  បន្តទៀត ➜
+                  <span>បន្តទៀត</span>
+                  <AppIcon name="chevron-right" size={20} strokeWidth={2.5} />
                 </button>
               </div>
             </div>

@@ -13,6 +13,7 @@ import SortDropdown from '@/components/SortDropdown';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { AppIcon } from '@/components/AppIcons';
 
 function InlineDateCellEditor({
   initialValue,
@@ -1364,7 +1365,7 @@ export default function StudentsPage() {
       {isStudentTableLocked && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.15)', padding: '0.75rem 1rem', borderRadius: '8px', color: '#d97706', marginBottom: '1.25rem', fontWeight: 500, fontSize: '0.9rem' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '0.25rem' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          តារាងត្រូវបានចាក់សោ — ចុចរូបសោ 🔒 នៅខាងលើ ដើម្បីបើកបន្ថែម កែប្រែ ឬលុបទិន្នន័យសិស្ស។
+          តារាងត្រូវបានចាក់សោ — ចុចរូបសោ <AppIcon name="lock" size={14} /> នៅខាងលើ ដើម្បីបើកបន្ថែម កែប្រែ ឬលុបទិន្នន័យសិស្ស។
         </div>
       )}
 
@@ -1543,10 +1544,10 @@ export default function StudentsPage() {
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>អាសយដ្ឋាន៖</span> <strong style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{student.address || 'N/A'}</strong></div>
                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>បណ្តាញសង្គម៖</span> 
-                               {student.contact ? (student.contact.startsWith('http') ? <a href={student.contact} target="_blank" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'underline' }}>ចុចទីនេះ 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.contact}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                               {student.contact ? (student.contact.startsWith('http') ? <a href={student.contact} target="_blank" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>ចុចទីនេះ <AppIcon name="external-link" size={13} /></a> : <strong style={{ color: 'var(--text-primary)' }}>{student.contact}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
                              </div>
                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}><span style={{ color: 'var(--text-secondary)', minWidth: '90px' }}>ទីតាំងផ្ទះ៖</span> 
-                               {student.location ? (student.location.startsWith('http') ? <a href={student.location} target="_blank" style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline' }}>ផែនទី 📍</a> : <strong style={{ color: 'var(--text-primary)' }}>{student.location}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
+                               {student.location ? (student.location.startsWith('http') ? <a href={student.location} target="_blank" style={{ color: '#10b981', fontWeight: 600, textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>ផែនទី <AppIcon name="map-pin" size={13} /></a> : <strong style={{ color: 'var(--text-primary)' }}>{student.location}</strong>) : <strong style={{ color: 'var(--text-primary)' }}>N/A</strong>}
                              </div>
                            </div>
                         </div>
@@ -1564,7 +1565,7 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('photoLink') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'photo', student.photo ? (
-                    <a href={convertDriveImageLink(student.photo)} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>Link 📍</a>
+                    <a href={convertDriveImageLink(student.photo)} target="_blank" rel="noopener noreferrer" style={{ color: '#ec4899', textDecoration: 'underline', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={e => e.stopPropagation()}>Link <AppIcon name="external-link" size={13} /></a>
                   ) : <span style={{ color: 'var(--text-secondary)' }}>គ្មាន</span>)}
                 </td>}
 
@@ -1622,8 +1623,8 @@ export default function StudentsPage() {
                 
                 {visibleColumns.includes('location') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'location', student.location && (student.location.startsWith('http://') || student.location.startsWith('https://')) ? (
-                    <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                      Link 📍
+                    <a href={student.location} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={e => e.stopPropagation()}>
+                      Link <AppIcon name="map-pin" size={13} />
                     </a>
                   ) : student.location)}
                 </td>}
@@ -1633,8 +1634,8 @@ export default function StudentsPage() {
                 {visibleColumns.includes('contact') && <td style={{ padding: '0.75rem 1.25rem' }}>
                   {renderCell(student, 'contact', student.contact ? (
                     student.contact.startsWith('http://') || student.contact.startsWith('https://') ? (
-                      <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600 }} onClick={e => e.stopPropagation()}>
-                        Link 📍
+                      <a href={student.contact} target="_blank" rel="noopener noreferrer" style={{ color: '#8b5cf6', textDecoration: 'underline', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} onClick={e => e.stopPropagation()}>
+                        Link <AppIcon name="external-link" size={13} />
                       </a>
                     ) : student.contact
                   ) : '')}
@@ -1721,9 +1722,11 @@ export default function StudentsPage() {
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🎓 ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Fee)
+                <AppIcon name="graduation-cap" size={18} style={{ color: '#6366f1' }} /> ផ្នែកទី១៖ ព័ត៌មានសិក្សា (Student ID ដល់ Fee)
               </span>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart1 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                <AppIcon name={showPart1 ? 'chevron-down' : 'chevron-right'} size={15} /> {showPart1 ? 'លាក់ (Hide)' : 'បង្ហាញ (Show)'}
+              </span>
             </div>
 
             {showPart1 && (
@@ -1835,9 +1838,11 @@ export default function StudentsPage() {
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                🏠 ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
+                <AppIcon name="home" size={18} style={{ color: '#8b5cf6' }} /> ផ្នែកទី២៖ ព័ត៌មានផ្ទាល់ខ្លួន និងទំនាក់ទំនង (DOB ដល់ Phone Num)
               </span>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{showPart2 ? '▼ លាក់ (Hide)' : '▲ បង្ហាញ (Show)'}</span>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                <AppIcon name={showPart2 ? 'chevron-down' : 'chevron-right'} size={15} /> {showPart2 ? 'លាក់ (Hide)' : 'បង្ហាញ (Show)'}
+              </span>
             </div>
 
             {showPart2 && (
@@ -1946,7 +1951,7 @@ export default function StudentsPage() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>ការកំណត់ Google Sheets (សិស្ស)</h2>
-              <button className="btn" onClick={() => setIsSyncSettingsModalOpen(false)} style={{ padding: '0.5rem', background: 'transparent' }}>✕</button>
+              <button className="btn" onClick={() => setIsSyncSettingsModalOpen(false)} style={{ padding: '0.5rem', background: 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><AppIcon name="x" size={18} /></button>
             </div>
             
             <div style={{ marginBottom: '1.5rem' }}>

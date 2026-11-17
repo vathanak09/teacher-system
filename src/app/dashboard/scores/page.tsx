@@ -6,6 +6,7 @@ import SortDropdown from '@/components/SortDropdown';
 import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
+import { AppIcon } from '@/components/AppIcons';
 
 
 
@@ -1270,7 +1271,17 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                       alignItems: 'center',
                       gap: '0.35rem'
                     }}>
-                      {isCompleted ? 'បញ្ចូលរួចរាល់ ✔' : 'មិនទាន់បញ្ចូល ✖'}
+                      {isCompleted ? (
+                        <>
+                          <AppIcon name="check-circle" size={16} />
+                          <span>បញ្ចូលរួចរាល់</span>
+                        </>
+                      ) : (
+                        <>
+                          <AppIcon name="x-circle" size={16} />
+                          <span>មិនទាន់បញ្ចូល</span>
+                        </>
+                      )}
                     </span>
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                       {scoredStudentsCount}/{totalStudents} ({progressPercent}%)
@@ -1471,7 +1482,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
             title="កំណត់មេគុណសម្រាប់មធ្យមភាគ"
           >
-            🔢 មេគុណ: {computedScores.currentCoeff}
+            <AppIcon name="hash" size={16} style={{ color: 'var(--primary-color, #3b82f6)' }} />
+            <span>មេគុណ: {computedScores.currentCoeff}</span>
           </button>
           <SortDropdown 
             options={[

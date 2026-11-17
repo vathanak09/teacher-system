@@ -313,8 +313,8 @@ export default function ScoresGuideModal({ isOpen, onClose }: ScoresGuideModalPr
                 <li>
                   <strong>ប្រអប់ «ខែ/ឆ្នាំ»៖</strong> រើសខែ និងឆ្នាំដែលត្រូវបញ្ចូល ឬពិនិត្យពិន្ទុ។ កាតថ្នាក់នីមួយៗនឹងបង្ហាញវឌ្ឍនភាពប្រចាំខែនោះ៖
                   <div style={subNoteStyle}>
-                    • <span style={{ color: "#10b981", fontWeight: 700 }}>បញ្ចូលរួចរាល់ ✔</span> នៅពេលបញ្ចូលពិន្ទុសិស្សបានចាប់ពី <b>80%</b> ឡើងទៅ។
-                    <br />• <span style={{ color: "#ef4444", fontWeight: 700 }}>មិនទាន់បញ្ចូល ✖</span> នៅពេលពិន្ទុទទួលបាននៅក្រោម 80% ឬមិនទាន់មានទិន្នន័យ។
+                    • <span style={{ color: "#10b981", fontWeight: 700 }}>បញ្ចូលរួចរាល់</span> នៅពេលបញ្ចូលពិន្ទុសិស្សបានចាប់ពី <b>80%</b> ឡើងទៅ។
+                    <br />• <span style={{ color: "#ef4444", fontWeight: 700 }}>មិនទាន់បញ្ចូល</span> នៅពេលពិន្ទុទទួលបាននៅក្រោម 80% ឬមិនទាន់មានទិន្នន័យ។
                   </div>
                 </li>
                 <li>
@@ -360,11 +360,11 @@ export default function ScoresGuideModal({ isOpen, onClose }: ScoresGuideModalPr
             <section style={sectionBoxStyle}>
               <h3 style={sectionTitleStyle}>
                 <Badge color="#8b5cf6">៣</Badge>
-                ការកំណត់មេគុណ (🔢) និទ្ទេស ការតម្រៀប និងសរុបស្ថិតិ
+                ការកំណត់មេគុណ និទ្ទេស ការតម្រៀប និងសរុបស្ថិតិ
               </h3>
               <ul style={listStyle}>
                 <li>
-                  <strong>ប៊ូតុង «🔢 មេគុណ» (Coefficient)៖</strong> ចុចដើម្បីជ្រើសរើសវិធីគណនាមធ្យមភាគ (លើមាត្រដ្ឋាន ៥០) មាន ២ ជម្រើស៖
+                  <strong>ប៊ូតុង «មេគុណ» (Coefficient)៖</strong> ចុចដើម្បីជ្រើសរើសវិធីគណនាមធ្យមភាគ (លើមាត្រដ្ឋាន ៥០) មាន ២ ជម្រើស៖
                   <div style={subNoteStyle}>
                     ១. <b>ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី (Auto)៖</b> មេគុណ = (ពិន្ទុសរុបខ្ពស់បំផុតក្នុងថ្នាក់ + ៥) ÷ ៥០។
                     <br />២. <b>កំណត់ពិន្ទុអតិបរមាខ្លួនឯង (Custom)៖</b> មេគុណ = ពិន្ទុអតិបរមាដែលអ្នកកំណត់ (ឧ. ២៥០) ÷ ៥០។

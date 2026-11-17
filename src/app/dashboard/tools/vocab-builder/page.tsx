@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { AppIcon } from '@/components/AppIcons';
 
 type VocabItem = {
   word: string;
@@ -473,11 +474,11 @@ Make sure the Khmer translation is very short, concise, and easy to understand.`
                   {item.ipa && <span style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>//{item.ipa}//</span>}
                   
                   <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
-                    <button onClick={() => playAudio(item.word, 'en-US')} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'white', border: '1px solid var(--border-color)' }}>
-                      🔊 US
+                    <button onClick={() => playAudio(item.word, 'en-US')} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'white', border: '1px solid var(--border-color)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <AppIcon name="volume" size={15} /> US
                     </button>
-                    <button onClick={() => playAudio(item.word, 'en-GB')} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'white', border: '1px solid var(--border-color)' }}>
-                      🔊 UK
+                    <button onClick={() => playAudio(item.word, 'en-GB')} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'white', border: '1px solid var(--border-color)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <AppIcon name="volume" size={15} /> UK
                     </button>
                   </div>
                 </div>

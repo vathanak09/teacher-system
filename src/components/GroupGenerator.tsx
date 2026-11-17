@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { AppIcon } from '@/components/AppIcons';
 
 interface GroupGeneratorProps {
   items: string[];
@@ -131,8 +132,9 @@ const GroupGenerator: React.FC<GroupGeneratorProps> = ({ items }) => {
             <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>លទ្ធផលនៃការបែងចែក៖ {groups.length} ក្រុម</h3>
             
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span id="copy-feedback" style={{ opacity: 0, transition: 'opacity 0.2s', color: 'var(--success)', fontSize: '0.9rem', fontWeight: 600 }}>
-                បានចម្លង ✓
+              <span id="copy-feedback" style={{ opacity: 0, transition: 'opacity 0.2s', color: 'var(--success)', fontSize: '0.9rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>បានចម្លង</span>
+                <AppIcon name="check" size={14} strokeWidth={2.8} />
               </span>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <CustomSelectDropdown

@@ -13,6 +13,7 @@ import {
   teachingRecordService,
 } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import { AppIcon } from '@/components/AppIcons';
 import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
 import { MonthlyTrackingDoc } from '@/components/teacher-tracking/trackingModel';
 import {
@@ -170,7 +171,7 @@ export default function DashboardPage() {
 
   const switcherDropdownOptions = useMemo(
     () => [
-      { value: '__admin__', label: '🏢 ទិដ្ឋភាពរួមសាលា (Admin Overview)' },
+      { value: '__admin__', label: 'ទិដ្ឋភាពរួមសាលា (Admin Overview)' },
       ...activeTeachersForSwitcher.map((t) => ({
         value: t.id,
         label: t.fullName,
@@ -320,7 +321,8 @@ export default function DashboardPage() {
                   inspectedTeacherId === null ? '0 4px 12px rgba(37, 99, 235, 0.25)' : 'none',
               }}
             >
-              🏢 ទិដ្ឋភាពរួមសាលា
+              <AppIcon name="building" size={15} />
+              <span>ទិដ្ឋភាពរួមសាលា</span>
             </button>
 
             {activeTeachersForSwitcher.map((t) => {

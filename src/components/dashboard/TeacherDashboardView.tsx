@@ -15,8 +15,10 @@ import {
 } from 'recharts';
 import { CLASS_COLORS, CLASS_ICONS } from '@/constants/classAppearance';
 import { formatDateToDMY } from '@/utils/dateFormatter';
+import { AppIcon } from '@/components/AppIcons';
+import KhmerMonthPicker from '@/components/KhmerMonthPicker';
 import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
-import { EXAM_STAGES, WEEK_META } from '@/components/teacher-tracking/trackingModel';
+import { EXAM_STAGES, WEEK_META, countExamStages } from '@/components/teacher-tracking/trackingModel';
 import {
   EnrichedClassSummary,
   TeacherReportRow,
@@ -67,7 +69,11 @@ export default function TeacherDashboardView({
     const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
     monthScores.forEach((sc) => {
       if (!myClassIds.has(sc.classId)) return;
-      if (sc.totalScore === undefined || sc.totalScore === null || String(sc.totalScore).trim() === '') {
+      if (
+        sc.totalScore === undefined ||
+        sc.totalScore === null ||
+        String(sc.totalScore).trim() === ''
+      ) {
         return;
       }
       const g = String(sc.grade || '').trim().toUpperCase();
@@ -106,13 +112,15 @@ export default function TeacherDashboardView({
     [classes]
   );
 
-  // Recent teaching records for this teacher's classes
+  // Recent teaching records
   const recentRecords = useMemo(() => {
     const classMap = new Map<string, any>();
     classes.forEach((ec) => classMap.set(ec.cls.id, ec.cls));
     return teachingRecords
       .filter((r) => myClassIds.has(r.classId))
-      .sort((a, b) => String(b.date || b.createdAt || '').localeCompare(String(a.date || a.createdAt || '')))
+      .sort((a, b) =>
+        String(b.date || b.createdAt || '').localeCompare(String(a.date || a.createdAt || ''))
+      )
       .slice(0, 6)
       .map((r) => {
         const cls = classMap.get(r.classId);
@@ -127,7 +135,7 @@ export default function TeacherDashboardView({
       });
   }, [teachingRecords, myClassIds, classes]);
 
-  // Ongoing class tasks for this teacher's classes
+  // Ongoing class tasks
   const myOngoingTasks = useMemo(() => {
     const classMap = new Map<string, any>();
     classes.forEach((ec) => classMap.set(ec.cls.id, ec.cls));
@@ -137,7 +145,8 @@ export default function TeacherDashboardView({
       .slice(0, 6)
       .map((t) => ({
         ...t,
-        className: classMap.get(t.classId)?.className || classMap.get(t.classId)?.classCode || '',
+        className:
+          classMap.get(t.classId)?.className || classMap.get(t.classId)?.classCode || '',
       }));
   }, [tasks, myClassIds, classes]);
 
@@ -161,41 +170,73 @@ export default function TeacherDashboardView({
     return list;
   }, [teacherReport.trackingSummary]);
 
-  const w4ExamEntry = teacherReport.trackingSummary?.perWeek?.w4?.entry;
-  const w4ExamActive = teacherReport.trackingSummary?.perWeek?.w4?.status?.examActive;
+  const ts = teacherReport.trackingSummary;
+  const w4ExamEntry = ts?.perWeek?.w4?.entry;
+  const w4ExamStagesCount = w4ExamEntry ? countExamStages(w4ExamEntry) : 0;
+  const hasAnyTrackingActivity = Boolean(
+    ts &&
+      (ts.totalTopics > 0 ||
+        ts.totalHomeworkCount > 0 ||
+        ts.totalVideoCount > 0 ||
+        w4ExamStagesCount > 0 ||
+        adminSpecialTasks.length > 0)
+  );
+
+  const allAttDone =
+    teacherReport.classCount > 0 &&
+    teacherReport.attendanceClassesTaken >= teacherReport.classCount;
+  const allScoresDone =
+    teacherReport.classCount > 0 &&
+    teacherReport.scoreClassesComplete >= teacherReport.classCount;
+  const someScoresDone =
+    teacherReport.scoreClassesComplete > 0 || teacherReport.scoreClassesPartial > 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Optional Admin Inspection Banner */}
       {isAdminInspecting && (
         <div
           style={{
-            padding: '0.8rem 1.15rem',
+            padding: '0.75rem 1.05rem',
             borderRadius: '14px',
-            background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(37, 99, 235, 0.14))',
-            border: '1px solid rgba(124, 58, 237, 0.35)',
+            background:
+              'linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(37, 99, 235, 0.12))',
+            border: '1px solid rgba(124, 58, 237, 0.3)',
             display: 'flex',
             flexWrap: 'wrap',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '0.75rem',
+            gap: '0.65rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              fontSize: '0.86rem',
+            }}
+          >
             <span
               style={{
-                padding: '0.22rem 0.6rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.32rem',
+                padding: '0.2rem 0.6rem',
                 borderRadius: '999px',
                 background: '#7c3aed',
                 color: '#ffffff',
-                fontSize: '0.74rem',
+                fontSize: '0.72rem',
                 fontWeight: 800,
               }}
             >
-              👁️ ទិដ្ឋភាពគ្រូបង្រៀន
+              <AppIcon name="eye" size={13} />
+              ទិដ្ឋភាពគ្រូបង្រៀន
             </span>
             <span>
-              អ្នកកំពុងពិនិត្យផ្ទាំង Dashboard របស់គ្រូ៖ <strong>{displayName}</strong>
+              កំពុងមើល Dashboard របស់៖ <strong>{displayName}</strong>
             </span>
           </div>
 
@@ -204,112 +245,135 @@ export default function TeacherDashboardView({
               type="button"
               onClick={onBackToAdmin}
               style={{
-                padding: '0.44rem 0.9rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.4rem 0.85rem',
                 borderRadius: '9px',
                 border: 'none',
                 background: '#7c3aed',
                 color: '#ffffff',
                 fontWeight: 700,
-                fontSize: '0.82rem',
+                fontSize: '0.79rem',
                 cursor: 'pointer',
               }}
             >
-              ← ត្រឡប់ទៅទិដ្ឋភាពរួមសាលា
+              <AppIcon name="chevron-left" size={14} />
+              ត្រឡប់ទៅទិដ្ឋភាពរួមសាលា
             </button>
           )}
         </div>
       )}
 
-      {/* 1. Welcome Hero & Quick Actions */}
+      {/* 1. Modern Welcome Hero Card */}
       <div
         className="glass-panel"
         style={{
-          padding: '1.35rem 1.5rem',
+          padding: '1.15rem 1.25rem',
+          borderRadius: '18px',
           background:
-            'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.08) 100%)',
-          borderLeft: '5px solid var(--primary-color, #3b82f6)',
+            'linear-gradient(135deg, color-mix(in srgb, var(--primary-color, #3b82f6) 11%, var(--card-bg)) 0%, var(--card-bg) 100%)',
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1.15rem',
+          flexDirection: 'column',
+          gap: '0.95rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
-          <TeacherAvatar teacher={teacher || { fullName: displayName }} size={60} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                សួស្តី, {displayName}
-              </h1>
-              <span
+        {/* Top Row: Profile + Khmer Month Picker */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.85rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', minWidth: 0 }}>
+            <div
+              style={{
+                padding: '3px',
+                borderRadius: '50%',
+                background: 'color-mix(in srgb, var(--primary-color, #3b82f6) 22%, transparent)',
+                flexShrink: 0,
+              }}
+            >
+              <TeacherAvatar teacher={teacher || { fullName: displayName }} size={54} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: '1.22rem',
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    lineHeight: 1.25,
+                  }}
+                >
+                  សួស្តី, {displayName}
+                </h1>
+                <span
+                  style={{
+                    padding: '0.16rem 0.58rem',
+                    borderRadius: '999px',
+                    background: 'color-mix(in srgb, var(--primary-color, #3b82f6) 15%, transparent)',
+                    color: 'var(--primary-color, #2563eb)',
+                    fontSize: '0.73rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {subjectText}
+                </span>
+              </div>
+              <div
                 style={{
-                  padding: '0.2rem 0.65rem',
-                  borderRadius: '999px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  color: 'var(--primary-color, #2563eb)',
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
+                  marginTop: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.38rem',
+                  fontSize: '0.79rem',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                {subjectText}
-              </span>
+                <AppIcon
+                  name="calendar"
+                  size={14}
+                  style={{ color: 'var(--primary-color, #3b82f6)' }}
+                />
+                <span>{todayFullKh}</span>
+              </div>
             </div>
-            <p style={{ margin: '0.3rem 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-              📅 {todayFullKh} • តាមដានវត្តមាន ពិន្ទុ និងមេរៀនប្រចាំថ្ងៃ
-            </p>
           </div>
+
+          <KhmerMonthPicker
+            value={scoreMonth}
+            onChange={onScoreMonthChange}
+            label="ខែពិន្ទុ៖"
+          />
         </div>
 
-        {/* Quick Actions & Month Selector */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.4rem 0.7rem',
-              borderRadius: '9px',
-              border: '1px solid var(--border-color)',
-              background: 'var(--modal-bg)',
-              fontSize: '0.8rem',
-            }}
-            title="ជ្រើសរើសខែសម្រាប់ពិនិត្យស្ថានភាពពិន្ទុ"
-          >
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>ខែពិន្ទុ៖</span>
-            <input
-              type="month"
-              value={scoreMonth}
-              onChange={(e) => e.target.value && onScoreMonthChange(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            />
-          </div>
-
+        {/* Bottom Row: Clean 3-Column Quick Actions */}
+        <div className="dashboard-quick-actions">
           <Link
             href="/dashboard/attendance"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '0.4rem',
-              padding: '0.52rem 0.9rem',
-              borderRadius: '10px',
+              padding: '0.52rem 0.8rem',
+              borderRadius: '11px',
               background: '#10b981',
               color: '#ffffff',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.79rem',
               textDecoration: 'none',
-              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.25)',
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.22)',
+              whiteSpace: 'nowrap',
             }}
           >
-            ✓ ស្រង់វត្តមានថ្ងៃនេះ
+            <AppIcon name="clipboard-check" size={15} />
+            <span>វត្តមានថ្ងៃនេះ</span>
           </Link>
 
           <Link
@@ -317,18 +381,21 @@ export default function TeacherDashboardView({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '0.4rem',
-              padding: '0.52rem 0.9rem',
-              borderRadius: '10px',
+              padding: '0.52rem 0.8rem',
+              borderRadius: '11px',
               background: '#f59e0b',
               color: '#ffffff',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.79rem',
               textDecoration: 'none',
-              boxShadow: '0 4px 10px rgba(245, 158, 11, 0.24)',
+              boxShadow: '0 4px 12px rgba(245, 158, 11, 0.22)',
+              whiteSpace: 'nowrap',
             }}
           >
-            ★ បញ្ចូលពិន្ទុ
+            <AppIcon name="star" size={15} />
+            <span>បញ្ចូលពិន្ទុ</span>
           </Link>
 
           <Link
@@ -336,227 +403,330 @@ export default function TeacherDashboardView({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
               gap: '0.4rem',
-              padding: '0.52rem 0.9rem',
-              borderRadius: '10px',
+              padding: '0.52rem 0.8rem',
+              borderRadius: '11px',
               border: '1px solid var(--border-color)',
               background: 'var(--modal-bg)',
               color: 'var(--text-primary)',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.79rem',
               textDecoration: 'none',
+              whiteSpace: 'nowrap',
             }}
           >
-            🎓 ថ្នាក់រៀន
+            <AppIcon
+              name="graduation-cap"
+              size={15}
+              style={{ color: 'var(--primary-color, #3b82f6)' }}
+            />
+            <span>ថ្នាក់រៀន</span>
           </Link>
         </div>
       </div>
 
-      {/* 2. Four Core Teacher KPIs */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 225px), 1fr))',
-          gap: '0.95rem',
-        }}
-      >
+      {/* 2. Four Core Teacher KPIs — 2x2 Grid on Mobile, 4 Columns on Desktop */}
+      <div className="dashboard-kpi-grid">
         {/* KPI 1: Assigned Classes */}
-        <div className="glass-panel" style={{ padding: '1.1rem 1.2rem', borderTop: '3px solid #6366f1' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            ថ្នាក់រៀនទទួលបន្ទុក
+        <Link
+          href="/dashboard/classes"
+          className="glass-panel glass-panel-hoverable dashboard-kpi-card"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              ថ្នាក់ទទួលបន្ទុក
+            </span>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9px',
+                background: 'rgba(99, 102, 241, 0.12)',
+                color: '#6366f1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name="graduation-cap" size={16} />
+            </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.25rem 0' }}>
-            {teacherReport.classCount} <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>ថ្នាក់</span>
+
+          <div className="dashboard-kpi-value" style={{ color: 'var(--text-primary)' }}>
+            {teacherReport.classCount}{' '}
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              ថ្នាក់
+            </span>
           </div>
-          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+
+          <div
+            style={{
+              fontSize: '0.71rem',
+              color: 'var(--text-secondary)',
+              fontWeight: 600,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {teacherReport.shiftsSummary}
           </div>
-        </div>
+        </Link>
 
-        {/* KPI 2: My Students */}
-        <div className="glass-panel" style={{ padding: '1.1rem 1.2rem', borderTop: '3px solid #0ea5e9' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            សិស្សសរុបរបស់ខ្ញុំ (កំពុងសិក្សា)
+        {/* KPI 2: My Active Students */}
+        <Link
+          href="/dashboard/classes"
+          className="glass-panel glass-panel-hoverable dashboard-kpi-card"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              សិស្សសរុបរបស់ខ្ញុំ
+            </span>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9px',
+                background: 'rgba(14, 165, 233, 0.12)',
+                color: '#0284c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name="users" size={16} />
+            </div>
           </div>
-          <div style={{ fontSize: '1.65rem', fontWeight: 800, color: '#0284c7', margin: '0.25rem 0' }}>
+
+          <div className="dashboard-kpi-value" style={{ color: '#0284c7' }}>
             {teacherReport.activeStudentsCount}{' '}
-            <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>នាក់</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              នាក់
+            </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', fontSize: '0.75rem', fontWeight: 700 }}>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', fontSize: '0.71rem', fontWeight: 700 }}>
             <span style={{ color: '#ec4899' }}>ស្រី {teacherReport.girlsCount}</span>
             <span style={{ color: 'var(--text-secondary)' }}>•</span>
             <span style={{ color: '#3b82f6' }}>ប្រុស {teacherReport.boysCount}</span>
-            {(teacherReport.suspendedCount > 0 || teacherReport.droppedCount > 0) && (
+            {teacherReport.droppedCount > 0 && (
               <>
                 <span style={{ color: 'var(--text-secondary)' }}>•</span>
-                <span style={{ color: '#f59e0b' }}>ព្យួរ {teacherReport.suspendedCount}</span>
                 <span style={{ color: '#ef4444' }}>ឈប់ {teacherReport.droppedCount}</span>
               </>
             )}
           </div>
-        </div>
+        </Link>
 
         {/* KPI 3: Attendance Today */}
-        <div className="glass-panel" style={{ padding: '1.1rem 1.2rem', borderTop: '3px solid #10b981' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            វត្តមានថ្ងៃនេះ
+        <Link
+          href="/dashboard/attendance"
+          className="glass-panel glass-panel-hoverable dashboard-kpi-card"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              វត្តមានថ្ងៃនេះ
+            </span>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9px',
+                background: allAttDone
+                  ? 'rgba(16, 185, 129, 0.14)'
+                  : 'rgba(245, 158, 11, 0.14)',
+                color: allAttDone ? '#059669' : '#d97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name="clipboard-check" size={16} />
+            </div>
           </div>
+
           <div
-            style={{
-              fontSize: '1.5rem',
-              fontWeight: 800,
-              color:
-                teacherReport.classCount > 0 &&
-                teacherReport.attendanceClassesTaken >= teacherReport.classCount
-                  ? '#059669'
-                  : '#d97706',
-              margin: '0.25rem 0',
-            }}
+            className="dashboard-kpi-value"
+            style={{ color: allAttDone ? '#059669' : '#d97706' }}
           >
-            ស្រង់រួច {teacherReport.attendanceClassesTaken}/{teacherReport.classCount}{' '}
-            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>ថ្នាក់</span>
+            {teacherReport.attendanceClassesTaken}/{teacherReport.classCount}{' '}
+            <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>ថ្នាក់</span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', fontSize: '0.75rem', fontWeight: 700 }}>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700 }}>
             <span style={{ color: '#10b981' }}>មក {teacherReport.presentTodayCount}</span>
             <span style={{ color: 'var(--text-secondary)' }}>•</span>
             <span style={{ color: '#ef4444' }}>អវត្តមាន {teacherReport.absentTodayCount}</span>
             <span style={{ color: 'var(--text-secondary)' }}>•</span>
             <span style={{ color: '#f59e0b' }}>ច្បាប់ {teacherReport.permissionTodayCount}</span>
           </div>
-        </div>
+        </Link>
 
         {/* KPI 4: Monthly Scores & Tasks */}
-        <div className="glass-panel" style={{ padding: '1.1rem 1.2rem', borderTop: '3px solid #f59e0b' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            ពិន្ទុ ({scoreMonthKh}) & កិច្ចការ
+        <Link
+          href="/dashboard/scores"
+          className="glass-panel glass-panel-hoverable dashboard-kpi-card"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              ពិន្ទុខែនេះ & កិច្ចការ
+            </span>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '9px',
+                background: allScoresDone
+                  ? 'rgba(16, 185, 129, 0.14)'
+                  : someScoresDone
+                    ? 'rgba(245, 158, 11, 0.14)'
+                    : 'rgba(239, 68, 68, 0.12)',
+                color: allScoresDone ? '#059669' : someScoresDone ? '#d97706' : '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name={allScoresDone ? 'check-circle' : 'star'} size={16} />
+            </div>
           </div>
+
           <div
+            className="dashboard-kpi-value"
             style={{
-              fontSize: '1.5rem',
-              fontWeight: 800,
-              color:
-                teacherReport.classCount > 0 &&
-                teacherReport.scoreClassesComplete >= teacherReport.classCount
-                  ? '#059669'
-                  : teacherReport.scoreClassesComplete > 0 || teacherReport.scoreClassesPartial > 0
-                    ? '#d97706'
-                    : '#dc2626',
-              margin: '0.25rem 0',
+              color: allScoresDone ? '#059669' : someScoresDone ? '#d97706' : '#dc2626',
             }}
           >
             {teacherReport.scoreClassesComplete}/{teacherReport.classCount}{' '}
-            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>ថ្នាក់រួចរាល់ ✔</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>ថ្នាក់រួច</span>
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            ដាក់ពិន្ទុបាន {teacherReport.totalScoredStudents}/{teacherReport.totalExpectedScoreStudents} សិស្ស • កិច្ចការសល់{' '}
+
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            សិស្ស {teacherReport.totalScoredStudents}/{teacherReport.totalExpectedScoreStudents} • សល់{' '}
             <strong style={{ color: teacherReport.pendingTasksCount > 0 ? '#f59e0b' : '#10b981' }}>
               {teacherReport.pendingTasksCount}
             </strong>
           </div>
-        </div>
+        </Link>
       </div>
 
-      {/* Optional Strip: My Monthly Work Tracking, Week 4 Exam Stages & Admin Special Tasks */}
-      {teacherReport.trackingSummary &&
-        (teacherReport.trackingSummary.totalTopics > 0 ||
-          adminSpecialTasks.length > 0 ||
-          w4ExamActive) && (
-          <div
-            className="glass-panel"
-            style={{
-              padding: '1rem 1.25rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.7rem',
-              borderLeft: '4px solid #0d9488',
-            }}
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
-              <div style={{ fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                📋 គោលដៅការងារគ្រូប្រចាំខែ ({scoreMonthKh})
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', fontSize: '0.77rem', fontWeight: 700 }}>
-                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>
-                  Topic បានរៀន៖ {teacherReport.trackingSummary.totalTopics}
-                </span>
-                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: '#059669' }}>
-                  Homework៖ {teacherReport.trackingSummary.totalHomeworkCount} ដង
-                </span>
-                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed' }}>
-                  វីដេអូ Topic៖ {teacherReport.trackingSummary.totalVideoCount}
-                </span>
-                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(13, 148, 136, 0.14)', color: '#0d9488' }}>
-                  សម្រេចរួម៖ {teacherReport.trackingSummary.completionPct}%
-                </span>
-              </div>
-            </div>
-
-            {(w4ExamEntry || adminSpecialTasks.length > 0) && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.65rem', alignItems: 'center' }}>
-                {w4ExamActive && w4ExamEntry && (
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      padding: '0.35rem 0.65rem',
-                      borderRadius: '9px',
-                      background: 'rgba(139, 92, 246, 0.08)',
-                      border: '1px solid rgba(139, 92, 246, 0.25)',
-                      fontSize: '0.76rem',
-                    }}
-                  >
-                    <strong style={{ color: '#7c3aed' }}>📝 វិញ្ញាសា (សប្តាហ៍ទី ៤)៖</strong>
-                    {EXAM_STAGES.map((st) => {
-                      const done = Boolean(w4ExamEntry[st.key]);
-                      return (
-                        <span
-                          key={st.key}
-                          style={{
-                            padding: '0.12rem 0.45rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            background: done ? 'rgba(16, 185, 129, 0.16)' : 'var(--main-bg)',
-                            color: done ? '#059669' : 'var(--text-secondary)',
-                          }}
-                        >
-                          {done ? '✓' : st.step} {st.shortLabel}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {adminSpecialTasks.map((tk, i) => (
-                  <div
-                    key={`${tk.weekLabel}-${i}`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.35rem 0.7rem',
-                      borderRadius: '9px',
-                      background: tk.done ? 'rgba(16, 185, 129, 0.1)' : 'rgba(2, 132, 199, 0.1)',
-                      border: tk.done
-                        ? '1px solid rgba(16, 185, 129, 0.3)'
-                        : '1px solid rgba(2, 132, 199, 0.3)',
-                      fontSize: '0.77rem',
-                    }}
-                  >
-                    <span style={{ fontWeight: 800, color: tk.done ? '#059669' : '#0284c7' }}>
-                      {tk.done ? '✓' : '⏳'} Task ({tk.weekLabel}
-                      {tk.count > 0 ? ` • ចំនួន ${tk.count}` : ''})៖
-                    </span>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                      {tk.description || 'កិច្ចការពិសេស'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+      {/* Optional Compact Goals & Admin Special Tasks Strip (only shown when month has tracking activity) */}
+      {hasAnyTrackingActivity && ts && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '1rem 1.15rem',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+            <AppIcon name="clipboard-check" size={17} style={{ color: '#0d9488' }} />
+            <span>គោលដៅការងារគ្រូប្រចាំខែ ({scoreMonthKh})</span>
           </div>
-        )}
+
+          <div className="dashboard-goals-grid">
+            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Topic បានរៀន</div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#2563eb' }}>{ts.totalTopics} Topics</div>
+            </div>
+            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>កិច្ចការផ្ទះ</div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669' }}>{ts.totalHomeworkCount} ដង</div>
+            </div>
+            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>វីដេអូ Topic</div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#7c3aed' }}>{ts.totalVideoCount} វីដេអូ</div>
+            </div>
+            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>អត្រាសម្រេចរួម</div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0d9488' }}>{ts.completionPct}%</div>
+            </div>
+          </div>
+
+          {(w4ExamStagesCount > 0 || adminSpecialTasks.length > 0) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
+              {w4ExamEntry && w4ExamStagesCount > 0 && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '9px',
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    border: '1px solid rgba(139, 92, 246, 0.25)',
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  <AppIcon name="file-text" size={14} style={{ color: '#7c3aed' }} />
+                  <strong style={{ color: '#7c3aed' }}>វិញ្ញាសា (សប្តាហ៍ទី ៤)៖</strong>
+                  {EXAM_STAGES.map((st) => {
+                    const done = Boolean(w4ExamEntry[st.key]);
+                    return (
+                      <span
+                        key={st.key}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          padding: '0.12rem 0.42rem',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                          background: done ? 'rgba(16, 185, 129, 0.16)' : 'var(--main-bg)',
+                          color: done ? '#059669' : 'var(--text-secondary)',
+                        }}
+                      >
+                        {done ? <AppIcon name="check" size={11} /> : <span>{st.step}.</span>}
+                        <span>{st.shortLabel}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {adminSpecialTasks.map((tk, i) => (
+                <div
+                  key={`${tk.weekLabel}-${i}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.7rem',
+                    borderRadius: '9px',
+                    background: tk.done ? 'rgba(16, 185, 129, 0.1)' : 'rgba(2, 132, 199, 0.1)',
+                    border: tk.done
+                      ? '1px solid rgba(16, 185, 129, 0.3)'
+                      : '1px solid rgba(2, 132, 199, 0.3)',
+                    fontSize: '0.76rem',
+                  }}
+                >
+                  <AppIcon
+                    name={tk.done ? 'check-circle' : 'clock'}
+                    size={14}
+                    style={{ color: tk.done ? '#059669' : '#0284c7' }}
+                  />
+                  <span style={{ fontWeight: 800, color: tk.done ? '#059669' : '#0284c7' }}>
+                    Task ({tk.weekLabel}
+                    {tk.count > 0 ? ` • ចំនួន ${tk.count}` : ''})៖
+                  </span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {tk.description || 'កិច្ចការពិសេស'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 3. My Classes & Today's Status Grid */}
       <div>
@@ -566,22 +736,29 @@ export default function TeacherDashboardView({
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '0.5rem',
-            marginBottom: '0.85rem',
+            gap: '0.4rem',
+            marginBottom: '0.75rem',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            🎓 ថ្នាក់រៀនរបស់ខ្ញុំ & ស្ថានភាពថ្ងៃនេះ ({classes.length} ថ្នាក់)
-          </h2>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            ចុចលើផ្លាកវត្តមាន ឬពិន្ទុ ដើម្បីចូលបំពេញទិន្នន័យភ្លាមៗ
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <AppIcon
+              name="graduation-cap"
+              size={19}
+              style={{ color: 'var(--primary-color, #3b82f6)' }}
+            />
+            <h2 style={{ margin: 0, fontSize: '1.04rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              ថ្នាក់រៀនរបស់ខ្ញុំ & ស្ថានភាពថ្ងៃនេះ ({classes.length} ថ្នាក់)
+            </h2>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            ចុចលើវត្តមាន ឬពិន្ទុ ដើម្បីចូលបំពេញទិន្នន័យភ្លាមៗ
           </span>
         </div>
 
         {classes.length === 0 ? (
           <div
             className="glass-panel"
-            style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}
+            style={{ padding: '2.2rem', textAlign: 'center', color: 'var(--text-secondary)' }}
           >
             មិនទាន់មានថ្នាក់រៀនត្រូវបានកំណត់ជូនគ្រូរូបនេះនៅឡើយទេ។
           </div>
@@ -589,8 +766,8 @@ export default function TeacherDashboardView({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 315px), 1fr))',
-              gap: '1rem',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 305px), 1fr))',
+              gap: '0.9rem',
             }}
           >
             {classes.map((ec: EnrichedClassSummary) => {
@@ -601,31 +778,48 @@ export default function TeacherDashboardView({
 
               const scoreBadgePalette =
                 scoreStatus.state === 'complete'
-                  ? { bg: 'rgba(16, 185, 129, 0.14)', color: '#059669', label: 'បញ្ចូលពិន្ទុរួច ✔' }
+                  ? {
+                      bg: 'rgba(16, 185, 129, 0.12)',
+                      border: 'rgba(16, 185, 129, 0.25)',
+                      color: '#059669',
+                      icon: 'check-circle' as const,
+                      label: 'បញ្ចូលពិន្ទុរួច',
+                    }
                   : scoreStatus.state === 'partial'
-                    ? { bg: 'rgba(245, 158, 11, 0.15)', color: '#d97706', label: 'ដាក់ពិន្ទុបានខ្លះ ◔' }
-                    : { bg: 'rgba(239, 68, 68, 0.13)', color: '#dc2626', label: 'មិនទាន់បញ្ចូលពិន្ទុ ✖' };
+                    ? {
+                        bg: 'rgba(245, 158, 11, 0.13)',
+                        border: 'rgba(245, 158, 11, 0.28)',
+                        color: '#d97706',
+                        icon: 'clock' as const,
+                        label: 'ដាក់ពិន្ទុបានខ្លះ',
+                      }
+                    : {
+                        bg: 'rgba(239, 68, 68, 0.1)',
+                        border: 'rgba(239, 68, 68, 0.22)',
+                        color: '#dc2626',
+                        icon: 'x-circle' as const,
+                        label: 'មិនទាន់ដាក់ពិន្ទុ',
+                      };
 
               return (
                 <div
                   key={cls.id}
                   className="glass-panel glass-panel-hoverable"
                   style={{
-                    padding: '1.15rem',
-                    borderLeft: `5px solid ${colorHex}`,
+                    padding: '1.05rem',
+                    borderRadius: '16px',
+                    borderTop: `3px solid ${colorHex}`,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.85rem',
-                    position: 'relative',
-                    overflow: 'hidden',
+                    gap: '0.8rem',
                   }}
                 >
                   {/* Top Class Info */}
-                  <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
                     <div
                       style={{
-                        width: '44px',
-                        height: '44px',
+                        width: '42px',
+                        height: '42px',
                         borderRadius: '11px',
                         background: `${colorHex}18`,
                         color: colorHex,
@@ -642,7 +836,7 @@ export default function TeacherDashboardView({
                         <h3
                           style={{
                             margin: 0,
-                            fontSize: '1.05rem',
+                            fontSize: '1rem',
                             fontWeight: 800,
                             color: 'var(--text-primary)',
                             overflow: 'hidden',
@@ -655,11 +849,11 @@ export default function TeacherDashboardView({
                         {cls.classCode && (
                           <span
                             style={{
-                              padding: '0.12rem 0.48rem',
+                              padding: '0.12rem 0.45rem',
                               borderRadius: '6px',
                               background: 'var(--main-bg)',
                               border: '1px solid var(--border-color)',
-                              fontSize: '0.72rem',
+                              fontSize: '0.7rem',
                               fontWeight: 700,
                               color: 'var(--text-secondary)',
                               flexShrink: 0,
@@ -669,92 +863,107 @@ export default function TeacherDashboardView({
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
                         {cls.shift || 'មិនកំណត់វេន'}
-                        {cls.time ? ` • ម៉ោង ${cls.time}` : ''}
-                      </div>
-                      <div style={{ fontSize: '0.79rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
-                        សិស្សកំពុងសិក្សា៖ {activeStudents.length} នាក់{' '}
-                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
-                          (ស្រី {ec.girlsCount} • ប្រុស {ec.boysCount})
-                        </span>
+                        {cls.time ? ` • ${cls.time}` : ''} •{' '}
+                        <strong style={{ color: 'var(--text-primary)' }}>
+                          {activeStudents.length} សិស្ស
+                        </strong>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Pills: Today's Attendance & Monthly Score */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                  {/* Side-by-Side 2-Column Status Pair (Today's Attendance + Monthly Score) */}
+                  <div className="dashboard-status-pair">
                     <Link
                       href="/dashboard/attendance"
                       style={{
-                        flex: 1,
-                        minWidth: '135px',
-                        padding: '0.42rem 0.6rem',
-                        borderRadius: '8px',
+                        padding: '0.5rem 0.6rem',
+                        borderRadius: '10px',
                         textDecoration: 'none',
                         background: attendanceToday.isTaken
-                          ? 'rgba(16, 185, 129, 0.14)'
-                          : 'rgba(245, 158, 11, 0.14)',
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : 'rgba(245, 158, 11, 0.12)',
+                        border: attendanceToday.isTaken
+                          ? '1px solid rgba(16, 185, 129, 0.25)'
+                          : '1px solid rgba(245, 158, 11, 0.26)',
                         color: attendanceToday.isTaken ? '#059669' : '#d97706',
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '2px',
+                        gap: '3px',
+                        minWidth: 0,
                       }}
                     >
-                      <span>
-                        {attendanceToday.isTaken ? 'វត្តមានថ្ងៃនេះ៖ ស្រង់រួច ✔' : 'វត្តមានថ្ងៃនេះ៖ មិនទាន់ស្រង់'}
-                      </span>
-                      <span style={{ fontSize: '0.69rem', opacity: 0.9, fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem', fontWeight: 800 }}>
+                        <AppIcon
+                          name={attendanceToday.isTaken ? 'check-circle' : 'clock'}
+                          size={13}
+                        />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {attendanceToday.isTaken ? 'វត្តមានស្រង់រួច' : 'មិនទាន់ស្រង់វត្តមាន'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.68rem', opacity: 0.9, fontWeight: 600 }}>
                         {attendanceToday.isTaken
-                          ? `មក ${attendanceToday.presentCount} • អវត្តមាន ${attendanceToday.absentCount} • ច្បាប់ ${attendanceToday.permissionCount}`
-                          : 'ចុចដើម្បីចូលស្រង់វត្តមាន →'}
-                      </span>
+                          ? `មក ${attendanceToday.presentCount} • អវត្តមាន ${attendanceToday.absentCount}`
+                          : 'ចុចចូលស្រង់ថ្ងៃនេះ'}
+                      </div>
                     </Link>
 
                     <Link
                       href="/dashboard/scores"
                       style={{
-                        flex: 1,
-                        minWidth: '135px',
-                        padding: '0.42rem 0.6rem',
-                        borderRadius: '8px',
+                        padding: '0.5rem 0.6rem',
+                        borderRadius: '10px',
                         textDecoration: 'none',
                         background: scoreBadgePalette.bg,
+                        border: `1px solid ${scoreBadgePalette.border}`,
                         color: scoreBadgePalette.color,
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '2px',
+                        gap: '3px',
+                        minWidth: 0,
                       }}
                     >
-                      <span>{scoreBadgePalette.label}</span>
-                      <span style={{ fontSize: '0.69rem', opacity: 0.9, fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem', fontWeight: 800 }}>
+                        <AppIcon name={scoreBadgePalette.icon} size={13} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {scoreBadgePalette.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.68rem', opacity: 0.9, fontWeight: 600 }}>
                         {scoreStatus.scoredCount}/{scoreStatus.expectedCount} សិស្ស ({scoreStatus.percent}%)
-                      </span>
+                      </div>
                     </Link>
                   </div>
 
                   {/* Book Progress Bar */}
-                  <div style={{ paddingTop: '0.45rem', borderTop: '1px dashed var(--border-color)' }}>
+                  <div style={{ paddingTop: '0.4rem', borderTop: '1px dashed var(--border-color)' }}>
                     <div
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        fontSize: '0.76rem',
-                        marginBottom: '0.3rem',
+                        fontSize: '0.74rem',
+                        marginBottom: '0.28rem',
                       }}
                     >
-                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                        📚 វឌ្ឍនភាពសៀវភៅបង្រៀន
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          color: 'var(--text-secondary)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <AppIcon name="book-open" size={13} />
+                        <span>សៀវភៅបង្រៀន</span>
                       </span>
                       <span style={{ fontWeight: 800, color: colorHex }}>
                         {bookProgress.hasBooks
-                          ? `${bookProgress.percent}% (${bookProgress.taughtPages}/${bookProgress.totalPages} ទំព័រ)`
-                          : 'មិនទាន់កំណត់សៀវភៅ'}
+                          ? `${bookProgress.percent}% (${bookProgress.taughtPages}/${bookProgress.totalPages})`
+                          : 'មិនទាន់កំណត់'}
                       </span>
                     </div>
                     <div
@@ -784,21 +993,23 @@ export default function TeacherDashboardView({
         )}
       </div>
 
-      {/* 4. Charts Row: Book/Score Progress & Student Grade Ratio (A-F) */}
+      {/* 4. Charts Row */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))',
-          gap: '1rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 315px), 1fr))',
+          gap: '0.95rem',
         }}
       >
-        {/* Bar Chart: Class Book & Score Progress */}
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <h3 style={{ margin: '0 0 1rem', fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            📊 វឌ្ឍនភាពសៀវភៅ & ការដាក់ពិន្ទុតាមថ្នាក់ (%)
-          </h3>
+        <div className="glass-panel" style={{ padding: '1.15rem', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.9rem' }}>
+            <AppIcon name="bar-chart" size={17} style={{ color: '#3b82f6' }} />
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              វឌ្ឍនភាពសៀវភៅ & ការដាក់ពិន្ទុតាមថ្នាក់ (%)
+            </h3>
+          </div>
           {classChartData.length > 0 ? (
-            <div style={{ width: '100%', height: '255px' }}>
+            <div style={{ width: '100%', height: '245px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={classChartData} margin={{ top: 8, right: 12, left: -18, bottom: 16 }}>
                   <XAxis dataKey="name" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
@@ -819,27 +1030,38 @@ export default function TeacherDashboardView({
               </ResponsiveContainer>
             </div>
           ) : (
-            <div style={{ height: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            <div
+              style={{
+                height: '210px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)',
+                fontSize: '0.84rem',
+              }}
+            >
               មិនទាន់មានទិន្នន័យថ្នាក់រៀន
             </div>
           )}
         </div>
 
-        {/* Donut Chart: Student Grade Distribution (A-F) */}
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <h3 style={{ margin: '0 0 1rem', fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            🏆 សមាមាត្រនិទ្ទេសពិន្ទុសិស្ស A–F ({scoreMonthKh})
-          </h3>
+        <div className="glass-panel" style={{ padding: '1.15rem', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.9rem' }}>
+            <AppIcon name="award" size={17} style={{ color: '#f59e0b' }} />
+            <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              សមាមាត្រនិទ្ទេសពិន្ទុសិស្ស A–F ({scoreMonthKh})
+            </h3>
+          </div>
           {gradeDistribution.length > 0 ? (
-            <div style={{ width: '100%', height: '255px' }}>
+            <div style={{ width: '100%', height: '245px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={gradeDistribution}
                     cx="50%"
                     cy="48%"
-                    innerRadius={55}
-                    outerRadius={88}
+                    innerRadius={52}
+                    outerRadius={84}
                     paddingAngle={4}
                     dataKey="value"
                   >
@@ -863,23 +1085,32 @@ export default function TeacherDashboardView({
           ) : (
             <div
               style={{
-                height: '220px',
+                height: '210px',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
                 color: 'var(--text-secondary)',
-                fontSize: '0.84rem',
+                fontSize: '0.83rem',
                 textAlign: 'center',
               }}
             >
               <span>មិនទាន់មានទិន្នន័យពិន្ទុសម្រាប់ {scoreMonthKh} ទេ</span>
               <Link
                 href="/dashboard/scores"
-                style={{ color: 'var(--primary-color)', fontWeight: 700, fontSize: '0.8rem', textDecoration: 'none' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  color: 'var(--primary-color)',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  textDecoration: 'none',
+                }}
               >
-                ចូលទៅបញ្ចូលពិន្ទុឥឡូវនេះ →
+                <span>ចូលទៅបញ្ចូលពិន្ទុឥឡូវនេះ</span>
+                <AppIcon name="chevron-right" size={14} />
               </Link>
             </div>
           )}
@@ -890,53 +1121,64 @@ export default function TeacherDashboardView({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 330px), 1fr))',
-          gap: '1rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 315px), 1fr))',
+          gap: '0.95rem',
         }}
       >
-        {/* Recent Teaching Records */}
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
-            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              📖 កំណត់ត្រាបង្រៀនចុងក្រោយ
-            </h3>
+        <div className="glass-panel" style={{ padding: '1.15rem', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <AppIcon name="book-open" size={17} style={{ color: '#2563eb' }} />
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                កំណត់ត្រាបង្រៀនចុងក្រោយ
+              </h3>
+            </div>
             <Link
               href="/dashboard/classes"
-              style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary-color)', textDecoration: 'none' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.2rem',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                color: 'var(--primary-color)',
+                textDecoration: 'none',
+              }}
             >
-              មើលទាំងអស់ →
+              <span>មើលទាំងអស់</span>
+              <AppIcon name="chevron-right" size={13} />
             </Link>
           </div>
 
           {recentRecords.length === 0 ? (
-            <div style={{ padding: '1.8rem 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
+            <div style={{ padding: '1.6rem 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.83rem' }}>
               មិនទាន់មានកំណត់ត្រាបង្រៀនទេ
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               {recentRecords.map((rec) => (
                 <div
                   key={rec.id}
                   style={{
-                    padding: '0.7rem 0.85rem',
+                    padding: '0.68rem 0.8rem',
                     borderRadius: '10px',
                     background: 'var(--main-bg)',
                     border: '1px solid var(--border-color)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.25rem',
+                    gap: '0.22rem',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
                       {rec.className}
                       {rec.bookTitle ? ` • ${rec.bookTitle}` : ''}
                     </span>
-                    <span style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                       {rec.date ? formatDateToDMY(rec.date) : ''}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ fontSize: '0.77rem', color: 'var(--text-secondary)' }}>
                     {rec.pages ? <strong style={{ color: '#2563eb' }}>ទំព័រ {rec.pages}៖ </strong> : null}
                     {rec.content || rec.other || 'បានកត់ត្រាការបង្រៀន'}
                   </div>
@@ -946,48 +1188,71 @@ export default function TeacherDashboardView({
           )}
         </div>
 
-        {/* Ongoing Tasks */}
-        <div className="glass-panel" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem' }}>
-            <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              📌 កិច្ចការក្នុងថ្នាក់កំពុងអនុវត្ត
-            </h3>
+        <div className="glass-panel" style={{ padding: '1.15rem', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <AppIcon name="pin" size={17} style={{ color: '#0d9488' }} />
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                កិច្ចការក្នុងថ្នាក់កំពុងអនុវត្ត
+              </h3>
+            </div>
             <Link
               href="/dashboard/classes"
-              style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary-color)', textDecoration: 'none' }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.2rem',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                color: 'var(--primary-color)',
+                textDecoration: 'none',
+              }}
             >
-              គ្រប់គ្រងកិច្ចការ →
+              <span>គ្រប់គ្រង</span>
+              <AppIcon name="chevron-right" size={13} />
             </Link>
           </div>
 
           {myOngoingTasks.length === 0 ? (
-            <div style={{ padding: '1.8rem 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
-              មិនមានកិច្ចការដែលនៅសល់ទេ ✓
+            <div
+              style={{
+                padding: '1.6rem 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                color: '#10b981',
+                fontWeight: 700,
+                fontSize: '0.83rem',
+              }}
+            >
+              <AppIcon name="check-circle" size={16} />
+              <span>មិនមានកិច្ចការដែលនៅសល់ទេ</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
               {myOngoingTasks.map((task) => {
                 const pct = Math.min(100, Math.max(0, Number(task.progress) || 0));
                 return (
                   <div
                     key={task.id}
                     style={{
-                      padding: '0.75rem 0.85rem',
+                      padding: '0.7rem 0.8rem',
                       borderRadius: '10px',
                       background: 'var(--main-bg)',
                       border: '1px solid var(--border-color)',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-                      <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>{task.title}</strong>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.38rem' }}>
+                      <strong style={{ fontSize: '0.83rem', color: 'var(--text-primary)' }}>{task.title}</strong>
                       {task.className && (
                         <span
                           style={{
-                            padding: '0.12rem 0.5rem',
+                            padding: '0.12rem 0.48rem',
                             borderRadius: '999px',
                             background: 'rgba(59, 130, 246, 0.12)',
                             color: '#2563eb',
-                            fontSize: '0.72rem',
+                            fontSize: '0.71rem',
                             fontWeight: 700,
                           }}
                         >
@@ -995,7 +1260,7 @@ export default function TeacherDashboardView({
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <div
                         style={{
                           flex: 1,
@@ -1014,7 +1279,7 @@ export default function TeacherDashboardView({
                           }}
                         />
                       </div>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                         {pct}%
                       </span>
                     </div>

@@ -6,6 +6,7 @@ import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import SortDropdown from '@/components/SortDropdown';
 import { CLASS_COLORS, CLASS_ICONS } from '@/constants/classAppearance';
 import { convertDriveImageLink } from '@/utils/driveLink';
+import { AppIcon } from '@/components/AppIcons';
 
 function getClassStudentIds(cls: any): string[] {
   if (!cls) return [];
@@ -739,11 +740,11 @@ export default function AttendancePage() {
 
           <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>✓</span>
+              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><AppIcon name="check" size={12} strokeWidth={2.8} /></span>
               មករៀន
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(239, 68, 68, 0.18)', color: '#ef4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>✕</span>
+              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(239, 68, 68, 0.18)', color: '#ef4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><AppIcon name="x" size={12} strokeWidth={2.8} /></span>
               អវត្តមាន
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -926,18 +927,18 @@ export default function AttendancePage() {
                     let btnBg = isUnlocked ? 'rgba(59, 130, 246, 0.05)' : 'transparent';
                     let btnColor = 'inherit';
                     let btnBorder = isUnlocked ? '1px dashed rgba(59, 130, 246, 0.35)' : '1px solid transparent';
-                    let symbol = '';
+                    let symbol: React.ReactNode = null;
 
                     if (status === 'present') {
                       btnBg = 'rgba(16, 185, 129, 0.16)';
                       btnColor = '#10b981';
                       btnBorder = '1px solid rgba(16, 185, 129, 0.25)';
-                      symbol = '✓';
+                      symbol = <AppIcon name="check" size={13} strokeWidth={2.8} />;
                     } else if (status === 'absent') {
                       btnBg = 'rgba(239, 68, 68, 0.16)';
                       btnColor = '#ef4444';
                       btnBorder = '1px solid rgba(239, 68, 68, 0.28)';
-                      symbol = '✕';
+                      symbol = <AppIcon name="x" size={13} strokeWidth={2.8} />;
                     } else if (status === 'permission') {
                       btnBg = 'rgba(245, 158, 11, 0.16)';
                       btnColor = '#d97706';

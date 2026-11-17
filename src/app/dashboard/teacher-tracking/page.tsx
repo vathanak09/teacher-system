@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { teacherService, teacherTrackingService } from '@/services/db';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
+import { AppIcon } from '@/components/AppIcons';
 import {
   CompletionDropdownStatus,
   EXAM_WEEK_KEY,
@@ -595,11 +596,16 @@ export default function TeacherTrackingPage() {
                         : '#059669',
                 }}
               >
-                {saveState === 'saving'
-                  ? 'កំពុងរក្សាទុក...'
-                  : saveState === 'error'
-                    ? 'បញ្ហាក្នុងការរក្សាទុក!'
-                    : 'រក្សាទុកស្វ័យប្រវត្តិ ✓'}
+                {saveState === 'saving' ? (
+                  'កំពុងរក្សាទុក...'
+                ) : saveState === 'error' ? (
+                  'បញ្ហាក្នុងការរក្សាទុក!'
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>រក្សាទុកស្វ័យប្រវត្តិ</span>
+                    <AppIcon name="check" size={11} strokeWidth={2.8} />
+                  </span>
+                )}
               </span>
             </div>
             <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
@@ -683,17 +689,19 @@ export default function TeacherTrackingPage() {
             type="button"
             onClick={() => handleStepMonth(-1)}
             style={{
-              padding: '0.42rem 0.65rem',
+              padding: '0.42rem 0.6rem',
               borderRadius: '8px',
               border: '1px solid var(--border-color)',
               background: 'var(--main-bg)',
               color: 'var(--text-primary)',
               cursor: 'pointer',
-              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
             title="ខែមុន"
           >
-            ◀
+            <AppIcon name="chevron-left" size={15} />
           </button>
 
           <select
@@ -742,17 +750,19 @@ export default function TeacherTrackingPage() {
             type="button"
             onClick={() => handleStepMonth(1)}
             style={{
-              padding: '0.42rem 0.65rem',
+              padding: '0.42rem 0.6rem',
               borderRadius: '8px',
               border: '1px solid var(--border-color)',
               background: 'var(--main-bg)',
               color: 'var(--text-primary)',
               cursor: 'pointer',
-              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
             title="ខែបន្ទាប់"
           >
-            ▶
+            <AppIcon name="chevron-right" size={15} />
           </button>
 
           <span
@@ -834,14 +844,8 @@ export default function TeacherTrackingPage() {
         </div>
       </div>
 
-      {/* 4 Monthly KPI Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))',
-          gap: '0.85rem',
-        }}
-      >
+      {/* 4 Monthly KPI Cards (2x2 on mobile, 4-col on desktop) */}
+      <div className="dashboard-kpi-grid">
         <div className="glass-panel" style={{ padding: '0.95rem 1.1rem', borderTop: '3px solid #0d9488' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
             គ្រូកំពុងតាមដាន ({monthDisplayKh})
@@ -962,6 +966,9 @@ export default function TeacherTrackingPage() {
             setScreenshotScope('monthly');
           }}
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
             padding: '0.52rem 1rem',
             borderRadius: '9px',
             border: 'none',
@@ -972,13 +979,17 @@ export default function TeacherTrackingPage() {
             cursor: 'pointer',
           }}
         >
-          📊 បូកសរុបប្រចាំខែ
+          <AppIcon name="bar-chart" size={15} />
+          <span>បូកសរុបប្រចាំខែ</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('screenshot')}
           style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.4rem',
             padding: '0.52rem 1rem',
             borderRadius: '9px',
             border: 'none',
@@ -989,7 +1000,8 @@ export default function TeacherTrackingPage() {
             cursor: 'pointer',
           }}
         >
-          📸 ផ្ទាំងមើលគ្រូទាំងអស់ (Screenshot)
+          <AppIcon name="camera" size={15} />
+          <span>ផ្ទាំងមើលគ្រូទាំងអស់ (Screenshot)</span>
         </button>
       </div>
 
@@ -1048,6 +1060,9 @@ export default function TeacherTrackingPage() {
                     setScreenshotScope('w4');
                   }}
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
                     padding: '0.38rem 0.72rem',
                     borderRadius: '8px',
                     border: '1px solid rgba(139, 92, 246, 0.35)',
@@ -1059,7 +1074,9 @@ export default function TeacherTrackingPage() {
                   }}
                   title="វិញ្ញាសាប្រឡងមាននៅសប្តាហ៍ទី ៤"
                 >
-                  📝 វិញ្ញាសាប្រឡង (សប្តាហ៍ទី ៤) →
+                  <AppIcon name="file-text" size={14} />
+                  <span>វិញ្ញាសាប្រឡង (សប្តាហ៍ទី ៤)</span>
+                  <AppIcon name="chevron-right" size={13} />
                 </button>
               )}
               <button
@@ -1079,7 +1096,8 @@ export default function TeacherTrackingPage() {
                   cursor: 'pointer',
                 }}
               >
-                📸 Screenshot {currentWeekInfo.label}
+                <AppIcon name="camera" size={14} />
+                <span>Screenshot {currentWeekInfo.label}</span>
               </button>
             </div>
           </div>
@@ -1281,9 +1299,13 @@ export default function TeacherTrackingPage() {
                                     fontSize: '0.76rem',
                                     cursor: 'pointer',
                                     whiteSpace: 'nowrap',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
                                   }}
                                 >
-                                  {entry.topicDone ? '✓ បានរៀន' : 'មិនទាន់'}
+                                  {entry.topicDone && <AppIcon name="check" size={12} strokeWidth={2.8} />}
+                                  <span>{entry.topicDone ? 'បានរៀន' : 'មិនទាន់'}</span>
                                 </button>
 
                                 <IntStepper
@@ -1688,7 +1710,9 @@ export default function TeacherTrackingPage() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
                               <span
                                 style={{
-                                  display: 'inline-block',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
                                   padding: '0.26rem 0.6rem',
                                   borderRadius: '999px',
                                   fontWeight: 800,
@@ -1700,9 +1724,12 @@ export default function TeacherTrackingPage() {
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                {ev.isComplete
-                                  ? '✓ គ្រប់លក្ខខណ្ឌ'
-                                  : `ខ្វះ ${ev.missingLabels.length}`}
+                                {ev.isComplete && <AppIcon name="check" size={11} strokeWidth={2.8} />}
+                                <span>
+                                  {ev.isComplete
+                                    ? 'គ្រប់លក្ខខណ្ឌ'
+                                    : `ខ្វះ ${ev.missingLabels.length}`}
+                                </span>
                               </span>
                               {!ev.isComplete && (
                                 <span style={{ fontSize: '0.67rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
@@ -1763,7 +1790,8 @@ export default function TeacherTrackingPage() {
                 cursor: 'pointer',
               }}
             >
-              📸 Screenshot តារាងបូកសរុបខែ
+              <AppIcon name="camera" size={14} />
+              <span>Screenshot តារាងបូកសរុបខែ</span>
             </button>
           </div>
 
@@ -1775,13 +1803,17 @@ export default function TeacherTrackingPage() {
                 borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: '0.85rem',
+                alignItems: 'center',
+                gap: '0.6rem',
                 fontSize: '0.78rem',
                 color: '#7c3aed',
                 fontWeight: 700,
               }}
             >
-              <span>📝 កាលវិភាគប្រឡងប្រចាំខែ៖</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <AppIcon name="file-text" size={14} />
+                <span>កាលវិភាគប្រឡងប្រចាំខែ៖</span>
+              </span>
               {activeMonthExamRibbons.map((item) => (
                 <span key={item.label}>
                   [{item.label}] ប្រមូល៖ {formatIsoDateKh(item.cfg.collectDate)} • ប្រឡង៖{' '}
@@ -2080,6 +2112,9 @@ export default function TeacherTrackingPage() {
                 type="button"
                 onClick={() => setScreenshotLightCard((v) => !v)}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
                   padding: '0.38rem 0.75rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
@@ -2090,7 +2125,8 @@ export default function TeacherTrackingPage() {
                   cursor: 'pointer',
                 }}
               >
-                {screenshotLightCard ? '☀️ ផ្ទៃភ្លឺច្បាស់' : '🌙 ផ្ទៃងងឹត'}
+                <AppIcon name={screenshotLightCard ? 'sun' : 'moon'} size={14} />
+                <span>{screenshotLightCard ? 'ផ្ទៃភ្លឺច្បាស់' : 'ផ្ទៃងងឹត'}</span>
               </button>
 
               {screenshotScope !== 'monthly' && (
@@ -2117,6 +2153,9 @@ export default function TeacherTrackingPage() {
                 type="button"
                 onClick={handleCopyGroupChatSummary}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
                   padding: '0.4rem 0.8rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
@@ -2127,7 +2166,8 @@ export default function TeacherTrackingPage() {
                   cursor: 'pointer',
                 }}
               >
-                {copiedSummary ? '✓ បានចម្លងអត្ថបទ!' : '📋 ចម្លងអត្ថបទសង្ខេប'}
+                <AppIcon name={copiedSummary ? 'check' : 'copy'} size={14} />
+                <span>{copiedSummary ? 'បានចម្លងអត្ថបទ!' : 'ចម្លងអត្ថបទសង្ខេប'}</span>
               </button>
 
               <button
@@ -2137,6 +2177,9 @@ export default function TeacherTrackingPage() {
                   setIsFullscreenShot(true);
                 }}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.38rem',
                   padding: '0.42rem 0.85rem',
                   borderRadius: '8px',
                   border: 'none',
@@ -2147,7 +2190,8 @@ export default function TeacherTrackingPage() {
                   cursor: 'pointer',
                 }}
               >
-                🖥️ បើកពេញអេក្រង់ដើម្បី Screenshot
+                <AppIcon name="maximize" size={14} />
+                <span>បើកពេញអេក្រង់ដើម្បី Screenshot</span>
               </button>
             </div>
           </div>
@@ -2248,6 +2292,9 @@ export default function TeacherTrackingPage() {
                     type="button"
                     onClick={() => setScreenshotLightCard((v) => !v)}
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.32rem',
                       padding: '0.34rem 0.68rem',
                       borderRadius: '7px',
                       border: '1px solid rgba(255,255,255,0.2)',
@@ -2258,13 +2305,17 @@ export default function TeacherTrackingPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {screenshotLightCard ? '☀️ ផ្ទៃភ្លឺ' : '🌙 ផ្ទៃងងឹត'}
+                    <AppIcon name={screenshotLightCard ? 'sun' : 'moon'} size={13} />
+                    <span>{screenshotLightCard ? 'ផ្ទៃភ្លឺ' : 'ផ្ទៃងងឹត'}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleCopyGroupChatSummary}
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.32rem',
                       padding: '0.34rem 0.68rem',
                       borderRadius: '7px',
                       border: '1px solid rgba(255,255,255,0.2)',
@@ -2275,7 +2326,8 @@ export default function TeacherTrackingPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    {copiedSummary ? '✓ បានចម្លង!' : '📋 ចម្លងអត្ថបទ'}
+                    <AppIcon name={copiedSummary ? 'check' : 'copy'} size={13} />
+                    <span>{copiedSummary ? 'បានចម្លង!' : 'ចម្លងអត្ថបទ'}</span>
                   </button>
 
                   <button
@@ -2308,9 +2360,13 @@ export default function TeacherTrackingPage() {
                       fontSize: '0.77rem',
                       fontWeight: 800,
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
                     }}
                   >
-                    ✕ បិទ
+                    <AppIcon name="x" size={13} strokeWidth={2.6} />
+                    <span>បិទ</span>
                   </button>
                 </div>
               </div>

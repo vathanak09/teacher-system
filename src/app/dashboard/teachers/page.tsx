@@ -11,6 +11,7 @@ import TeacherDetailModal from '@/components/TeacherDetailModal';
 import { convertDriveImageLink } from '@/utils/driveLink';
 import { formatDateToDMY } from '@/utils/dateFormatter';
 import { useConfirm } from '@/components/ConfirmDialog';
+import { AppIcon } from '@/components/AppIcons';
 
 export default function TeachersPage() {
   const confirmDialog = useConfirm();
@@ -1289,10 +1290,13 @@ export default function TeachersPage() {
                 cursor: 'pointer',
                 fontWeight: 700,
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               aria-label="បិទរូបភាព"
             >
-              ✕
+              <AppIcon name="x" size={18} />
             </button>
             <img
               src={previewPhotoUrl}
