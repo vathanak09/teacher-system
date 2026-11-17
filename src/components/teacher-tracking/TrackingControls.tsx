@@ -9,8 +9,8 @@ import {
   TeacherWeekEntry,
   countExamStages,
   getStatusBadgePalette,
-  hasExamConfigActive,
   hasTeacherSpecialTask,
+  isExamEnabledInWeek4,
   normalizeExternalUrl,
   toNonNegInt,
 } from './trackingModel';
@@ -296,7 +296,7 @@ export function ExamHeaderConfig({
   onChange: (next: ExamScheduleConfig) => void;
 }) {
   const cfg = config || {};
-  const isActive = hasExamConfigActive(cfg);
+  const isActive = isExamEnabledInWeek4(cfg);
 
   const dateFields: {
     key: 'collectDate' | 'examDate' | 'resultDate';
@@ -321,7 +321,7 @@ export function ExamHeaderConfig({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.32rem', fontWeight: 600 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
         <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.82rem' }}>
-          ៤. វិញ្ញាសាប្រឡង
+          ៤. វិញ្ញាសាប្រឡង (ប្រចាំខែ)
         </span>
         <label
           style={{
@@ -337,11 +337,11 @@ export function ExamHeaderConfig({
             cursor: 'pointer',
             border: '1px solid var(--border-color)',
           }}
-          title="បើក/បិទ ការរាប់ពិន្ទុវិញ្ញាសាក្នុងសប្តាហ៍នេះ"
+          title="បើក/បិទ ការរាប់ពិន្ទុវិញ្ញាសាក្នុងសប្តាហ៍ទី ៤"
         >
           <input
             type="checkbox"
-            checked={Boolean(isActive)}
+            checked={isActive}
             onChange={(e) => {
               const checked = e.target.checked;
               if (checked) {

@@ -56,6 +56,7 @@ export interface MonthlyTrackingDoc {
   id?: string;
   month: string;
   enableWeek5?: boolean;
+  hiddenTeacherIds?: string[];
   weekLabels?: Partial<Record<WeekKey, string>>;
   examSchedules?: Partial<Record<WeekKey, ExamScheduleConfig>>;
   records?: Record<string, Partial<Record<WeekKey, Partial<TeacherWeekEntry>>>>;
@@ -240,14 +241,25 @@ export function normalizeEntry(raw?: Partial<TeacherWeekEntry> | null): TeacherW
   };
 }
 
+export const EXAM_WEEK_KEY: WeekKey = 'w4';
+
+export function isExamWeek(week: WeekKey): boolean {
+  return week === EXAM_WEEK_KEY;
+}
+
 export function hasExamConfigActive(cfg?: ExamScheduleConfig | null): boolean {
   if (!cfg) return false;
+  if (cfg.enabled === false) return false;
   return Boolean(
     cfg.enabled ||
       cfg.collectDate?.trim() ||
       cfg.examDate?.trim() ||
       cfg.resultDate?.trim()
   );
+}
+
+export function isExamEnabledInWeek4(cfg?: ExamScheduleConfig | null): boolean {
+  return cfg?.enabled !== false;
 }
 
 export function countExamStages(entry: TeacherWeekEntry): number {
@@ -264,12 +276,13 @@ export function hasTeacherSpecialTask(entry: TeacherWeekEntry): boolean {
 
 /**
  * Evaluate completion status & points for one teacher in a given week.
- * Exam milestones count when exam schedule is active for that week or the teacher started any stage.
+ * Exam milestones apply ONLY in Week 4 (once-a-month exam).
  * Special task counts only when Admin assigned a task for that teacher.
  */
 export function evaluateWeekEntry(
   entry: TeacherWeekEntry,
-  weekExamCfg?: ExamScheduleConfig | null
+  weekExamCfg?: ExamScheduleConfig | null,
+  weekKey: WeekKey = 'w1'
 ): WeekEvaluation {
   const missingLabels: string[] = [];
   let earnedPoints = 0;
@@ -300,7 +313,7 @@ export function evaluateWeekEntry(
   }
 
   const examStagesDone = countExamStages(entry);
-  const examActive = hasExamConfigActive(weekExamCfg) || examStagesDone > 0;
+  const examActive = isExamWeek(weekKey) && (isExamEnabledInWeek4(weekExamCfg) || examStagesDone > 0);
   if (examActive) {
     totalPoints += 1;
     earnedPoints += examStagesDone / 3;
@@ -466,7 +479,7 @@ export function buildMonthlyTeacherSummaries(
 
     for (const w of activeWeeks) {
       const e = normalizeEntry(records?.[teacher.id]?.[w.key]);
-      const ev = evaluateWeekEntry(e, examSchedules?.[w.key]);
+      const ev = evaluateWeekEntry(e, examSchedules?.[w.key], w.key);
       perWeek[w.key] = { entry: e, complete: ev.isComplete, status: ev };
 
       totalTopics += e.topicCount;
@@ -580,9 +593,10 @@ export function buildGroupChatSummaryText(params: {
   const wMeta = WEEK_META.find((w) => w.key === scope)!;
   const dateTag = weekLabels[scope] ? ` (${weekLabels[scope]})` : '';
   const examCfg = examSchedules?.[scope];
+  const scopeHasExam = isExamWeek(scope);
 
   lines.push(`📋 របាយការណ៍តាមដានការងារគ្រូ — ${wMeta.label}${dateTag} • ${monthDisplayKh}`);
-  if (hasExamConfigActive(examCfg)) {
+  if (scopeHasExam && hasExamConfigActive(examCfg)) {
     lines.push(
       `📝 កាលវិភាគប្រឡង៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
     );
@@ -591,7 +605,7 @@ export function buildGroupChatSummaryText(params: {
 
   teachers.forEach((t, idx) => {
     const e = normalizeEntry(records?.[t.id]?.[scope]);
-    const ev = evaluateWeekEntry(e, examCfg);
+    const ev = evaluateWeekEntry(e, examCfg, scope);
     const tStr = e.topicDone ? `✅(${e.topicCount})` : '❌';
     const hwIcon = e.homeworkStatus === 'done' ? '✅' : e.homeworkStatus === 'partial' ? '🟡' : '❌';
     const hwStr = `${hwIcon}(${e.homeworkCount})`;
@@ -650,7 +664,7 @@ export async function exportTrackingExcel(params: {
     'HW បានដាក់/តិចតួច',
     'ចំនួនវីដេអូសរុប',
     'វីដេអូ បានថត/តិចតួច',
-    'វិញ្ញាសាប្រឡង (ដំណាក់កាល)',
+    'វិញ្ញាសាប្រឡង (សប្តាហ៍ទី ៤)',
     'Task ពិសេស (ចំនួន / រួចរាល់)',
     'ច្បាប់សរុប (ថ្ងៃ)',
     'ឥតច្បាប់សរុប (ថ្ងៃ)',
@@ -693,12 +707,14 @@ export async function exportTrackingExcel(params: {
   XLSX.utils.book_append_sheet(wb, wsSummary, 'បូកសរុបប្រចាំខែ');
 
   for (const w of activeWeeks) {
+    const includeExam = isExamWeek(w.key);
     const examCfg = examSchedules?.[w.key];
-    const examScheduleRow = hasExamConfigActive(examCfg)
-      ? [
-          `កាលវិភាគវិញ្ញាសា៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
-        ]
-      : [];
+    const examScheduleRow =
+      includeExam && hasExamConfigActive(examCfg)
+        ? [
+            `កាលវិភាគវិញ្ញាសា៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
+          ]
+        : [];
 
     const wHeader = [
       'ល.រ',
@@ -715,10 +731,14 @@ export async function exportTrackingExcel(params: {
       'ចំនួនវីដេអូ',
       'Link វីដេអូ',
       'មតិ/ចំណាំវីដេអូ',
-      'វិញ្ញាសា: ប្រគល់វិញ្ញាសា',
-      'វិញ្ញាសា: បញ្ចូលពិន្ទុ',
-      'វិញ្ញាសា: ចេញលទ្ធផលរួច',
-      'ចំណាំវិញ្ញាសា',
+      ...(includeExam
+        ? [
+            'វិញ្ញាសា: ប្រគល់វិញ្ញាសា',
+            'វិញ្ញាសា: បញ្ចូលពិន្ទុ',
+            'វិញ្ញាសា: ចេញលទ្ធផលរួច',
+            'ចំណាំវិញ្ញាសា',
+          ]
+        : []),
       'Task: ចំនួន',
       'Task: រៀបរាប់កិច្ចការ',
       'Task: ស្ថានភាព',
@@ -732,7 +752,7 @@ export async function exportTrackingExcel(params: {
 
     const wRows = teachers.map((t, idx) => {
       const e = normalizeEntry(records?.[t.id]?.[w.key]);
-      const ev = evaluateWeekEntry(e, examCfg);
+      const ev = evaluateWeekEntry(e, examCfg, w.key);
       return [
         idx + 1,
         t.teacherId || '',
@@ -748,10 +768,14 @@ export async function exportTrackingExcel(params: {
         e.videoCount,
         e.videoUrl,
         e.videoNote,
-        e.examStage1Submitted ? 'រួចរាល់' : 'មិនទាន់',
-        e.examStage2Scored ? 'រួចរាល់' : 'មិនទាន់',
-        e.examStage3Result ? 'រួចរាល់' : 'មិនទាន់',
-        e.examNote,
+        ...(includeExam
+          ? [
+              e.examStage1Submitted ? 'រួចរាល់' : 'មិនទាន់',
+              e.examStage2Scored ? 'រួចរាល់' : 'មិនទាន់',
+              e.examStage3Result ? 'រួចរាល់' : 'មិនទាន់',
+              e.examNote,
+            ]
+          : []),
         e.taskCount,
         e.taskDescription,
         ev.taskAssigned ? (e.taskDone ? 'រួចរាល់' : 'កំពុងធ្វើ') : 'គ្មាន',

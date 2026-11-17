@@ -3,8 +3,10 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { teacherService, teacherTrackingService } from '@/services/db';
+import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import {
   CompletionDropdownStatus,
+  EXAM_WEEK_KEY,
   ExamScheduleConfig,
   HOMEWORK_STATUS_LABELS,
   KHMER_MONTHS,
@@ -24,6 +26,7 @@ import {
   formatIsoDateKh,
   formatMinutesLabel,
   hasExamConfigActive,
+  isExamWeek,
   normalizeEntry,
   toNonNegInt,
 } from '@/components/teacher-tracking/trackingModel';
@@ -63,6 +66,7 @@ export default function TeacherTrackingPage() {
   // Teachers & Filters
   const [allTeachers, setAllTeachers] = useState<any[]>([]);
   const [showInactiveTeachers, setShowInactiveTeachers] = useState(false);
+  const [hiddenTeacherIds, setHiddenTeacherIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Tracking Document State for current month
@@ -88,12 +92,14 @@ export default function TeacherTrackingPage() {
   const latestPayloadRef = useRef<{
     month: string;
     enableWeek5: boolean;
+    hiddenTeacherIds: string[];
     weekLabels: Partial<Record<WeekKey, string>>;
     examSchedules: Partial<Record<WeekKey, ExamScheduleConfig>>;
     records: Record<string, Partial<Record<WeekKey, Partial<TeacherWeekEntry>>>>;
   }>({
     month: monthKey,
     enableWeek5: defaultHasWeek5,
+    hiddenTeacherIds: [],
     weekLabels: {},
     examSchedules: {},
     records: {},
@@ -141,6 +147,15 @@ export default function TeacherTrackingPage() {
         return;
       }
 
+      let storedHiddenFallback: string[] = [];
+      try {
+        const raw = localStorage.getItem('teacherTracking_hiddenIds');
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) storedHiddenFallback = parsed;
+      } catch {
+        storedHiddenFallback = [];
+      }
+
       if (doc) {
         const hasAnyW5Data =
           Boolean(doc.examSchedules?.w5 && hasExamConfigActive(doc.examSchedules.w5)) ||
@@ -149,29 +164,34 @@ export default function TeacherTrackingPage() {
           doc.enableWeek5 !== undefined
             ? Boolean(doc.enableWeek5) || hasAnyW5Data
             : defaultHasWeek5 || hasAnyW5Data;
+        const nextHidden = Array.isArray(doc.hiddenTeacherIds) ? doc.hiddenTeacherIds : [];
         const nextLabels = doc.weekLabels || {};
         const nextExams = doc.examSchedules || {};
         const nextRecords = doc.records || {};
 
         setEnableWeek5(nextW5);
+        setHiddenTeacherIds(nextHidden);
         setWeekLabels(nextLabels);
         setExamSchedules(nextExams);
         setRecords(nextRecords);
         latestPayloadRef.current = {
           month: monthKey,
           enableWeek5: nextW5,
+          hiddenTeacherIds: nextHidden,
           weekLabels: nextLabels,
           examSchedules: nextExams,
           records: nextRecords,
         };
       } else {
         setEnableWeek5(defaultHasWeek5);
+        setHiddenTeacherIds(storedHiddenFallback);
         setWeekLabels({});
         setExamSchedules({});
         setRecords({});
         latestPayloadRef.current = {
           month: monthKey,
           enableWeek5: defaultHasWeek5,
+          hiddenTeacherIds: storedHiddenFallback,
           weekLabels: {},
           examSchedules: {},
           records: {},
@@ -215,6 +235,7 @@ export default function TeacherTrackingPage() {
         {
           month: payload.month,
           enableWeek5: payload.enableWeek5,
+          hiddenTeacherIds: payload.hiddenTeacherIds,
           weekLabels: payload.weekLabels,
           examSchedules: payload.examSchedules,
           records: payload.records,
@@ -230,18 +251,22 @@ export default function TeacherTrackingPage() {
     }
   }, []);
 
-  const scheduleSave = useCallback(
+  const scheduleSavePatch = useCallback(
     (
-      nextPayload: {
-        month: string;
+      patch: Partial<{
         enableWeek5: boolean;
+        hiddenTeacherIds: string[];
         weekLabels: Partial<Record<WeekKey, string>>;
         examSchedules: Partial<Record<WeekKey, ExamScheduleConfig>>;
         records: Record<string, Partial<Record<WeekKey, Partial<TeacherWeekEntry>>>>;
-      },
+      }>,
       immediate = false
     ) => {
-      latestPayloadRef.current = nextPayload;
+      latestPayloadRef.current = {
+        ...latestPayloadRef.current,
+        month: monthKey,
+        ...patch,
+      };
       setSaveState('saving');
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
@@ -256,7 +281,7 @@ export default function TeacherTrackingPage() {
         }, 380);
       }
     },
-    [flushSave]
+    [monthKey, flushSave]
   );
 
   const activeWeeks = useMemo(
@@ -264,10 +289,51 @@ export default function TeacherTrackingPage() {
     [enableWeek5]
   );
 
+  const eligibleTeachers = useMemo(
+    () => allTeachers.filter((t) => showInactiveTeachers || t.status !== 'ឈប់បង្រៀន'),
+    [allTeachers, showInactiveTeachers]
+  );
+
+  const teacherFilterOptions = useMemo(
+    () =>
+      eligibleTeachers.map((t) => ({
+        value: t.id,
+        label: t.subject ? `${t.fullName} (${t.subject})` : t.fullName,
+      })),
+    [eligibleTeachers]
+  );
+
+  const selectedVisibleTeacherIds = useMemo(() => {
+    const hiddenSet = new Set(hiddenTeacherIds);
+    return eligibleTeachers.filter((t) => !hiddenSet.has(t.id)).map((t) => t.id);
+  }, [eligibleTeachers, hiddenTeacherIds]);
+
+  const handleVisibleTeachersChange = useCallback(
+    (nextSelectedIds: string[]) => {
+      const nextSelectedSet = new Set(nextSelectedIds);
+      const eligibleIdSet = new Set(eligibleTeachers.map((t) => t.id));
+      const preservedOtherHidden = hiddenTeacherIds.filter((id) => !eligibleIdSet.has(id));
+      const newlyHiddenEligible = eligibleTeachers
+        .filter((t) => !nextSelectedSet.has(t.id))
+        .map((t) => t.id);
+      const nextHidden = [...preservedOtherHidden, ...newlyHiddenEligible];
+
+      setHiddenTeacherIds(nextHidden);
+      try {
+        localStorage.setItem('teacherTracking_hiddenIds', JSON.stringify(nextHidden));
+      } catch {
+        // ignore storage quota errors
+      }
+      scheduleSavePatch({ hiddenTeacherIds: nextHidden }, true);
+    },
+    [eligibleTeachers, hiddenTeacherIds, scheduleSavePatch]
+  );
+
   const visibleTeachers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return allTeachers.filter((t) => {
-      if (!showInactiveTeachers && t.status === 'ឈប់បង្រៀន') return false;
+    const hiddenSet = new Set(hiddenTeacherIds);
+    return eligibleTeachers.filter((t) => {
+      if (hiddenSet.has(t.id)) return false;
       if (!q) return true;
       return (
         String(t.fullName || '').toLowerCase().includes(q) ||
@@ -276,7 +342,7 @@ export default function TeacherTrackingPage() {
         String(t.teacherId || '').toLowerCase().includes(q)
       );
     });
-  }, [allTeachers, showInactiveTeachers, searchQuery]);
+  }, [eligibleTeachers, hiddenTeacherIds, searchQuery]);
 
   const updateTeacherWeek = useCallback(
     (
@@ -295,20 +361,11 @@ export default function TeacherTrackingPage() {
             [week]: updatedEntry,
           },
         };
-        scheduleSave(
-          {
-            month: monthKey,
-            enableWeek5,
-            weekLabels,
-            examSchedules,
-            records: nextRecords,
-          },
-          immediate
-        );
+        scheduleSavePatch({ records: nextRecords }, immediate);
         return nextRecords;
       });
     },
-    [monthKey, enableWeek5, weekLabels, examSchedules, scheduleSave]
+    [scheduleSavePatch]
   );
 
   const handleToggleWeek5 = (checked: boolean, switchToW5 = false) => {
@@ -317,31 +374,13 @@ export default function TeacherTrackingPage() {
       setActiveTab('w5');
       setScreenshotScope('w5');
     }
-    scheduleSave(
-      {
-        month: monthKey,
-        enableWeek5: checked,
-        weekLabels,
-        examSchedules,
-        records,
-      },
-      true
-    );
+    scheduleSavePatch({ enableWeek5: checked }, true);
   };
 
   const handleWeekLabelChange = (week: WeekKey, labelText: string) => {
     setWeekLabels((prev) => {
       const next = { ...prev, [week]: labelText };
-      scheduleSave(
-        {
-          month: monthKey,
-          enableWeek5,
-          weekLabels: next,
-          examSchedules,
-          records,
-        },
-        false
-      );
+      scheduleSavePatch({ weekLabels: next }, false);
       return next;
     });
   };
@@ -349,16 +388,7 @@ export default function TeacherTrackingPage() {
   const handleExamScheduleChange = (week: WeekKey, nextCfg: ExamScheduleConfig) => {
     setExamSchedules((prev) => {
       const next = { ...prev, [week]: nextCfg };
-      scheduleSave(
-        {
-          month: monthKey,
-          enableWeek5,
-          weekLabels,
-          examSchedules: next,
-          records,
-        },
-        true
-      );
+      scheduleSavePatch({ examSchedules: next }, true);
       return next;
     });
   };
@@ -470,12 +500,41 @@ export default function TeacherTrackingPage() {
 
   const isWeekTab = activeTab !== 'monthly' && activeTab !== 'screenshot';
   const currentWeekKey: WeekKey = isWeekTab ? activeTab : 'w1';
+  const currentWeekHasExam = isExamWeek(currentWeekKey);
   const currentWeekInfo = WEEK_META.find((w) => w.key === currentWeekKey)!;
-  const currentExamCfg = examSchedules?.[currentWeekKey];
+  const currentExamCfg = currentWeekHasExam ? examSchedules?.[currentWeekKey] : undefined;
 
-  const activeMonthExamRibbons = activeWeeks
-    .filter((w) => hasExamConfigActive(examSchedules?.[w.key]))
-    .map((w) => ({ label: w.label, cfg: examSchedules[w.key]! }));
+  const w4ExamCfg = examSchedules?.[EXAM_WEEK_KEY];
+  const activeMonthExamRibbons = hasExamConfigActive(w4ExamCfg)
+    ? [{ label: 'សប្តាហ៍ទី ៤', cfg: w4ExamCfg! }]
+    : [];
+
+  const hiddenEligibleCount = eligibleTeachers.length - selectedVisibleTeacherIds.length;
+  const teacherDropdownTriggerLabel =
+    hiddenEligibleCount === 0
+      ? `បង្ហាញគ្រូ៖ ទាំងអស់ (${eligibleTeachers.length})`
+      : `បង្ហាញគ្រូ៖ ${selectedVisibleTeacherIds.length}/${eligibleTeachers.length} នាក់`;
+
+  const renderTeacherVisibilityDropdown = () => (
+    <MultiSelectDropdown
+      options={teacherFilterOptions}
+      selectedValues={selectedVisibleTeacherIds}
+      onChange={handleVisibleTeachersChange}
+      allLabel={`បង្ហាញគ្រូ៖ ទាំងអស់ (${eligibleTeachers.length})`}
+      title="ជ្រើសរើសគ្រូបង្ហាញ"
+      searchable={true}
+      searchPlaceholder="ស្វែងរកឈ្មោះគ្រូ..."
+      fixedTriggerLabel={teacherDropdownTriggerLabel}
+      icon={
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      }
+    />
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem', paddingBottom: '2.5rem' }}>
@@ -736,6 +795,8 @@ export default function TeacherTrackingPage() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem' }}>
+          {renderTeacherVisibilityDropdown()}
+
           <input
             type="text"
             value={searchQuery}
@@ -748,7 +809,7 @@ export default function TeacherTrackingPage() {
               background: 'var(--main-bg)',
               color: 'var(--text-primary)',
               fontSize: '0.83rem',
-              minWidth: '205px',
+              minWidth: '185px',
               outline: 'none',
             }}
           />
@@ -867,6 +928,7 @@ export default function TeacherTrackingPage() {
               }}
             >
               {w.label}
+              {isExamWeek(w.key) ? ' (ប្រឡង)' : ''}
             </button>
           );
         })}
@@ -977,25 +1039,49 @@ export default function TeacherTrackingPage() {
               />
             </div>
 
-            <button
-              type="button"
-              onClick={() => openScreenshotView(currentWeekKey, true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.4rem 0.8rem',
-                borderRadius: '8px',
-                border: '1px solid rgba(13, 148, 136, 0.35)',
-                background: 'rgba(13, 148, 136, 0.1)',
-                color: '#0d9488',
-                fontWeight: 700,
-                fontSize: '0.79rem',
-                cursor: 'pointer',
-              }}
-            >
-              📸 Screenshot {currentWeekInfo.label}
-            </button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', alignItems: 'center' }}>
+              {!currentWeekHasExam && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('w4');
+                    setScreenshotScope('w4');
+                  }}
+                  style={{
+                    padding: '0.38rem 0.72rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                    background: 'rgba(139, 92, 246, 0.08)',
+                    color: '#7c3aed',
+                    fontWeight: 700,
+                    fontSize: '0.77rem',
+                    cursor: 'pointer',
+                  }}
+                  title="វិញ្ញាសាប្រឡងមាននៅសប្តាហ៍ទី ៤"
+                >
+                  📝 វិញ្ញាសាប្រឡង (សប្តាហ៍ទី ៤) →
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => openScreenshotView(currentWeekKey, true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(13, 148, 136, 0.35)',
+                  background: 'rgba(13, 148, 136, 0.1)',
+                  color: '#0d9488',
+                  fontWeight: 700,
+                  fontSize: '0.79rem',
+                  cursor: 'pointer',
+                }}
+              >
+                📸 Screenshot {currentWeekInfo.label}
+              </button>
+            </div>
           </div>
 
           {isLoadingDoc ? (
@@ -1009,7 +1095,7 @@ export default function TeacherTrackingPage() {
                   width: '100%',
                   borderCollapse: 'collapse',
                   fontSize: '0.82rem',
-                  minWidth: '1580px',
+                  minWidth: currentWeekHasExam ? '1580px' : '1310px',
                 }}
               >
                 <thead>
@@ -1048,34 +1134,36 @@ export default function TeacherTrackingPage() {
                       ៣. ថតវីដេអូ Topic
                     </th>
 
-                    {/* Col 4 (Between Video and Task/Absence): វិញ្ញាសាប្រឡង with inline header schedule */}
-                    <th
-                      style={{
-                        padding: '0.55rem 0.65rem',
-                        textAlign: 'left',
-                        minWidth: '262px',
-                        verticalAlign: 'top',
-                        background: 'rgba(139, 92, 246, 0.05)',
-                        borderLeft: '1px solid var(--border-color)',
-                        borderRight: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <ExamHeaderConfig
-                        config={currentExamCfg}
-                        onChange={(nextCfg) => handleExamScheduleChange(currentWeekKey, nextCfg)}
-                      />
-                    </th>
+                    {/* Col 4 (Week 4 once-a-month only): វិញ្ញាសាប្រឡង */}
+                    {currentWeekHasExam && (
+                      <th
+                        style={{
+                          padding: '0.55rem 0.65rem',
+                          textAlign: 'left',
+                          minWidth: '262px',
+                          verticalAlign: 'top',
+                          background: 'rgba(139, 92, 246, 0.05)',
+                          borderLeft: '1px solid var(--border-color)',
+                          borderRight: '1px solid var(--border-color)',
+                        }}
+                      >
+                        <ExamHeaderConfig
+                          config={currentExamCfg}
+                          onChange={(nextCfg) => handleExamScheduleChange(currentWeekKey, nextCfg)}
+                        />
+                      </th>
+                    )}
 
-                    {/* Col 5 (Right after Exam): Special Task by Admin */}
+                    {/* Task (Special Task by Admin) */}
                     <th style={{ padding: '0.7rem 0.55rem', textAlign: 'left', minWidth: '205px', verticalAlign: 'middle' }}>
-                      ៥. Task (កិច្ចការពិសេស)
+                      {currentWeekHasExam ? '៥' : '៤'}. Task (កិច្ចការពិសេស)
                     </th>
 
                     <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center', minWidth: '165px', verticalAlign: 'middle' }}>
-                      ៦. អវត្តមាន (ថ្ងៃគត់)
+                      {currentWeekHasExam ? '៦' : '៥'}. អវត្តមាន (ថ្ងៃគត់)
                     </th>
                     <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center', minWidth: '175px', verticalAlign: 'middle' }}>
-                      ៧. មកយឺត & នាទីយឺត
+                      {currentWeekHasExam ? '៧' : '៦'}. មកយឺត & នាទីយឺត
                     </th>
                     <th style={{ padding: '0.7rem 0.55rem', textAlign: 'left', minWidth: '130px', verticalAlign: 'middle' }}>
                       ចំណាំរួម
@@ -1089,14 +1177,17 @@ export default function TeacherTrackingPage() {
                 <tbody>
                   {visibleTeachers.length === 0 ? (
                     <tr>
-                      <td colSpan={11} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td
+                        colSpan={currentWeekHasExam ? 11 : 10}
+                        style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}
+                      >
                         មិនមានឈ្មោះគ្រូបង្រៀនត្រូវនឹងការស្វែងរកទេ
                       </td>
                     </tr>
                   ) : (
                     visibleTeachers.map((teacher, idx) => {
                       const entry = normalizeEntry(records?.[teacher.id]?.[currentWeekKey]);
-                      const ev = evaluateWeekEntry(entry, currentExamCfg);
+                      const ev = evaluateWeekEntry(entry, currentExamCfg, currentWeekKey);
 
                       return (
                         <tr
@@ -1336,35 +1427,37 @@ export default function TeacherTrackingPage() {
                             />
                           </td>
 
-                          {/* Col 4: វិញ្ញាសាប្រឡង (3 Stages) */}
-                          <td
-                            style={{
-                              padding: '0.65rem 0.6rem',
-                              background: 'rgba(139, 92, 246, 0.02)',
-                              borderLeft: '1px solid var(--border-color)',
-                              borderRight: '1px solid var(--border-color)',
-                            }}
-                          >
-                            <ExamStagesCell
-                              entry={entry}
-                              onToggleStage={(field) =>
-                                updateTeacherWeek(
-                                  teacher.id,
-                                  currentWeekKey,
-                                  (prev) => ({ ...prev, [field]: !prev[field] }),
-                                  true
-                                )
-                              }
-                              onNoteChange={(text) =>
-                                updateTeacherWeek(
-                                  teacher.id,
-                                  currentWeekKey,
-                                  (prev) => ({ ...prev, examNote: text }),
-                                  false
-                                )
-                              }
-                            />
-                          </td>
+                          {/* Col 4 (Week 4 only): វិញ្ញាសាប្រឡង (3 Stages) */}
+                          {currentWeekHasExam && (
+                            <td
+                              style={{
+                                padding: '0.65rem 0.6rem',
+                                background: 'rgba(139, 92, 246, 0.02)',
+                                borderLeft: '1px solid var(--border-color)',
+                                borderRight: '1px solid var(--border-color)',
+                              }}
+                            >
+                              <ExamStagesCell
+                                entry={entry}
+                                onToggleStage={(field) =>
+                                  updateTeacherWeek(
+                                    teacher.id,
+                                    currentWeekKey,
+                                    (prev) => ({ ...prev, [field]: !prev[field] }),
+                                    true
+                                  )
+                                }
+                                onNoteChange={(text) =>
+                                  updateTeacherWeek(
+                                    teacher.id,
+                                    currentWeekKey,
+                                    (prev) => ({ ...prev, examNote: text }),
+                                    false
+                                  )
+                                }
+                              />
+                            </td>
+                          )}
 
                           {/* Col 5: Task (កិច្ចការពិសេសពី Admin) */}
                           <td style={{ padding: '0.65rem 0.55rem' }}>
@@ -1715,7 +1808,7 @@ export default function TeacherTrackingPage() {
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>សរុប Topic</th>
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>កិច្ចការផ្ទះ</th>
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>វីដេអូ Topic</th>
-                  <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>វិញ្ញាសាប្រឡង</th>
+                  <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>វិញ្ញាសា (សប្តាហ៍ទី ៤)</th>
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>Task ពិសេស</th>
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>អវត្តមានខែ</th>
                   <th style={{ padding: '0.7rem 0.55rem', textAlign: 'center' }}>មកយឺតខែ</th>
@@ -1981,6 +2074,8 @@ export default function TeacherTrackingPage() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
+              {renderTeacherVisibilityDropdown()}
+
               <button
                 type="button"
                 onClick={() => setScreenshotLightCard((v) => !v)}
@@ -2081,7 +2176,7 @@ export default function TeacherTrackingPage() {
             style={{
               position: 'fixed',
               inset: 0,
-              zIndex: 20050,
+              zIndex: 15000,
               background: screenshotLightCard ? '#e2e8f0' : '#020617',
               overflowY: 'auto',
               padding: hideFullscreenToolbar ? '1.25rem' : '0 1.25rem 2rem',
@@ -2147,6 +2242,8 @@ export default function TeacherTrackingPage() {
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+                  {renderTeacherVisibilityDropdown()}
+
                   <button
                     type="button"
                     onClick={() => setScreenshotLightCard((v) => !v)}

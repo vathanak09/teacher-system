@@ -2,6 +2,7 @@
 import React from 'react';
 import {
   EXAM_STAGES,
+  EXAM_WEEK_KEY,
   ExamScheduleConfig,
   HOMEWORK_STATUS_LABELS,
   ScreenshotScope,
@@ -14,6 +15,7 @@ import {
   formatIsoDateKh,
   getStatusBadgePalette,
   hasExamConfigActive,
+  isExamWeek,
   normalizeEntry,
 } from './trackingModel';
 import { TeacherAvatar } from './TrackingControls';
@@ -54,20 +56,19 @@ export default function ScreenshotReportBoard({
     : 'linear-gradient(135deg, #115e59 0%, #1e3a8a 100%)';
 
   const isMonthlyScope = scope === 'monthly';
+  const showExamColumn = isMonthlyScope || isExamWeek(scope);
   const currentWeekMeta = !isMonthlyScope
     ? WEEK_META.find((w) => w.key === scope)!
     : null;
   const currentWeekDateStr =
     !isMonthlyScope && weekLabels[scope] ? ` (${weekLabels[scope]})` : '';
-  const currentExamCfg = !isMonthlyScope ? examSchedules?.[scope] : undefined;
+  const currentExamCfg = !isMonthlyScope && isExamWeek(scope) ? examSchedules?.[scope] : undefined;
 
-  // Exam schedule summary ribbons for the top banner
-  const activeExamRibbons = isMonthlyScope
-    ? activeWeeks
-        .filter((w) => hasExamConfigActive(examSchedules?.[w.key]))
-        .map((w) => ({ label: w.label, cfg: examSchedules[w.key]! }))
-    : hasExamConfigActive(currentExamCfg)
-      ? [{ label: currentWeekMeta?.label || '', cfg: currentExamCfg! }]
+  // Exam schedule summary ribbon (Week 4 once-a-month exam only)
+  const w4ExamCfg = examSchedules?.[EXAM_WEEK_KEY];
+  const activeExamRibbons =
+    showExamColumn && hasExamConfigActive(w4ExamCfg)
+      ? [{ label: 'សប្តាហ៍ទី ៤', cfg: w4ExamCfg! }]
       : [];
 
   // Scope header KPI metrics
@@ -88,7 +89,7 @@ export default function ScreenshotReportBoard({
   } else {
     for (const t of teachers) {
       const e = normalizeEntry(records?.[t.id]?.[scope]);
-      const ev = evaluateWeekEntry(e, currentExamCfg);
+      const ev = evaluateWeekEntry(e, currentExamCfg, scope);
       if (ev.isComplete) scopeCompleteCount += 1;
       scopeTopicsTotal += e.topicCount;
       scopeAbsenceTotal += e.permissionDays + e.absentDays;
@@ -260,7 +261,11 @@ export default function ScreenshotReportBoard({
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>រៀន Topic</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>កិច្ចការផ្ទះ</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>ថតវីដេអូ</th>
-              <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>វិញ្ញាសាប្រឡង</th>
+              {showExamColumn && (
+                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
+                  {isMonthlyScope ? 'វិញ្ញាសា (S4)' : 'វិញ្ញាសាប្រឡង'}
+                </th>
+              )}
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>Task ពិសេស</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>អវត្តមាន</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>មកយឺត</th>
@@ -271,7 +276,7 @@ export default function ScreenshotReportBoard({
             {teachers.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isMonthlyScope ? 11 : 10}
+                  colSpan={isMonthlyScope ? 11 : showExamColumn ? 10 : 9}
                   style={{ padding: '2rem', textAlign: 'center', color: textSub }}
                 >
                   មិនមានទិន្នន័យគ្រូបង្រៀនទេ
@@ -495,7 +500,7 @@ export default function ScreenshotReportBoard({
             ) : (
               teachers.map((teacher, idx) => {
                 const e = normalizeEntry(records?.[teacher.id]?.[scope]);
-                const ev = evaluateWeekEntry(e, currentExamCfg);
+                const ev = evaluateWeekEntry(e, currentExamCfg, scope);
                 const hwPal = getStatusBadgePalette(e.homeworkStatus);
                 const vPal = getStatusBadgePalette(e.videoStatus);
 
@@ -642,40 +647,42 @@ export default function ScreenshotReportBoard({
                       )}
                     </td>
 
-                    {/* Exam Papers (3 stages) */}
-                    <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
-                      {!ev.examActive ? (
-                        <span style={{ color: textSub, fontSize: '0.74rem' }}>—</span>
-                      ) : (
-                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: '3px' }}>
-                            {EXAM_STAGES.map((st) => {
-                              const ok = Boolean(e[st.key]);
-                              return (
-                                <span
-                                  key={st.key}
-                                  style={{
-                                    padding: '0.12rem 0.36rem',
-                                    borderRadius: '5px',
-                                    fontSize: '0.67rem',
-                                    fontWeight: 700,
-                                    background: ok
-                                      ? 'rgba(16, 185, 129, 0.16)'
-                                      : 'rgba(148, 163, 184, 0.16)',
-                                    color: ok ? '#059669' : textSub,
-                                  }}
-                                >
-                                  {ok ? '✓' : st.step} {st.shortLabel}
-                                </span>
-                              );
-                            })}
+                    {/* Exam Papers (3 stages - Week 4 only) */}
+                    {showExamColumn && (
+                      <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
+                        {!ev.examActive ? (
+                          <span style={{ color: textSub, fontSize: '0.74rem' }}>—</span>
+                        ) : (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: '3px' }}>
+                              {EXAM_STAGES.map((st) => {
+                                const ok = Boolean(e[st.key]);
+                                return (
+                                  <span
+                                    key={st.key}
+                                    style={{
+                                      padding: '0.12rem 0.36rem',
+                                      borderRadius: '5px',
+                                      fontSize: '0.67rem',
+                                      fontWeight: 700,
+                                      background: ok
+                                        ? 'rgba(16, 185, 129, 0.16)'
+                                        : 'rgba(148, 163, 184, 0.16)',
+                                      color: ok ? '#059669' : textSub,
+                                    }}
+                                  >
+                                    {ok ? '✓' : st.step} {st.shortLabel}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            {showDetails && e.examNote && (
+                              <div style={{ fontSize: '0.68rem', color: textSub }}>{e.examNote}</div>
+                            )}
                           </div>
-                          {showDetails && e.examNote && (
-                            <div style={{ fontSize: '0.68rem', color: textSub }}>{e.examNote}</div>
-                          )}
-                        </div>
-                      )}
-                    </td>
+                        )}
+                      </td>
+                    )}
 
                     {/* Special Task */}
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
@@ -838,7 +845,8 @@ export default function ScreenshotReportBoard({
         }}
       >
         <span>
-          គោលការណ៍ប្រចាំសប្តាហ៍៖ រៀន ≥១ Topic • កិច្ចការផ្ទះ • វីដេអូ Topic • វិញ្ញាសាប្រឡង (ប្រគល់→ពិន្ទុ→លទ្ធផល) • Task ពិសេស
+          គោលការណ៍៖ រៀន ≥១ Topic • កិច្ចការផ្ទះ • វីដេអូ Topic
+          {showExamColumn ? ' • វិញ្ញាសាប្រឡង (ប្រគល់→ពិន្ទុ→លទ្ធផល)' : ''} • Task ពិសេស
         </span>
         <span style={{ fontWeight: 600 }}>កាលបរិច្ឆេទបូកសរុប៖ {todayStr}</span>
       </div>
