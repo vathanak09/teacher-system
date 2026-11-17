@@ -1,31 +1,39 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import SortDropdown from '@/components/SortDropdown';
+import { CLASS_COLORS, CLASS_ICONS } from '@/constants/classAppearance';
+import { convertDriveImageLink } from '@/utils/driveLink';
+
+function getClassStudentIds(cls: any): string[] {
+  if (!cls) return [];
+  if (Array.isArray(cls.studentIds)) return cls.studentIds;
+  if (Array.isArray(cls.studentsData)) return cls.studentsData.map((s: any) => s.id);
+  return [];
+}
 
 export default function AttendancePage() {
   const [role, setRole] = useState('');
-  const [userId, setUserId] = useState('');
-  const [userName, setUserName] = useState('');
-  
   const [classes, setClasses] = useState<any[]>([]);
   const [classSearchFilterInput, setClassSearchFilterInput] = useState('');
-  const [classSearch, setClassSearch] = useState('');
+  const [shiftFilter, setShiftFilter] = useState('all');
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  
+
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  
+
   // Date selection
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  
+  const nowRef = useMemo(() => new Date(), []);
+  const [selectedMonth, setSelectedMonth] = useState(nowRef.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(nowRef.getFullYear());
+
   // Attendance Records: { [studentId]: { [day]: 'present' | 'absent' | 'permission' } }
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
-  const [unlockedDay, setUnlockedDay] = useState(currentDate.getDate());
-  const [unlockedDayInput, setUnlockedDayInput] = useState(String(currentDate.getDate()));
+  const [unlockedDay, setUnlockedDay] = useState(nowRef.getDate());
+  const [unlockedDayInput, setUnlockedDayInput] = useState(String(nowRef.getDate()));
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,20 +41,25 @@ export default function AttendancePage() {
     const currentUserId = localStorage.getItem('userId') || '';
     const currentUserName = localStorage.getItem('userName') || '';
     setRole(currentRole);
-    setUserId(currentUserId);
-    setUserName(currentUserName);
 
     if (currentRole !== 'admin' && currentRole !== 'teacher') {
       router.push('/dashboard');
       return;
     }
 
-    const unsubscribeClasses = classService.subscribeAll(data => {
+    const unsubscribeClasses = classService.subscribeAll((data) => {
       const teacherProfileId = localStorage.getItem('teacherProfileId') || '';
       if (currentRole === 'admin') {
         setClasses(data);
       } else {
-        setClasses(data.filter((c: any) => c.teacherId === teacherProfileId || c.teacherId === currentUserId || c.teacherName === currentUserName));
+        setClasses(
+          data.filter(
+            (c: any) =>
+              c.teacherId === teacherProfileId ||
+              c.teacherId === currentUserId ||
+              c.teacherName === currentUserName
+          )
+        );
       }
     });
 
@@ -63,7 +76,7 @@ export default function AttendancePage() {
   // Load attendance data when class/month/year changes
   useEffect(() => {
     if (!selectedClassId) return;
-    
+
     const docId = `${selectedClassId}_${selectedYear}_${selectedMonth}`;
     const loadAttendance = async () => {
       try {
@@ -74,34 +87,43 @@ export default function AttendancePage() {
           setAttendanceRecords({});
         }
       } catch (error) {
-        console.error("Error loading attendance", error);
+        console.error('Error loading attendance', error);
         setAttendanceRecords({});
       }
     };
     loadAttendance();
   }, [selectedClassId, selectedMonth, selectedYear]);
 
-  const getDaysInMonth = (month: number, year: number) => {
-    return new Date(year, month, 0).getDate();
+  const getDaysInMonth = (month: number, year: number) => new Date(year, month, 0).getDate();
+
+  const resolveClassStudents = (cls: any, recordsMap?: Record<string, Record<number, string>>) => {
+    if (!cls) return [];
+    const classStudentIds = getClassStudentIds(cls);
+    return students.filter((s) => {
+      const inClass = classStudentIds.includes(s.id) || s.className === cls.className;
+      if (!inClass) return false;
+      if (s.status !== 'ឈប់រៀន') return true;
+      // Preserve student row in historical months only if attendance data was already recorded for them
+      const rec = recordsMap?.[s.id];
+      return Boolean(rec && Object.values(rec).some((v) => v));
+    });
   };
 
   const markAllPresent = async (day: number) => {
     if (day !== unlockedDay) return;
     if (role !== 'admin' && role !== 'teacher') return;
-    
-    const selectedClass = classes.find(c => c.id === selectedClassId);
+
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
     if (!selectedClass) return;
-    
-    const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
-    const classStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
-    
+
+    const classStudents = resolveClassStudents(selectedClass, attendanceRecords);
     if (classStudents.length === 0) return;
 
     const newRecords = { ...attendanceRecords };
     let changed = false;
-    
-    const allPresent = classStudents.every(s => attendanceRecords[s.id]?.[day] === 'present');
-    classStudents.forEach(student => {
+
+    const allPresent = classStudents.every((s) => attendanceRecords[s.id]?.[day] === 'present');
+    classStudents.forEach((student) => {
       newRecords[student.id] = { ...(newRecords[student.id] || {}) };
       const newValue = allPresent ? '' : 'present';
       if (newRecords[student.id][day] !== newValue) {
@@ -109,93 +131,324 @@ export default function AttendancePage() {
         changed = true;
       }
     });
-    
+
     if (changed) {
       setAttendanceRecords(newRecords);
       const docId = `${selectedClassId}_${selectedYear}_${selectedMonth}`;
       try {
-        await attendanceService.add({
-          classId: selectedClassId,
-          year: selectedYear,
-          month: selectedMonth,
-          records: newRecords,
-          updatedAt: new Date().toISOString()
-        }, docId);
+        await attendanceService.add(
+          {
+            classId: selectedClassId,
+            year: selectedYear,
+            month: selectedMonth,
+            records: newRecords,
+            updatedAt: new Date().toISOString(),
+          },
+          docId
+        );
       } catch (error) {
-        console.error("Error saving bulk attendance", error);
+        console.error('Error saving bulk attendance', error);
       }
     }
   };
 
   const handleAttendanceChange = async (studentId: string, day: number, value: string) => {
     if (role !== 'admin' && role !== 'teacher') return;
-    
+
     const newRecords = { ...attendanceRecords };
     newRecords[studentId] = { ...(newRecords[studentId] || {}) };
     newRecords[studentId][day] = value;
-    
+
     setAttendanceRecords(newRecords);
-    
-    // Auto-save
+
     const docId = `${selectedClassId}_${selectedYear}_${selectedMonth}`;
     try {
-      await attendanceService.add({
-        classId: selectedClassId,
-        year: selectedYear,
-        month: selectedMonth,
-        records: newRecords,
-        updatedAt: new Date().toISOString()
-      }, docId);
+      await attendanceService.add(
+        {
+          classId: selectedClassId,
+          year: selectedYear,
+          month: selectedMonth,
+          records: newRecords,
+          updatedAt: new Date().toISOString(),
+        },
+        docId
+      );
     } catch (error) {
-      console.error("Error saving attendance", error);
+      console.error('Error saving attendance', error);
     }
   };
 
+  const availableShifts = useMemo(() => {
+    const shifts = new Set<string>();
+    classes.forEach((c) => {
+      if (c.shift) shifts.add(c.shift);
+    });
+    return Array.from(shifts);
+  }, [classes]);
+
   const renderClassList = () => {
-    // Group classes by teacher
+    const q = classSearchFilterInput.trim().toLowerCase();
+    const filteredClasses = classes.filter((c) => {
+      if (shiftFilter !== 'all' && c.shift !== shiftFilter) return false;
+      if (!q) return true;
+      return (
+        (c.className || '').toLowerCase().includes(q) ||
+        (c.classCode || '').toLowerCase().includes(q) ||
+        (c.teacherName || '').toLowerCase().includes(q)
+      );
+    });
+
     const grouped: Record<string, any[]> = {};
-    classes.filter(c => (c.className || '').toLowerCase().includes(classSearchFilterInput.toLowerCase()) || (c.classCode || '').toLowerCase().includes(classSearchFilterInput.toLowerCase())).forEach(c => {
-      const teacherName = c.teacherName || 'មិនទាន់កំណត់ (Unassigned)';
+    filteredClasses.forEach((c) => {
+      const teacherName = c.teacherName || 'មិនទាន់កំណត់';
       if (!grouped[teacherName]) grouped[teacherName] = [];
       grouped[teacherName].push(c);
     });
 
+    const teacherKeys = Object.keys(grouped);
+
     return (
-      <div className="animate-fade-in">
-        {Object.keys(grouped).map(teacherName => (
-          <div key={teacherName} style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid var(--border-color)' }}>
-              ថ្នាក់រៀនរបស់៖ <span style={{ color: 'var(--primary-color)' }}>{teacherName}</span>
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-              {grouped[teacherName].map(c => {
-                const studentCount = c.studentsData ? c.studentsData.length : (c.studentIds ? c.studentIds.length : 0);
-                
-                return (
-                  <div 
-                    key={c.id} 
-                    className="glass-panel hover-card animate-scale-in"
-                    onClick={() => setSelectedClassId(c.id)}
-                    style={{ padding: '1.5rem', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '0.75rem', borderLeft: `4px solid ${c.color || 'var(--primary-color)'}` }}
+      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+        {teacherKeys.map((teacherName) => {
+          const groupClasses = grouped[teacherName];
+          const matchedTeacher = teachers.find(
+            (t) =>
+              t.fullName === teacherName ||
+              groupClasses.some((c) => c.teacherId && (c.teacherId === t.id || c.teacherId === t.linkedUserId))
+          );
+          const teacherPhoto = matchedTeacher?.photo ? convertDriveImageLink(matchedTeacher.photo) : '';
+
+          return (
+            <section key={teacherName}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  marginBottom: '0.95rem',
+                  paddingBottom: '0.6rem',
+                  borderBottom: '2px solid var(--border-color)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      background: 'var(--accent-gradient)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      flexShrink: 0,
+                      boxShadow: 'var(--shadow-sm)',
+                    }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{c.className || c.classCode}</h3>
-                      <span style={{ padding: '0.25rem 0.75rem', background: 'var(--bg-secondary)', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600 }}>{c.shift || 'N/A'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                      <span>សិស្សសរុប៖ <strong>{studentCount}</strong> នាក់</span>
-                    </div>
-                    {c.level && (
-                      <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>កម្រិត៖ {c.level}</div>
+                    {teacherPhoto ? (
+                      <img src={teacherPhoto} alt={teacherName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      teacherName.charAt(0).toUpperCase()
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {classes.length === 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.1 }}>គ្រូបង្រៀន</div>
+                    <h2 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {teacherName}
+                    </h2>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    padding: '0.25rem 0.7rem',
+                    borderRadius: '999px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  {groupClasses.length} ថ្នាក់
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(295px, 1fr))',
+                  gap: '1rem',
+                }}
+              >
+                {groupClasses.map((c) => {
+                  const IconComp = CLASS_ICONS.find((i) => i.id === c.icon)?.icon || CLASS_ICONS[0].icon;
+                  const colorHex = CLASS_COLORS.find((co) => co.id === c.color)?.value || CLASS_COLORS[0].value;
+                  const activeStudents = resolveClassStudents(c);
+                  const totalStudents = activeStudents.length > 0
+                    ? activeStudents.length
+                    : getClassStudentIds(c).length;
+                  const femaleCount = activeStudents.filter((s) => s.gender === 'ស្រី').length;
+                  const maleCount = Math.max(0, activeStudents.length - femaleCount);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="glass-panel glass-panel-hoverable animate-scale-in"
+                      onClick={() => setSelectedClassId(c.id)}
+                      style={{
+                        padding: '1.15rem',
+                        cursor: 'pointer',
+                        borderStyle: 'solid',
+                        borderWidth: '1.5px 1.5px 1.5px 6px',
+                        borderColor: `var(--border-color) var(--border-color) var(--border-color) ${colorHex}`,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '0.9rem',
+                        background: 'var(--card-bg)',
+                        borderRadius: '16px',
+                      }}
+                    >
+                      {/* Background Watermark */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: '-8px',
+                          top: '-8px',
+                          opacity: 0.055,
+                          transform: 'scale(3.6)',
+                          color: colorHex,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {IconComp}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
+                        <div
+                          style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '12px',
+                            background: `${colorHex}18`,
+                            color: colorHex,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {IconComp}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.45rem', marginBottom: '0.2rem' }}>
+                            <h3
+                              style={{
+                                margin: 0,
+                                fontSize: '1.14rem',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {c.className || c.classCode}
+                            </h3>
+                            {c.classCode && (
+                              <span
+                                style={{
+                                  padding: '0.15rem 0.5rem',
+                                  borderRadius: '6px',
+                                  background: 'var(--bg-secondary)',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-secondary)',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {c.classCode}
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                            {c.academicYear || '2026-2027'} • {c.shift || 'N/A'}
+                            {c.level ? ` • ${c.level}` : ''}
+                          </div>
+
+                          {c.time && (
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                              ម៉ោង៖ {c.time}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card Footer: Student Breakdown + Action Cue */}
+                      <div
+                        style={{
+                          position: 'relative',
+                          zIndex: 1,
+                          paddingTop: '0.65rem',
+                          borderTop: '1px dashed var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.5rem',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.78rem', fontWeight: 600 }}>
+                          <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6' }}>
+                            សរុប {totalStudents}
+                          </span>
+                          {activeStudents.length > 0 && (
+                            <>
+                              <span style={{ padding: '0.18rem 0.5rem', borderRadius: '999px', background: 'rgba(236, 72, 153, 0.12)', color: '#ec4899' }}>
+                                ស្រី {femaleCount}
+                              </span>
+                              <span style={{ padding: '0.18rem 0.5rem', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+                                ប្រុស {maleCount}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            color: colorHex,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                          }}
+                        >
+                          <span>ស្រង់វត្តមាន</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+
+        {teacherKeys.length === 0 && (
           <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             មិនមានថ្នាក់រៀនសម្រាប់បង្ហាញទេ។
           </div>
@@ -205,22 +458,18 @@ export default function AttendancePage() {
   };
 
   const renderAttendanceTable = () => {
-    const selectedClass = classes.find(c => c.id === selectedClassId);
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
     if (!selectedClass) return null;
 
-    // Filter students for this class
-    const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
-    const baseStudents = students.filter(s => classStudentIds.includes(s.id) || s.className === selectedClass.className);
-    
+    const baseStudents = resolveClassStudents(selectedClass, attendanceRecords);
     const days = getDaysInMonth(selectedMonth, selectedYear);
     const daysArray = Array.from({ length: days }, (_, i) => i + 1);
 
-    // Compute totals per student
-    const classStudents = baseStudents.map(student => {
+    const studentsWithStats = baseStudents.map((student) => {
       let presentCount = 0;
       let absentCount = 0;
       let permissionCount = 0;
-      daysArray.forEach(day => {
+      daysArray.forEach((day) => {
         const status = attendanceRecords[student.id]?.[day];
         if (status === 'present') presentCount++;
         else if (status === 'absent') absentCount++;
@@ -229,266 +478,660 @@ export default function AttendancePage() {
       return { ...student, presentCount, absentCount, permissionCount };
     });
 
-    const maxDay = getDaysInMonth(selectedMonth, selectedYear);
+    const classStudents = [...studentsWithStats].sort((a, b) => {
+      if (!sortConfig) {
+        if (a.gender === 'ស្រី' && b.gender !== 'ស្រី') return -1;
+        if (a.gender !== 'ស្រី' && b.gender === 'ស្រី') return 1;
+        return (a.fullName || '').localeCompare(b.fullName || '', 'km');
+      }
+      const { key, direction } = sortConfig;
+      let comparison = 0;
+      if (key === 'absentCount' || key === 'presentCount') {
+        comparison = (a[key] || 0) - (b[key] || 0);
+      } else {
+        comparison = String(a[key] || '').localeCompare(String(b[key] || ''), 'km');
+      }
+      return direction === 'asc' ? comparison : -comparison;
+    });
+
+    // Count absentees per day for day-column header badges
+    const dailyAbsentCounts: Record<number, number> = {};
+    let totalMonthPresent = 0;
+    let totalMonthAbsent = 0;
+    let totalMonthPermission = 0;
+
+    daysArray.forEach((day) => {
+      let dayAbsent = 0;
+      classStudents.forEach((st) => {
+        const status = attendanceRecords[st.id]?.[day];
+        if (status === 'absent') {
+          dayAbsent++;
+          totalMonthAbsent++;
+        } else if (status === 'present') {
+          totalMonthPresent++;
+        } else if (status === 'permission') {
+          totalMonthPermission++;
+        }
+      });
+      dailyAbsentCounts[day] = dayAbsent;
+    });
+
+    const femaleCount = classStudents.filter((s) => s.gender === 'ស្រី').length;
+    const maleCount = classStudents.length - femaleCount;
 
     return (
-      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <style dangerouslySetInnerHTML={{__html: `
-          .mobile-hide { display: table-cell; }
-          .sticky-name { left: 130px; }
-          .sticky-gender { left: 280px; }
-          @media (max-width: 768px) {
-            .mobile-hide { display: none !important; }
-            .sticky-name { left: 50px !important; }
-            .sticky-gender { left: 200px !important; }
-          }
-        `}} />
-        <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+      <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Header & Date Controls */}
+        <div
+          className="glass-panel"
+          style={{
+            padding: '1rem 1.15rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '0.85rem',
+          }}
+        >
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)' }}>ថ្នាក់៖ <span style={{ color: 'var(--primary-color)' }}>{selectedClass.className}</span></h2>
-            <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>គ្រូ៖ {selectedClass.teacherName} • សិស្ស៖ {classStudents.length} នាក់</div>
+            <h2 style={{ margin: 0, fontSize: '1.28rem', color: 'var(--text-primary)' }}>
+              ថ្នាក់៖ <span style={{ color: 'var(--primary-color)' }}>{selectedClass.className}</span>
+            </h2>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.2rem', fontSize: '0.86rem' }}>
+              គ្រូ៖ {selectedClass.teacherName || 'មិនទាន់កំណត់'}
+              {selectedClass.shift ? ` • ${selectedClass.shift}` : ''}
+              {selectedClass.time ? ` • ${selectedClass.time}` : ''}
+            </div>
           </div>
-          
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Unlock Day Control */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem 0.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <button 
+
+          <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Unlock Day Stepper */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                background: 'var(--main-bg)',
+                padding: '0.25rem 0.45rem',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <button
+                type="button"
                 onClick={() => {
                   const next = Math.max(1, unlockedDay - 1);
                   setUnlockedDay(next);
                   setUnlockedDayInput(String(next));
                 }}
-                style={{ width: '28px', height: '28px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >-</button>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '52px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Unlock</span>
-                <input 
+                style={stepperBtnStyle}
+                aria-label="ថ្ងៃមុន"
+              >
+                -
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '46px' }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-secondary)', fontWeight: 700, lineHeight: 1 }}>
+                  Unlock ថ្ងៃ
+                </span>
+                <input
                   type="text"
                   inputMode="numeric"
                   className="no-spinner"
                   value={unlockedDayInput}
-                  onChange={e => {
-                    setUnlockedDayInput(e.target.value);
-                  }}
-                  onBlur={e => {
+                  onChange={(e) => setUnlockedDayInput(e.target.value)}
+                  onBlur={(e) => {
                     const val = parseInt(e.target.value, 10);
                     if (!isNaN(val)) {
-                      const clamped = Math.min(maxDay, Math.max(1, val));
+                      const clamped = Math.min(days, Math.max(1, val));
                       setUnlockedDay(clamped);
                       setUnlockedDayInput(String(clamped));
                     } else {
                       setUnlockedDayInput(String(unlockedDay));
                     }
                   }}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      (e.target as HTMLInputElement).blur();
-                    }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                   }}
-                  style={{ width: '40px', background: 'transparent', border: 'none', textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--primary-color)', outline: 'none' }}
+                  style={{
+                    width: '36px',
+                    background: 'transparent',
+                    border: 'none',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    color: 'var(--primary-color)',
+                    outline: 'none',
+                  }}
                 />
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => {
-                  const next = Math.min(maxDay, unlockedDay + 1);
+                  const next = Math.min(days, unlockedDay + 1);
                   setUnlockedDay(next);
                   setUnlockedDayInput(String(next));
                 }}
-                style={{ width: '28px', height: '28px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >+</button>
+                style={stepperBtnStyle}
+                aria-label="ថ្ងៃបន្ទាប់"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date();
+                  const td = today.getDate();
+                  setSelectedMonth(today.getMonth() + 1);
+                  setSelectedYear(today.getFullYear());
+                  setUnlockedDay(td);
+                  setUnlockedDayInput(String(td));
+                }}
+                style={{
+                  marginLeft: '0.2rem',
+                  padding: '0.3rem 0.55rem',
+                  borderRadius: '7px',
+                  border: 'none',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  color: 'var(--primary-color)',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+                title="កំណត់ទៅថ្ងៃនេះ"
+              >
+                ថ្ងៃនេះ
+              </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontWeight: 600 }}>ខែ៖</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <CustomSelectDropdown
                 value={String(selectedMonth)}
                 onChange={(v) => setSelectedMonth(Number(v))}
                 searchable={false}
-                menuMinWidth={140}
-                style={{ padding: '0.45rem 0.75rem', background: 'var(--bg-secondary)', width: 'auto', minWidth: '105px' }}
+                menuMinWidth={130}
+                style={{ padding: '0.42rem 0.7rem', background: 'var(--main-bg)', width: 'auto', minWidth: '95px' }}
                 options={Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `ខែ ${i + 1}` }))}
               />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontWeight: 600 }}>ឆ្នាំ៖</label>
               <CustomSelectDropdown
                 value={String(selectedYear)}
                 onChange={(v) => setSelectedYear(Number(v))}
                 searchable={false}
-                menuMinWidth={130}
-                style={{ padding: '0.45rem 0.75rem', background: 'var(--bg-secondary)', width: 'auto', minWidth: '100px' }}
-                options={[currentDate.getFullYear() - 1, currentDate.getFullYear(), currentDate.getFullYear() + 1].map(y => ({ value: String(y), label: String(y) }))}
+                menuMinWidth={110}
+                style={{ padding: '0.42rem 0.7rem', background: 'var(--main-bg)', width: 'auto', minWidth: '88px' }}
+                options={[nowRef.getFullYear() - 1, nowRef.getFullYear(), nowRef.getFullYear() + 1].map((y) => ({
+                  value: String(y),
+                  label: String(y),
+                }))}
               />
             </div>
+
+            <SortDropdown
+              options={[
+                { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
+                { value: 'studentId', label: 'អត្តលេខ' },
+                { value: 'gender', label: 'ភេទ' },
+                { value: 'absentCount', label: 'អវត្តមាន' },
+              ]}
+              sortBy={sortConfig?.key || 'fullName'}
+              sortOrder={sortConfig?.direction || 'asc'}
+              onSortChange={(by, order) => setSortConfig({ key: by, direction: order })}
+            />
           </div>
         </div>
 
-        <div className="glass-panel table-responsive" style={{ padding: '0', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
+        {/* Roster Pills + Compact Legend Strip */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.65rem',
+          }}
+        >
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.84rem', fontWeight: 600 }}>
+            <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '0.22rem 0.65rem', borderRadius: '999px' }}>
+              សរុប {classStudents.length} នាក់
+            </span>
+            <span style={{ background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', padding: '0.22rem 0.65rem', borderRadius: '999px' }}>
+              ស្រី {femaleCount} នាក់
+            </span>
+            <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.22rem 0.65rem', borderRadius: '999px' }}>
+              ប្រុស {maleCount} នាក់
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>✓</span>
+              មករៀន
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(239, 68, 68, 0.18)', color: '#ef4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>✕</span>
+              អវត្តមាន
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ width: '18px', height: '18px', borderRadius: '5px', background: 'rgba(245, 158, 11, 0.18)', color: '#f59e0b', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>P</span>
+              ច្បាប់
+            </span>
+          </div>
+        </div>
+
+        {/* Compact Attendance Table (Modeled after Scores Table) */}
+        <div
+          style={{
+            background: 'var(--card-bg)',
+            borderRadius: '16px',
+            overflowX: 'auto',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-sm)',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 'max-content' }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
-                <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '50px', position: 'sticky', left: 0, background: 'var(--bg-secondary)', zIndex: 10 }}>ល.រ</th>
-                <th className="mobile-hide" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '80px', position: 'sticky', left: '50px', background: 'var(--bg-secondary)', zIndex: 10 }}>អត្តលេខ</th>
-                <th className="sticky-name" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '150px', position: 'sticky', background: 'var(--bg-secondary)', zIndex: 10 }}>ឈ្មោះសិស្ស</th>
-                <th className="mobile-hide sticky-gender" style={{ padding: '0.5rem 0.75rem', textAlign: 'left', minWidth: '60px', position: 'sticky', background: 'var(--bg-secondary)', borderRight: '2px solid var(--border-color)', zIndex: 10 }}>ភេទ</th>
-                {daysArray.map(day => {
+                <th style={{ padding: '0.45rem 0.45rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                  ល.រ
+                </th>
+                <th style={{ padding: '0.45rem 0.5rem', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                  អត្តលេខ
+                </th>
+                <th
+                  style={{
+                    padding: '0.45rem 0.65rem',
+                    textAlign: 'left',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.82rem',
+                    border: '1px solid var(--border-color)',
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 10,
+                    background: 'var(--modal-bg, var(--bg-secondary))',
+                    boxShadow: '2px 0 6px rgba(0,0,0,0.06)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  ឈ្មោះសិស្ស
+                </th>
+                <th style={{ padding: '0.45rem 0.4rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                  ភេទ
+                </th>
+
+                {daysArray.map((day) => {
                   const date = new Date(selectedYear, selectedMonth - 1, day);
                   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                   const isUnlocked = day === unlockedDay;
+                  const dayAbsentCount = dailyAbsentCounts[day] || 0;
+
                   return (
-                    <th 
-                      key={day} 
-                      onClick={() => markAllPresent(day)} 
-                      title={isUnlocked ? "ចុចដើម្បីដាក់/ដកវត្តមានសិស្សទាំងអស់" : "ថ្ងៃត្រូវបានចាក់សោរ"}
-                      style={{ 
-                        padding: '0.5rem 0.25rem', 
-                        textAlign: 'center', 
-                        minWidth: '38px', 
-                        fontSize: '0.85rem', 
-                        borderLeft: '1px solid rgba(0,0,0,0.05)', 
-                        borderRight: '1px solid rgba(0,0,0,0.05)', 
-                        background: isUnlocked ? 'rgba(59,130,246,0.1)' : isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-secondary)', 
-                        color: isUnlocked ? 'var(--primary-color)' : isWeekend ? '#ef4444' : 'inherit',
-                        cursor: isUnlocked ? 'pointer' : 'not-allowed', 
-                        opacity: isUnlocked ? 1 : 0.6,
-                        fontWeight: isUnlocked ? 700 : 400,
+                    <th
+                      key={day}
+                      onClick={() => markAllPresent(day)}
+                      title={
+                        `${isUnlocked ? 'ចុចដើម្បីដាក់/ដកវត្តមានទាំងអស់ • ' : 'ថ្ងៃជាប់សោរ • '}ថ្ងៃទី ${day}` +
+                        (dayAbsentCount > 0 ? ` (អវត្តមាន ${dayAbsentCount} នាក់)` : '')
+                      }
+                      style={{
+                        padding: '0.28rem 0.15rem',
+                        textAlign: 'center',
+                        minWidth: '33px',
+                        width: '33px',
+                        verticalAlign: 'bottom',
+                        border: '1px solid var(--border-color)',
+                        background: isUnlocked
+                          ? 'rgba(59, 130, 246, 0.14)'
+                          : isWeekend
+                            ? 'rgba(239, 68, 68, 0.08)'
+                            : 'var(--bg-secondary)',
+                        color: isUnlocked ? 'var(--primary-color)' : isWeekend ? '#ef4444' : 'var(--text-primary)',
+                        cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                        boxShadow: isUnlocked ? 'inset 0 2.5px 0 var(--primary-color)' : 'none',
                       }}
-                    >{day}</th>
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                        {dayAbsentCount > 0 ? (
+                          <span
+                            style={{
+                              minWidth: '16px',
+                              height: '15px',
+                              padding: '0 3px',
+                              borderRadius: '999px',
+                              background: '#ef4444',
+                              color: '#ffffff',
+                              fontSize: '0.66rem',
+                              fontWeight: 700,
+                              lineHeight: '15px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {dayAbsentCount}
+                          </span>
+                        ) : (
+                          <span style={{ height: '15px', display: 'inline-block' }} />
+                        )}
+                        <span style={{ fontSize: '0.8rem', fontWeight: isUnlocked ? 800 : 600, opacity: isUnlocked ? 1 : 0.78 }}>
+                          {day}
+                        </span>
+                      </div>
+                    </th>
                   );
                 })}
-                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#3b82f6' }}>សរុប ✔️</th>
-                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#ef4444' }}>សរុប ❌</th>
-                <th style={{ padding: '0.5rem', textAlign: 'center', minWidth: '50px', color: '#f59e0b' }}>សរុប P</th>
+
+                <th style={{ padding: '0.25rem', textAlign: 'center', color: '#10b981', verticalAlign: 'bottom', height: '72px', minWidth: '38px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontSize: '0.78rem', fontWeight: 700 }}>
+                    មករៀន
+                  </div>
+                </th>
+                <th style={{ padding: '0.25rem', textAlign: 'center', color: '#ef4444', verticalAlign: 'bottom', height: '72px', minWidth: '38px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontSize: '0.78rem', fontWeight: 700 }}>
+                    អវត្តមាន
+                  </div>
+                </th>
+                <th style={{ padding: '0.25rem', textAlign: 'center', color: '#f59e0b', verticalAlign: 'bottom', height: '72px', minWidth: '38px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontSize: '0.78rem', fontWeight: 700 }}>
+                    ច្បាប់
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {classStudents.map((student, idx) => {
-                const { presentCount, absentCount, permissionCount } = student;
+              {classStudents.map((student, idx) => (
+                <tr key={student.id} className="table-row-hover">
+                  <td style={{ padding: '0.32rem 0.45rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                    {idx + 1}
+                  </td>
+                  <td style={{ padding: '0.32rem 0.5rem', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                    {student.studentId || '-'}
+                  </td>
+                  <td
+                    style={{
+                      padding: '0.32rem 0.65rem',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      whiteSpace: 'nowrap',
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 9,
+                      background: 'var(--modal-bg, var(--main-bg))',
+                      boxShadow: '2px 0 6px rgba(0,0,0,0.06)',
+                    }}
+                  >
+                    {student.fullName || student.name || ''}
+                  </td>
+                  <td
+                    style={{
+                      padding: '0.32rem 0.4rem',
+                      textAlign: 'center',
+                      fontSize: '0.8rem',
+                      color: student.gender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {student.gender || '-'}
+                  </td>
 
-                return (
-                  <tr key={student.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="hover:bg-black/5">
-                    <td style={{ padding: '0.35rem 0.75rem', position: 'sticky', left: 0, background: 'var(--card-bg)', zIndex: 5 }}>{idx + 1}</td>
-                    <td className="mobile-hide" style={{ padding: '0.35rem 0.75rem', position: 'sticky', left: '50px', background: 'var(--card-bg)', zIndex: 5 }}>{student.studentId || ''}</td>
-                    <td className="sticky-name" style={{ padding: '0.35rem 0.75rem', fontWeight: 600, position: 'sticky', background: 'var(--card-bg)', zIndex: 5 }}>{student.fullName || student.name || ''}</td>
-                    <td className="mobile-hide sticky-gender" style={{ padding: '0.35rem 0.75rem', position: 'sticky', background: 'var(--card-bg)', borderRight: '2px solid var(--border-color)', zIndex: 5 }}>{student.gender}</td>
-                    {daysArray.map(day => {
-                      const date = new Date(selectedYear, selectedMonth - 1, day);
-                      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                      const isUnlocked = day === unlockedDay;
-                      
-                      const status = attendanceRecords[student.id]?.[day] || '';
-                      let bgColor = isWeekend ? 'rgba(239, 68, 68, 0.08)' : 'transparent';
-                      let color = 'inherit';
-                      let icon = '';
-                      
-                      if (status === 'present') { bgColor = 'rgba(16, 185, 129, 0.15)'; color = '#3b82f6'; icon = '✔️'; }
-                      else if (status === 'absent') { bgColor = 'rgba(239, 68, 68, 0.15)'; color = '#ef4444'; icon = '❌'; }
-                      else if (status === 'permission') { bgColor = 'rgba(245, 158, 11, 0.15)'; color = '#f59e0b'; icon = 'P'; }
+                  {daysArray.map((day) => {
+                    const date = new Date(selectedYear, selectedMonth - 1, day);
+                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                    const isUnlocked = day === unlockedDay;
+                    const status = attendanceRecords[student.id]?.[day] || '';
 
-                      const cycleStatus = () => {
-                        if (!isUnlocked) return;
-                        let next = '';
-                        if (!status) next = 'present';
-                        else if (status === 'present') next = 'absent';
-                        else if (status === 'absent') next = 'permission';
-                        else if (status === 'permission') next = '';
-                        handleAttendanceChange(student.id, day, next);
-                      };
+                    let btnBg = isUnlocked ? 'rgba(59, 130, 246, 0.05)' : 'transparent';
+                    let btnColor = 'inherit';
+                    let btnBorder = isUnlocked ? '1px dashed rgba(59, 130, 246, 0.35)' : '1px solid transparent';
+                    let symbol = '';
 
-                      return (
-                        <td key={day} style={{ padding: '0.15rem', textAlign: 'center', borderLeft: '1px solid rgba(0,0,0,0.05)', borderRight: '1px solid rgba(0,0,0,0.05)', background: isUnlocked ? 'rgba(59,130,246,0.04)' : 'transparent' }}>
-                          <button 
-                            onClick={cycleStatus}
-                            style={{ 
-                              width: '28px', 
-                              height: '28px',
-                              padding: 0, 
-                              border: 'none', 
-                              borderRadius: '6px',
-                              background: bgColor,
-                              color: color,
-                              fontWeight: 'bold',
-                              fontSize: '0.9rem',
-                              cursor: isUnlocked ? 'pointer' : 'not-allowed',
-                              opacity: isUnlocked ? 1 : 0.65,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              margin: '0 auto',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            {icon}
-                          </button>
-                        </td>
-                      );
-                    })}
-                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#3b82f6' }}>{presentCount > 0 ? presentCount : ''}</td>
-                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>{absentCount > 0 ? absentCount : ''}</td>
-                    <td style={{ padding: '0.35rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b' }}>{permissionCount > 0 ? permissionCount : ''}</td>
-                  </tr>
-                );
-              })}
+                    if (status === 'present') {
+                      btnBg = 'rgba(16, 185, 129, 0.16)';
+                      btnColor = '#10b981';
+                      btnBorder = '1px solid rgba(16, 185, 129, 0.25)';
+                      symbol = '✓';
+                    } else if (status === 'absent') {
+                      btnBg = 'rgba(239, 68, 68, 0.16)';
+                      btnColor = '#ef4444';
+                      btnBorder = '1px solid rgba(239, 68, 68, 0.28)';
+                      symbol = '✕';
+                    } else if (status === 'permission') {
+                      btnBg = 'rgba(245, 158, 11, 0.16)';
+                      btnColor = '#d97706';
+                      btnBorder = '1px solid rgba(245, 158, 11, 0.28)';
+                      symbol = 'P';
+                    }
+
+                    const cycleStatus = () => {
+                      if (!isUnlocked) return;
+                      let next = '';
+                      if (!status) next = 'present';
+                      else if (status === 'present') next = 'absent';
+                      else if (status === 'absent') next = 'permission';
+                      else next = '';
+                      handleAttendanceChange(student.id, day, next);
+                    };
+
+                    return (
+                      <td
+                        key={day}
+                        style={{
+                          padding: '0.16rem 0.12rem',
+                          textAlign: 'center',
+                          border: '1px solid var(--border-color)',
+                          background: isUnlocked
+                            ? 'rgba(59, 130, 246, 0.06)'
+                            : isWeekend
+                              ? 'rgba(239, 68, 68, 0.04)'
+                              : 'transparent',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={cycleStatus}
+                          disabled={!isUnlocked}
+                          style={{
+                            width: '27px',
+                            height: '27px',
+                            padding: 0,
+                            border: btnBorder,
+                            borderRadius: '7px',
+                            background: btnBg,
+                            color: btnColor,
+                            fontWeight: 700,
+                            fontSize: '0.82rem',
+                            cursor: isUnlocked ? 'pointer' : 'not-allowed',
+                            opacity: isUnlocked ? 1 : 0.72,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto',
+                            touchAction: 'manipulation',
+                            transition: 'transform 0.1s ease',
+                          }}
+                        >
+                          {symbol}
+                        </button>
+                      </td>
+                    );
+                  })}
+
+                  <td style={{ padding: '0.25rem', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem', color: '#10b981', border: '1px solid var(--border-color)' }}>
+                    {student.presentCount > 0 ? student.presentCount : '-'}
+                  </td>
+                  <td style={{ padding: '0.25rem', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem', color: '#ef4444', border: '1px solid var(--border-color)' }}>
+                    {student.absentCount > 0 ? student.absentCount : '-'}
+                  </td>
+                  <td style={{ padding: '0.25rem', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
+                    {student.permissionCount > 0 ? student.permissionCount : '-'}
+                  </td>
+                </tr>
+              ))}
               {classStudents.length === 0 && (
                 <tr>
-                  <td colSpan={7 + days} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>មិនមានសិស្សនៅក្នុងថ្នាក់នេះទេ</td>
+                  <td colSpan={7 + days} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    មិនមានសិស្សនៅក្នុងថ្នាក់នេះទេ
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div style={{ display: 'flex', gap: '1.5rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ display: 'inline-block', width: '16px', height: '16px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', textAlign: 'center', lineHeight: '16px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px' }}>✓</span> 
-            <span style={{ fontSize: '0.9rem' }}>មានវត្តមាន</span>
+
+        {/* Monthly Attendance Summary Card */}
+        {classStudents.length > 0 && (
+          <div
+            style={{
+              padding: '1rem 1.25rem',
+              background: 'var(--card-bg)',
+              borderRadius: '14px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              fontSize: '0.9rem',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <span>
+                សរុបមករៀន៖ <strong style={{ color: '#10b981' }}>{totalMonthPresent}</strong> ដង
+              </span>
+              <span>
+                អវត្តមាន៖ <strong style={{ color: '#ef4444' }}>{totalMonthAbsent}</strong> ដង
+              </span>
+              <span>
+                ច្បាប់៖ <strong style={{ color: '#f59e0b' }}>{totalMonthPermission}</strong> ដង
+              </span>
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              * ចុចលើលេខថ្ងៃ Unlock ដើម្បីដាក់/ដកវត្តមានទាំងអស់ • រក្សាទុកស្វ័យប្រវត្តិ (Auto-save)
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ display: 'inline-block', width: '16px', height: '16px', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', textAlign: 'center', lineHeight: '16px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px' }}>X</span> 
-            <span style={{ fontSize: '0.9rem' }}>អវត្តមាន</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ display: 'inline-block', width: '16px', height: '16px', background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', textAlign: 'center', lineHeight: '16px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px' }}>P</span> 
-            <span style={{ fontSize: '0.9rem' }}>ច្បាប់</span>
-          </div>
-          <div style={{ marginLeft: 'auto', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            * ទិន្នន័យរក្សាទុកដោយស្វ័យប្រវត្តិ (Auto-saved)
-          </div>
-        </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className="page-container animate-fade-in">
-      <div className="flex-between" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div
+        className="flex-between"
+        style={{ marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.85rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
           {selectedClassId && (
-            <button 
+            <button
+              type="button"
               onClick={() => setSelectedClassId(null)}
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)' }}
+              className="btn"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '0.5rem 0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: 'var(--text-primary)',
+              }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              <span>ថយក្រោយ</span>
             </button>
           )}
-          <h1 style={{ margin: 0 }}>បញ្ជីវត្តមាន (Attendance)</h1>
-          
-          {!selectedClassId && (
-            <div style={{ flex: 1, maxWidth: '300px', marginLeft: '1rem', minWidth: '200px' }}>
-              <input 
-                type="text" 
-                placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
-                value={classSearchFilterInput}
-                onChange={e => setClassSearchFilterInput(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
-              />
-            </div>
-          )}
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              បញ្ជីវត្តមាន (Attendance)
+            </h1>
+            {!selectedClassId && (
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                ជ្រើសរើសថ្នាក់រៀនដើម្បីស្រង់វត្តមានប្រចាំខែ
+              </p>
+            )}
+          </div>
         </div>
+
+        {!selectedClassId && (
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center', flex: '1 1 280px', justifyContent: 'flex-end' }}>
+            <input
+              type="text"
+              placeholder="ស្វែងរកឈ្មោះថ្នាក់ កូដ ឬគ្រូ..."
+              value={classSearchFilterInput}
+              onChange={(e) => setClassSearchFilterInput(e.target.value)}
+              style={{
+                width: '100%',
+                maxWidth: '280px',
+                padding: '0.55rem 0.9rem',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--card-bg)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+
+            {availableShifts.length > 1 && (
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setShiftFilter('all')}
+                  style={shiftChipStyle(shiftFilter === 'all')}
+                >
+                  ទាំងអស់
+                </button>
+                {availableShifts.map((shift) => (
+                  <button
+                    key={shift}
+                    type="button"
+                    onClick={() => setShiftFilter(shift)}
+                    style={shiftChipStyle(shiftFilter === shift)}
+                  >
+                    {shift}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      
-      {!selectedClassId && <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>ជ្រើសរើសថ្នាក់រៀនខាងក្រោមដើម្បីស្រង់វត្តមានប្រចាំខែ។</p>}
 
       {selectedClassId ? renderAttendanceTable() : renderClassList()}
     </div>
   );
+}
+
+const stepperBtnStyle: React.CSSProperties = {
+  width: '28px',
+  height: '28px',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--border-color)',
+  borderRadius: '7px',
+  cursor: 'pointer',
+  fontSize: '1rem',
+  fontWeight: 700,
+  color: 'var(--text-primary)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  touchAction: 'manipulation',
+};
+
+function shiftChipStyle(active: boolean): React.CSSProperties {
+  return {
+    padding: '0.42rem 0.78rem',
+    borderRadius: '999px',
+    border: active ? '1px solid var(--primary-color)' : '1px solid var(--border-color)',
+    background: active ? 'var(--primary-color)' : 'var(--card-bg)',
+    color: active ? '#ffffff' : 'var(--text-secondary)',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    touchAction: 'manipulation',
+  };
 }
