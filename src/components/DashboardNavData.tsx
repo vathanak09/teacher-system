@@ -27,6 +27,40 @@ export const THEME_COLOR_OPTIONS = [
   { value: 'violet', label: 'Violet', swatch: '#8b5cf6' },
 ];
 
+export type StyleThemeKey = 'classic' | 'glass' | 'minimal' | 'vibrant';
+
+export const STYLE_THEME_OPTIONS: {
+  value: StyleThemeKey;
+  label: string;
+  desc: string;
+  preview: string;
+}[] = [
+  {
+    value: 'classic',
+    label: 'ស្តង់ដារ',
+    desc: 'ទំនើប និងមានតុល្យភាព',
+    preview: 'linear-gradient(135deg, #3b82f6, #1e3a8a)',
+  },
+  {
+    value: 'glass',
+    label: 'Glass កញ្ចក់',
+    desc: 'ថ្លាឆ្វេងបែប Glassmorphism',
+    preview: 'linear-gradient(135deg, rgba(56, 189, 248, 0.75), rgba(168, 85, 247, 0.75))',
+  },
+  {
+    value: 'minimal',
+    label: 'Minimal សាមញ្ញ',
+    desc: 'ស្អាត ស្រាល គ្មានភាពរញ៉េរញ៉ៃ',
+    preview: 'linear-gradient(135deg, #f8fafc, #cbd5e1)',
+  },
+  {
+    value: 'vibrant',
+    label: 'ចម្រុះពណ៌',
+    desc: 'ពណ៌ស្រស់ឆើត និងទាន់សម័យ',
+    preview: 'linear-gradient(135deg, #ec4899, #8b5cf6, #06b6d4)',
+  },
+];
+
 export const NAV_LINKS: NavItem[] = [
   {
     name: 'ទំព័រដើម',

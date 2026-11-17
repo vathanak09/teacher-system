@@ -7,6 +7,8 @@ import {
   NAV_CATEGORY_LABELS,
   NavCategoryKey,
   NavItem,
+  STYLE_THEME_OPTIONS,
+  StyleThemeKey,
   THEME_COLOR_OPTIONS,
   getPrimaryMobilePaths,
   isNavPathActive,
@@ -20,12 +22,15 @@ interface MobileBottomNavProps {
   pathname: string;
   allowedLinks: NavItem[];
   isMenuOpen: boolean;
+  barsHidden: boolean;
   onOpenMenu: () => void;
   onCloseMenu: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   themeColor: string;
   onChangeThemeColor: (color: string) => void;
+  styleTheme: StyleThemeKey;
+  onChangeStyleTheme: (style: StyleThemeKey) => void;
   onLogout: () => void;
 }
 
@@ -39,12 +44,15 @@ export default function MobileBottomNav({
   pathname,
   allowedLinks,
   isMenuOpen,
+  barsHidden,
   onOpenMenu,
   onCloseMenu,
   theme,
   onToggleTheme,
   themeColor,
   onChangeThemeColor,
+  styleTheme,
+  onChangeStyleTheme,
   onLogout,
 }: MobileBottomNavProps) {
   const primaryPaths = getPrimaryMobilePaths(role);
@@ -66,9 +74,9 @@ export default function MobileBottomNav({
 
   return (
     <>
-      {/* Fixed Thumb-Friendly Bottom Bar */}
+      {/* Floating Colorful Thumb-Friendly Bottom Bar with Auto-Hide */}
       <nav
-        className="mobile-bottom-nav no-print"
+        className={`mobile-bottom-nav no-print ${barsHidden && !isMenuOpen ? 'bars-hidden' : ''}`}
         aria-label="Mobile Navigation"
         style={{ gridTemplateColumns: `repeat(${primaryItems.length + 1}, minmax(0, 1fr))` }}
       >
@@ -81,8 +89,29 @@ export default function MobileBottomNav({
               onClick={onCloseMenu}
               className={`mobile-bottom-tab ${active ? 'active' : ''}`}
             >
-              <span className="mobile-bottom-tab-icon">{item.icon}</span>
-              <span className="mobile-bottom-tab-label">{item.shortName}</span>
+              <span
+                className="mobile-bottom-tab-icon"
+                style={
+                  active
+                    ? {
+                        background: `linear-gradient(135deg, ${item.tint}, ${item.tint}cc)`,
+                        color: '#ffffff',
+                        boxShadow: `0 4px 12px ${item.tint}55`,
+                      }
+                    : {
+                        color: item.tint,
+                        backgroundColor: `${item.tint}12`,
+                      }
+                }
+              >
+                {item.icon}
+              </span>
+              <span
+                className="mobile-bottom-tab-label"
+                style={active ? { color: item.tint, fontWeight: 700 } : undefined}
+              >
+                {item.shortName}
+              </span>
             </Link>
           );
         })}
@@ -94,15 +123,34 @@ export default function MobileBottomNav({
           aria-expanded={isMenuOpen}
           aria-label="ម៉ឺនុយទាំងអស់"
         >
-          <span className="mobile-bottom-tab-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          <span
+            className="mobile-bottom-tab-icon"
+            style={
+              isMoreHighlighted
+                ? {
+                    background: 'linear-gradient(135deg, #ec4899, #8b5cf6)',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.45)',
+                  }
+                : {
+                    color: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                  }
+            }
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="2" />
+              <rect x="14" y="3" width="7" height="7" rx="2" />
+              <rect x="3" y="14" width="7" height="7" rx="2" />
+              <rect x="14" y="14" width="7" height="7" rx="2" />
             </svg>
           </span>
-          <span className="mobile-bottom-tab-label">ម៉ឺនុយ</span>
+          <span
+            className="mobile-bottom-tab-label"
+            style={isMoreHighlighted ? { color: '#8b5cf6', fontWeight: 700 } : undefined}
+          >
+            ម៉ឺនុយ
+          </span>
         </button>
       </nav>
 
@@ -155,9 +203,33 @@ export default function MobileBottomNav({
               </button>
             </div>
 
-            {/* Scrollable App Tiles Body */}
+            {/* Scrollable Body */}
             <div className="mobile-sheet-body">
-              {/* Appearance Quick Controls */}
+              {/* UI Style Theme Selector (Classic / Glass / Minimal / Colorful) */}
+              <div>
+                <div className="mobile-sheet-section-title">រចនាបថ Theme កម្មវិធី</div>
+                <div className="mobile-style-theme-grid">
+                  {STYLE_THEME_OPTIONS.map((st) => {
+                    const selected = styleTheme === st.value;
+                    return (
+                      <button
+                        key={st.value}
+                        type="button"
+                        onClick={() => onChangeStyleTheme(st.value)}
+                        className={`mobile-style-card ${selected ? 'selected' : ''}`}
+                      >
+                        <span
+                          className="mobile-style-preview"
+                          style={{ background: st.preview }}
+                        />
+                        <span className="mobile-style-label">{st.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Color Accent Swatches + Dark/Light Mode */}
               <div className="mobile-theme-bar">
                 <div className="mobile-theme-swatches">
                   {THEME_COLOR_OPTIONS.map((opt) => {
@@ -231,12 +303,21 @@ export default function MobileBottomNav({
                             href={item.path}
                             onClick={onCloseMenu}
                             className={`mobile-grid-tile ${active ? 'active' : ''}`}
+                            style={
+                              active
+                                ? {
+                                    borderColor: item.tint,
+                                    background: `${item.tint}14`,
+                                  }
+                                : undefined
+                            }
                           >
                             <span
                               className="mobile-grid-tile-icon"
                               style={{
                                 backgroundColor: active ? item.tint : `${item.tint}1c`,
                                 color: active ? '#ffffff' : item.tint,
+                                boxShadow: active ? `0 4px 12px ${item.tint}45` : undefined,
                               }}
                             >
                               {item.icon}

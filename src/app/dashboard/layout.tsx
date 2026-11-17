@@ -1,7 +1,7 @@
 "use client";
 import { convertDriveImageLink } from '../../utils/driveLink';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { teacherService } from '@/services/db';
@@ -12,21 +12,35 @@ import {
   NAV_CATEGORY_LABELS,
   NAV_LINKS,
   NavCategoryKey,
+  STYLE_THEME_OPTIONS,
+  StyleThemeKey,
   THEME_COLOR_OPTIONS,
   isNavPathActive,
 } from '@/components/DashboardNavData';
 
 const CATEGORY_ORDER: NavCategoryKey[] = ['core', 'management', 'resources', 'system'];
 
+function syncBodyAppearanceClasses(color: string, styleTheme: StyleThemeKey) {
+  const cleaned = document.body.className
+    .replace(/\btheme-\w+/g, '')
+    .replace(/\bstyle-\w+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  document.body.className = `${cleaned} theme-${color} style-${styleTheme}`.trim();
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [themeColor, setThemeColor] = useState<string>('ocean');
+  const [styleTheme, setStyleTheme] = useState<StyleThemeKey>('classic');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [barsHidden, setBarsHidden] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const lastScrollYRef = useRef(0);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -53,9 +67,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const savedColor = localStorage.getItem('theme-color') || 'ocean';
+    const savedStyle = (localStorage.getItem('theme-style') as StyleThemeKey) || 'classic';
     setThemeColor(savedColor);
-    document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
-    document.body.classList.add('theme-' + savedColor);
+    setStyleTheme(savedStyle);
+    syncBodyAppearanceClasses(savedColor, savedStyle);
 
     const savedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
     setSidebarCollapsed(savedCollapsed);
@@ -83,6 +98,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [router]);
 
+  // Reveal bars cleanly when changing pages or opening mobile menu
+  useEffect(() => {
+    setBarsHidden(false);
+    lastScrollYRef.current = typeof window !== 'undefined' ? window.scrollY : 0;
+  }, [pathname, mobileMenuOpen]);
+
+  // Smooth auto-hide header & bottom bar when scrolling down; reveal on scroll up or top
+  useEffect(() => {
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        ticking = false;
+        if (mobileMenuOpen) {
+          setBarsHidden(false);
+          return;
+        }
+        const currentY = Math.max(0, window.scrollY || window.pageYOffset || 0);
+        if (currentY <= 24) {
+          setBarsHidden(false);
+          lastScrollYRef.current = currentY;
+          return;
+        }
+        const delta = currentY - lastScrollYRef.current;
+        if (delta > 12 && currentY > 56) {
+          setBarsHidden(true);
+          lastScrollYRef.current = currentY;
+        } else if (delta < -10) {
+          setBarsHidden(false);
+          lastScrollYRef.current = currentY;
+        }
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [mobileMenuOpen]);
+
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -90,11 +146,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     localStorage.setItem('theme', newTheme);
   };
 
-  const handleThemeColorChange = (newTheme: string) => {
-    setThemeColor(newTheme);
-    localStorage.setItem('theme-color', newTheme);
-    document.body.className = document.body.className.replace(/theme-\w+/g, '').trim();
-    document.body.classList.add('theme-' + newTheme);
+  const handleThemeColorChange = (newColor: string) => {
+    setThemeColor(newColor);
+    localStorage.setItem('theme-color', newColor);
+    syncBodyAppearanceClasses(newColor, styleTheme);
+  };
+
+  const handleStyleThemeChange = (newStyle: StyleThemeKey) => {
+    setStyleTheme(newStyle);
+    localStorage.setItem('theme-style', newStyle);
+    syncBodyAppearanceClasses(themeColor, newStyle);
   };
 
   const toggleSidebarCollapse = () => {
@@ -116,25 +177,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const roleKhmer = role === 'admin' ? 'អ្នកគ្រប់គ្រង' : role === 'teacher' ? 'គ្រូបង្រៀន' : 'សិស្ស';
   const allowedLinks = NAV_LINKS.filter((link) => link.roles.includes(role));
   const currentNavItem = allowedLinks.find((item) => isNavPathActive(pathname, item.path));
+  const activeTint = currentNavItem?.tint || '#3b82f6';
 
   return (
     <ConfirmProvider>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
-        {/* Compact Responsive Mobile Header */}
-        <header className="mobile-header no-print">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+        {/* Modern Colorful Auto-Hide Mobile Header */}
+        <header className={`mobile-header no-print ${barsHidden && !mobileMenuOpen ? 'bars-hidden' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
             <button
               type="button"
               className="mobile-header-menu-btn"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="បើកម៉ឺនុយ"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="3" y1="7" x2="21" y2="7" />
                 <line x1="3" y1="12" x2="17" y2="12" />
                 <line x1="3" y1="17" x2="21" y2="17" />
               </svg>
             </button>
+
+            {currentNavItem && (
+              <span
+                className="mobile-header-page-badge"
+                style={{
+                  background: `linear-gradient(135deg, ${activeTint}, ${activeTint}cc)`,
+                  boxShadow: `0 4px 10px ${activeTint}40`,
+                }}
+              >
+                {currentNavItem.icon}
+              </span>
+            )}
+
             <div style={{ minWidth: 0, flex: 1 }}>
               <div className="mobile-header-title">
                 {currentNavItem?.name || schoolName}
@@ -143,7 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
             <button
               type="button"
               onClick={toggleTheme}
@@ -152,7 +227,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               aria-label="ប្តូរពន្លឺ"
             >
               {theme === 'dark' ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.2">
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
                   <line x1="12" y1="21" x2="12" y2="23" />
@@ -164,7 +239,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1">
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
               )}
@@ -324,16 +399,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <main className="dashboard-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div className="top-header no-print">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <CustomSelectDropdown
+                  value={styleTheme}
+                  onChange={(val) => handleStyleThemeChange(val as StyleThemeKey)}
+                  searchable={false}
+                  menuMinWidth={165}
+                  style={{ width: 'auto', minWidth: '138px', padding: '0.4rem 0.75rem', background: 'var(--card-bg)' }}
+                  options={STYLE_THEME_OPTIONS.map((o) => ({ value: o.value, label: `Theme: ${o.label}` }))}
+                />
                 <CustomSelectDropdown
                   value={themeColor}
                   onChange={handleThemeColorChange}
                   searchable={false}
-                  menuMinWidth={150}
-                  style={{ width: 'auto', minWidth: '115px', padding: '0.4rem 0.75rem', background: 'var(--bg-secondary)' }}
+                  menuMinWidth={140}
+                  style={{ width: 'auto', minWidth: '115px', padding: '0.4rem 0.75rem', background: 'var(--card-bg)' }}
                   options={THEME_COLOR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
                 />
-                <button onClick={toggleTheme} className="theme-toggle-btn" title="ប្តូរពណ៌ (Theme)">
+                <button onClick={toggleTheme} className="theme-toggle-btn" title="ប្តូរពន្លឺ (Theme)">
                   {theme === 'dark' ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="5" />
@@ -360,7 +443,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
         </div>
 
-        {/* Mobile Bottom Navigation Bar + Slide-Up App Grid Sheet */}
+        {/* Modern Floating Colorful Bottom Bar + App Grid Sheet */}
         <MobileBottomNav
           role={role}
           roleKhmer={roleKhmer}
@@ -369,12 +452,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           pathname={pathname}
           allowedLinks={allowedLinks}
           isMenuOpen={mobileMenuOpen}
+          barsHidden={barsHidden}
           onOpenMenu={() => setMobileMenuOpen(true)}
           onCloseMenu={() => setMobileMenuOpen(false)}
           theme={theme}
           onToggleTheme={toggleTheme}
           themeColor={themeColor}
           onChangeThemeColor={handleThemeColorChange}
+          styleTheme={styleTheme}
+          onChangeStyleTheme={handleStyleThemeChange}
           onLogout={handleLogout}
         />
       </div>
