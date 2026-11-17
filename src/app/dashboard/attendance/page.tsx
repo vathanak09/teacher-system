@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
@@ -34,6 +34,10 @@ export default function AttendancePage() {
   const [unlockedDay, setUnlockedDay] = useState(nowRef.getDate());
   const [unlockedDayInput, setUnlockedDayInput] = useState(String(nowRef.getDate()));
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [scrollNonce, setScrollNonce] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const stickyNameThRef = useRef<HTMLTableCellElement>(null);
+  const dayHeaderRefs = useRef<Record<number, HTMLTableCellElement | null>>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -95,6 +99,37 @@ export default function AttendancePage() {
   }, [selectedClassId, selectedMonth, selectedYear]);
 
   const getDaysInMonth = (month: number, year: number) => new Date(year, month, 0).getDate();
+
+  // Auto-scroll attendance table horizontally to today's column when opening a class or tapping Today
+  useEffect(() => {
+    if (!selectedClassId) return;
+
+    const timer = window.setTimeout(() => {
+      const container = tableScrollRef.current;
+      if (!container) return;
+
+      const today = new Date();
+      const maxDay = new Date(selectedYear, selectedMonth, 0).getDate();
+      const isCurrentMonthYear =
+        selectedYear === today.getFullYear() && selectedMonth === today.getMonth() + 1;
+      const targetDay = isCurrentMonthYear
+        ? Math.min(maxDay, today.getDate())
+        : Math.min(maxDay, unlockedDay);
+
+      const targetTh = dayHeaderRefs.current[targetDay];
+      if (!targetTh) return;
+
+      const stickyWidth = stickyNameThRef.current ? stickyNameThRef.current.offsetWidth : 130;
+      const availableWidth = Math.max(60, container.clientWidth - stickyWidth);
+      const desiredOffset = stickyWidth + Math.max(12, Math.floor((availableWidth - targetTh.offsetWidth) / 2));
+      const nextScrollLeft = Math.max(0, targetTh.offsetLeft - desiredOffset);
+
+      container.scrollTo({ left: nextScrollLeft, behavior: 'smooth' });
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClassId, selectedMonth, selectedYear, scrollNonce]);
 
   const resolveClassStudents = (cls: any, recordsMap?: Record<string, Record<number, string>>) => {
     if (!cls) return [];
@@ -625,6 +660,7 @@ export default function AttendancePage() {
                   setSelectedYear(today.getFullYear());
                   setUnlockedDay(td);
                   setUnlockedDayInput(String(td));
+                  setScrollNonce((n) => n + 1);
                 }}
                 style={{
                   marginLeft: '0.2rem',
@@ -719,6 +755,7 @@ export default function AttendancePage() {
 
         {/* Compact Attendance Table (Modeled after Scores Table) */}
         <div
+          ref={tableScrollRef}
           style={{
             background: 'var(--card-bg)',
             borderRadius: '16px',
@@ -738,6 +775,7 @@ export default function AttendancePage() {
                   អត្តលេខ
                 </th>
                 <th
+                  ref={stickyNameThRef}
                   style={{
                     padding: '0.45rem 0.65rem',
                     textAlign: 'left',
@@ -767,6 +805,9 @@ export default function AttendancePage() {
                   return (
                     <th
                       key={day}
+                      ref={(el) => {
+                        dayHeaderRefs.current[day] = el;
+                      }}
                       onClick={() => markAllPresent(day)}
                       title={
                         `${isUnlocked ? 'ចុចដើម្បីដាក់/ដកវត្តមានទាំងអស់ • ' : 'ថ្ងៃជាប់សោរ • '}ថ្ងៃទី ${day}` +

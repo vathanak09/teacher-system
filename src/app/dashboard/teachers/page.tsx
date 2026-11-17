@@ -79,9 +79,13 @@ export default function TeachersPage() {
       }
     });
 
-    // Load all teacher profiles so teachers can browse colleagues' profiles too
+    // Admin sees all teachers; Teacher accounts see strictly their own profile only
     const unsubscribe = teacherService.subscribeAll((data) => {
-      setTeachers(data);
+      const filtered =
+        currentRole === 'admin'
+          ? data
+          : data.filter((t: any) => t.linkedUserId === userId || (userName && t.fullName === userName));
+      setTeachers(filtered);
     });
 
     return () => {
@@ -283,10 +287,12 @@ export default function TeachersPage() {
         >
           <div>
             <h1 style={{ fontSize: '1.65rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: '0 0 0.2rem 0' }}>
-              ព័ត៌មាន និងប្រវត្តិរូបគ្រូ
+              {role === 'admin' ? 'ព័ត៌មាន និងប្រវត្តិរូបគ្រូ' : 'ព័ត៌មានផ្ទាល់ខ្លួន'}
             </h1>
             <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.92rem' }}>
-              រូបថត និងប្រវត្តិរូបគ្រូបង្រៀនទាំងអស់ ({teachers.length} នាក់)
+              {role === 'admin'
+                ? `រូបថត និងប្រវត្តិរូបគ្រូបង្រៀនទាំងអស់ (${teachers.length} នាក់)`
+                : 'ព័ត៌មានលម្អិតនៃប្រវត្តិរូបគ្រូបង្រៀនរបស់អ្នក'}
             </p>
           </div>
 
@@ -308,7 +314,7 @@ export default function TeachersPage() {
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
-                <span>កែព័ត៌មានផ្ទាល់ខ្លួន</span>
+                <span>កែប្រែព័ត៌មាន</span>
               </button>
             )}
 
@@ -339,7 +345,200 @@ export default function TeachersPage() {
           </div>
         </div>
 
-        {/* Highlighted My Profile Card */}
+        {/* Dedicated Personal Detail View for Teacher Role (Cannot view other accounts) */}
+        {role !== 'admin' ? (
+          myTeacherProfile ? (
+            <div
+              className="glass-panel"
+              style={{
+                borderRadius: '22px',
+                overflow: 'hidden',
+                padding: 0,
+                maxWidth: '720px',
+                margin: '0 auto',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              {/* Soft Top Banner */}
+              <div
+                style={{
+                  height: '115px',
+                  background:
+                    myTeacherProfile.gender === 'ស្រី'
+                      ? 'linear-gradient(135deg, rgba(236, 72, 153, 0.24), rgba(139, 92, 246, 0.22))'
+                      : 'linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(16, 185, 129, 0.2))',
+                }}
+              />
+
+              <div style={{ padding: '0 1.5rem 1.5rem', marginTop: '-56px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  <div
+                    onClick={() =>
+                      myTeacherProfile.photo && setPreviewPhotoUrl(convertDriveImageLink(myTeacherProfile.photo))
+                    }
+                    style={{
+                      width: '108px',
+                      height: '108px',
+                      borderRadius: '24px',
+                      overflow: 'hidden',
+                      border: '4px solid var(--modal-bg, #ffffff)',
+                      boxShadow: '0 10px 26px rgba(0, 0, 0, 0.16)',
+                      background:
+                        myTeacherProfile.gender === 'ស្រី'
+                          ? 'linear-gradient(135deg, #ec4899, #8b5cf6)'
+                          : 'linear-gradient(135deg, #3b82f6, #10b981)',
+                      color: '#ffffff',
+                      fontSize: '2.4rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: myTeacherProfile.photo ? 'pointer' : 'default',
+                      flexShrink: 0,
+                    }}
+                    title={myTeacherProfile.photo ? 'ចុចដើម្បីមើលរូបភាពធំ' : undefined}
+                  >
+                    {myTeacherProfile.photo ? (
+                      <img
+                        src={convertDriveImageLink(myTeacherProfile.photo)}
+                        alt={myTeacherProfile.fullName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      (myTeacherProfile.fullName || 'T').charAt(0).toUpperCase()
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', paddingBottom: '0.25rem' }}>
+                    {myTeacherProfile.teacherId && (
+                      <span
+                        style={{
+                          padding: '0.32rem 0.75rem',
+                          borderRadius: '999px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      >
+                        អត្តលេខ៖ {myTeacherProfile.teacherId}
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        padding: '0.32rem 0.78rem',
+                        borderRadius: '999px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        background:
+                          myTeacherProfile.status === 'កំពុងបង្រៀន'
+                            ? 'rgba(16, 185, 129, 0.15)'
+                            : 'rgba(239, 68, 68, 0.15)',
+                        color: myTeacherProfile.status === 'កំពុងបង្រៀន' ? '#10b981' : '#ef4444',
+                      }}
+                    >
+                      {myTeacherProfile.status || 'កំពុងបង្រៀន'}
+                    </span>
+                  </div>
+                </div>
+
+                <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {myTeacherProfile.fullName}
+                </h2>
+                {myTeacherProfile.englishName && (
+                  <div style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginTop: '0.15rem', fontWeight: 500 }}>
+                    {myTeacherProfile.englishName}
+                  </div>
+                )}
+
+                {/* Detailed Info Grid */}
+                <div
+                  style={{
+                    marginTop: '1.25rem',
+                    padding: '1.1rem',
+                    borderRadius: '16px',
+                    background: 'var(--main-bg)',
+                    border: '1px solid var(--border-color)',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '1rem',
+                  }}
+                >
+                  <ProfileDetailItem label="មុខវិជ្ជាបង្រៀន" value={myTeacherProfile.subject || 'មិនមាន'} />
+                  <ProfileDetailItem label="ភេទ" value={myTeacherProfile.gender || '-'} />
+                  <ProfileDetailItem
+                    label="លេខទូរស័ព្ទ"
+                    value={myTeacherProfile.phone || 'មិនមាន'}
+                    href={myTeacherProfile.phone ? `tel:${myTeacherProfile.phone}` : undefined}
+                  />
+                  <ProfileDetailItem label="ថ្ងៃខែឆ្នាំកំណើត" value={formatDateToDMY(myTeacherProfile.dob) || 'មិនមាន'} />
+                  <ProfileDetailItem label="ថ្ងៃចូលធ្វើការ" value={formatDateToDMY(myTeacherProfile.joinDate) || 'មិនមាន'} />
+                  <ProfileDetailItem label="អាសយដ្ឋាន" value={myTeacherProfile.address || 'មិនមាន'} />
+                </div>
+
+                {/* Social Contacts */}
+                {(myTeacherProfile.contacts?.telegram ||
+                  myTeacherProfile.contacts?.facebook ||
+                  myTeacherProfile.contacts?.other?.link) && (
+                  <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                    {myTeacherProfile.contacts?.telegram && (
+                      <a
+                        href={myTeacherProfile.contacts.telegram}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={selfContactPill('#0088cc')}
+                      >
+                        Telegram
+                      </a>
+                    )}
+                    {myTeacherProfile.contacts?.facebook && (
+                      <a
+                        href={myTeacherProfile.contacts.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={selfContactPill('#1877F2')}
+                      >
+                        Facebook
+                      </a>
+                    )}
+                    {myTeacherProfile.contacts?.other?.link && (
+                      <a
+                        href={myTeacherProfile.contacts.other.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={selfContactPill('var(--text-primary)')}
+                      >
+                        {myTeacherProfile.contacts.other.label || 'តំណភ្ជាប់ផ្សេងៗ'}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ marginTop: '1.35rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditTeacher(myTeacherProfile)}
+                    className="btn btn-primary"
+                    style={{ padding: '0.7rem 1.4rem', borderRadius: '12px', gap: '0.45rem' }}
+                  >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span>កែប្រែព័ត៌មាន</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="glass-panel" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto' }}>
+              មិនទាន់មានព័ត៌មានប្រវត្តិរូបភ្ជាប់ជាមួយគណនីរបស់អ្នកទេ។ សូមទាក់ទង Admin។
+            </div>
+          )
+        ) : (
+          <>
+        {/* Admin View: Highlighted My Profile Card (if linked) + Full Teachers Directory */}
         {myTeacherProfile && (
           <div
             className="glass-panel"
@@ -1043,6 +1242,8 @@ export default function TeachersPage() {
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* Teacher Profile Detail Modal */}
@@ -1415,5 +1616,37 @@ function iconContactBtn(color: string): React.CSSProperties {
     alignItems: 'center',
     justifyContent: 'center',
     textDecoration: 'none',
+  };
+}
+
+function ProfileDetailItem({ label, value, href }: { label: string; value?: string; href?: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>{label}</div>
+      {href ? (
+        <a href={href} style={{ fontSize: '0.96rem', fontWeight: 600, color: 'var(--accent-primary)', textDecoration: 'none' }}>
+          {value}
+        </a>
+      ) : (
+        <div style={{ fontSize: '0.96rem', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+          {value}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function selfContactPill(color: string): React.CSSProperties {
+  return {
+    padding: '0.45rem 0.9rem',
+    borderRadius: '10px',
+    background: 'var(--main-bg)',
+    border: '1px solid var(--border-color)',
+    color,
+    fontSize: '0.85rem',
+    fontWeight: 600,
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
   };
 }
