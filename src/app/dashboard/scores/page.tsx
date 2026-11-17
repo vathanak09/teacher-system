@@ -1290,9 +1290,9 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           )}
         </div>
 
-        {isSettingsModalOpen && (
-          <div onClick={() => setIsSettingsModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '2rem', background: 'var(--modal-bg)', width: '90%', maxWidth: '500px' }}>
+        {isSettingsModalOpen && typeof document !== 'undefined' && createPortal(
+          <div onClick={() => setIsSettingsModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)' }}>
+            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '500px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px' }}>
               <h2 style={{ margin: '0 0 1.5rem 0' }}>ការកំណត់ (Settings)</h2>
               <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
@@ -1307,12 +1307,13 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
-        {isExtraDataModalOpen && (
-          <div onClick={() => setIsExtraDataModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', padding: '1rem' }}>
-            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '2rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '520px', borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
+        {isExtraDataModalOpen && typeof document !== 'undefined' && createPortal(
+          <div onClick={() => setIsExtraDataModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '520px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px', boxShadow: '0 20px 40px rgba(0,0,0,0.25)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>ទិន្នន័យបន្ថែម (Extra Data)</h2>
@@ -1410,7 +1411,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
         <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       </div>
@@ -1422,7 +1424,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   const snapshotMale = snapshotTotal - snapshotFemale;
 
   return (
-    <div className="page-container animate-fade-in" style={{ padding: '1rem', maxWidth: '100vw', overflowX: 'auto' }}>
+    <div className="page-container animate-fade-in" style={{ padding: '1rem', maxWidth: '100%' }}>
       <div className="flex-between" style={{ marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button className="btn" onClick={() => setSelectedClassId(null)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '0.5rem' }}>
@@ -1812,10 +1814,10 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
         * គន្លឹះ៖ លោកអ្នកអាច Copy (Ctrl+C) ទិន្នន័យពី Excel រួច Paste (Ctrl+V) ចូលក្នុងប្រអប់ណាមួយ វាអានជាជួរស្វ័យប្រវត្តិ។ រាល់ការវាយបញ្ចូលនឹង Save ចូលប្រព័ន្ធដោយស្វ័យប្រវត្តិ។
       </p>
-      {isCoeffModalOpen && (
-          <div onClick={() => setIsCoeffModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '2rem', background: 'var(--modal-bg)', width: '90%', maxWidth: '400px', borderRadius: '16px' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)' }}>កំណត់មេគុណ (Coefficient)</h2>
+      {isCoeffModalOpen && typeof document !== 'undefined' && createPortal(
+          <div onClick={() => setIsCoeffModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)' }}>
+            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '420px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px' }}>
+              <h2 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>កំណត់មេគុណ (Coefficient)</h2>
               <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
                 មេគុណនឹងត្រូវបានប្រើប្រាស់សម្រាប់ចែកពិន្ទុសរុប ដើម្បីស្វែងរកមធ្យមភាគ។
               </p>
@@ -1870,11 +1872,12 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </label>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                  <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>បិទ / រក្សាទុក</button>
+                  <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ padding: '0.6rem 1.25rem', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>បិទ / រក្សាទុក</button>
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
