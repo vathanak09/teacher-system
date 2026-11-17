@@ -181,6 +181,20 @@ export const NAV_LINKS: NavItem[] = [
     ),
   },
   {
+    name: 'តាមដានការងារគ្រូ',
+    shortName: 'តាមដានគ្រូ',
+    path: '/dashboard/teacher-tracking',
+    roles: ['admin'],
+    category: 'management',
+    tint: '#0d9488',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 11l3 3L22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+      </svg>
+    ),
+  },
+  {
     name: 'វគ្គសិក្សា',
     shortName: 'វគ្គសិក្សា',
     path: '/dashboard/courses',
