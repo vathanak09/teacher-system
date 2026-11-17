@@ -67,7 +67,11 @@ export default function MobileBottomNav({
   return (
     <>
       {/* Fixed Thumb-Friendly Bottom Bar */}
-      <nav className="mobile-bottom-nav no-print" aria-label="Mobile Navigation">
+      <nav
+        className="mobile-bottom-nav no-print"
+        aria-label="Mobile Navigation"
+        style={{ gridTemplateColumns: `repeat(${primaryItems.length + 1}, minmax(0, 1fr))` }}
+      >
         {primaryItems.map((item) => {
           const active = isNavPathActive(pathname, item.path);
           return (

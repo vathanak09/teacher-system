@@ -170,20 +170,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="mobile-header-avatar-btn"
-              aria-label="គណនី និងម៉ឺនុយ"
-            >
-              {userPhoto ? (
-                <img src={convertDriveImageLink(userPhoto)} alt={userName || ''} className="mobile-header-avatar-img" />
-              ) : (
-                <span className="mobile-header-avatar-fallback">
-                  {(userName || 'U').charAt(0).toUpperCase()}
-                </span>
-              )}
-            </button>
+            {role === 'student' ? (
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="mobile-header-avatar-btn"
+                aria-label="គណនី និងម៉ឺនុយ"
+              >
+                {userPhoto ? (
+                  <img src={convertDriveImageLink(userPhoto)} alt={userName || ''} className="mobile-header-avatar-img" />
+                ) : (
+                  <span className="mobile-header-avatar-fallback">
+                    {(userName || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <Link
+                href="/dashboard/teachers"
+                onClick={() => setMobileMenuOpen(false)}
+                className="mobile-header-avatar-btn"
+                aria-label="ព័ត៌មានគ្រូ និងប្រវត្តិរូប"
+              >
+                {userPhoto ? (
+                  <img src={convertDriveImageLink(userPhoto)} alt={userName || ''} className="mobile-header-avatar-img" />
+                ) : (
+                  <span className="mobile-header-avatar-fallback">
+                    {(userName || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </Link>
+            )}
           </div>
         </header>
 

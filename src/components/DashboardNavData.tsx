@@ -258,7 +258,7 @@ export function getPrimaryMobilePaths(role: string): string[] {
     return ['/dashboard', '/dashboard/students', '/dashboard/payments', '/dashboard/scores'];
   }
   if (role === 'teacher') {
-    return ['/dashboard', '/dashboard/classes', '/dashboard/attendance', '/dashboard/scores'];
+    return ['/dashboard', '/dashboard/classes', '/dashboard/attendance', '/dashboard/scores', '/dashboard/lessons'];
   }
   return ['/dashboard', '/dashboard/scores', '/dashboard/lessons', '/dashboard/schedule'];
 }
