@@ -22,6 +22,7 @@ import {
   TeacherReportRow,
   computeSchoolFinancialAnalytics,
   formatKhmerFullDate,
+  formatShortMonthKh,
   formatYearMonthKh,
   isFemaleGender,
   isStudentActive,
@@ -69,6 +70,7 @@ export default function AdminOverviewView({
   const today = useMemo(() => new Date(), []);
   const todayFullKh = useMemo(() => formatKhmerFullDate(today), [today]);
   const scoreMonthKh = useMemo(() => formatYearMonthKh(scoreMonth), [scoreMonth]);
+  const shortScoreMonthKh = useMemo(() => formatShortMonthKh(scoreMonth), [scoreMonth]);
 
   // 1. School-wide Student Counts
   const studentMetrics = useMemo(() => {
@@ -498,7 +500,7 @@ export default function AdminOverviewView({
           </div>
 
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            ពិន្ទុរួច៖{' '}
+            ពិន្ទុ ({shortScoreMonthKh})៖{' '}
             <strong style={{ color: '#059669' }}>
               {schoolClassStats.scoreClassesComplete}/{schoolClassStats.totalClasses}
             </strong>
@@ -527,7 +529,7 @@ export default function AdminOverviewView({
                 របាយការណ៍បង្រៀនតាមគ្រូម្នាក់ៗ ({filteredTeacherReports.length} នាក់)
               </h2>
               <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                ស្ថានភាពស្រង់វត្តមានថ្ងៃនេះ ការបញ្ចូលពិន្ទុខែនេះ សៀវភៅបង្រៀន និងការចូលមើល Dashboard គ្រូ
+                ស្ថានភាពវត្តមានថ្ងៃនេះ • ការបញ្ចូលពិន្ទុ ({scoreMonthKh}) • សៀវភៅបង្រៀន • ថ្ងៃទី ២០ រាប់ខែថ្មី
               </p>
             </div>
           </div>
@@ -921,7 +923,7 @@ export default function AdminOverviewView({
                       }}
                     >
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.69rem', fontWeight: 600 }}>
-                        ពិន្ទុខែនេះ
+                        ពិន្ទុ ({shortScoreMonthKh})
                       </div>
                       <div
                         style={{

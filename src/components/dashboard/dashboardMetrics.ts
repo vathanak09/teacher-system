@@ -142,6 +142,23 @@ export function doesClassBelongToTeacher(
   return false;
 }
 
+export function getCurrentYearMonth(baseDate: Date = new Date()): string {
+  return `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Score entry check follows the monthly grading cycle:
+ * - Days 1..19 of a month: defaults to the previous calendar month (ខែចាស់).
+ * - From day 20 onward (>= 20): switches to the current calendar month (ខែថ្មី).
+ */
+export function getDefaultScoreYearMonth(baseDate: Date = new Date()): string {
+  const target =
+    baseDate.getDate() >= 20
+      ? new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
+      : new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export function formatYearMonthKh(ym: string): string {
   const m = ym.match(/^(\d{4})-(\d{2})$/);
   if (!m) return ym;
@@ -149,6 +166,14 @@ export function formatYearMonthKh(ym: string): string {
   const monthIdx = Number(m[2]) - 1;
   if (monthIdx < 0 || monthIdx > 11) return ym;
   return `ខែ${KHMER_MONTHS[monthIdx]} ${year}`;
+}
+
+export function formatShortMonthKh(ym: string): string {
+  const m = ym.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return ym;
+  const monthIdx = Number(m[2]) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return ym;
+  return `ខែ${KHMER_MONTHS[monthIdx]}`;
 }
 
 export function buildEnrichedClasses(params: {
@@ -366,12 +391,12 @@ export function buildTeacherReportRows(params: {
   teachers: any[];
   enrichedClasses: EnrichedClassSummary[];
   trackingDoc: MonthlyTrackingDoc | null;
-  scoreMonth: string;
+  trackingMonth: string;
 }): TeacherReportRow[] {
-  const { teachers, enrichedClasses, trackingDoc, scoreMonth } = params;
+  const { teachers, enrichedClasses, trackingDoc, trackingMonth } = params;
 
   // Determine active weeks for tracking summary
-  const [yrStr, moStr] = scoreMonth.split('-');
+  const [yrStr, moStr] = trackingMonth.split('-');
   const daysInMo =
     yrStr && moStr ? new Date(Number(yrStr), Number(moStr), 0).getDate() : 30;
   const hasAnyW5 =

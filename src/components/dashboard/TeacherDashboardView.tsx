@@ -23,6 +23,7 @@ import {
   EnrichedClassSummary,
   TeacherReportRow,
   formatKhmerFullDate,
+  formatShortMonthKh,
   formatYearMonthKh,
 } from './dashboardMetrics';
 
@@ -41,6 +42,7 @@ export default function TeacherDashboardView({
   isAdminInspecting = false,
   onBackToAdmin,
   scoreMonth,
+  trackingMonth,
   onScoreMonthChange,
   monthScores,
   teachingRecords,
@@ -51,6 +53,7 @@ export default function TeacherDashboardView({
   isAdminInspecting?: boolean;
   onBackToAdmin?: () => void;
   scoreMonth: string;
+  trackingMonth?: string;
   onScoreMonthChange: (nextYm: string) => void;
   monthScores: any[];
   teachingRecords: any[];
@@ -61,6 +64,11 @@ export default function TeacherDashboardView({
   const subjectText = teacher?.subject || 'គ្រូបង្រៀន';
   const todayFullKh = useMemo(() => formatKhmerFullDate(new Date()), []);
   const scoreMonthKh = useMemo(() => formatYearMonthKh(scoreMonth), [scoreMonth]);
+  const shortScoreMonthKh = useMemo(() => formatShortMonthKh(scoreMonth), [scoreMonth]);
+  const trackingMonthKh = useMemo(
+    () => formatYearMonthKh(trackingMonth || scoreMonth),
+    [trackingMonth, scoreMonth]
+  );
 
   const myClassIds = useMemo(() => new Set(classes.map((ec) => ec.cls.id)), [classes]);
 
@@ -573,7 +581,7 @@ export default function TeacherDashboardView({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-              ពិន្ទុខែនេះ & កិច្ចការ
+              ពិន្ទុ ({shortScoreMonthKh}) & កិច្ចការ
             </span>
             <div
               style={{
@@ -629,7 +637,7 @@ export default function TeacherDashboardView({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
             <AppIcon name="clipboard-check" size={17} style={{ color: '#0d9488' }} />
-            <span>គោលដៅការងារគ្រូប្រចាំខែ ({scoreMonthKh})</span>
+            <span>គោលដៅការងារគ្រូប្រចាំខែ ({trackingMonthKh})</span>
           </div>
 
           <div className="dashboard-goals-grid">

@@ -21,15 +21,12 @@ import {
   buildEnrichedClasses,
   buildTeacherReportRows,
   doesClassBelongToTeacher,
+  getCurrentYearMonth,
+  getDefaultScoreYearMonth,
   isFemaleGender,
 } from '@/components/dashboard/dashboardMetrics';
 import AdminOverviewView from '@/components/dashboard/AdminOverviewView';
 import TeacherDashboardView from '@/components/dashboard/TeacherDashboardView';
-
-function getCurrentYearMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
 
 export default function DashboardPage() {
   const [role, setRole] = useState('');
@@ -39,7 +36,8 @@ export default function DashboardPage() {
 
   // Admin "View As Teacher" switcher state (null = School-Wide Admin Overview)
   const [inspectedTeacherId, setInspectedTeacherId] = useState<string | null>(null);
-  const [scoreMonth, setScoreMonth] = useState<string>(getCurrentYearMonth);
+  const [scoreMonth, setScoreMonth] = useState<string>(() => getDefaultScoreYearMonth());
+  const trackingMonth = useMemo(() => getCurrentYearMonth(), []);
 
   // Live Data Streams
   const [classes, setClasses] = useState<any[]>([]);
@@ -126,18 +124,18 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // Subscribe to selected month's Scores & Teacher Tracking on RTDB (zero Firestore reads)
+  // Subscribe to selected score month (Scores) and current calendar month (Teacher Tracking) on RTDB
   useEffect(() => {
     if (!scoreMonth) return;
-    const unsubScores = scoreService.subscribeByQuery('month', '==', scoreMonth, setMonthScores);
-    const unsubTracking = teacherTrackingService.subscribeOne(scoreMonth, (doc) => {
+    return scoreService.subscribeByQuery('month', '==', scoreMonth, setMonthScores);
+  }, [scoreMonth]);
+
+  useEffect(() => {
+    if (!trackingMonth) return;
+    return teacherTrackingService.subscribeOne(trackingMonth, (doc) => {
       setTrackingDoc(doc);
     });
-    return () => {
-      unsubScores();
-      unsubTracking();
-    };
-  }, [scoreMonth]);
+  }, [trackingMonth]);
 
   const enrichedClasses = useMemo(
     () =>
@@ -159,9 +157,9 @@ export default function DashboardPage() {
         teachers,
         enrichedClasses,
         trackingDoc,
-        scoreMonth,
+        trackingMonth,
       }),
-    [teachers, enrichedClasses, trackingDoc, scoreMonth]
+    [teachers, enrichedClasses, trackingDoc, trackingMonth]
   );
 
   const activeTeachersForSwitcher = useMemo(
@@ -402,6 +400,7 @@ export default function DashboardPage() {
           isAdminInspecting={role === 'admin' && inspectedTeacherId !== null}
           onBackToAdmin={() => setInspectedTeacherId(null)}
           scoreMonth={scoreMonth}
+          trackingMonth={trackingMonth}
           onScoreMonthChange={setScoreMonth}
           monthScores={monthScores}
           teachingRecords={teachingRecords}
