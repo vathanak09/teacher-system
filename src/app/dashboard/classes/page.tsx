@@ -1008,30 +1008,30 @@ export default function ClassesPage() {
                       {/* Enrolled Students Table */}
                       <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                         <div className="table-responsive">
-                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 'max-content', textAlign: 'left' }}>
+                          <table className="compact-student-table">
                             <thead>
                               <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                                <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ល.រ</th>
-                                {classVisibleColumns.includes('photo') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>រូបថត</th>}
-                                {classVisibleColumns.includes('studentId') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>អត្តលេខ</th>}
-                                {classVisibleColumns.includes('fullName') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះ</th>}
-                                {classVisibleColumns.includes('englishName') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ឈ្មោះអង់គ្លេស</th>}
-                                {classVisibleColumns.includes('gender') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ភេទ</th>}
-                                {classVisibleColumns.includes('level') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>កម្រិត</th>}
-                                {classVisibleColumns.includes('shift') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>វេន</th>}
-                                {classVisibleColumns.includes('enrollDate') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>ថ្ងៃចូលរៀន</th>}
-                                {classVisibleColumns.includes('phoneNum') && <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500' }}>លេខទូរស័ព្ទ</th>}
-                                <th style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontWeight: '500', textAlign: 'center' }}>សកម្មភាព</th>
+                                <th style={{ textAlign: 'center', width: '36px' }}>ល.រ</th>
+                                {classVisibleColumns.includes('photo') && <th style={{ textAlign: 'center', width: '44px' }}>រូបថត</th>}
+                                {classVisibleColumns.includes('studentId') && <th>អត្តលេខ</th>}
+                                {classVisibleColumns.includes('fullName') && <th>ឈ្មោះ</th>}
+                                {classVisibleColumns.includes('englishName') && <th>ឈ្មោះអង់គ្លេស</th>}
+                                {classVisibleColumns.includes('gender') && <th>ភេទ</th>}
+                                {classVisibleColumns.includes('level') && <th>កម្រិត</th>}
+                                {classVisibleColumns.includes('shift') && <th>វេន</th>}
+                                {classVisibleColumns.includes('enrollDate') && <th>ថ្ងៃចូលរៀន</th>}
+                                {classVisibleColumns.includes('phoneNum') && <th>លេខទូរស័ព្ទ</th>}
+                                <th style={{ textAlign: 'center' }}>សកម្មភាព</th>
                               </tr>
                             </thead>
                             <tbody>
                               {sortedEnrolledStudents.map((s: any, index: number) => (
                                 <tr key={s.id} onClick={() => setHoveredStudent(hoveredStudent === s.id ? null : s.id)} style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-color)', backgroundColor: s.isDeleted ? 'rgba(239, 68, 68, 0.1)' : (s.status === 'ឈប់រៀន' || s.status === 'ព្យួរការសិក្សា') ? 'rgba(245, 158, 11, 0.1)' : 'transparent' }} className="table-row-hover">
-                                  <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{index + 1}</td>
+                                  <td style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>{index + 1}</td>
                                   
                                   {classVisibleColumns.includes('photo') && (
-                                    <td style={{ padding: '0.5rem', position: 'relative' }} >
-                                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', /* cursor: 'help' removed */ }}>
+                                    <td style={{ position: 'relative', textAlign: 'center' }} >
+                                      <div className="student-row-avatar" style={{ borderRadius: '50%', background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
                                         {s.photo && String(s.photo).trim() !== '' ? <img src={convertDriveImageLink(s.photo)} alt={s.fullName} onClick={() => setFullScreenPhoto(convertDriveImageLink(s.photo))} style={{ cursor: 'pointer',  width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: s.gender === 'ស្រី' ? 'linear-gradient(135deg, #ec4899, #f43f5e)' : 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>{getFirstLetter(s.fullName)}</div>}
                                       </div>
                                       
@@ -1116,20 +1116,20 @@ export default function ClassesPage() {
                                     </td>
                                   )}
                                   
-                                  {classVisibleColumns.includes('studentId') && <td style={{ padding: '0.5rem', fontWeight: '500' }}>{s.studentId}</td>}
+                                  {classVisibleColumns.includes('studentId') && <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{s.studentId}</td>}
                                   {classVisibleColumns.includes('fullName') && (
-                                    <td style={{ padding: '0.5rem', fontWeight: '500', color: 'var(--text-primary)' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    <td className="student-name-text" style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                                         <span>{s.fullName}</span>
                                         {s.status === 'ឈប់រៀន' && (
-                                          <span style={{ padding: '0.1rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.14)', color: '#d97706' }}>
+                                          <span style={{ padding: '0.08rem 0.38rem', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 600, background: 'rgba(245, 158, 11, 0.14)', color: '#d97706' }}>
                                             ឈប់រៀន
                                           </span>
                                         )}
                                         {(studentClassesMap.get(s.id)?.length || 0) > 1 && (
                                           <span
                                             title={`កំពុងស្ថិតនៅក្នុងថ្នាក់៖ ${studentClassesMap.get(s.id)!.map(x => x.label).join(', ')}`}
-                                            style={{ padding: '0.1rem 0.45rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(139, 92, 246, 0.14)', color: '#7c3aed' }}
+                                            style={{ padding: '0.08rem 0.38rem', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 600, background: 'rgba(139, 92, 246, 0.14)', color: '#7c3aed' }}
                                           >
                                             {studentClassesMap.get(s.id)!.length} ថ្នាក់
                                           </span>
@@ -1137,37 +1137,37 @@ export default function ClassesPage() {
                                       </div>
                                     </td>
                                   )}
-                                  {classVisibleColumns.includes('englishName') && <td style={{ padding: '1rem' }}>{s.englishName}</td>}
-                                  {classVisibleColumns.includes('gender') && <td style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}>{s.gender}</td>}
-                                  {classVisibleColumns.includes('level') && <td style={{ padding: '1rem' }}>{s.level}</td>}
-                                  {classVisibleColumns.includes('shift') && <td style={{ padding: '1rem' }}>{s.shift}</td>}
-                                  {classVisibleColumns.includes('enrollDate') && <td style={{ padding: '1rem' }}>{formatDateToDMY(s.enrollDate)}</td>}
-                                  {classVisibleColumns.includes('nextPaymentDate') && <td style={{ padding: '1rem' }}>{s.nextPaymentDate}</td>}
-                                  {classVisibleColumns.includes('paymentStatus') && <td style={{ padding: '1rem' }}>
-                                    {s.paymentStatus === 'បានបង់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ជំពាក់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ផុតកំណត់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '4px', fontSize: '0.85rem' }}>{s.paymentStatus}</span> : s.paymentStatus}
+                                  {classVisibleColumns.includes('englishName') && <td style={{ whiteSpace: 'nowrap' }}>{s.englishName}</td>}
+                                  {classVisibleColumns.includes('gender') && <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{s.gender}</td>}
+                                  {classVisibleColumns.includes('level') && <td style={{ whiteSpace: 'nowrap' }}>{s.level}</td>}
+                                  {classVisibleColumns.includes('shift') && <td style={{ whiteSpace: 'nowrap' }}>{s.shift}</td>}
+                                  {classVisibleColumns.includes('enrollDate') && <td style={{ whiteSpace: 'nowrap' }}>{formatDateToDMY(s.enrollDate)}</td>}
+                                  {classVisibleColumns.includes('nextPaymentDate') && <td style={{ whiteSpace: 'nowrap' }}>{s.nextPaymentDate}</td>}
+                                  {classVisibleColumns.includes('paymentStatus') && <td style={{ whiteSpace: 'nowrap' }}>
+                                    {s.paymentStatus === 'បានបង់' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '4px', fontSize: '0.76rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ជំពាក់' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '4px', fontSize: '0.76rem' }}>{s.paymentStatus}</span> : s.paymentStatus === 'ផុតកំណត់' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '4px', fontSize: '0.76rem' }}>{s.paymentStatus}</span> : s.paymentStatus}
                                   </td>}
-                                  {classVisibleColumns.includes('status') && <td style={{ padding: '1rem' }}>
-                                    {s.status === 'កំពុងសិក្សា' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '4px', fontSize: '0.85rem' }}>{s.status}</span> : s.status === 'ឈប់សម្រាក' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '4px', fontSize: '0.85rem' }}>{s.status}</span> : s.status === 'បោះបង់' ? <span style={{ padding: '0.2rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '4px', fontSize: '0.85rem' }}>{s.status}</span> : s.status}
+                                  {classVisibleColumns.includes('status') && <td style={{ whiteSpace: 'nowrap' }}>
+                                    {s.status === 'កំពុងសិក្សា' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', borderRadius: '4px', fontSize: '0.76rem' }}>{s.status}</span> : s.status === 'ឈប់សម្រាក' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderRadius: '4px', fontSize: '0.76rem' }}>{s.status}</span> : s.status === 'បោះបង់' ? <span style={{ padding: '0.14rem 0.42rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '4px', fontSize: '0.76rem' }}>{s.status}</span> : s.status}
                                   </td>}
-                                  {classVisibleColumns.includes('className') && <td style={{ padding: '1rem' }}>{s.className}</td>}
-                                  {classVisibleColumns.includes('dob') && <td style={{ padding: '1rem' }}>{s.dob}</td>}
-                                  {classVisibleColumns.includes('address') && <td style={{ padding: '1rem' }}>{s.address}</td>}
-                                  {classVisibleColumns.includes('location') && <td style={{ padding: '1rem' }}>{s.location}</td>}
-                                  {classVisibleColumns.includes('transport') && <td style={{ padding: '1rem' }}>{s.transport}</td>}
-                                  {classVisibleColumns.includes('contact') && <td style={{ padding: '1rem' }}>{s.contact}</td>}
-                                  {classVisibleColumns.includes('father') && <td style={{ padding: '1rem' }}>{s.father}</td>}
-                                  {classVisibleColumns.includes('mother') && <td style={{ padding: '1rem' }}>{s.mother}</td>}
-                                  {classVisibleColumns.includes('phoneNum') && <td style={{ padding: '1rem' }}>{s.phoneNum}</td>}
+                                  {classVisibleColumns.includes('className') && <td style={{ whiteSpace: 'nowrap' }}>{s.className}</td>}
+                                  {classVisibleColumns.includes('dob') && <td style={{ whiteSpace: 'nowrap' }}>{s.dob}</td>}
+                                  {classVisibleColumns.includes('address') && <td>{s.address}</td>}
+                                  {classVisibleColumns.includes('location') && <td style={{ whiteSpace: 'nowrap' }}>{s.location}</td>}
+                                  {classVisibleColumns.includes('transport') && <td style={{ whiteSpace: 'nowrap' }}>{s.transport}</td>}
+                                  {classVisibleColumns.includes('contact') && <td style={{ whiteSpace: 'nowrap' }}>{s.contact}</td>}
+                                  {classVisibleColumns.includes('father') && <td style={{ whiteSpace: 'nowrap' }}>{s.father}</td>}
+                                  {classVisibleColumns.includes('mother') && <td style={{ whiteSpace: 'nowrap' }}>{s.mother}</td>}
+                                  {classVisibleColumns.includes('phoneNum') && <td style={{ whiteSpace: 'nowrap' }}>{s.phoneNum}</td>}
 
-                                  <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                  <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', gap: '0.32rem', justifyContent: 'center' }}>
                                       {(role === 'admin' || viewingClass?.allowTeacherEditStudent) && (
-                                        <button onClick={(e) => { e.stopPropagation(); setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                        <button onClick={(e) => { e.stopPropagation(); setEditStudentData(s); setIsEditStudentModalOpen(true); }} style={{ padding: '0.3rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                       </button>
                                       )}
-                                      <button onClick={(e) => { e.stopPropagation(); handleRemoveStudentFromClass(s.id); }} style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="ដកចេញ">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                      <button onClick={(e) => { e.stopPropagation(); handleRemoveStudentFromClass(s.id); }} style={{ padding: '0.3rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="ដកចេញ">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                       </button>
                                     </div>
                                   </td>
