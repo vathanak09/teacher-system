@@ -1,12 +1,55 @@
 "use client";
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { classService, studentService, scoreService, settingsService, teacherService } from '@/services/db';
+import { classService, studentService, scoreService, scoreCoefficientService, settingsService, teacherService } from '@/services/db';
 import SortDropdown from '@/components/SortDropdown';
 import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
 import { AppIcon } from '@/components/AppIcons';
+
+type ClassCoeffConfig = {
+  coefficientType: 'auto' | 'custom';
+  customMaxScore: number;
+  isCustomSavedForMonth?: boolean;
+};
+
+function getClassMonthCoeffConfig(
+  classId: string | null | undefined,
+  monthCoeffs: Record<string, any>,
+  fallbackSettings: any
+): ClassCoeffConfig {
+  const saved = classId ? monthCoeffs?.[classId] : null;
+  if (saved && (saved.coefficientType === 'custom' || saved.coefficientType === 'auto')) {
+    return {
+      coefficientType: saved.coefficientType,
+      customMaxScore: Number(saved.customMaxScore) > 0 ? Number(saved.customMaxScore) : 250,
+      isCustomSavedForMonth: true,
+    };
+  }
+  return {
+    coefficientType: fallbackSettings?.coefficientType === 'custom' ? 'custom' : 'auto',
+    customMaxScore: Number(fallbackSettings?.customMaxScore) > 0 ? Number(fallbackSettings.customMaxScore) : 250,
+    isCustomSavedForMonth: false,
+  };
+}
+
+function computeClassCoeffValue(
+  scoreRows: any[],
+  cfg: ClassCoeffConfig
+): { currentCoeff: number; maxTotalScore: number } {
+  if (cfg.coefficientType === 'custom') {
+    const coeff = (Number(cfg.customMaxScore) || 250) / 50;
+    return { currentCoeff: coeff > 0 ? coeff : 1, maxTotalScore: 0 };
+  }
+  const validTotals = scoreRows
+    .map((s) => parseFloat(s?.totalScore))
+    .filter((n) => !isNaN(n) && isFinite(n));
+  let maxTotalScore = validTotals.length > 0 ? Math.max(...validTotals) : 0;
+  if (maxTotalScore <= 0) maxTotalScore = 50;
+  const coeff = (maxTotalScore + 5) / 50;
+  return { currentCoeff: coeff > 0 ? coeff : 1, maxTotalScore };
+}
 
 
 
@@ -113,6 +156,12 @@ export default function ScoresPage() {
     coefficientType: 'auto',
     customMaxScore: 250
   });
+  const [monthCoeffMap, setMonthCoeffMap] = useState<Record<string, any>>({});
+  const [loadedCoeffMonth, setLoadedCoeffMonth] = useState<string>('');
+  const [loadedScoresMonth, setLoadedScoresMonth] = useState<string>('');
+  const [isSavingCoeff, setIsSavingCoeff] = useState(false);
+  const [coeffTypeDraft, setCoeffTypeDraft] = useState<'auto' | 'custom'>('auto');
+  const [customMaxDraft, setCustomMaxDraft] = useState<string>('250');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -236,20 +285,13 @@ export default function ScoresPage() {
     preferAlignRight: true,
   });
 
+  const activeClassCoeff = useMemo(
+    () => getClassMonthCoeffConfig(selectedClassId, monthCoeffMap, settings),
+    [selectedClassId, monthCoeffMap, settings]
+  );
+
   const computedScores = useMemo(() => {
-    let maxTotalScore = 0;
-    if (settings.coefficientType !== 'custom') {
-      maxTotalScore = Math.max(...scores.map(s => parseFloat(s.totalScore) || 0));
-      if (maxTotalScore <= 0) maxTotalScore = 50; // fallback
-    }
-    
-    let currentCoeff = 1;
-    if (settings.coefficientType === 'custom') {
-      currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
-    } else {
-      currentCoeff = (maxTotalScore + 5) / 50;
-    }
-    if (currentCoeff <= 0) currentCoeff = 1;
+    const { currentCoeff, maxTotalScore } = computeClassCoeffValue(scores, activeClassCoeff);
 
     const mapped = scores.map(s => {
       const total = parseFloat(s.totalScore) || 0;
@@ -295,10 +337,17 @@ export default function ScoresPage() {
         dynRank: ranks[s.id] || ''
       }))
     };
-  }, [scores, settings]);
+  }, [scores, activeClassCoeff, settings]);
 
   useEffect(() => {
-    if (scores.length === 0) return;
+    if (
+      !selectedClassId ||
+      scores.length === 0 ||
+      loadedCoeffMonth !== selectedMonth ||
+      loadedScoresMonth !== selectedMonth
+    ) {
+      return;
+    }
     const timer = setTimeout(() => {
       const updates: Promise<void>[] = [];
       scores.forEach(s => {
@@ -319,7 +368,7 @@ export default function ScoresPage() {
       if (updates.length > 0) Promise.all(updates);
     }, 2000);
     return () => clearTimeout(timer);
-  }, [computedScores, scores]);
+  }, [computedScores, scores, selectedClassId, loadedCoeffMonth, loadedScoresMonth, selectedMonth]);
 const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -393,7 +442,7 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`))) return;
     setIsClearDropdownOpen(false);
     
-    const updatedScores = scores.map(s => {
+    const draftRows = scores.map(s => {
       let currentRec = { ...s, [columnKey]: '' };
       const SCORE_FIELDS = ['quiz', 'exercise', 'speaking', 'homework', 'test'];
       let total = 0;
@@ -405,35 +454,18 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
           hasAnyValue = true;
         }
       });
-      
-      if (hasAnyValue) {
-        currentRec.totalScore = total.toString();
-        let divisor = 1;
-        if (settings.coefficientType === 'custom') {
-          divisor = (Number(settings.customMaxScore) || 250) / 50;
-        } else {
-          divisor = Number(settings.maxSubjects) || 1;
-        }
-        if (divisor <= 0) divisor = 1;
-        const avgNum = total / divisor;
+      currentRec.totalScore = hasAnyValue ? total.toString() : '';
+      return currentRec;
+    });
+
+    const { currentCoeff } = computeClassCoeffValue(draftRows, activeClassCoeff);
+    const updatedScores = draftRows.map(currentRec => {
+      if (currentRec.totalScore !== '') {
+        const avgNum = parseFloat(currentRec.totalScore) / currentCoeff;
         currentRec.average = avgNum.toFixed(2).replace(/\.00$/, '');
-        
-        let g = 'F';
-        if (avgNum >= settings.gradeA) g = 'A';
-        else if (avgNum >= settings.gradeB) g = 'B';
-        else if (avgNum >= settings.gradeC) g = 'C';
-        else if (avgNum >= settings.gradeD) g = 'D';
-        else if (avgNum >= settings.gradeE) g = 'E';
+        const g = calculateAutoGrade(avgNum);
         currentRec.grade = g;
-        
-        let r = '';
-        if (g === 'A') r = 'ល្អណាស់';
-        else if (g === 'B') r = 'ល្អ';
-        else if (g === 'C') r = 'ល្អបង្គួរ';
-        else if (g === 'D') r = 'មធ្យម';
-        else if (g === 'E') r = 'ខ្សោយ';
-        else if (g === 'F') r = 'ខ្សោយណាស់';
-        currentRec.remarks = r;
+        currentRec.remarks = calculateRemarks(g);
       } else {
         currentRec.totalScore = '';
         currentRec.average = '';
@@ -507,18 +539,28 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     };
   }, []);
 
-  // Only fetch scores for the active month (avoids reading all historical months and avoids duplicate listeners)
+  // Subscribe to selected month's Scores & Per-Class Coefficients on RTDB
   useEffect(() => {
     if (!selectedMonth) {
       setAllScores([]);
+      setMonthCoeffMap({});
+      setLoadedScoresMonth('');
+      setLoadedCoeffMonth('');
       return;
     }
-    const unsubMonthScores = scoreService.subscribeByQuery('month', '==', selectedMonth, (data: any[]) => {
+    const activeMonth = selectedMonth;
+    const unsubMonthScores = scoreService.subscribeByQuery('month', '==', activeMonth, (data: any[]) => {
       setAllScores(data);
+      setLoadedScoresMonth(activeMonth);
+    });
+    const unsubMonthCoeffs = scoreCoefficientService.subscribeOne(activeMonth, (doc: any) => {
+      setMonthCoeffMap(doc?.classes && typeof doc.classes === 'object' ? doc.classes : {});
+      setLoadedCoeffMonth(activeMonth);
     });
 
     return () => {
       unsubMonthScores();
+      unsubMonthCoeffs();
     };
   }, [selectedMonth]);
 
@@ -575,14 +617,9 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       
       if (hasAnyValue) {
         updatedScore.totalScore = total.toString();
-        let divisor = 1;
-        if (settings.coefficientType === 'custom') {
-          divisor = (Number(settings.customMaxScore) || 250) / 50;
-        } else {
-          divisor = Number(settings.maxSubjects) || 1;
-        }
-        if (divisor <= 0) divisor = 1;
-        const avgNum = total / divisor;
+        const nextRows = scores.map((s) => (s.id === updatedScore.id ? updatedScore : s));
+        const { currentCoeff } = computeClassCoeffValue(nextRows, activeClassCoeff);
+        const avgNum = total / currentCoeff;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
         updatedScore.remarks = calculateRemarks(updatedScore.grade);
@@ -598,7 +635,9 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     if (field === 'totalScore') {
       const totalNum = parseFloat(value);
       if (!isNaN(totalNum)) {
-        const avgNum = totalNum / (Number(settings.maxSubjects) || 1);
+        const nextRows = scores.map((s) => (s.id === updatedScore.id ? updatedScore : s));
+        const { currentCoeff } = computeClassCoeffValue(nextRows, activeClassCoeff);
+        const avgNum = totalNum / currentCoeff;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
         updatedScore.remarks = calculateRemarks(updatedScore.grade);
@@ -627,6 +666,46 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       if (studentIndex < scores.length && val !== '') {
         await handleScoreChange(scores[studentIndex], field, val);
       }
+    }
+  };
+
+  const openCoeffModal = () => {
+    setCoeffTypeDraft(activeClassCoeff.coefficientType);
+    setCustomMaxDraft(String(activeClassCoeff.customMaxScore || 250));
+    setIsCoeffModalOpen(true);
+  };
+
+  const handleSaveClassMonthCoeff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClassId || !selectedMonth) return;
+    const parsedMax = parseFloat(customMaxDraft);
+    if (coeffTypeDraft === 'custom' && (!isFinite(parsedMax) || parsedMax <= 0)) {
+      alert('សូមបញ្ចូលពិន្ទុអតិបរមាឱ្យបានត្រឹមត្រូវ (ធំជាង ០)!');
+      return;
+    }
+    const cleanMax = isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 250;
+    const entry = {
+      coefficientType: coeffTypeDraft,
+      customMaxScore: cleanMax,
+      updatedByName: userName || role || '',
+      updatedAt: new Date().toISOString(),
+    };
+    setIsSavingCoeff(true);
+    try {
+      setMonthCoeffMap((prev) => ({
+        ...prev,
+        [selectedClassId]: entry,
+      }));
+      await scoreCoefficientService.update(selectedMonth, {
+        [`classes/${selectedClassId}`]: entry,
+        month: selectedMonth,
+      });
+      setIsCoeffModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to save class month coefficient:', err);
+      alert('មានបញ្ហាក្នុងការរក្សាទុកមេគុណ៖ ' + (err?.message || ''));
+    } finally {
+      setIsSavingCoeff(false);
     }
   };
 
@@ -779,21 +858,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     
                     const data = filteredDisplayClasses.map(c => {
                       const classScores = allScores.filter((sc: any) => sc.classId === c.id && sc.month === selectedMonth);
-                      
-                      let maxTotalScore = 0;
-                      if (settings.coefficientType !== 'custom') {
-                        const validTotals = classScores.map((s:any) => parseFloat(s.totalScore)).filter(n => !isNaN(n));
-                        maxTotalScore = validTotals.length > 0 ? Math.max(...validTotals) : 0;
-                        if (maxTotalScore <= 0 || !isFinite(maxTotalScore)) maxTotalScore = 50;
-                      }
-                      
-                      let currentCoeff = 1;
-                      if (settings.coefficientType === 'custom') {
-                        currentCoeff = (Number(settings.customMaxScore) || 250) / 50;
-                      } else {
-                        currentCoeff = (maxTotalScore + 5) / 50;
-                      }
-                      if (currentCoeff <= 0) currentCoeff = 1;
+                      const classCoeffCfg = getClassMonthCoeffConfig(c.id, monthCoeffMap, settings);
+                      const { currentCoeff } = computeClassCoeffValue(classScores, classCoeffCfg);
 
                       const mappedClassScores = classScores.map((s:any) => {
                         const total = parseFloat(s.totalScore) || 0;
@@ -1248,13 +1314,37 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>{c.academicYear || '2026-2027'} • {c.shift || 'N/A'}</p>
                       {c.time && <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>ម៉ោង៖ {c.time}</p>}
                       
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.6rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
                         <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                         </div>
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.teacherName || 'មិនទាន់កំណត់'}</span>
                         <span style={{ margin: '0 0.2rem', color: 'var(--text-secondary)' }}>•</span>
                         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>សិស្ស {totalStudents} នាក់</span>
+                        {(() => {
+                          const cCoeffCfg = getClassMonthCoeffConfig(c.id, monthCoeffMap, settings);
+                          const { currentCoeff: cardCoeff } = computeClassCoeffValue(classScores, cCoeffCfg);
+                          return (
+                            <span
+                              style={{
+                                marginLeft: 'auto',
+                                padding: '0.12rem 0.48rem',
+                                borderRadius: '999px',
+                                fontSize: '0.73rem',
+                                fontWeight: 700,
+                                background: cCoeffCfg.isCustomSavedForMonth
+                                  ? 'rgba(139, 92, 246, 0.14)'
+                                  : 'var(--bg-secondary)',
+                                color: cCoeffCfg.isCustomSavedForMonth
+                                  ? '#7c3aed'
+                                  : 'var(--text-secondary)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              មេគុណ៖ {Number(cardCoeff.toFixed(2))}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1478,12 +1568,14 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           </button>
 
           <button 
-            onClick={() => setIsCoeffModalOpen(true)}
-            style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: '500' }}
-            title="កំណត់មេគុណសម្រាប់មធ្យមភាគ"
+            onClick={openCoeffModal}
+            style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: activeClassCoeff.isCustomSavedForMonth ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-secondary)', border: activeClassCoeff.isCustomSavedForMonth ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}
+            title="កំណត់មេគុណសម្រាប់មធ្យមភាគនៃថ្នាក់ និងខែនេះ"
           >
-            <AppIcon name="hash" size={16} style={{ color: 'var(--primary-color, #3b82f6)' }} />
-            <span>មេគុណ: {computedScores.currentCoeff}</span>
+            <AppIcon name="hash" size={16} style={{ color: activeClassCoeff.isCustomSavedForMonth ? '#7c3aed' : 'var(--primary-color, #3b82f6)' }} />
+            <span>
+              មេគុណ ({selectedMonth}): {Number(computedScores.currentCoeff.toFixed(2))}
+            </span>
           </button>
           <SortDropdown 
             options={[
@@ -1828,66 +1920,80 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       </p>
       {isCoeffModalOpen && typeof document !== 'undefined' && createPortal(
           <div onClick={() => setIsCoeffModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)' }}>
-            <div onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '420px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px' }}>
-              <h2 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>កំណត់មេគុណ (Coefficient)</h2>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                មេគុណនឹងត្រូវបានប្រើប្រាស់សម្រាប់ចែកពិន្ទុសរុប ដើម្បីស្វែងរកមធ្យមភាគ។
+            <form onSubmit={handleSaveClassMonthCoeff} onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '450px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.2rem' }}>កំណត់មេគុណ (Coefficient)</h2>
+                  <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.45rem' }}>
+                    <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(59, 130, 246, 0.14)', color: '#2563eb', fontSize: '0.76rem', fontWeight: 700 }}>
+                      ថ្នាក់៖ {selectedClass?.className || 'N/A'}
+                    </span>
+                    <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(139, 92, 246, 0.14)', color: '#7c3aed', fontSize: '0.76rem', fontWeight: 700 }}>
+                      ខែ៖ {selectedMonth}
+                    </span>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
+                  <AppIcon name="x" size={18} />
+                </button>
+              </div>
+              <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                មេគុណនេះត្រូវបានរក្សាទុកដាច់ដោយឡែកសម្រាប់ <b>ថ្នាក់ និងខែនេះ</b> ប៉ុណ្ណោះ ដោយមិនប៉ះពាល់ដល់ថ្នាក់ផ្សេង ឬខែផ្សេងឡើយ។
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
                 
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem', cursor: 'pointer', padding: '0.75rem', borderRadius: '12px', border: coeffTypeDraft !== 'custom' ? '1.5px solid var(--primary-color, #3b82f6)' : '1px solid var(--border-color)', background: coeffTypeDraft !== 'custom' ? 'rgba(59, 130, 246, 0.06)' : 'var(--bg-secondary)' }}>
                   <input 
                     type="radio" 
                     name="coeffType" 
-                    checked={settings.coefficientType !== 'custom'}
-                    onChange={() => {
-                      const newSettings = {...settings, coefficientType: 'auto'};
-                      setSettings(newSettings);
-                      settingsService.update('scoreSettings', newSettings);
-                    }} 
+                    checked={coeffTypeDraft !== 'custom'}
+                    style={{ marginTop: '0.2rem' }}
+                    onChange={() => setCoeffTypeDraft('auto')} 
                   />
                   <div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1. ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>មេគុណ = (ពិន្ទុសរុបអតិបរមា + 5) ចែកនឹង ៥០</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem' }}>1. ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី (ស្វ័យប្រវត្តិ)</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      មេគុណ = (ពិន្ទុសរុបអតិបរមា + 5) ចែកនឹង ៥០ → <b>{Number(computeClassCoeffValue(scores, { coefficientType: 'auto', customMaxScore: 250 }).currentCoeff.toFixed(2))}</b>
+                    </div>
                   </div>
                 </label>
 
-                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.55rem', cursor: 'pointer', padding: '0.75rem', borderRadius: '12px', border: coeffTypeDraft === 'custom' ? '1.5px solid #7c3aed' : '1px solid var(--border-color)', background: coeffTypeDraft === 'custom' ? 'rgba(139, 92, 246, 0.07)' : 'var(--bg-secondary)' }}>
                   <input 
                     type="radio" 
                     name="coeffType" 
-                    checked={settings.coefficientType === 'custom'}
-                    style={{ marginTop: '0.25rem' }}
-                    onChange={() => {
-                      const newSettings = {...settings, coefficientType: 'custom'};
-                      setSettings(newSettings);
-                      settingsService.update('scoreSettings', newSettings);
-                    }} 
+                    checked={coeffTypeDraft === 'custom'}
+                    style={{ marginTop: '0.2rem' }}
+                    onChange={() => setCoeffTypeDraft('custom')} 
                   />
                   <div style={{ width: '100%' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>2. កំណត់ពិន្ទុអតិបរមាខ្លួនឯង</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>មេគុណ = ពិន្ទុអតិបរមា ចែកនឹង ៥០</div>
-                    {settings.coefficientType === 'custom' && (
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem' }}>2. កំណត់ពិន្ទុអតិបរមាផ្ទាល់សម្រាប់ថ្នាក់/ខែនេះ</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      មេគុណ = ពិន្ទុអតិបរមា ÷ ៥០ →{' '}
+                      <b>{Number(((parseFloat(customMaxDraft) > 0 ? parseFloat(customMaxDraft) : 250) / 50).toFixed(2))}</b>
+                    </div>
+                    {coeffTypeDraft === 'custom' && (
                       <input 
-                        type="number" 
-                        value={settings.customMaxScore || 250} 
-                        onChange={e => {
-                          const newSettings = {...settings, customMaxScore: parseFloat(e.target.value)};
-                          setSettings(newSettings);
-                          settingsService.update('scoreSettings', newSettings);
-                        }}
-                        placeholder="ឧ. 250"
-                        style={{ marginTop: '0.5rem', width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                        type="number"
+                        step="any"
+                        min="1"
+                        value={customMaxDraft} 
+                        onChange={e => setCustomMaxDraft(e.target.value)}
+                        placeholder="ឧ. 250 ឬ 300"
+                        style={{ marginTop: '0.6rem', width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--main-bg)', color: 'var(--text-primary)', fontWeight: 700, boxSizing: 'border-box' }}
                       />
                     )}
                   </div>
                 </label>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                  <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ padding: '0.6rem 1.25rem', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>បិទ / រក្សាទុក</button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
+                  <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ padding: '0.6rem 1.1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>បោះបង់</button>
+                  <button type="submit" disabled={isSavingCoeff} style={{ padding: '0.6rem 1.25rem', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '10px', cursor: isSavingCoeff ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+                    {isSavingCoeff ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក'}
+                  </button>
                 </div>
               </div>
-            </div>
+            </form>
           </div>,
           document.body
         )}

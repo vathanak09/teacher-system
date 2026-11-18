@@ -24,5 +24,6 @@ export const taskService = new RtdbDataService<any>('tasks', studentRtdb);
 export const monthlyPaymentService = new RtdbDataService<any>('monthlyPayments', studentRtdb);
 export const attendanceService = new RtdbDataService<any>('attendance', studentRtdb);
 export const scoreService = new RtdbDataService<any>('scores', studentRtdb);
+export const scoreCoefficientService = new RtdbDataService<any>('scoreCoefficients', studentRtdb);
 export const teacherTrackingService = new RtdbDataService<any>('teacherTracking', studentRtdb);
 export const scheduleService = new RtdbDataService<any>('schedules', studentRtdb);
