@@ -16,6 +16,7 @@ import {
 import { formatRiels, parseLocalDate } from '@/utils/paymentBilling';
 import { AppIcon } from '@/components/AppIcons';
 import KhmerMonthPicker from '@/components/KhmerMonthPicker';
+import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
 import {
   EnrichedClassSummary,
@@ -45,6 +46,8 @@ export default function AdminOverviewView({
   upcomingDays = 5,
   scoreMonth,
   onScoreMonthChange,
+  hiddenTeacherIds = [],
+  onChangeHiddenTeacherIds,
   onInspectTeacher,
 }: {
   students: any[];
@@ -55,6 +58,8 @@ export default function AdminOverviewView({
   upcomingDays?: number;
   scoreMonth: string;
   onScoreMonthChange: (ym: string) => void;
+  hiddenTeacherIds?: string[];
+  onChangeHiddenTeacherIds?: (next: string[]) => void;
   onInspectTeacher: (teacherId: string) => void;
 }) {
   const [teacherViewMode, setTeacherViewMode] = useState<'table' | 'cards'>('table');
@@ -146,11 +151,54 @@ export default function AdminOverviewView({
     };
   }, [enrichedClasses, teachers]);
 
-  // 4. Filtered Teacher Reports
+  // 4. Teacher Visibility Dropdown & Filtered Teacher Reports
+  const eligibleTeacherReports = useMemo(
+    () => teacherReports.filter((tr) => tr.teacher.status !== 'ឈប់បង្រៀន'),
+    [teacherReports]
+  );
+
+  const hiddenTeacherSet = useMemo(() => new Set(hiddenTeacherIds), [hiddenTeacherIds]);
+
+  const teacherVisibilityOptions = useMemo(
+    () =>
+      eligibleTeacherReports.map((tr) => ({
+        value: tr.teacher.id,
+        label: tr.teacher.subject
+          ? `${tr.teacher.fullName} (${tr.teacher.subject})`
+          : tr.teacher.fullName,
+      })),
+    [eligibleTeacherReports]
+  );
+
+  const selectedVisibleTeacherIds = useMemo(
+    () =>
+      eligibleTeacherReports
+        .filter((tr) => !hiddenTeacherSet.has(tr.teacher.id))
+        .map((tr) => tr.teacher.id),
+    [eligibleTeacherReports, hiddenTeacherSet]
+  );
+
+  const handleVisibleTeachersChange = (nextSelectedIds: string[]) => {
+    if (!onChangeHiddenTeacherIds) return;
+    const nextSelectedSet = new Set(nextSelectedIds);
+    const eligibleIdSet = new Set(eligibleTeacherReports.map((tr) => tr.teacher.id));
+    const preservedOtherHidden = hiddenTeacherIds.filter((id) => !eligibleIdSet.has(id));
+    const newlyHiddenEligible = eligibleTeacherReports
+      .filter((tr) => !nextSelectedSet.has(tr.teacher.id))
+      .map((tr) => tr.teacher.id);
+    onChangeHiddenTeacherIds([...preservedOtherHidden, ...newlyHiddenEligible]);
+  };
+
+  const hiddenEligibleCount = eligibleTeacherReports.length - selectedVisibleTeacherIds.length;
+  const teacherDropdownTriggerLabel =
+    hiddenEligibleCount === 0
+      ? `បង្ហាញគ្រូ៖ ទាំងអស់ (${eligibleTeacherReports.length})`
+      : `បង្ហាញគ្រូ៖ ${selectedVisibleTeacherIds.length}/${eligibleTeacherReports.length} នាក់`;
+
   const filteredTeacherReports = useMemo(() => {
     const q = teacherSearch.trim().toLowerCase();
-    return teacherReports.filter((tr) => {
-      if (tr.teacher.status === 'ឈប់បង្រៀន') return false;
+    return eligibleTeacherReports.filter((tr) => {
+      if (hiddenTeacherSet.has(tr.teacher.id)) return false;
       if (!q) return true;
       return (
         String(tr.teacher.fullName || '').toLowerCase().includes(q) ||
@@ -158,7 +206,7 @@ export default function AdminOverviewView({
         String(tr.teacher.subject || '').toLowerCase().includes(q)
       );
     });
-  }, [teacherReports, teacherSearch]);
+  }, [eligibleTeacherReports, hiddenTeacherSet, teacherSearch]);
 
   // 5. Payment Status Donut Data
   const paymentDonutData = useMemo(
@@ -206,6 +254,35 @@ export default function AdminOverviewView({
             (a.deletedFromMainCount * 3 + a.droppedOutCount * 2 + a.multiClassCount)
         ),
     [enrichedClasses]
+  );
+
+  const emptyTeachersNotice = (
+    <>
+      <div>
+        {hiddenEligibleCount > 0 && !teacherSearch.trim()
+          ? 'គ្រូបង្រៀនត្រូវបានលាក់ទាំងអស់។ ចុចប៊ូតុងខាងក្រោមដើម្បីបង្ហាញវិញ។'
+          : 'មិនមានឈ្មោះគ្រូបង្រៀនទេ'}
+      </div>
+      {hiddenEligibleCount > 0 && onChangeHiddenTeacherIds && (
+        <button
+          type="button"
+          onClick={() => onChangeHiddenTeacherIds([])}
+          style={{
+            marginTop: '0.65rem',
+            padding: '0.4rem 0.9rem',
+            borderRadius: '8px',
+            border: 'none',
+            background: 'var(--primary-color, #2563eb)',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '0.78rem',
+            cursor: 'pointer',
+          }}
+        >
+          បង្ហាញគ្រូទាំងអស់វិញ
+        </button>
+      )}
+    </>
   );
 
   return (
@@ -535,6 +612,20 @@ export default function AdminOverviewView({
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+            {onChangeHiddenTeacherIds && eligibleTeacherReports.length > 0 && (
+              <MultiSelectDropdown
+                options={teacherVisibilityOptions}
+                selectedValues={selectedVisibleTeacherIds}
+                onChange={handleVisibleTeachersChange}
+                allLabel={`បង្ហាញគ្រូ៖ ទាំងអស់ (${eligibleTeacherReports.length})`}
+                title="ជ្រើសរើសគ្រូបង្ហាញ"
+                searchable={true}
+                searchPlaceholder="ស្វែងរកឈ្មោះគ្រូ..."
+                fixedTriggerLabel={teacherDropdownTriggerLabel}
+                icon={<AppIcon name="users" size={15} />}
+              />
+            )}
+
             <input
               type="text"
               value={teacherSearch}
@@ -549,6 +640,7 @@ export default function AdminOverviewView({
                 fontSize: '0.79rem',
                 outline: 'none',
                 minWidth: '155px',
+                flex: '1 1 155px',
               }}
             />
 
@@ -623,7 +715,7 @@ export default function AdminOverviewView({
                 {filteredTeacherReports.length === 0 ? (
                   <tr>
                     <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      មិនមានឈ្មោះគ្រូបង្រៀនទេ
+                      {emptyTeachersNotice}
                     </td>
                   </tr>
                 ) : (
@@ -833,6 +925,10 @@ export default function AdminOverviewView({
                 )}
               </tbody>
             </table>
+          </div>
+        ) : filteredTeacherReports.length === 0 ? (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            {emptyTeachersNotice}
           </div>
         ) : (
           <div

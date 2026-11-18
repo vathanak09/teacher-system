@@ -303,7 +303,7 @@ export function isNavPathActive(pathname: string, itemPath: string): boolean {
 
 export function getPrimaryMobilePaths(role: string): string[] {
   if (role === 'admin') {
-    return ['/dashboard', '/dashboard/students', '/dashboard/payments', '/dashboard/scores'];
+    return ['/dashboard', '/dashboard/students', '/dashboard/payments', '/dashboard/teacher-tracking'];
   }
   if (role === 'teacher') {
     return ['/dashboard', '/dashboard/classes', '/dashboard/attendance', '/dashboard/scores', '/dashboard/lessons'];

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   attendanceService,
   classService,
@@ -34,8 +34,22 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('');
   const [teacherProfileId, setTeacherProfileId] = useState('');
 
-  // Admin "View As Teacher" switcher state (null = School-Wide Admin Overview)
+  // Admin "View As Teacher" switcher & teacher visibility preferences
   const [inspectedTeacherId, setInspectedTeacherId] = useState<string | null>(null);
+  const [hiddenTeacherIds, setHiddenTeacherIds] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('adminDashboard_hiddenTeacherIds');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed.map(String);
+        }
+      } catch {
+        // ignore storage parse error
+      }
+    }
+    return [];
+  });
   const [scoreMonth, setScoreMonth] = useState<string>(() => getDefaultScoreYearMonth());
   const trackingMonth = useMemo(() => getCurrentYearMonth(), []);
 
@@ -117,6 +131,19 @@ export default function DashboardPage() {
           }
         })
       );
+      unsubs.push(
+        settingsService.subscribeOne('adminDashboardPrefs', (docData) => {
+          if (docData && Array.isArray(docData.hiddenTeacherIds)) {
+            const next = docData.hiddenTeacherIds.map(String);
+            setHiddenTeacherIds(next);
+            try {
+              localStorage.setItem('adminDashboard_hiddenTeacherIds', JSON.stringify(next));
+            } catch {
+              // ignore storage quota error
+            }
+          }
+        })
+      );
     }
 
     return () => {
@@ -162,10 +189,27 @@ export default function DashboardPage() {
     [teachers, enrichedClasses, trackingDoc, trackingMonth]
   );
 
+  const handleChangeHiddenTeacherIds = useCallback((nextHidden: string[]) => {
+    setHiddenTeacherIds(nextHidden);
+    try {
+      localStorage.setItem('adminDashboard_hiddenTeacherIds', JSON.stringify(nextHidden));
+    } catch {
+      // ignore storage quota error
+    }
+    settingsService.add({ hiddenTeacherIds: nextHidden }, 'adminDashboardPrefs').catch((err) => {
+      console.error('Failed to persist admin dashboard teacher visibility:', err);
+    });
+  }, []);
+
   const activeTeachersForSwitcher = useMemo(
     () => teachers.filter((t) => t.status !== 'ឈប់បង្រៀន'),
     [teachers]
   );
+
+  const visibleTeachersForPills = useMemo(() => {
+    const hiddenSet = new Set(hiddenTeacherIds);
+    return activeTeachersForSwitcher.filter((t) => !hiddenSet.has(t.id));
+  }, [activeTeachersForSwitcher, hiddenTeacherIds]);
 
   const switcherDropdownOptions = useMemo(
     () => [
@@ -323,7 +367,7 @@ export default function DashboardPage() {
               <span>ទិដ្ឋភាពរួមសាលា</span>
             </button>
 
-            {activeTeachersForSwitcher.map((t) => {
+            {visibleTeachersForPills.map((t) => {
               const isSelected = inspectedTeacherId === t.id;
               return (
                 <button
@@ -388,6 +432,8 @@ export default function DashboardPage() {
           upcomingDays={upcomingDays}
           scoreMonth={scoreMonth}
           onScoreMonthChange={setScoreMonth}
+          hiddenTeacherIds={hiddenTeacherIds}
+          onChangeHiddenTeacherIds={handleChangeHiddenTeacherIds}
           onInspectTeacher={(tid) => {
             setInspectedTeacherId(tid);
             window.scrollTo({ top: 0, behavior: 'smooth' });
