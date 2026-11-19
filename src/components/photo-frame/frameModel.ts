@@ -38,6 +38,24 @@ export interface PhotoTransform {
   fitMode: 'cover' | 'contain';
 }
 
+export interface PhotoAdjustments {
+  presetId: string;
+  brightness: number; // -50..50 (0 = neutral)
+  contrast: number;   // -50..50 (0 = neutral)
+  saturation: number; // -100..100 (0 = neutral, -100 = B&W)
+  warmth: number;     // -50..50 (negative = cool, positive = warm)
+  skinGlow: number;   // 0..50 (subtle portrait glow/softness)
+  fade: number;       // 0..50 (matte shadow lift)
+  vignette: number;   // 0..80 (radial edge vignette)
+}
+
+export interface RetouchPreset {
+  id: string;
+  name: string;
+  swatch: string;
+  values: Omit<PhotoAdjustments, 'presetId'>;
+}
+
 export interface OverlayLayer {
   id: string;
   name: string;
@@ -61,6 +79,7 @@ export interface BatchPhotoItem {
   naturalWidth: number;
   naturalHeight: number;
   photoTransform: PhotoTransform;
+  photoAdjustments: PhotoAdjustments;
   overlays: OverlayLayer[];
   approved: boolean;
 }
@@ -84,6 +103,93 @@ export const DEFAULT_PHOTO_TRANSFORM: PhotoTransform = {
   rotation: 0,
   fitMode: 'cover',
 };
+
+export const DEFAULT_PHOTO_ADJUSTMENTS: PhotoAdjustments = {
+  presetId: 'original',
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  warmth: 0,
+  skinGlow: 0,
+  fade: 0,
+  vignette: 0,
+};
+
+export const RETOUCH_PRESETS: RetouchPreset[] = [
+  {
+    id: 'original',
+    name: 'ដើម (Original)',
+    swatch: 'linear-gradient(135deg, #cbd5e1, #94a3b8)',
+    values: { brightness: 0, contrast: 0, saturation: 0, warmth: 0, skinGlow: 0, fade: 0, vignette: 0 },
+  },
+  {
+    id: 'portrait_glow',
+    name: 'មុខភ្លឺរលោង',
+    swatch: 'linear-gradient(135deg, #fde68a, #f9a8d4)',
+    values: { brightness: 8, contrast: 6, saturation: 6, warmth: 10, skinGlow: 26, fade: 6, vignette: 12 },
+  },
+  {
+    id: 'bright_clean',
+    name: 'ភ្លឺថ្លាស្អាត',
+    swatch: 'linear-gradient(135deg, #f8fafc, #93c5fd)',
+    values: { brightness: 16, contrast: 8, saturation: 8, warmth: 4, skinGlow: 12, fade: 4, vignette: 0 },
+  },
+  {
+    id: 'vivid_school',
+    name: 'ពណ៌ស្រស់ច្បាស់',
+    swatch: 'linear-gradient(135deg, #34d399, #3b82f6)',
+    values: { brightness: 6, contrast: 18, saturation: 28, warmth: 6, skinGlow: 0, fade: 0, vignette: 10 },
+  },
+  {
+    id: 'warm_sunlight',
+    name: 'ពន្លឺកក់ក្តៅ',
+    swatch: 'linear-gradient(135deg, #fbbf24, #f97316)',
+    values: { brightness: 10, contrast: 10, saturation: 14, warmth: 28, skinGlow: 14, fade: 6, vignette: 16 },
+  },
+  {
+    id: 'soft_pastel',
+    name: 'ទន់ភ្លន់',
+    swatch: 'linear-gradient(135deg, #fbcfe8, #c4b5fd)',
+    values: { brightness: 14, contrast: -8, saturation: -8, warmth: 8, skinGlow: 20, fade: 22, vignette: 8 },
+  },
+  {
+    id: 'cool_crisp',
+    name: 'ត្រជាក់ច្បាស់',
+    swatch: 'linear-gradient(135deg, #67e8f9, #38bdf8)',
+    values: { brightness: 6, contrast: 14, saturation: 4, warmth: -22, skinGlow: 6, fade: 0, vignette: 12 },
+  },
+  {
+    id: 'studio_pro',
+    name: 'Studio Pro',
+    swatch: 'linear-gradient(135deg, #6366f1, #1e293b)',
+    values: { brightness: 5, contrast: 16, saturation: 10, warmth: 6, skinGlow: 16, fade: 4, vignette: 26 },
+  },
+  {
+    id: 'vintage_film',
+    name: 'ហ្វីលបុរាណ',
+    swatch: 'linear-gradient(135deg, #d97706, #78716c)',
+    values: { brightness: 4, contrast: 8, saturation: -18, warmth: 22, skinGlow: 8, fade: 24, vignette: 30 },
+  },
+  {
+    id: 'bw_classic',
+    name: 'ស-ខ្មៅ (B&W)',
+    swatch: 'linear-gradient(135deg, #f8fafc, #0f172a)',
+    values: { brightness: 4, contrast: 22, saturation: -100, warmth: 0, skinGlow: 6, fade: 6, vignette: 24 },
+  },
+];
+
+export function hasActiveAdjustments(adj?: PhotoAdjustments | null): boolean {
+  if (!adj) return false;
+  return (
+    adj.brightness !== 0 ||
+    adj.contrast !== 0 ||
+    adj.saturation !== 0 ||
+    adj.warmth !== 0 ||
+    adj.skinGlow !== 0 ||
+    adj.fade !== 0 ||
+    adj.vignette !== 0
+  );
+}
 
 const BASE_REFERENCE_PX = 1080;
 const MAX_CANVAS_EDGE_PX = 8192;
@@ -331,6 +437,7 @@ export function computeSnappedOverlayPosition(
 export interface RenderCompositionOptions {
   photoImg?: HTMLImageElement | null;
   photoTransform: PhotoTransform;
+  photoAdjustments?: PhotoAdjustments;
   overlays: OverlayLayer[];
   overlayImages: Record<string, HTMLImageElement | undefined>;
   backgroundColor: string; // 'transparent' or hex color
@@ -355,8 +462,9 @@ export function renderCompositionToCanvas(
     ctx.fillRect(0, 0, width, height);
   }
 
-  // 2. Base Photo Layer
+  // 2. Base Photo Layer (with Lighting & Retouch Adjustments isolated to the photo only)
   const { photoImg, photoTransform } = options;
+  const adj = options.photoAdjustments || DEFAULT_PHOTO_ADJUSTMENTS;
   if (photoImg && photoImg.naturalWidth > 0 && photoImg.naturalHeight > 0) {
     const nw = photoImg.naturalWidth;
     const nh = photoImg.naturalHeight;
@@ -370,12 +478,104 @@ export function renderCompositionToCanvas(
     const cx = width / 2 + photoTransform.x * width;
     const cy = height / 2 + photoTransform.y * height;
 
+    const supportsFilter = typeof ctx.filter === 'string';
+    const bPct = Math.max(30, Math.min(200, Math.round(100 + adj.brightness * 1.1)));
+    const cPct = Math.max(30, Math.min(200, Math.round(100 + adj.contrast * 1.1)));
+    const sPct = Math.max(0, Math.min(220, Math.round(100 + adj.saturation)));
+    const sepiaPct = adj.warmth > 0 ? Math.min(24, Math.round(adj.warmth * 0.34)) : 0;
+
+    const filterParts: string[] = [];
+    if (bPct !== 100) filterParts.push(`brightness(${bPct}%)`);
+    if (cPct !== 100) filterParts.push(`contrast(${cPct}%)`);
+    if (sPct !== 100) filterParts.push(`saturate(${sPct}%)`);
+    if (sepiaPct > 0) filterParts.push(`sepia(${sepiaPct}%)`);
+
     ctx.save();
     ctx.translate(cx, cy);
     if (photoTransform.rotation) {
       ctx.rotate((photoTransform.rotation * Math.PI) / 180);
     }
+
+    // Clip all lighting/retouch passes strictly to the photo bounds
+    ctx.beginPath();
+    ctx.rect(-drawW / 2, -drawH / 2, drawW, drawH);
+    ctx.clip();
+
+    // Base photo pass with GPU filter
+    if (supportsFilter && filterParts.length > 0) {
+      ctx.filter = filterParts.join(' ');
+    }
     ctx.drawImage(photoImg, -drawW / 2, -drawH / 2, drawW, drawH);
+    if (supportsFilter) {
+      ctx.filter = 'none';
+    } else if (adj.brightness !== 0) {
+      // Graceful fallback for older browsers without CanvasRenderingContext2D.filter
+      ctx.save();
+      ctx.globalCompositeOperation = adj.brightness > 0 ? 'screen' : 'multiply';
+      const fallbackAlpha = Math.min(0.55, Math.abs(adj.brightness) / 100);
+      ctx.fillStyle = adj.brightness > 0 ? `rgba(255,255,255,${fallbackAlpha})` : `rgba(0,0,0,${fallbackAlpha})`;
+      ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+    }
+
+    // Subtle Portrait Soft Glow pass (proportional blur so preview & x6 export match identically)
+    if (adj.skinGlow > 0) {
+      ctx.save();
+      const glowRatio = Math.max(0, Math.min(1, adj.skinGlow / 50));
+      const blurPx = Math.max(2, Math.min(width, height) * 0.012 * glowRatio);
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = glowRatio * 0.24;
+      if (supportsFilter) {
+        ctx.filter = `blur(${blurPx.toFixed(1)}px) brightness(108%) saturate(106%)`;
+      }
+      ctx.drawImage(photoImg, -drawW / 2, -drawH / 2, drawW, drawH);
+      if (supportsFilter) ctx.filter = 'none';
+      ctx.restore();
+    }
+
+    // Color Temperature / Warmth tint pass
+    if (adj.warmth !== 0) {
+      ctx.save();
+      const tRatio = Math.min(1, Math.abs(adj.warmth) / 50);
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.fillStyle =
+        adj.warmth > 0
+          ? `rgba(255, 168, 76, ${(tRatio * 0.28).toFixed(3)})`
+          : `rgba(74, 168, 255, ${(tRatio * 0.3).toFixed(3)})`;
+      ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+    }
+
+    // Matte / Film Fade lift (lifts deep blacks smoothly)
+    if (adj.fade > 0) {
+      ctx.save();
+      const fadeRatio = Math.max(0, Math.min(1, adj.fade / 50));
+      ctx.globalCompositeOperation = 'lighten';
+      ctx.fillStyle = `rgba(42, 46, 58, ${(fadeRatio * 0.72).toFixed(3)})`;
+      ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+      ctx.restore();
+    }
+
+    // Vignette radial edge darkening (kept inside photo bounds so Frame/Logo overlays stay crisp)
+    if (adj.vignette > 0) {
+      ctx.save();
+      // Undo photo transform to center vignette on visible frame while still clipped to photo bounds
+      if (photoTransform.rotation) {
+        ctx.rotate((-photoTransform.rotation * Math.PI) / 180);
+      }
+      ctx.translate(-cx, -cy);
+      const vigRatio = Math.max(0, Math.min(1, adj.vignette / 80));
+      const innerR = Math.min(width, height) * 0.34;
+      const outerR = Math.hypot(width, height) * 0.56;
+      const grad = ctx.createRadialGradient(width / 2, height / 2, innerR, width / 2, height / 2, outerR);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      grad.addColorStop(0.62, `rgba(10, 14, 24, ${(vigRatio * 0.18).toFixed(3)})`);
+      grad.addColorStop(1, `rgba(10, 14, 24, ${(vigRatio * 0.72).toFixed(3)})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 

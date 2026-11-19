@@ -12,13 +12,17 @@ import {
   ASPECT_RATIO_OPTIONS,
   AspectRatioMode,
   BatchPhotoItem,
+  DEFAULT_PHOTO_ADJUSTMENTS,
   DEFAULT_PHOTO_TRANSFORM,
   ExportFormat,
   FrameTemplate,
   OverlayLayer,
   OverlaySnapPreset,
+  PhotoAdjustments,
   PhotoTransform,
   QUALITY_MULTIPLIERS,
+  RETOUCH_PRESETS,
+  RetouchPreset,
   buildExportFileName,
   buildProxyImageUrl,
   canvasToBlob,
@@ -27,6 +31,7 @@ import {
   createOverlayFromTemplate,
   createUid,
   evictCachedImage,
+  hasActiveAdjustments,
   loadImageCached,
   normalizeTemplateRecord,
   renderCompositionToCanvas,
@@ -56,8 +61,9 @@ export default function PhotoFrameStudioPage() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<FrameTemplate | null>(null);
 
-  // Default overlay blueprint applied automatically to newly added photos
+  // Default overlay & lighting blueprint applied automatically to newly added photos
   const [blueprintOverlays, setBlueprintOverlays] = useState<OverlayLayer[]>([]);
+  const [blueprintAdjustments, setBlueprintAdjustments] = useState<PhotoAdjustments>({ ...DEFAULT_PHOTO_ADJUSTMENTS });
 
   // Local batch photos (NEVER saved to DB)
   const [photos, setPhotos] = useState<BatchPhotoItem[]>([]);
@@ -66,6 +72,8 @@ export default function PhotoFrameStudioPage() {
 
   // Studio interactive editor settings
   const [editMode, setEditMode] = useState<EditTargetMode>('photo');
+  const [photoSubTab, setPhotoSubTab] = useState<'transform' | 'retouch'>('transform');
+  const [comparingOriginal, setComparingOriginal] = useState(false);
   const [activeOverlayId, setActiveOverlayId] = useState<string | null>(null);
   const [showGridGuides, setShowGridGuides] = useState(false);
   const [aspectMode, setAspectMode] = useState<AspectRatioMode>('auto');
@@ -92,6 +100,7 @@ export default function PhotoFrameStudioPage() {
 
   // Refs
   const mainPreviewCardRef = useRef<HTMLDivElement | null>(null);
+  const controlsPanelRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const floatingCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -314,6 +323,65 @@ export default function PhotoFrameStudioPage() {
     [activePhoto]
   );
 
+  const currentPhotoAdjustments = useMemo<PhotoAdjustments>(
+    () => (activePhoto ? activePhoto.photoAdjustments : blueprintAdjustments),
+    [activePhoto, blueprintAdjustments]
+  );
+
+  const updateActivePhotoAdjustments = useCallback(
+    (updater: (prev: PhotoAdjustments) => PhotoAdjustments) => {
+      if (activePhoto) {
+        const targetId = activePhoto.id;
+        setPhotos((prev) =>
+          prev.map((item) =>
+            item.id === targetId
+              ? { ...item, photoAdjustments: updater(item.photoAdjustments) }
+              : item
+          )
+        );
+      } else {
+        setBlueprintAdjustments((prev) => updater(prev));
+      }
+    },
+    [activePhoto]
+  );
+
+  const handleSelectRetouchPreset = useCallback(
+    (preset: RetouchPreset) => {
+      const nextAdj: PhotoAdjustments = {
+        presetId: preset.id,
+        ...preset.values,
+      };
+      updateActivePhotoAdjustments(() => nextAdj);
+      if (!activePhoto) {
+        setBlueprintAdjustments(nextAdj);
+      }
+    },
+    [activePhoto, updateActivePhotoAdjustments]
+  );
+
+  const handleResetPhotoAdjustments = useCallback(() => {
+    const resetAdj: PhotoAdjustments = { ...DEFAULT_PHOTO_ADJUSTMENTS };
+    updateActivePhotoAdjustments(() => resetAdj);
+    if (!activePhoto) {
+      setBlueprintAdjustments(resetAdj);
+    }
+  }, [activePhoto, updateActivePhotoAdjustments]);
+
+  const handleApplyAdjustmentsToAllPhotos = useCallback(() => {
+    if (!activePhoto || photos.length <= 1) return;
+    const sourceAdj = { ...activePhoto.photoAdjustments };
+    setBlueprintAdjustments(sourceAdj);
+    setPhotos((prev) =>
+      prev.map((item) =>
+        item.id === activePhoto.id
+          ? item
+          : { ...item, photoAdjustments: { ...sourceAdj } }
+      )
+    );
+    showToast('success', `បានអនុវត្តការកំណត់ពន្លឺ & Retouch ទៅគ្រប់ ${photos.length} រូបរួចរាល់!`);
+  }, [activePhoto, photos.length, showToast]);
+
   const updateCurrentOverlays = useCallback(
     (updater: (prev: OverlayLayer[]) => OverlayLayer[]) => {
       if (activePhoto) {
@@ -363,6 +431,7 @@ export default function PhotoFrameStudioPage() {
     const renderOptions = {
       photoImg: activePhotoImg,
       photoTransform: activePhoto?.photoTransform || DEFAULT_PHOTO_TRANSFORM,
+      photoAdjustments: comparingOriginal ? DEFAULT_PHOTO_ADJUSTMENTS : currentPhotoAdjustments,
       overlays: currentOverlays,
       overlayImages: loadedImages,
       backgroundColor,
@@ -398,6 +467,8 @@ export default function PhotoFrameStudioPage() {
     isTemplateModalOpen,
     activePhoto,
     activePhotoImg,
+    currentPhotoAdjustments,
+    comparingOriginal,
     currentOverlays,
     loadedImages,
     backgroundColor,
@@ -537,6 +608,7 @@ export default function PhotoFrameStudioPage() {
       }
 
       const templateBase = activePhoto ? activePhoto.overlays : blueprintOverlays;
+      const adjustmentsBase = activePhoto ? activePhoto.photoAdjustments : blueprintAdjustments;
       const createdItems: BatchPhotoItem[] = [];
 
       for (const file of files) {
@@ -561,6 +633,7 @@ export default function PhotoFrameStudioPage() {
           naturalWidth,
           naturalHeight,
           photoTransform: { ...DEFAULT_PHOTO_TRANSFORM },
+          photoAdjustments: { ...adjustmentsBase },
           overlays: cloneOverlays(templateBase),
           approved: false,
         });
@@ -572,7 +645,7 @@ export default function PhotoFrameStudioPage() {
       }
       showToast('success', `បានបន្ថែមរូបថតចំនួន ${createdItems.length} រូប (រក្សាទុកតែលើឧបករណ៍អ្នក)`);
     },
-    [activePhoto, blueprintOverlays, selectedPhotoId, showToast]
+    [activePhoto, blueprintOverlays, blueprintAdjustments, selectedPhotoId, showToast]
   );
 
   // Add local transparent PNG as one-off frame/element without saving to DB
@@ -855,6 +928,7 @@ export default function PhotoFrameStudioPage() {
       renderCompositionToCanvas(ctx, dims.width, dims.height, {
         photoImg,
         photoTransform: item.photoTransform,
+        photoAdjustments: item.photoAdjustments,
         overlays: item.overlays,
         overlayImages: overlayImgMap,
         backgroundColor: effectiveBg,
@@ -1553,16 +1627,19 @@ export default function PhotoFrameStudioPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => setEditMode('photo')}
+                  onClick={() => {
+                    setEditMode('photo');
+                    setPhotoSubTab('transform');
+                  }}
                   style={{
                     padding: '0.44rem 0.85rem',
                     borderRadius: '10px',
-                    border: `1.5px solid ${editMode === 'photo' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                    border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
                     background:
-                      editMode === 'photo'
+                      editMode === 'photo' && photoSubTab === 'transform'
                         ? 'var(--accent-primary)'
                         : 'var(--main-bg)',
-                    color: editMode === 'photo' ? '#ffffff' : 'var(--text-primary)',
+                    color: editMode === 'photo' && photoSubTab === 'transform' ? '#ffffff' : 'var(--text-primary)',
                     fontSize: '0.8rem',
                     fontWeight: 700,
                     cursor: 'pointer',
@@ -1573,6 +1650,36 @@ export default function PhotoFrameStudioPage() {
                 >
                   <AppIcon name="image" size={15} />
                   សារ៉េរូបថត (Photo)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditMode('photo');
+                    setPhotoSubTab('retouch');
+                    if (window.innerWidth <= 980) {
+                      controlsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  style={{
+                    padding: '0.44rem 0.85rem',
+                    borderRadius: '10px',
+                    border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'retouch' ? '#f59e0b' : 'var(--border-color)'}`,
+                    background:
+                      editMode === 'photo' && photoSubTab === 'retouch'
+                        ? '#f59e0b'
+                        : 'var(--main-bg)',
+                    color: editMode === 'photo' && photoSubTab === 'retouch' ? '#ffffff' : 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <AppIcon name="sun" size={15} />
+                  ពន្លឺ & Retouch
                 </button>
 
                 <button
@@ -2158,23 +2265,310 @@ export default function PhotoFrameStudioPage() {
 
         {/* RIGHT COLUMN: Transform Controls & High-Res Batch Export */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem', minWidth: 0 }}>
-          {/* PANEL A: Precision Transform Controls */}
-          <div className="glass-panel" style={{ padding: '1rem 1.05rem', borderRadius: '18px', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+          {/* PANEL A: Precision Transform & Photo Retouch Controls */}
+          <div
+            ref={controlsPanelRef}
+            className="glass-panel"
+            style={{
+              padding: '1rem 1.05rem',
+              borderRadius: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              scrollMarginTop: '175px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <AppIcon
-                  name="sliders"
+                  name={editMode === 'overlay' ? 'sliders' : photoSubTab === 'retouch' ? 'sun' : 'sliders'}
                   size={17}
-                  style={{ color: editMode === 'overlay' ? '#8b5cf6' : 'var(--accent-primary)' }}
+                  style={{
+                    color:
+                      editMode === 'overlay'
+                        ? '#8b5cf6'
+                        : photoSubTab === 'retouch'
+                          ? '#f59e0b'
+                          : 'var(--accent-primary)',
+                  }}
                 />
                 <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {editMode === 'overlay' ? 'សារ៉េទំហំ & ទីតាំង Frame / Element' : 'សារ៉េទំហំ & ទីតាំងរូបថត'}
+                  {editMode === 'overlay'
+                    ? 'សារ៉េទំហំ & ទីតាំង Frame / Element'
+                    : photoSubTab === 'retouch'
+                      ? 'ពន្លឺ & Retouch រូបភាព'
+                      : 'សារ៉េទំហំ & ទីតាំងរូបថត'}
                 </h3>
               </div>
+
+              {editMode === 'photo' && activePhoto && photoSubTab === 'retouch' && hasActiveAdjustments(currentPhotoAdjustments) && (
+                <button
+                  type="button"
+                  onPointerDown={() => setComparingOriginal(true)}
+                  onPointerUp={() => setComparingOriginal(false)}
+                  onPointerLeave={() => setComparingOriginal(false)}
+                  onPointerCancel={() => setComparingOriginal(false)}
+                  style={{
+                    padding: '0.28rem 0.58rem',
+                    borderRadius: '8px',
+                    border: `1px solid ${comparingOriginal ? '#f59e0b' : 'var(--border-color)'}`,
+                    background: comparingOriginal ? 'rgba(245, 158, 11, 0.16)' : 'var(--main-bg)',
+                    color: comparingOriginal ? '#d97706' : 'var(--text-secondary)',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.28rem',
+                  }}
+                  title="ចុចឱ្យជាប់ដើម្បីប្រៀបធៀបជាមួយរូបដើម"
+                >
+                  <AppIcon name="eye" size={13} />
+                  {comparingOriginal ? 'រូបដើម' : 'ចុចជាប់មើលដើម'}
+                </button>
+              )}
             </div>
 
+            {editMode === 'photo' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setPhotoSubTab('transform')}
+                  style={{
+                    padding: '0.42rem 0.55rem',
+                    borderRadius: '10px',
+                    border: `1.5px solid ${photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                    background:
+                      photoSubTab === 'transform'
+                        ? 'color-mix(in srgb, var(--accent-primary) 13%, var(--main-bg))'
+                        : 'var(--main-bg)',
+                    color: photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <AppIcon name="move" size={14} />
+                  ទំហំ & ទីតាំង
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoSubTab('retouch')}
+                  style={{
+                    padding: '0.42rem 0.55rem',
+                    borderRadius: '10px',
+                    border: `1.5px solid ${photoSubTab === 'retouch' ? '#f59e0b' : 'var(--border-color)'}`,
+                    background:
+                      photoSubTab === 'retouch'
+                        ? 'rgba(245, 158, 11, 0.14)'
+                        : 'var(--main-bg)',
+                    color: photoSubTab === 'retouch' ? '#d97706' : 'var(--text-secondary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <AppIcon name="sun" size={14} />
+                  ពន្លឺ & Retouch
+                  {hasActiveAdjustments(currentPhotoAdjustments) && (
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: '#f59e0b',
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </button>
+              </div>
+            )}
+
             {editMode === 'photo' ? (
-              activePhoto ? (
+              photoSubTab === 'retouch' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.82rem' }}>
+                  {/* Built-in Retouch Presets */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.32rem' }}>
+                        <AppIcon name="sparkles" size={14} style={{ color: '#f59e0b' }} />
+                        គំរូ Retouch ស្រាប់ៗ ({RETOUCH_PRESETS.length})
+                      </span>
+                      {currentPhotoAdjustments.presetId === 'custom' && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#d97706' }}>
+                          កែផ្ទាល់ខ្លួន
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.38rem' }}>
+                      {RETOUCH_PRESETS.map((preset) => {
+                        const isActive = currentPhotoAdjustments.presetId === preset.id;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleSelectRetouchPreset(preset)}
+                            style={{
+                              padding: '0.4rem 0.52rem',
+                              borderRadius: '10px',
+                              border: `1.5px solid ${isActive ? '#f59e0b' : 'var(--border-color)'}`,
+                              background: isActive ? 'rgba(245, 158, 11, 0.12)' : 'var(--main-bg)',
+                              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                              fontSize: '0.74rem',
+                              fontWeight: isActive ? 700 : 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.45rem',
+                              textAlign: 'left',
+                              minWidth: 0,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                background: preset.swatch,
+                                border: '1.5px solid rgba(255,255,255,0.65)',
+                                boxShadow: '0 1px 4px rgba(15,23,42,0.2)',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {preset.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Fine-tune Lighting & Color Sliders */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.62rem' }}>
+                    {[
+                      { key: 'brightness' as const, label: 'ពន្លឺ (Brightness)', min: -50, max: 50, step: 1, accent: '#f59e0b' },
+                      { key: 'contrast' as const, label: 'កម្រិតច្បាស់ពណ៌ (Contrast)', min: -50, max: 50, step: 1, accent: '#3b82f6' },
+                      { key: 'saturation' as const, label: 'ភាពស្រស់ពណ៌ (Saturation)', min: -100, max: 100, step: 1, accent: '#ec4899' },
+                      { key: 'warmth' as const, label: 'សីតុណ្ហភាព (ត្រជាក់ ↔ កក់ក្តៅ)', min: -50, max: 50, step: 1, accent: '#f97316' },
+                      { key: 'skinGlow' as const, label: 'មុខភ្លឺរលោង (Portrait Glow)', min: 0, max: 50, step: 1, accent: '#a855f7' },
+                      { key: 'fade' as const, label: 'ភាពទន់ / ហ្វីល (Fade)', min: 0, max: 50, step: 1, accent: '#64748b' },
+                      { key: 'vignette' as const, label: 'ស្រមោលគែម (Vignette)', min: 0, max: 80, step: 1, accent: '#334155' },
+                    ].map((slider) => {
+                      const val = currentPhotoAdjustments[slider.key];
+                      return (
+                        <div key={slider.key}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                            <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {slider.label}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateActivePhotoAdjustments((adj) => ({
+                                  ...adj,
+                                  presetId: 'custom',
+                                  [slider.key]: 0,
+                                }))
+                              }
+                              style={{
+                                border: 'none',
+                                background: val !== 0 ? 'rgba(245, 158, 11, 0.14)' : 'transparent',
+                                color: val !== 0 ? '#d97706' : 'var(--text-secondary)',
+                                fontSize: '0.73rem',
+                                fontWeight: 700,
+                                padding: '0.08rem 0.38rem',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                              }}
+                              title="ចុចដើម្បីកំណត់តម្លៃនេះទៅ 0 វិញ"
+                            >
+                              {val > 0 ? `+${val}` : val}
+                            </button>
+                          </div>
+                          <input
+                            type="range"
+                            min={slider.min}
+                            max={slider.max}
+                            step={slider.step}
+                            value={val}
+                            onChange={(e) => {
+                              const nextVal = Number(e.target.value);
+                              updateActivePhotoAdjustments((adj) => ({
+                                ...adj,
+                                presetId: 'custom',
+                                [slider.key]: nextVal,
+                              }));
+                            }}
+                            style={{ width: '100%', accentColor: slider.accent }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Retouch Action Buttons */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {photos.length > 1 && activePhoto && (
+                      <button
+                        type="button"
+                        onClick={handleApplyAdjustmentsToAllPhotos}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(245, 158, 11, 0.38)',
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          color: '#d97706',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <AppIcon name="copy" size={14} />
+                        អនុវត្តពន្លឺ & Retouch នេះទៅគ្រប់ {photos.length} រូប
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleResetPhotoAdjustments}
+                      disabled={!hasActiveAdjustments(currentPhotoAdjustments)}
+                      style={{
+                        padding: '0.42rem 0.7rem',
+                        borderRadius: '9px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.77rem',
+                        fontWeight: 600,
+                        cursor: hasActiveAdjustments(currentPhotoAdjustments) ? 'pointer' : 'not-allowed',
+                        opacity: hasActiveAdjustments(currentPhotoAdjustments) ? 1 : 0.5,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <AppIcon name="refresh-cw" size={14} />
+                      កំណត់ពន្លឺដើមវិញ (Reset)
+                    </button>
+                  </div>
+                </div>
+              ) : activePhoto ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.78rem' }}>
                   {/* Fit Mode */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
@@ -3219,27 +3613,54 @@ export default function PhotoFrameStudioPage() {
                     }}
                   >
                     {/* Quick Layer Mode Switcher */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.32rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.26rem' }}>
                       <button
                         type="button"
-                        onClick={() => setEditMode('photo')}
+                        onClick={() => {
+                          setEditMode('photo');
+                          setPhotoSubTab('transform');
+                        }}
                         style={{
-                          padding: '0.32rem 0.4rem',
+                          padding: '0.32rem 0.25rem',
                           borderRadius: '8px',
-                          border: `1.5px solid ${editMode === 'photo' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
-                          background: editMode === 'photo' ? 'var(--accent-primary)' : 'var(--main-bg)',
-                          color: editMode === 'photo' ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '0.72rem',
+                          border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                          background: editMode === 'photo' && photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--main-bg)',
+                          color: editMode === 'photo' && photoSubTab === 'transform' ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.68rem',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.25rem',
+                          gap: '0.2rem',
                         }}
                       >
-                        <AppIcon name="image" size={12} />
+                        <AppIcon name="image" size={11} />
                         រូបថត
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditMode('photo');
+                          setPhotoSubTab('retouch');
+                        }}
+                        style={{
+                          padding: '0.32rem 0.25rem',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'retouch' ? '#f59e0b' : 'var(--border-color)'}`,
+                          background: editMode === 'photo' && photoSubTab === 'retouch' ? '#f59e0b' : 'var(--main-bg)',
+                          color: editMode === 'photo' && photoSubTab === 'retouch' ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.2rem',
+                        }}
+                      >
+                        <AppIcon name="sun" size={11} />
+                        ពន្លឺ
                       </button>
                       <button
                         type="button"
@@ -3248,22 +3669,22 @@ export default function PhotoFrameStudioPage() {
                           if (currentOverlays.length > 0) setEditMode('overlay');
                         }}
                         style={{
-                          padding: '0.32rem 0.4rem',
+                          padding: '0.32rem 0.25rem',
                           borderRadius: '8px',
                           border: `1.5px solid ${editMode === 'overlay' ? '#8b5cf6' : 'var(--border-color)'}`,
                           background: editMode === 'overlay' ? '#8b5cf6' : 'var(--main-bg)',
                           color: editMode === 'overlay' ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '0.72rem',
+                          fontSize: '0.68rem',
                           fontWeight: 700,
                           cursor: currentOverlays.length === 0 ? 'not-allowed' : 'pointer',
                           opacity: currentOverlays.length === 0 ? 0.45 : 1,
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.25rem',
+                          gap: '0.2rem',
                         }}
                       >
-                        <AppIcon name="move" size={12} />
+                        <AppIcon name="move" size={11} />
                         Element
                       </button>
                     </div>
