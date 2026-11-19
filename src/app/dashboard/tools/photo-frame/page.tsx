@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { photoFrameTemplateService } from '@/services/db';
 import { AppIcon } from '@/components/AppIcons';
@@ -83,8 +84,16 @@ export default function PhotoFrameStudioPage() {
   const [exportProgress, setExportProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  // Mobile floating live preview state (floats automatically when scrolling down into tools on mobile)
+  const [mounted, setMounted] = useState(false);
+  const [showMobileFloating, setShowMobileFloating] = useState(false);
+  const [floatingExpanded, setFloatingExpanded] = useState(false);
+  const [floatingCollapsed, setFloatingCollapsed] = useState(false);
+
   // Refs
+  const mainPreviewCardRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const floatingCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const localOverlayInputRef = useRef<HTMLInputElement | null>(null);
   const localOverlayCategoryRef = useRef<'frame' | 'element'>('frame');
@@ -112,14 +121,48 @@ export default function PhotoFrameStudioPage() {
     return () => clearTimeout(t);
   }, [toastMsg]);
 
-  // Read logged-in identity
+  // Read logged-in identity & mark client mounted for portal
   useEffect(() => {
+    setMounted(true);
     const role = localStorage.getItem('userRole') || '';
     const uid = localStorage.getItem('teacherProfileId') || localStorage.getItem('userId') || '';
     const uname = localStorage.getItem('userName') || (role === 'admin' ? 'Admin' : 'គ្រូបង្រៀន');
     setUserRole(role);
     setCurrentUserId(uid);
     setCurrentUserName(uname);
+  }, []);
+
+  // Show floating live preview on mobile/tablet when scrolling past main preview down to controls
+  useEffect(() => {
+    let rafId = 0;
+
+    const evaluateFloating = () => {
+      rafId = 0;
+      const isNarrow = window.innerWidth <= 980;
+      const cardEl = mainPreviewCardRef.current;
+      if (!isNarrow || !cardEl) {
+        setShowMobileFloating(false);
+        return;
+      }
+      const rect = cardEl.getBoundingClientRect();
+      // Only float once main preview card has scrolled above top so browsing templates above stays clean
+      const scrolledPast = rect.bottom < 84;
+      setShowMobileFloating(scrolledPast);
+    };
+
+    const scheduleCheck = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(evaluateFloating);
+    };
+
+    evaluateFloating();
+    window.addEventListener('scroll', scheduleCheck, { passive: true });
+    window.addEventListener('resize', scheduleCheck, { passive: true });
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', scheduleCheck);
+      window.removeEventListener('resize', scheduleCheck);
+    };
   }, []);
 
   // Subscribe to shared templates
@@ -300,23 +343,24 @@ export default function PhotoFrameStudioPage() {
     [activeOverlay, updateCurrentOverlays]
   );
 
-  // Draw live preview canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const drawW = Math.round(previewDims.width * dpr);
-    const drawH = Math.round(previewDims.height * dpr);
-
-    if (canvas.width !== drawW || canvas.height !== drawH) {
-      canvas.width = drawW;
-      canvas.height = drawH;
+  // Compute compact/expanded dimensions for mobile floating preview canvas
+  const floatingCanvasDims = useMemo(() => {
+    const ratio = exportDims.width / Math.max(1, exportDims.height);
+    const maxW = floatingExpanded ? 290 : 146;
+    const maxH = floatingExpanded ? 230 : 132;
+    let w = maxW;
+    let h = Math.round(w / ratio);
+    if (h > maxH) {
+      h = maxH;
+      w = Math.round(h * ratio);
     }
+    return { width: Math.max(52, w), height: Math.max(52, h) };
+  }, [exportDims.width, exportDims.height, floatingExpanded]);
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    renderCompositionToCanvas(ctx, drawW, drawH, {
+  // Draw live preview canvas (both main preview and mobile floating live preview card)
+  useEffect(() => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const renderOptions = {
       photoImg: activePhotoImg,
       photoTransform: activePhoto?.photoTransform || DEFAULT_PHOTO_TRANSFORM,
       overlays: currentOverlays,
@@ -324,10 +368,34 @@ export default function PhotoFrameStudioPage() {
       backgroundColor,
       activeOverlayIdForGuide: editMode === 'overlay' ? activeOverlay?.id || null : null,
       showGridGuides,
-    });
+    };
+
+    const paintCanvas = (canvas: HTMLCanvasElement | null, logicalW: number, logicalH: number) => {
+      if (!canvas) return;
+      const drawW = Math.round(logicalW * dpr);
+      const drawH = Math.round(logicalH * dpr);
+      if (canvas.width !== drawW || canvas.height !== drawH) {
+        canvas.width = drawW;
+        canvas.height = drawH;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      renderCompositionToCanvas(ctx, drawW, drawH, renderOptions);
+    };
+
+    paintCanvas(canvasRef.current, previewDims.width, previewDims.height);
+
+    if (showMobileFloating && !floatingCollapsed && !isTemplateModalOpen) {
+      paintCanvas(floatingCanvasRef.current, floatingCanvasDims.width, floatingCanvasDims.height);
+    }
   }, [
     previewDims.width,
     previewDims.height,
+    floatingCanvasDims.width,
+    floatingCanvasDims.height,
+    showMobileFloating,
+    floatingCollapsed,
+    isTemplateModalOpen,
     activePhoto,
     activePhotoImg,
     currentOverlays,
@@ -1468,7 +1536,18 @@ export default function PhotoFrameStudioPage() {
         {/* LEFT COLUMN: Canvas Preview & Batch Photo Queue */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.95rem', minWidth: 0 }}>
           {/* Interactive Canvas Panel */}
-          <div className="glass-panel" style={{ padding: '1rem', borderRadius: '18px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div
+            ref={mainPreviewCardRef}
+            className="glass-panel"
+            style={{
+              padding: '1rem',
+              borderRadius: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+              scrollMarginTop: '14px',
+            }}
+          >
             {/* Top Mode Switcher Bar */}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -2945,6 +3024,377 @@ export default function PhotoFrameStudioPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Floating Live Preview Card (appears automatically when scrolling down to tools on mobile) */}
+      {mounted && showMobileFloating && !isTemplateModalOpen &&
+        createPortal(
+          <div className="mobile-floating-preview-shell">
+            {floatingCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setFloatingCollapsed(false)}
+                className="mobile-floating-preview-pill"
+              >
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.28)',
+                  }}
+                />
+                <AppIcon name="eye" size={15} />
+                <span>បង្ហាញ Live Preview</span>
+              </button>
+            ) : (
+              <div className="mobile-floating-preview-card">
+                {/* Compact Header Strip */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                      មើលលទ្ធផលផ្ទាល់
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        color: 'var(--accent-primary)',
+                        background: 'color-mix(in srgb, var(--accent-primary) 12%, var(--main-bg))',
+                        padding: '0.1rem 0.42rem',
+                        borderRadius: '999px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {exportDims.width}×{exportDims.height}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setFloatingExpanded((v) => !v)}
+                      style={{
+                        padding: '0.22rem 0.45rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.69rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.22rem',
+                      }}
+                      title={floatingExpanded ? 'បង្រួមរូប Preview' : 'ពង្រីករូប Preview'}
+                    >
+                      <AppIcon name={floatingExpanded ? 'zoom-out' : 'maximize'} size={12} />
+                      {floatingExpanded ? 'តូច' : 'ធំ'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => mainPreviewCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                      title="ត្រឡប់ឡើងលើទៅផ្ទាំង Preview ធំ"
+                    >
+                      <AppIcon name="arrow-up" size={13} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFloatingCollapsed(true)}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                      }}
+                      title="លាក់ Live Preview បណ្តោះអាសន្ន"
+                    >
+                      <AppIcon name="x" size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Live Interactive Preview Body */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: floatingExpanded ? 'column' : 'row',
+                    alignItems: 'center',
+                    gap: '0.65rem',
+                  }}
+                >
+                  {/* Synced Interactive Canvas */}
+                  <div
+                    className="photo-frame-checkerboard"
+                    style={{
+                      width: `${floatingCanvasDims.width}px`,
+                      height: `${floatingCanvasDims.height}px`,
+                      maxWidth: '100%',
+                      borderRadius: '11px',
+                      overflow: 'hidden',
+                      border: '1px solid rgba(148, 163, 184, 0.4)',
+                      boxShadow: '0 6px 18px rgba(15, 23, 42, 0.16)',
+                      flexShrink: 0,
+                      position: 'relative',
+                    }}
+                  >
+                    <canvas
+                      ref={floatingCanvasRef}
+                      onPointerDown={handleCanvasPointerDown}
+                      onPointerMove={handleCanvasPointerMove}
+                      onPointerUp={handleCanvasPointerUp}
+                      onPointerCancel={handleCanvasPointerUp}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'block',
+                        touchAction: 'none',
+                      }}
+                    />
+                    {!activePhoto && currentOverlays.length === 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0.4rem',
+                          textAlign: 'center',
+                          fontSize: '0.68rem',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        មិនទាន់មានរូប
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Floating Controls beside / below canvas */}
+                  <div
+                    style={{
+                      flex: 1,
+                      width: floatingExpanded ? '100%' : 'auto',
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.42rem',
+                    }}
+                  >
+                    {/* Quick Layer Mode Switcher */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.32rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditMode('photo')}
+                        style={{
+                          padding: '0.32rem 0.4rem',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${editMode === 'photo' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                          background: editMode === 'photo' ? 'var(--accent-primary)' : 'var(--main-bg)',
+                          color: editMode === 'photo' ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <AppIcon name="image" size={12} />
+                        រូបថត
+                      </button>
+                      <button
+                        type="button"
+                        disabled={currentOverlays.length === 0}
+                        onClick={() => {
+                          if (currentOverlays.length > 0) setEditMode('overlay');
+                        }}
+                        style={{
+                          padding: '0.32rem 0.4rem',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${editMode === 'overlay' ? '#8b5cf6' : 'var(--border-color)'}`,
+                          background: editMode === 'overlay' ? '#8b5cf6' : 'var(--main-bg)',
+                          color: editMode === 'overlay' ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          cursor: currentOverlays.length === 0 ? 'not-allowed' : 'pointer',
+                          opacity: currentOverlays.length === 0 ? 0.45 : 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <AppIcon name="move" size={12} />
+                        Element
+                      </button>
+                    </div>
+
+                    {/* Photo Switcher & Quick Approve */}
+                    {activePhoto ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        {photos.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={activePhotoIndex <= 0}
+                              onClick={() => {
+                                if (activePhotoIndex > 0) setSelectedPhotoId(photos[activePhotoIndex - 1].id);
+                              }}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--main-bg)',
+                                color: 'var(--text-primary)',
+                                opacity: activePhotoIndex <= 0 ? 0.4 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: activePhotoIndex <= 0 ? 'default' : 'pointer',
+                              }}
+                            >
+                              <AppIcon name="chevron-left" size={14} />
+                            </button>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {activePhotoIndex + 1}/{photos.length}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={activePhotoIndex >= photos.length - 1}
+                              onClick={() => {
+                                if (activePhotoIndex < photos.length - 1) setSelectedPhotoId(photos[activePhotoIndex + 1].id);
+                              }}
+                              style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border-color)',
+                                background: 'var(--main-bg)',
+                                color: 'var(--text-primary)',
+                                opacity: activePhotoIndex >= photos.length - 1 ? 0.4 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: activePhotoIndex >= photos.length - 1 ? 'default' : 'pointer',
+                              }}
+                            >
+                              <AppIcon name="chevron-right" size={14} />
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={handleApproveCurrentPhoto}
+                          style={{
+                            flex: 1,
+                            height: '28px',
+                            padding: '0 0.5rem',
+                            borderRadius: '8px',
+                            border: activePhoto.approved ? '1px solid #10b981' : 'none',
+                            background: activePhoto.approved ? 'rgba(16, 185, 129, 0.14)' : '#10b981',
+                            color: activePhoto.approved ? '#059669' : '#ffffff',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.25rem',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <AppIcon name="check-circle" size={13} />
+                          {activePhoto.approved ? 'យល់ព្រមរួច' : 'យល់ព្រម'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        style={{
+                          padding: '0.38rem 0.55rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'var(--accent-primary)',
+                          color: '#ffffff',
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.3rem',
+                        }}
+                      >
+                        <AppIcon name="upload" size={13} />
+                        បន្ថែមរូបថត
+                      </button>
+                    )}
+
+                    <div
+                      style={{
+                        fontSize: '0.68rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      អូស ឬពង្រីកលើរូបនេះផ្ទាល់បាន ខណៈសារ៉េ Tool ខាងក្រោម
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
 
       {/* Create / Edit Shared Template Modal */}
       <TemplateFormModal
