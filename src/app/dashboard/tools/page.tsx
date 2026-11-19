@@ -50,6 +50,22 @@ export default function ToolsMenuPage() {
       color: 'rgba(16, 185, 129, 0.1)',
       border: 'rgba(16, 185, 129, 0.3)'
     },
+    {
+      id: 'photo-frame',
+      title: 'ដាក់ស៊ុម & Element រូបថត (Photo Frame)',
+      description: 'ដាក់ស៊ុម ឬ Logo លើរូបថតច្រើនក្នុងពេលតែមួយ សារ៉េទំហំរូប/Element ទាញយកគុណភាព x1–x6 និងបង្កើត Template រួមពី Google Drive PNG។',
+      icon: (
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ec4899' }}>
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="M21 15l-5-5L5 21" />
+          <path d="M14 4h6v6" />
+        </svg>
+      ),
+      path: '/dashboard/tools/photo-frame',
+      color: 'rgba(236, 72, 153, 0.1)',
+      border: 'rgba(236, 72, 153, 0.3)'
+    },
     // Future tools can be added here
   ];
 
