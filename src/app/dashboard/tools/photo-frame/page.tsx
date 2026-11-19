@@ -649,7 +649,7 @@ export default function PhotoFrameStudioPage() {
       message: `តើអ្នកពិតជាចង់ដករូបថតទាំង ${photos.length} ចេញពីផ្ទាំងការងារមែនទេ?`,
       confirmText: 'សម្អាតទាំងអស់',
       cancelText: 'បោះបង់',
-      danger: true,
+      variant: 'danger',
     });
     if (!ok) return;
 
@@ -671,7 +671,7 @@ export default function PhotoFrameStudioPage() {
       message: `តើអ្នកពិតជាចង់លុប Template "${template.name}" ចេញពីបណ្ណាល័យរួមមែនទេ?`,
       confirmText: 'លុប Template',
       cancelText: 'បោះបង់',
-      danger: true,
+      variant: 'danger',
     });
     if (!ok) return;
 
