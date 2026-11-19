@@ -3,10 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { photoFrameTemplateService } from '@/services/db';
+import { photoFrameConfigService, photoFrameTemplateService } from '@/services/db';
 import { AppIcon } from '@/components/AppIcons';
 import { useConfirm } from '@/components/ConfirmDialog';
 import TemplateFormModal from '@/components/photo-frame/TemplateFormModal';
+import DriveUploadSetupModal from '@/components/photo-frame/DriveUploadSetupModal';
+import SaveDesignAsFrameModal from '@/components/photo-frame/SaveDesignAsFrameModal';
 import { createZipBlob, ZipInputFile } from '@/utils/zipBuilder';
 import {
   ASPECT_RATIO_OPTIONS,
@@ -14,6 +16,7 @@ import {
   BatchPhotoItem,
   DEFAULT_PHOTO_ADJUSTMENTS,
   DEFAULT_PHOTO_TRANSFORM,
+  DriveUploadConfig,
   ExportFormat,
   FrameTemplate,
   OverlayLayer,
@@ -60,6 +63,12 @@ export default function PhotoFrameStudioPage() {
   const [templateSearch, setTemplateSearch] = useState('');
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<FrameTemplate | null>(null);
+
+  // Google Drive Apps Script Upload config & Design-to-Frame save modal
+  const [driveConfig, setDriveConfig] = useState<DriveUploadConfig | null>(null);
+  const [hasEnvDriveConfig, setHasEnvDriveConfig] = useState(false);
+  const [isDriveSetupOpen, setIsDriveSetupOpen] = useState(false);
+  const [isSaveDesignOpen, setIsSaveDesignOpen] = useState(false);
 
   // Default overlay & lighting blueprint applied automatically to newly added photos
   const [blueprintOverlays, setBlueprintOverlays] = useState<OverlayLayer[]>([]);
@@ -174,7 +183,7 @@ export default function PhotoFrameStudioPage() {
     };
   }, []);
 
-  // Subscribe to shared templates
+  // Subscribe to shared templates & Google Drive Apps Script config
   useEffect(() => {
     const unsub = photoFrameTemplateService.subscribeAll((data) => {
       const normalized = (Array.isArray(data) ? data : [])
@@ -184,7 +193,35 @@ export default function PhotoFrameStudioPage() {
       setTemplates(normalized);
       setTemplatesLoaded(true);
     });
-    return () => unsub();
+
+    const unsubConfig = photoFrameConfigService.subscribeAll((items) => {
+      const found = (Array.isArray(items) ? items : []).find((x: any) => x?.id === 'driveUpload');
+      if (found) {
+        setDriveConfig({
+          id: found.id,
+          scriptUrl: String(found.scriptUrl || ''),
+          secretToken: String(found.secretToken || ''),
+          folderId: String(found.folderId || ''),
+          allowTeachersUpload: Boolean(found.allowTeachersUpload),
+          updatedAt: typeof found.updatedAt === 'number' ? found.updatedAt : undefined,
+          updatedByName: typeof found.updatedByName === 'string' ? found.updatedByName : undefined,
+        });
+      } else {
+        setDriveConfig(null);
+      }
+    });
+
+    fetch('/api/upload-drive-frame')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.hasEnvConfig) setHasEnvDriveConfig(true);
+      })
+      .catch(() => {});
+
+    return () => {
+      unsub();
+      unsubConfig();
+    };
   }, []);
 
   // Cleanup all object URLs on unmount
@@ -204,6 +241,8 @@ export default function PhotoFrameStudioPage() {
 
   const isAdmin = userRole === 'admin';
   const canCreateTemplate = userRole === 'admin' || userRole === 'teacher';
+  const isDriveConnected = Boolean(driveConfig?.scriptUrl?.trim() || hasEnvDriveConfig);
+  const anyModalOpen = isTemplateModalOpen || isDriveSetupOpen || isSaveDesignOpen;
 
   const activePhoto = useMemo(
     () => photos.find((p) => p.id === selectedPhotoId) || photos[0] || null,
@@ -454,7 +493,7 @@ export default function PhotoFrameStudioPage() {
 
     paintCanvas(canvasRef.current, previewDims.width, previewDims.height);
 
-    if (showMobileFloating && !floatingCollapsed && !isTemplateModalOpen) {
+    if (showMobileFloating && !floatingCollapsed && !anyModalOpen) {
       paintCanvas(floatingCanvasRef.current, floatingCanvasDims.width, floatingCanvasDims.height);
     }
   }, [
@@ -464,7 +503,7 @@ export default function PhotoFrameStudioPage() {
     floatingCanvasDims.height,
     showMobileFloating,
     floatingCollapsed,
-    isTemplateModalOpen,
+    anyModalOpen,
     activePhoto,
     activePhotoImg,
     currentPhotoAdjustments,
@@ -1192,6 +1231,45 @@ export default function PhotoFrameStudioPage() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem' }}>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setIsDriveSetupOpen(true)}
+              style={{
+                background: isDriveConnected ? 'rgba(16, 185, 129, 0.12)' : 'var(--main-bg)',
+                color: isDriveConnected ? '#059669' : 'var(--text-primary)',
+                border: `1px solid ${isDriveConnected ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-color)'}`,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontWeight: 700,
+              }}
+              title="កំណត់ការ Upload ស៊ុម PNG ទៅ Google Drive តាមរយៈ Apps Script"
+            >
+              <AppIcon name="folder" size={16} />
+              {isDriveConnected ? 'Google Drive (បានភ្ជាប់)' : 'កំណត់ Google Drive'}
+            </button>
+          )}
+          {currentOverlays.length > 0 && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setIsSaveDesignOpen(true)}
+              style={{
+                background: 'rgba(139, 92, 246, 0.12)',
+                color: '#7c3aed',
+                border: '1px solid rgba(139, 92, 246, 0.35)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.42rem',
+                fontWeight: 700,
+              }}
+            >
+              <AppIcon name="layers" size={16} />
+              រក្សាទុក Design ជា Frame
+            </button>
+          )}
           {canCreateTemplate && (
             <button
               type="button"
@@ -1211,7 +1289,7 @@ export default function PhotoFrameStudioPage() {
               }}
             >
               <AppIcon name="plus" size={16} />
-              បង្កើត Template (Google Drive PNG)
+              បង្កើត Template (Link Drive)
             </button>
           )}
           <button
@@ -3097,6 +3175,28 @@ export default function PhotoFrameStudioPage() {
                         អនុវត្តទំហំ & ទីតាំងនេះទៅគ្រប់ {photos.length} រូប
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsSaveDesignOpen(true)}
+                      style={{
+                        padding: '0.52rem 0.75rem',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                        color: '#ffffff',
+                        fontSize: '0.79rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                      }}
+                    >
+                      <AppIcon name="upload" size={14} />
+                      រក្សាទុក Design នេះជា Frame (Upload Drive / PNG)
+                    </button>
                   </>
                 )}
               </div>
@@ -3420,7 +3520,7 @@ export default function PhotoFrameStudioPage() {
       </div>
 
       {/* Mobile Floating Live Preview Card (appears automatically when scrolling down to tools on mobile) */}
-      {mounted && showMobileFloating && !isTemplateModalOpen &&
+      {mounted && showMobileFloating && !anyModalOpen &&
         createPortal(
           <div className="mobile-floating-preview-shell">
             {floatingCollapsed ? (
@@ -3832,6 +3932,40 @@ export default function PhotoFrameStudioPage() {
           showToast('success', `បានរក្សាទុក Template "${saved.name}" ជោគជ័យ!`);
         }}
       />
+
+      {/* Save Current Arranged Design as Reusable Transparent Frame PNG (Upload to Google Drive or Download) */}
+      <SaveDesignAsFrameModal
+        isOpen={isSaveDesignOpen}
+        overlays={currentOverlays}
+        overlayImages={loadedImages}
+        aspectMode={aspectMode}
+        primaryFrameImg={primaryFrameImg}
+        activePhotoImg={activePhotoImg}
+        driveConfig={driveConfig}
+        hasEnvDriveConfig={hasEnvDriveConfig}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        onClose={() => setIsSaveDesignOpen(false)}
+        onOpenDriveSetup={() => setIsDriveSetupOpen(true)}
+        onTemplateCreated={(saved) => {
+          applyTemplateToStudio(saved, 'apply');
+          showToast('success', `បាន Upload ទៅ Google Drive និងបង្កើត Frame Template "${saved.name}" រួចរាល់!`);
+        }}
+      />
+
+      {/* Admin Google Drive Apps Script Setup Modal */}
+      {isAdmin && (
+        <DriveUploadSetupModal
+          isOpen={isDriveSetupOpen}
+          config={driveConfig}
+          currentUserName={currentUserName}
+          onClose={() => setIsDriveSetupOpen(false)}
+          onSaved={() => {
+            showToast('success', 'បានរក្សាទុកការកំណត់ Google Drive Apps Script រួចរាល់!');
+          }}
+        />
+      )}
     </div>
   );
 }

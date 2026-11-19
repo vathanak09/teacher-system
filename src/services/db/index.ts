@@ -28,3 +28,4 @@ export const scoreCoefficientService = new RtdbDataService<any>('scoreCoefficien
 export const teacherTrackingService = new RtdbDataService<any>('teacherTracking', studentRtdb);
 export const scheduleService = new RtdbDataService<any>('schedules', studentRtdb);
 export const photoFrameTemplateService = new RtdbDataService<any>('photoFrameTemplates', studentRtdb);
+export const photoFrameConfigService = new RtdbDataService<any>('photoFrameConfig', studentRtdb);

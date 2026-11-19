@@ -670,3 +670,46 @@ export function buildExportFileName(originalName: string, format: ExportFormat, 
   const ext = format === 'jpeg' ? 'jpg' : 'png';
   return `${stripped}_framed_x${qualityMultiplier}.${ext}`;
 }
+
+export interface DriveUploadConfig {
+  id?: string;
+  scriptUrl: string;
+  secretToken: string;
+  folderId: string;
+  allowTeachersUpload: boolean;
+  updatedAt?: number;
+  updatedByName?: string;
+}
+
+export function extractDriveFolderId(input: string): string {
+  const trimmed = (input || '').trim();
+  if (!trimmed) return '';
+  const m1 = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m1?.[1]) return m1[1];
+  const m2 = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m2?.[1]) return m2[1];
+  return trimmed.replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+/**
+ * Renders ONLY visible overlay layers (Frames & Elements) onto a 100% transparent canvas.
+ * Excludes any sample photo, solid background, and selection guides so the output is a reusable Frame PNG.
+ */
+export function renderOverlaysOnlyToCanvas(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  overlays: OverlayLayer[],
+  overlayImages: Record<string, HTMLImageElement | undefined>
+) {
+  renderCompositionToCanvas(ctx, width, height, {
+    photoImg: null,
+    photoTransform: DEFAULT_PHOTO_TRANSFORM,
+    photoAdjustments: DEFAULT_PHOTO_ADJUSTMENTS,
+    overlays,
+    overlayImages,
+    backgroundColor: 'transparent',
+    activeOverlayIdForGuide: null,
+    showGridGuides: false,
+  });
+}
