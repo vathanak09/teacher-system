@@ -21,11 +21,13 @@ import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
 import {
   ActiveExamNotice,
   EXAM_STAGES,
+  MonthlyTrackingDoc,
   WEEK_META,
   countExamStages,
   formatKhmerDateWithWeekday,
   getAutoExamPrepareDate,
 } from '@/components/teacher-tracking/trackingModel';
+import TeacherWeeklyTrackingCard from './TeacherWeeklyTrackingCard';
 import {
   EnrichedClassSummary,
   TeacherReportRow,
@@ -50,6 +52,7 @@ export default function TeacherDashboardView({
   onBackToAdmin,
   scoreMonth,
   trackingMonth,
+  trackingDoc,
   onScoreMonthChange,
   monthScores,
   teachingRecords,
@@ -63,6 +66,7 @@ export default function TeacherDashboardView({
   onBackToAdmin?: () => void;
   scoreMonth: string;
   trackingMonth?: string;
+  trackingDoc?: MonthlyTrackingDoc | null;
   onScoreMonthChange: (nextYm: string) => void;
   monthScores: any[];
   teachingRecords: any[];
@@ -750,40 +754,72 @@ export default function TeacherDashboardView({
         </Link>
       </div>
 
-      {/* Optional Compact Goals & Admin Special Tasks Strip (only shown when month has tracking activity) */}
-      {hasAnyTrackingActivity && ts && (
+      {/* Interactive Weekly Self-Tracking (Topic, Homework, Video & Special Task / Class) */}
+      {teacher?.id && teacher.id !== 'me' && ts ? (
+        <TeacherWeeklyTrackingCard
+          teacherId={teacher.id}
+          trackingMonth={trackingMonth || scoreMonth}
+          trackingMonthKh={trackingMonthKh}
+          trackingDoc={trackingDoc || null}
+          isAdminInspecting={isAdminInspecting}
+        />
+      ) : (
         <div
           className="glass-panel"
           style={{
-            padding: '1rem 1.15rem',
-            borderRadius: '16px',
+            padding: '0.9rem 1.1rem',
+            borderRadius: '14px',
             display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
+            alignItems: 'center',
+            gap: '0.65rem',
+            fontSize: '0.82rem',
+            color: 'var(--text-secondary)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-            <AppIcon name="clipboard-check" size={17} style={{ color: '#0d9488' }} />
-            <span>គោលដៅការងារគ្រូប្រចាំខែ ({trackingMonthKh})</span>
-          </div>
+          <AppIcon name="alert-triangle" size={17} style={{ color: '#d97706' }} />
+          <span>
+            គណនីនេះមិនទាន់បានភ្ជាប់ជាមួយទិន្នន័យគ្រូបង្រៀន (Teachers) នៅឡើយទេ — សូមទាក់ទង Admin ដើម្បីភ្ជាប់គណនីសម្រាប់កត់ត្រាការងារប្រចាំសប្តាហ៍។
+          </span>
+        </div>
+      )}
 
-          <div className="dashboard-goals-grid">
-            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Topic បានរៀន</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#2563eb' }}>{ts.totalTopics} Topics</div>
+      {/* Compact Overall Completion Rate, W4 Exam Stages & Admin Task Summary */}
+      {hasAnyTrackingActivity && ts && (w4ExamStagesCount > 0 || adminSpecialTasks.length > 0 || ts.completionPct > 0) && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '0.85rem 1.1rem',
+            borderRadius: '15px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.6rem',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.65rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+              <AppIcon name="award" size={16} style={{ color: '#0d9488' }} />
+              <span>លទ្ធផលតាមដានការងារប្រចាំខែ ({trackingMonthKh})</span>
             </div>
-            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>កិច្ចការផ្ទះ</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#059669' }}>{ts.totalHomeworkCount} ដង</div>
-            </div>
-            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>វីដេអូ Topic</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#7c3aed' }}>{ts.totalVideoCount} វីដេអូ</div>
-            </div>
-            <div style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'var(--main-bg)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600 }}>អត្រាសម្រេចរួម</div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0d9488' }}>{ts.completionPct}%</div>
-            </div>
+            <span
+              style={{
+                padding: '0.2rem 0.6rem',
+                borderRadius: '999px',
+                background: 'rgba(13, 148, 136, 0.12)',
+                color: '#0d9488',
+                fontWeight: 800,
+                fontSize: '0.78rem',
+              }}
+            >
+              អត្រាសម្រេចរួម: {ts.completionPct}%
+            </span>
           </div>
 
           {(w4ExamStagesCount > 0 || adminSpecialTasks.length > 0) && (
@@ -850,10 +886,17 @@ export default function TeacherDashboardView({
                     style={{ color: tk.done ? '#059669' : '#0284c7' }}
                   />
                   <span style={{ fontWeight: 800, color: tk.done ? '#059669' : '#0284c7' }}>
-                    Task ({tk.weekLabel}
+                    កិច្ចការ/ថ្នាក់ពិសេស ({tk.weekLabel}
                     {tk.count > 0 ? ` • ចំនួន ${tk.count}` : ''})៖
                   </span>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  <span
+                    style={{
+                      color: 'var(--text-primary)',
+                      fontWeight: 600,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
                     {tk.description || 'កិច្ចការពិសេស'}
                   </span>
                 </div>

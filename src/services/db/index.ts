@@ -1,6 +1,7 @@
 import { FirebaseDataService } from './FirebaseDataService';
 import { RtdbDataService } from './RtdbDataService';
 import { studentDb, studentRtdb } from '@/lib/firebaseClient';
+import { ref, update } from 'firebase/database';
 
 // Export pre-configured instances for each collection
 
@@ -29,3 +30,45 @@ export const teacherTrackingService = new RtdbDataService<any>('teacherTracking'
 export const scheduleService = new RtdbDataService<any>('schedules', studentRtdb);
 export const photoFrameTemplateService = new RtdbDataService<any>('photoFrameTemplates', studentRtdb);
 export const photoFrameConfigService = new RtdbDataService<any>('photoFrameConfig', studentRtdb);
+
+/**
+ * Atomically updates a single teacher+week entry inside `teacherTracking/{monthKey}`
+ * without touching other teachers' records or Admin's monthly metadata.
+ */
+export async function updateTeacherTrackingWeekEntry(
+  monthKey: string,
+  teacherId: string,
+  weekKey: string,
+  entry: Record<string, unknown>
+): Promise<void> {
+  if (!monthKey || !teacherId || !weekKey) return;
+  const updates: Record<string, unknown> = {
+    month: monthKey,
+    updatedAt: new Date().toISOString(),
+  };
+  for (const [k, v] of Object.entries(entry)) {
+    if (v !== undefined) {
+      updates[`records/${teacherId}/${weekKey}/${k}`] = v;
+    }
+  }
+  await update(ref(studentRtdb, `teacherTracking/${monthKey}`), updates);
+}
+
+/**
+ * Performs an atomic multi-path patch against `teacherTracking/{monthKey}` so concurrent
+ * teacher self-entries and Admin edits on different teachers/fields never overwrite each other.
+ */
+export async function patchTeacherTrackingMonth(
+  monthKey: string,
+  updatesMap: Record<string, unknown>
+): Promise<void> {
+  if (!monthKey) return;
+  const cleanUpdates: Record<string, unknown> = {
+    month: monthKey,
+    updatedAt: new Date().toISOString(),
+  };
+  for (const [k, v] of Object.entries(updatesMap)) {
+    if (v !== undefined) cleanUpdates[k] = v;
+  }
+  await update(ref(studentRtdb, `teacherTracking/${monthKey}`), cleanUpdates);
+}

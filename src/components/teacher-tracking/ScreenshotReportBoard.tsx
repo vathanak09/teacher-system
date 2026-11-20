@@ -21,6 +21,87 @@ import {
 import { AppIcon } from '@/components/AppIcons';
 import { TeacherAvatar } from './TrackingControls';
 
+function WrappedDetailBox({
+  text,
+  light,
+  textSub,
+}: {
+  text: string;
+  light: boolean;
+  textSub: string;
+}) {
+  if (!text || !text.trim()) return null;
+  return (
+    <div
+      style={{
+        fontSize: '0.7rem',
+        lineHeight: 1.42,
+        color: textSub,
+        margin: '4px auto 0',
+        minWidth: '120px',
+        maxWidth: '215px',
+        textAlign: 'left',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+        padding: '0.28rem 0.48rem',
+        borderRadius: '6px',
+        background: light ? 'rgba(15, 23, 42, 0.035)' : 'rgba(255, 255, 255, 0.055)',
+        border: `1px solid ${light ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.1)'}`,
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+function MonthlyNotesList({
+  items,
+  light,
+  textSub,
+}: {
+  items: { shortLabel: string; text: string }[];
+  light: boolean;
+  textSub: string;
+}) {
+  const valid = items.filter((i) => i.text && i.text.trim());
+  if (valid.length === 0) return null;
+  return (
+    <div
+      style={{
+        margin: '4px auto 0',
+        minWidth: '130px',
+        maxWidth: '220px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '3px',
+        textAlign: 'left',
+        padding: '0.28rem 0.45rem',
+        borderRadius: '6px',
+        background: light ? 'rgba(15, 23, 42, 0.035)' : 'rgba(255, 255, 255, 0.055)',
+        border: `1px solid ${light ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.1)'}`,
+      }}
+    >
+      {valid.map((item) => (
+        <div
+          key={item.shortLabel}
+          style={{
+            fontSize: '0.68rem',
+            lineHeight: 1.4,
+            color: textSub,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          <strong style={{ color: light ? '#334155' : '#cbd5e1' }}>{item.shortLabel}:</strong>{' '}
+          {item.text.trim()}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ScreenshotReportBoard({
   isFullModal = false,
   lightMode = true,
@@ -270,7 +351,7 @@ export default function ScreenshotReportBoard({
                   {isMonthlyScope ? 'វិញ្ញាសា (S4)' : 'វិញ្ញាសាប្រឡង'}
                 </th>
               )}
-              <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>Task ពិសេស</th>
+              <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>Task / ថ្នាក់ពិសេស</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>អវត្តមាន</th>
               <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>មកយឺត</th>
               <th style={{ padding: '0.6rem 0.65rem', textAlign: 'center' }}>លទ្ធផល</th>
@@ -304,6 +385,7 @@ export default function ScreenshotReportBoard({
                     style={{
                       background: idx % 2 === 1 ? rowAltBg : 'transparent',
                       borderBottom: `1px solid ${borderCol}`,
+                      verticalAlign: showDetails ? 'top' : 'middle',
                     }}
                   >
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center', fontWeight: 700, color: textSub }}>
@@ -362,71 +444,125 @@ export default function ScreenshotReportBoard({
                               ? 'rgba(16, 185, 129, 0.15)'
                               : 'rgba(245, 158, 11, 0.15)',
                           color: s.topicWeeksDone >= s.weeksCount ? '#059669' : '#d97706',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {s.totalTopics} ({s.topicWeeksDone}/{s.weeksCount})
                       </span>
+                      {showDetails && (
+                        <MonthlyNotesList
+                          light={light}
+                          textSub={textSub}
+                          items={activeWeeks.map((w) => ({
+                            shortLabel: w.shortLabel,
+                            text: s.perWeek[w.key]?.entry?.topicTitle || '',
+                          }))}
+                        />
+                      )}
                     </td>
-                    <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center', fontWeight: 700 }}>
-                      <div style={{ color: s.homeworkFullWeeks >= s.weeksCount ? '#059669' : '#d97706' }}>
+                    <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
+                      <div style={{ fontWeight: 700, color: s.homeworkFullWeeks >= s.weeksCount ? '#059669' : '#d97706' }}>
                         {s.totalHomeworkCount} ដង
                       </div>
-                      <div style={{ fontSize: '0.68rem', color: textSub }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: textSub }}>
                         {s.homeworkFullWeeks}ពេញ{s.homeworkPartialWeeks > 0 ? ` • ${s.homeworkPartialWeeks}តិចតួច` : ''}
                       </div>
+                      {showDetails && (
+                        <MonthlyNotesList
+                          light={light}
+                          textSub={textSub}
+                          items={activeWeeks.map((w) => ({
+                            shortLabel: w.shortLabel,
+                            text: s.perWeek[w.key]?.entry?.homeworkNote || '',
+                          }))}
+                        />
+                      )}
                     </td>
-                    <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center', fontWeight: 700 }}>
-                      <div style={{ color: s.videoFullWeeks >= s.weeksCount ? '#059669' : '#d97706' }}>
+                    <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
+                      <div style={{ fontWeight: 700, color: s.videoFullWeeks >= s.weeksCount ? '#059669' : '#d97706' }}>
                         {s.totalVideoCount} វីដេអូ
                       </div>
-                      <div style={{ fontSize: '0.68rem', color: textSub }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: textSub }}>
                         {s.videoFullWeeks}ពេញ{s.videoPartialWeeks > 0 ? ` • ${s.videoPartialWeeks}តិចតួច` : ''}
                       </div>
+                      {showDetails && (
+                        <MonthlyNotesList
+                          light={light}
+                          textSub={textSub}
+                          items={activeWeeks.map((w) => ({
+                            shortLabel: w.shortLabel,
+                            text: s.perWeek[w.key]?.entry?.videoNote || '',
+                          }))}
+                        />
+                      )}
                     </td>
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
                       {s.examActiveWeeks === 0 ? (
                         <span style={{ color: textSub, fontSize: '0.74rem' }}>—</span>
                       ) : (
-                        <span
-                          style={{
-                            padding: '0.18rem 0.5rem',
-                            borderRadius: '999px',
-                            fontWeight: 700,
-                            fontSize: '0.73rem',
-                            background:
-                              s.examTotalStagesDone >= s.examTotalStagesTarget
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : 'rgba(139, 92, 246, 0.15)',
-                            color:
-                              s.examTotalStagesDone >= s.examTotalStagesTarget
-                                ? '#059669'
-                                : '#7c3aed',
-                          }}
-                        >
-                          {s.examTotalStagesDone}/{s.examTotalStagesTarget} ដំណាក់កាល
-                        </span>
+                        <div>
+                          <span
+                            style={{
+                              padding: '0.18rem 0.5rem',
+                              borderRadius: '999px',
+                              fontWeight: 700,
+                              fontSize: '0.73rem',
+                              background:
+                                s.examTotalStagesDone >= s.examTotalStagesTarget
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : 'rgba(139, 92, 246, 0.15)',
+                              color:
+                                s.examTotalStagesDone >= s.examTotalStagesTarget
+                                  ? '#059669'
+                                  : '#7c3aed',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {s.examTotalStagesDone}/{s.examTotalStagesTarget} ដំណាក់កាល
+                          </span>
+                          {showDetails && s.perWeek?.w4?.entry?.examNote && (
+                            <WrappedDetailBox
+                              text={s.perWeek.w4.entry.examNote}
+                              light={light}
+                              textSub={textSub}
+                            />
+                          )}
+                        </div>
                       )}
                     </td>
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
                       {s.assignedTaskWeeks === 0 ? (
                         <span style={{ color: textSub, fontSize: '0.74rem' }}>—</span>
                       ) : (
-                        <span
-                          style={{
-                            padding: '0.18rem 0.5rem',
-                            borderRadius: '999px',
-                            fontWeight: 700,
-                            fontSize: '0.73rem',
-                            background:
-                              s.completedTaskWeeks >= s.assignedTaskWeeks
-                                ? 'rgba(16, 185, 129, 0.15)'
-                                : 'rgba(2, 132, 199, 0.14)',
-                            color:
-                              s.completedTaskWeeks >= s.assignedTaskWeeks ? '#059669' : '#0284c7',
-                          }}
-                        >
-                          {s.totalTaskCount} ({s.completedTaskWeeks}/{s.assignedTaskWeeks})
-                        </span>
+                        <div>
+                          <span
+                            style={{
+                              padding: '0.18rem 0.5rem',
+                              borderRadius: '999px',
+                              fontWeight: 700,
+                              fontSize: '0.73rem',
+                              background:
+                                s.completedTaskWeeks >= s.assignedTaskWeeks
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : 'rgba(2, 132, 199, 0.14)',
+                              color:
+                                s.completedTaskWeeks >= s.assignedTaskWeeks ? '#059669' : '#0284c7',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {s.totalTaskCount} ({s.completedTaskWeeks}/{s.assignedTaskWeeks})
+                          </span>
+                          {showDetails && (
+                            <MonthlyNotesList
+                              light={light}
+                              textSub={textSub}
+                              items={activeWeeks.map((w) => ({
+                                shortLabel: w.shortLabel,
+                                text: s.perWeek[w.key]?.entry?.taskDescription || '',
+                              }))}
+                            />
+                          )}
+                        </div>
                       )}
                     </td>
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
@@ -520,6 +656,7 @@ export default function ScreenshotReportBoard({
                     style={{
                       background: idx % 2 === 1 ? rowAltBg : 'transparent',
                       borderBottom: `1px solid ${borderCol}`,
+                      verticalAlign: showDetails ? 'top' : 'middle',
                     }}
                   >
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center', fontWeight: 700, color: textSub }}>
@@ -541,8 +678,8 @@ export default function ScreenshotReportBoard({
 
                     {/* Topic */}
                     <td style={{ padding: '0.52rem 0.45rem', textAlign: 'center' }}>
-                      {e.topicDone && e.topicCount >= 1 ? (
-                        <div>
+                      <div>
+                        {e.topicDone && e.topicCount >= 1 ? (
                           <span
                             style={{
                               background: 'rgba(16, 185, 129, 0.15)',
@@ -560,41 +697,29 @@ export default function ScreenshotReportBoard({
                             <AppIcon name="check" size={11} strokeWidth={2.6} />
                             <span>បានរៀន ({e.topicCount})</span>
                           </span>
-                          {showDetails && e.topicTitle && (
-                            <div
-                              style={{
-                                fontSize: '0.69rem',
-                                color: textSub,
-                                marginTop: '2px',
-                                maxWidth: '140px',
-                                marginInline: 'auto',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {e.topicTitle}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.13)',
-                            color: '#dc2626',
-                            padding: '0.18rem 0.5rem',
-                            borderRadius: '999px',
-                            fontWeight: 700,
-                            fontSize: '0.73rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                          }}
-                        >
-                          <AppIcon name="x" size={11} strokeWidth={2.6} />
-                          <span>មិនទាន់</span>
-                        </span>
-                      )}
+                        ) : (
+                          <span
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.13)',
+                              color: '#dc2626',
+                              padding: '0.18rem 0.5rem',
+                              borderRadius: '999px',
+                              fontWeight: 700,
+                              fontSize: '0.73rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <AppIcon name="x" size={11} strokeWidth={2.6} />
+                            <span>មិនទាន់</span>
+                          </span>
+                        )}
+                        {showDetails && (
+                          <WrappedDetailBox text={e.topicTitle} light={light} textSub={textSub} />
+                        )}
+                      </div>
                     </td>
 
                     {/* Homework */}
@@ -619,21 +744,8 @@ export default function ScreenshotReportBoard({
                           {e.homeworkCount > 0 ? ` (${e.homeworkCount})` : ''}
                         </span>
                       </span>
-                      {showDetails && e.homeworkNote && (
-                        <div
-                          style={{
-                            fontSize: '0.69rem',
-                            color: textSub,
-                            marginTop: '2px',
-                            maxWidth: '130px',
-                            marginInline: 'auto',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {e.homeworkNote}
-                        </div>
+                      {showDetails && (
+                        <WrappedDetailBox text={e.homeworkNote} light={light} textSub={textSub} />
                       )}
                     </td>
 
@@ -659,21 +771,8 @@ export default function ScreenshotReportBoard({
                           {e.videoCount > 0 ? ` (${e.videoCount})` : ''}
                         </span>
                       </span>
-                      {showDetails && e.videoNote && (
-                        <div
-                          style={{
-                            fontSize: '0.69rem',
-                            color: textSub,
-                            marginTop: '2px',
-                            maxWidth: '130px',
-                            marginInline: 'auto',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {e.videoNote}
-                        </div>
+                      {showDetails && (
+                        <WrappedDetailBox text={e.videoNote} light={light} textSub={textSub} />
                       )}
                     </td>
 
@@ -710,8 +809,8 @@ export default function ScreenshotReportBoard({
                                 );
                               })}
                             </div>
-                            {showDetails && e.examNote && (
-                              <div style={{ fontSize: '0.68rem', color: textSub }}>{e.examNote}</div>
+                            {showDetails && (
+                              <WrappedDetailBox text={e.examNote} light={light} textSub={textSub} />
                             )}
                           </div>
                         )}
@@ -746,21 +845,8 @@ export default function ScreenshotReportBoard({
                               {e.taskCount > 0 ? ` (${e.taskCount})` : ''}
                             </span>
                           </span>
-                          {showDetails && e.taskDescription && (
-                            <div
-                              style={{
-                                fontSize: '0.69rem',
-                                color: textSub,
-                                marginTop: '2px',
-                                maxWidth: '140px',
-                                marginInline: 'auto',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {e.taskDescription}
-                            </div>
+                          {showDetails && (
+                            <WrappedDetailBox text={e.taskDescription} light={light} textSub={textSub} />
                           )}
                         </div>
                       )}
@@ -853,21 +939,8 @@ export default function ScreenshotReportBoard({
                             : `ខ្វះ ${ev.missingLabels.length}`}
                         </span>
                       </span>
-                      {showDetails && e.note && (
-                        <div
-                          style={{
-                            fontSize: '0.68rem',
-                            color: textSub,
-                            marginTop: '2px',
-                            maxWidth: '130px',
-                            marginInline: 'auto',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {e.note}
-                        </div>
+                      {showDetails && (
+                        <WrappedDetailBox text={e.note} light={light} textSub={textSub} />
                       )}
                     </td>
                   </tr>

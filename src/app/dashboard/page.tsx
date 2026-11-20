@@ -521,6 +521,7 @@ export default function DashboardPage() {
           onBackToAdmin={() => setInspectedTeacherId(null)}
           scoreMonth={scoreMonth}
           trackingMonth={trackingMonth}
+          trackingDoc={trackingDoc}
           onScoreMonthChange={setScoreMonth}
           monthScores={monthScores}
           teachingRecords={teachingRecords}

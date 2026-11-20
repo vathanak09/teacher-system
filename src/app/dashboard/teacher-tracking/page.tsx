@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { settingsService, teacherService, teacherTrackingService } from '@/services/db';
+import { patchTeacherTrackingMonth, settingsService, teacherService, teacherTrackingService } from '@/services/db';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import { AppIcon } from '@/components/AppIcons';
 import {
@@ -99,6 +99,10 @@ export default function TeacherTrackingPage() {
   // Safe Debounced Auto-Save Refs
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
+  const dirtyMetaFieldsRef = useRef<
+    Set<'enableWeek5' | 'hiddenTeacherIds' | 'weekLabels' | 'examSchedules'>
+  >(new Set());
+  const dirtyRecordPathsRef = useRef<Set<string>>(new Set());
   const latestPayloadRef = useRef<{
     month: string;
     enableWeek5: boolean;
@@ -159,6 +163,8 @@ export default function TeacherTrackingPage() {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
+    dirtyMetaFieldsRef.current.clear();
+    dirtyRecordPathsRef.current.clear();
 
     const unsubDoc = teacherTrackingService.subscribeOne(monthKey, (doc: MonthlyTrackingDoc | null) => {
       if (saveTimerRef.current || inFlightRef.current) {
@@ -247,26 +253,71 @@ export default function TeacherTrackingPage() {
 
   const flushSave = useCallback(async () => {
     const payload = latestPayloadRef.current;
+    const metaFieldsToSave = Array.from(dirtyMetaFieldsRef.current);
+    const recordPathsToSave = Array.from(dirtyRecordPathsRef.current);
+
+    if (metaFieldsToSave.length === 0 && recordPathsToSave.length === 0) {
+      setSaveState('saved');
+      return;
+    }
+
+    dirtyMetaFieldsRef.current.clear();
+    dirtyRecordPathsRef.current.clear();
+
+    const updatesMap: Record<string, unknown> = {};
+    for (const metaKey of metaFieldsToSave) {
+      if (metaKey === 'enableWeek5') updatesMap.enableWeek5 = payload.enableWeek5;
+      else if (metaKey === 'hiddenTeacherIds') updatesMap.hiddenTeacherIds = payload.hiddenTeacherIds;
+      else if (metaKey === 'weekLabels') updatesMap.weekLabels = payload.weekLabels;
+      else if (metaKey === 'examSchedules') updatesMap.examSchedules = payload.examSchedules;
+    }
+
+    for (const pathKey of recordPathsToSave) {
+      const slashIdx = pathKey.indexOf('/');
+      if (slashIdx <= 0) continue;
+      const tid = pathKey.slice(0, slashIdx);
+      const wk = pathKey.slice(slashIdx + 1) as WeekKey;
+      const entry = payload.records?.[tid]?.[wk];
+      if (!entry) continue;
+      const cleanEntry: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(entry)) {
+        if (v !== undefined) cleanEntry[k] = v;
+      }
+      updatesMap[`records/${tid}/${wk}`] = cleanEntry;
+    }
+
+    if (Object.keys(updatesMap).length === 0) {
+      setSaveState('saved');
+      return;
+    }
+
     inFlightRef.current = true;
     setSaveState('saving');
+    let saveFailed = false;
     try {
-      await teacherTrackingService.add(
-        {
-          month: payload.month,
-          enableWeek5: payload.enableWeek5,
-          hiddenTeacherIds: payload.hiddenTeacherIds,
-          weekLabels: payload.weekLabels,
-          examSchedules: payload.examSchedules,
-          records: payload.records,
-        },
-        payload.month
-      );
-      setSaveState('saved');
+      await patchTeacherTrackingMonth(payload.month, updatesMap);
+      if (
+        dirtyMetaFieldsRef.current.size === 0 &&
+        dirtyRecordPathsRef.current.size === 0 &&
+        !saveTimerRef.current
+      ) {
+        setSaveState('saved');
+      }
     } catch (err) {
+      saveFailed = true;
+      for (const metaKey of metaFieldsToSave) dirtyMetaFieldsRef.current.add(metaKey);
+      for (const pathKey of recordPathsToSave) dirtyRecordPathsRef.current.add(pathKey);
       console.error('Failed saving teacher tracking:', err);
       setSaveState('error');
     } finally {
       inFlightRef.current = false;
+      if (
+        !saveFailed &&
+        !saveTimerRef.current &&
+        (dirtyMetaFieldsRef.current.size > 0 || dirtyRecordPathsRef.current.size > 0)
+      ) {
+        void flushSave();
+      }
     }
   }, []);
 
@@ -281,6 +332,11 @@ export default function TeacherTrackingPage() {
       }>,
       immediate = false
     ) => {
+      if ('enableWeek5' in patch) dirtyMetaFieldsRef.current.add('enableWeek5');
+      if ('hiddenTeacherIds' in patch) dirtyMetaFieldsRef.current.add('hiddenTeacherIds');
+      if ('weekLabels' in patch) dirtyMetaFieldsRef.current.add('weekLabels');
+      if ('examSchedules' in patch) dirtyMetaFieldsRef.current.add('examSchedules');
+
       latestPayloadRef.current = {
         ...latestPayloadRef.current,
         month: monthKey,
@@ -380,6 +436,7 @@ export default function TeacherTrackingPage() {
             [week]: updatedEntry,
           },
         };
+        dirtyRecordPathsRef.current.add(`${teacherId}/${week}`);
         scheduleSavePatch({ records: nextRecords }, immediate);
         return nextRecords;
       });
@@ -1385,9 +1442,9 @@ export default function TeacherTrackingPage() {
                                 />
                               </div>
 
-                              <input
-                                type="text"
+                              <textarea
                                 value={entry.topicTitle}
+                                rows={2}
                                 onChange={(e) =>
                                   updateTeacherWeek(
                                     teacher.id,
@@ -1396,15 +1453,19 @@ export default function TeacherTrackingPage() {
                                     false
                                   )
                                 }
-                                placeholder="ចំណងជើង Topic..."
+                                placeholder="ចំណងជើង / បរិយាយ Topic..."
                                 style={{
                                   width: '100%',
-                                  padding: '0.28rem 0.5rem',
+                                  padding: '0.32rem 0.5rem',
                                   borderRadius: '6px',
                                   border: '1px solid var(--border-color)',
                                   background: 'var(--main-bg)',
                                   color: 'var(--text-primary)',
                                   fontSize: '0.75rem',
+                                  lineHeight: 1.35,
+                                  resize: 'vertical',
+                                  minHeight: '42px',
+                                  fontFamily: 'inherit',
                                   outline: 'none',
                                 }}
                               />
@@ -2186,25 +2247,23 @@ export default function TeacherTrackingPage() {
                 <span>{screenshotLightCard ? 'ផ្ទៃភ្លឺច្បាស់' : 'ផ្ទៃងងឹត'}</span>
               </button>
 
-              {screenshotScope !== 'monthly' && (
-                <label
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-secondary)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={screenshotShowDetails}
-                    onChange={(e) => setScreenshotShowDetails(e.target.checked)}
-                  />
-                  បង្ហាញមតិ & Task លម្អិត
-                </label>
-              )}
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={screenshotShowDetails}
+                  onChange={(e) => setScreenshotShowDetails(e.target.checked)}
+                />
+                បង្ហាញការបរិយាយ & មតិលម្អិត
+              </label>
 
               <button
                 type="button"

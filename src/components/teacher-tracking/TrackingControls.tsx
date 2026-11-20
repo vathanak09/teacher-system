@@ -272,19 +272,22 @@ export function StatusCountNoteCell({
         </div>
       )}
 
-      <input
-        type="text"
+      <textarea
+        rows={2}
         value={note}
         onChange={(e) => onNoteChange(e.target.value)}
         placeholder={notePlaceholder}
         style={{
           width: '100%',
-          padding: '0.28rem 0.5rem',
+          padding: '0.3rem 0.5rem',
           borderRadius: '6px',
           border: '1px solid var(--border-color)',
           background: 'var(--main-bg)',
           color: 'var(--text-primary)',
           fontSize: '0.75rem',
+          lineHeight: 1.35,
+          resize: 'vertical',
+          minHeight: '42px',
           outline: 'none',
         }}
       />
