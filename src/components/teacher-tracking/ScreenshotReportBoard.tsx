@@ -238,6 +238,9 @@ export default function ScreenshotReportBoard({
           {activeExamRibbons.map((item) => (
             <span key={item.label} style={{ display: 'inline-flex', gap: '0.55rem', flexWrap: 'wrap' }}>
               {isMonthlyScope && <strong>[{item.label}]</strong>}
+              {item.cfg.prepareDate?.trim() && (
+                <span>ធ្វើវិញ្ញាសា៖ {formatIsoDateKh(item.cfg.prepareDate)} •</span>
+              )}
               <span>ប្រមូលវិញ្ញាសា៖ {formatIsoDateKh(item.cfg.collectDate)}</span>
               <span>• ថ្ងៃប្រឡង៖ {formatIsoDateKh(item.cfg.examDate)}</span>
               <span>• ចេញលទ្ធផល៖ {formatIsoDateKh(item.cfg.resultDate)}</span>

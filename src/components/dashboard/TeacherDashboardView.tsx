@@ -18,7 +18,13 @@ import { formatDateToDMY } from '@/utils/dateFormatter';
 import { AppIcon } from '@/components/AppIcons';
 import KhmerMonthPicker from '@/components/KhmerMonthPicker';
 import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
-import { EXAM_STAGES, WEEK_META, countExamStages } from '@/components/teacher-tracking/trackingModel';
+import {
+  ActiveExamNotice,
+  EXAM_STAGES,
+  WEEK_META,
+  countExamStages,
+  formatKhmerDateWithWeekday,
+} from '@/components/teacher-tracking/trackingModel';
 import {
   EnrichedClassSummary,
   TeacherReportRow,
@@ -47,6 +53,8 @@ export default function TeacherDashboardView({
   monthScores,
   teachingRecords,
   tasks,
+  activeExamNotice,
+  onOpenExamNotice,
 }: {
   teacherReport: TeacherReportRow;
   fallbackName?: string;
@@ -58,6 +66,8 @@ export default function TeacherDashboardView({
   monthScores: any[];
   teachingRecords: any[];
   tasks: any[];
+  activeExamNotice?: ActiveExamNotice | null;
+  onOpenExamNotice?: () => void;
 }) {
   const { teacher, classes } = teacherReport;
   const displayName = teacher?.fullName || fallbackName || 'គ្រូបង្រៀន';
@@ -433,6 +443,122 @@ export default function TeacherDashboardView({
           </Link>
         </div>
       </div>
+
+      {/* 1.5 Persistent Exam Schedule Notice Reminder Banner */}
+      {activeExamNotice && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '0.85rem 1.05rem',
+            borderRadius: '16px',
+            borderLeft: '4px solid #7c3aed',
+            background:
+              'linear-gradient(135deg, rgba(124, 58, 237, 0.09) 0%, var(--card-bg) 100%)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.68rem', flex: 1, minWidth: '240px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '11px',
+                background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <AppIcon name="bell" size={18} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                សេចក្តីជូនដំណឹងប្រឡង ({activeExamNotice.monthDisplayKh})
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.38rem' }}>
+                {[
+                  { label: 'ធ្វើវិញ្ញាសា', iso: activeExamNotice.config.prepareDate, color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)' },
+                  { label: 'ប្រមូលវិញ្ញាសា', iso: activeExamNotice.config.collectDate, color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)' },
+                  { label: 'ថ្ងៃប្រឡង', iso: activeExamNotice.config.examDate, color: '#d97706', bg: 'rgba(217, 119, 6, 0.14)' },
+                  { label: 'ចេញលទ្ធផល', iso: activeExamNotice.config.resultDate, color: '#059669', bg: 'rgba(5, 150, 105, 0.12)' },
+                ]
+                  .filter((item) => Boolean(item.iso?.trim()))
+                  .map((item) => {
+                    const fmt = formatKhmerDateWithWeekday(item.iso);
+                    const dueTag =
+                      fmt.daysDiff === 0
+                        ? 'ថ្ងៃនេះ'
+                        : fmt.daysDiff !== null && fmt.daysDiff > 0
+                          ? `សល់ ${fmt.daysDiff}ថ្ងៃ`
+                          : null;
+                    return (
+                      <span
+                        key={item.label}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.28rem',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '999px',
+                          background: item.bg,
+                          color: item.color,
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span>{item.label}៖ {fmt.dmy}</span>
+                        {dueTag && (
+                          <span
+                            style={{
+                              padding: '0.04rem 0.35rem',
+                              borderRadius: '999px',
+                              background: 'rgba(255,255,255,0.75)',
+                              fontSize: '0.66rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            {dueTag}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
+          {onOpenExamNotice && (
+            <button
+              type="button"
+              onClick={onOpenExamNotice}
+              style={{
+                padding: '0.48rem 0.85rem',
+                borderRadius: '10px',
+                border: '1px solid rgba(124, 58, 237, 0.35)',
+                background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                color: '#ffffff',
+                fontSize: '0.79rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <AppIcon name="file-text" size={14} />
+              <span>មើលលិខិតជូនដំណឹង</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 2. Four Core Teacher KPIs — 2x2 Grid on Mobile, 4 Columns on Desktop */}
       <div className="dashboard-kpi-grid">

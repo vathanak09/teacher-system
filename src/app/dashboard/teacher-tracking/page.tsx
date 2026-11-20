@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { teacherService, teacherTrackingService } from '@/services/db';
+import { settingsService, teacherService, teacherTrackingService } from '@/services/db';
 import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import { AppIcon } from '@/components/AppIcons';
 import {
@@ -26,6 +26,7 @@ import {
   exportTrackingExcel,
   formatIsoDateKh,
   formatMinutesLabel,
+  hasAnyExamScheduleDate,
   hasExamConfigActive,
   isExamWeek,
   normalizeEntry,
@@ -40,6 +41,7 @@ import {
   TeacherAvatar,
 } from '@/components/teacher-tracking/TrackingControls';
 import ScreenshotReportBoard from '@/components/teacher-tracking/ScreenshotReportBoard';
+import ExamNoticeModal from '@/components/teacher-tracking/ExamNoticeModal';
 
 export default function TeacherTrackingPage() {
   const router = useRouter();
@@ -78,7 +80,7 @@ export default function TeacherTrackingPage() {
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Navigation Tabs & Screenshot Modal
+  // Navigation Tabs, Screenshot Modal & Exam Notice Letter Modal
   const [activeTab, setActiveTab] = useState<ViewTab>('w1');
   const [screenshotScope, setScreenshotScope] = useState<ScreenshotScope>('w1');
   const [screenshotLightCard, setScreenshotLightCard] = useState(true);
@@ -86,6 +88,12 @@ export default function TeacherTrackingPage() {
   const [isFullscreenShot, setIsFullscreenShot] = useState(false);
   const [hideFullscreenToolbar, setHideFullscreenToolbar] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [isExamNoticeOpen, setIsExamNoticeOpen] = useState(false);
+  const [schoolName, setSchoolName] = useState(() =>
+    typeof window !== 'undefined'
+      ? localStorage.getItem('schoolName') || 'សាលាអន្តរជាតិប្រេនស្តម'
+      : 'សាលាអន្តរជាតិប្រេនស្តម'
+  );
 
   // Safe Debounced Auto-Save Refs
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,8 +135,15 @@ export default function TeacherTrackingPage() {
       setAllTeachers(sorted);
     });
 
+    const unsubSettings = settingsService.subscribeOne('global', (docData) => {
+      if (docData?.schoolName) {
+        setSchoolName(String(docData.schoolName));
+      }
+    });
+
     return () => {
       unsubTeachers();
+      unsubSettings();
     };
   }, [router]);
 
@@ -615,6 +630,40 @@ export default function TeacherTrackingPage() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setIsExamNoticeOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.55rem 0.95rem',
+              borderRadius: '10px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.83rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(124, 58, 237, 0.28)',
+            }}
+            title="បើកលិខិតជូនដំណឹងកាលបរិច្ឆេទប្រឡងសម្រាប់ Screenshot ចូល Group Chat និងជូនដំណឹងលើ Dashboard គ្រូ"
+          >
+            <AppIcon name="bell" size={16} />
+            <span>លិខិតជូនដំណឹងប្រឡង</span>
+            {hasAnyExamScheduleDate(w4ExamCfg) && (
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#34d399',
+                  boxShadow: '0 0 0 2px rgba(255,255,255,0.35)',
+                }}
+              />
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() =>
@@ -1168,6 +1217,7 @@ export default function TeacherTrackingPage() {
                         <ExamHeaderConfig
                           config={currentExamCfg}
                           onChange={(nextCfg) => handleExamScheduleChange(currentWeekKey, nextCfg)}
+                          onOpenNotice={() => setIsExamNoticeOpen(true)}
                         />
                       </th>
                     )}
@@ -1816,7 +1866,11 @@ export default function TeacherTrackingPage() {
               </span>
               {activeMonthExamRibbons.map((item) => (
                 <span key={item.label}>
-                  [{item.label}] ប្រមូល៖ {formatIsoDateKh(item.cfg.collectDate)} • ប្រឡង៖{' '}
+                  [{item.label}]{' '}
+                  {item.cfg.prepareDate?.trim()
+                    ? `ធ្វើវិញ្ញាសា៖ ${formatIsoDateKh(item.cfg.prepareDate)} • `
+                    : ''}
+                  ប្រមូល៖ {formatIsoDateKh(item.cfg.collectDate)} • ប្រឡង៖{' '}
                   {formatIsoDateKh(item.cfg.examDate)} • លទ្ធផល៖{' '}
                   {formatIsoDateKh(item.cfg.resultDate)}
                 </span>
@@ -2408,6 +2462,16 @@ export default function TeacherTrackingPage() {
           </div>,
           document.body
         )}
+
+      {/* Exam Notice Letter & Screenshot Modal */}
+      <ExamNoticeModal
+        isOpen={isExamNoticeOpen}
+        onClose={() => setIsExamNoticeOpen(false)}
+        monthDisplayKh={monthDisplayKh}
+        schoolName={schoolName}
+        config={examSchedules?.[EXAM_WEEK_KEY] || {}}
+        onChangeConfig={(nextCfg) => handleExamScheduleChange(EXAM_WEEK_KEY, nextCfg)}
+      />
     </div>
   );
 }

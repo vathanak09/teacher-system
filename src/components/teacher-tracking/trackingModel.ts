@@ -5,9 +5,15 @@ export type CompletionDropdownStatus = 'none' | 'partial' | 'done';
 
 export interface ExamScheduleConfig {
   enabled?: boolean;
-  collectDate?: string; // ថ្ងៃប្រមូលវិញ្ញាសាពីគ្រូ (YYYY-MM-DD)
-  examDate?: string;    // ថ្ងៃត្រូវប្រឡង (YYYY-MM-DD)
-  resultDate?: string;  // ថ្ងៃចេញលទ្ធផល (YYYY-MM-DD)
+  prepareDate?: string;     // ថ្ងៃធ្វើវិញ្ញាសា (YYYY-MM-DD)
+  collectDate?: string;     // ថ្ងៃប្រមូលវិញ្ញាសាពីគ្រូ (YYYY-MM-DD)
+  examDate?: string;        // ថ្ងៃត្រូវប្រឡង (YYYY-MM-DD)
+  resultDate?: string;      // ថ្ងៃចេញលទ្ធផល (YYYY-MM-DD)
+  noticeTitle?: string;     // ចំណងជើងលិខិតជូនដំណឹង (optional custom)
+  noticeNote?: string;      // សេចក្តីណែនាំ / កំណត់សម្គាល់បន្ថែមជូនគ្រូ
+  issuerName?: string;      // ហត្ថលេខា / អ្នកចេញលិខិត
+  popupEnabled?: boolean;   // បើក/បិទ Pop-up លើ Dashboard គ្រូ (default true when dates exist)
+  noticeUpdatedAt?: number; // timestamp bumped on date/notice edits or re-notify
 }
 
 export interface TeacherWeekEntry {
@@ -252,10 +258,208 @@ export function hasExamConfigActive(cfg?: ExamScheduleConfig | null): boolean {
   if (cfg.enabled === false) return false;
   return Boolean(
     cfg.enabled ||
+      cfg.prepareDate?.trim() ||
       cfg.collectDate?.trim() ||
       cfg.examDate?.trim() ||
       cfg.resultDate?.trim()
   );
+}
+
+export function hasAnyExamScheduleDate(cfg?: ExamScheduleConfig | null): boolean {
+  if (!cfg || cfg.enabled === false) return false;
+  return Boolean(
+    cfg.prepareDate?.trim() ||
+      cfg.collectDate?.trim() ||
+      cfg.examDate?.trim() ||
+      cfg.resultDate?.trim()
+  );
+}
+
+export const DEFAULT_EXAM_NOTICE_NOTE =
+  'សូមលោកគ្រូ អ្នកគ្រូទាំងអស់មេត្តារៀបចំវិញ្ញាសាប្រឡង ប្រគល់វិញ្ញាសាជូនការិយាល័យសិក្សា បញ្ចូលពិន្ទុ និងចេញលទ្ធផលជូនសិស្សានុសិស្សឱ្យបានទាន់ពេលវេលាកំណត់។';
+
+export const DEFAULT_EXAM_ISSUER_NAME = 'ការិយាល័យសិក្សា';
+
+export const KHMER_WEEKDAYS = [
+  'អាទិត្យ',
+  'ច័ន្ទ',
+  'អង្គារ',
+  'ពុធ',
+  'ព្រហស្បតិ៍',
+  'សុក្រ',
+  'សៅរ៍',
+];
+
+export function formatKhmerDateWithWeekday(isoDate?: string): {
+  dmy: string;
+  weekdayKh: string;
+  fullKh: string;
+  daysDiff: number | null;
+} {
+  const trimmed = String(isoDate || '').trim();
+  const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!ymd) {
+    return { dmy: trimmed || '—', weekdayKh: '', fullKh: trimmed || 'មិនទាន់កំណត់', daysDiff: null };
+  }
+  const y = Number(ymd[1]);
+  const m = Number(ymd[2]);
+  const d = Number(ymd[3]);
+  const dt = new Date(y, m - 1, d);
+  if (isNaN(dt.getTime())) {
+    return { dmy: trimmed, weekdayKh: '', fullKh: trimmed, daysDiff: null };
+  }
+  const weekdayKh = KHMER_WEEKDAYS[dt.getDay()] || '';
+  const monthKh = KHMER_MONTHS[m - 1] || String(m);
+  const dd = String(d).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  const dmy = `${dd}/${mm}/${y}`;
+  const fullKh = `ថ្ងៃ${weekdayKh} ទី${dd} ខែ${monthKh} ឆ្នាំ ${y}`;
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetMidnight = dt.getTime();
+  const daysDiff = Math.round((targetMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+
+  return { dmy, weekdayKh, fullKh, daysDiff };
+}
+
+export function formatMonthKeyKh(monthKey: string): string {
+  const m = String(monthKey || '').trim().match(/^(\d{4})-(\d{1,2})$/);
+  if (!m) return monthKey;
+  const year = Number(m[1]);
+  const monthIdx = Number(m[2]) - 1;
+  const khMonth = KHMER_MONTHS[monthIdx] || m[2];
+  return `ខែ${khMonth} ឆ្នាំ ${year}`;
+}
+
+export function getNextYearMonth(ym: string): string {
+  const m = String(ym || '').trim().match(/^(\d{4})-(\d{1,2})$/);
+  if (!m) return ym;
+  let y = Number(m[1]);
+  let mo = Number(m[2]) + 1;
+  if (mo > 12) {
+    mo = 1;
+    y += 1;
+  }
+  return `${y}-${String(mo).padStart(2, '0')}`;
+}
+
+export interface ActiveExamNotice {
+  monthKey: string;
+  monthDisplayKh: string;
+  config: ExamScheduleConfig;
+  signature: string;
+}
+
+export function buildExamNoticeSignature(monthKey: string, cfg?: ExamScheduleConfig | null): string {
+  if (!cfg) return '';
+  return [
+    monthKey,
+    cfg.prepareDate || '',
+    cfg.collectDate || '',
+    cfg.examDate || '',
+    cfg.resultDate || '',
+    cfg.noticeTitle || '',
+    cfg.noticeNote || '',
+    cfg.issuerName || '',
+    cfg.noticeUpdatedAt || 0,
+  ].join('|');
+}
+
+function areAllExamDatesOld(cfg: ExamScheduleConfig): boolean {
+  const dates = [cfg.prepareDate, cfg.collectDate, cfg.examDate, cfg.resultDate]
+    .map((s) => formatKhmerDateWithWeekday(s).daysDiff)
+    .filter((d): d is number => d !== null);
+  if (dates.length === 0) return false;
+  return dates.every((d) => d < -3);
+}
+
+export function resolveActiveExamNotice(
+  currentDoc: MonthlyTrackingDoc | null | undefined,
+  currentMonth: string,
+  nextDoc: MonthlyTrackingDoc | null | undefined,
+  nextMonth: string
+): ActiveExamNotice | null {
+  const curCfg = currentDoc?.examSchedules?.[EXAM_WEEK_KEY];
+  const nxtCfg = nextDoc?.examSchedules?.[EXAM_WEEK_KEY];
+
+  const curEligible = Boolean(curCfg && hasAnyExamScheduleDate(curCfg) && curCfg.popupEnabled !== false);
+  const nxtEligible = Boolean(nxtCfg && hasAnyExamScheduleDate(nxtCfg) && nxtCfg.popupEnabled !== false);
+
+  if (curEligible && curCfg) {
+    if (nxtEligible && nxtCfg && areAllExamDatesOld(curCfg)) {
+      return {
+        monthKey: nextMonth,
+        monthDisplayKh: formatMonthKeyKh(nextMonth),
+        config: nxtCfg,
+        signature: buildExamNoticeSignature(nextMonth, nxtCfg),
+      };
+    }
+    return {
+      monthKey: currentMonth,
+      monthDisplayKh: formatMonthKeyKh(currentMonth),
+      config: curCfg,
+      signature: buildExamNoticeSignature(currentMonth, curCfg),
+    };
+  }
+
+  if (nxtEligible && nxtCfg) {
+    return {
+      monthKey: nextMonth,
+      monthDisplayKh: formatMonthKeyKh(nextMonth),
+      config: nxtCfg,
+      signature: buildExamNoticeSignature(nextMonth, nxtCfg),
+    };
+  }
+
+  return null;
+}
+
+export function buildExamNoticeGroupChatText(params: {
+  schoolName: string;
+  monthDisplayKh: string;
+  config: ExamScheduleConfig;
+}): string {
+  const { schoolName, monthDisplayKh, config } = params;
+  const title =
+    config.noticeTitle?.trim() ||
+    `ស្តីពីកាលបរិច្ឆេទធ្វើវិញ្ញាសា ប្រមូលវិញ្ញាសា ប្រឡង និងចេញលទ្ធផល ប្រចាំ${monthDisplayKh}`;
+  const note = config.noticeNote?.trim() || DEFAULT_EXAM_NOTICE_NOTE;
+  const issuer = config.issuerName?.trim() || DEFAULT_EXAM_ISSUER_NAME;
+
+  const lines: string[] = [
+    schoolName,
+    `សេចក្តីជូនដំណឹង`,
+    title,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `គោរពជម្រាបជូន៖ លោកគ្រូ អ្នកគ្រូបង្រៀនទាំងអស់`,
+    ``,
+  ];
+
+  const milestones: { label: string; iso?: string }[] = [
+    { label: '១. ថ្ងៃធ្វើវិញ្ញាសា', iso: config.prepareDate },
+    { label: '២. ថ្ងៃប្រមូលវិញ្ញាសាប្រឡង', iso: config.collectDate },
+    { label: '៣. ថ្ងៃប្រឡង', iso: config.examDate },
+    { label: '៤. ថ្ងៃចេញលទ្ធផល', iso: config.resultDate },
+  ];
+
+  let added = 0;
+  for (const m of milestones) {
+    if (m.iso?.trim()) {
+      const f = formatKhmerDateWithWeekday(m.iso);
+      lines.push(`${m.label}៖ ${f.fullKh} (${f.dmy})`);
+      added += 1;
+    }
+  }
+  if (added === 0) {
+    lines.push('មិនទាន់បានកំណត់កាលបរិច្ឆេទនៅឡើយទេ។');
+  }
+
+  lines.push('');
+  lines.push(`កំណត់សម្គាល់៖ ${note}`);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`${issuer} • ${schoolName}`);
+  return lines.join('\n');
 }
 
 export function isExamEnabledInWeek4(cfg?: ExamScheduleConfig | null): boolean {
@@ -602,8 +806,11 @@ export function buildGroupChatSummaryText(params: {
 
   lines.push(`របាយការណ៍តាមដានការងារគ្រូ — ${wMeta.label}${dateTag} • ${monthDisplayKh}`);
   if (scopeHasExam && hasExamConfigActive(examCfg)) {
+    const prepPart = examCfg?.prepareDate?.trim()
+      ? `ធ្វើវិញ្ញាសា ${formatIsoDateKh(examCfg.prepareDate)} | `
+      : '';
     lines.push(
-      `កាលវិភាគប្រឡង៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
+      `កាលវិភាគប្រឡង៖ ${prepPart}ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
     );
   }
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
@@ -717,7 +924,7 @@ export async function exportTrackingExcel(params: {
     const examScheduleRow =
       includeExam && hasExamConfigActive(examCfg)
         ? [
-            `កាលវិភាគវិញ្ញាសា៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
+            `កាលវិភាគវិញ្ញាសា៖ ${examCfg?.prepareDate?.trim() ? `ធ្វើវិញ្ញាសា ${formatIsoDateKh(examCfg.prepareDate)} | ` : ''}ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
           ]
         : [];
 

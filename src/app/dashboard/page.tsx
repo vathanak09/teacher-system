@@ -15,7 +15,12 @@ import {
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { AppIcon } from '@/components/AppIcons';
 import { TeacherAvatar } from '@/components/teacher-tracking/TrackingControls';
-import { MonthlyTrackingDoc } from '@/components/teacher-tracking/trackingModel';
+import {
+  ActiveExamNotice,
+  MonthlyTrackingDoc,
+  getNextYearMonth,
+  resolveActiveExamNotice,
+} from '@/components/teacher-tracking/trackingModel';
 import {
   TeacherReportRow,
   buildEnrichedClasses,
@@ -27,6 +32,7 @@ import {
 } from '@/components/dashboard/dashboardMetrics';
 import AdminOverviewView from '@/components/dashboard/AdminOverviewView';
 import TeacherDashboardView from '@/components/dashboard/TeacherDashboardView';
+import ExamNoticePopupModal from '@/components/dashboard/ExamNoticePopupModal';
 
 export default function DashboardPage() {
   const [role, setRole] = useState('');
@@ -52,6 +58,12 @@ export default function DashboardPage() {
   });
   const [scoreMonth, setScoreMonth] = useState<string>(() => getDefaultScoreYearMonth());
   const trackingMonth = useMemo(() => getCurrentYearMonth(), []);
+  const nextTrackingMonth = useMemo(() => getNextYearMonth(trackingMonth), [trackingMonth]);
+  const [schoolName, setSchoolName] = useState<string>(() =>
+    typeof window !== 'undefined'
+      ? localStorage.getItem('schoolName') || 'សាលាអន្តរជាតិប្រេនស្តម'
+      : 'សាលាអន្តរជាតិប្រេនស្តម'
+  );
 
   // Live Data Streams
   const [classes, setClasses] = useState<any[]>([]);
@@ -64,6 +76,9 @@ export default function DashboardPage() {
   const [teachingRecords, setTeachingRecords] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [trackingDoc, setTrackingDoc] = useState<MonthlyTrackingDoc | null>(null);
+  const [nextTrackingDoc, setNextTrackingDoc] = useState<MonthlyTrackingDoc | null>(null);
+  const [examPopupOpen, setExamPopupOpen] = useState(false);
+  const [dismissedSignatureInSession, setDismissedSignatureInSession] = useState<string | null>(null);
 
   useEffect(() => {
     const currentRole = localStorage.getItem('userRole') || '';
@@ -121,6 +136,13 @@ export default function DashboardPage() {
     unsubs.push(attendanceService.subscribeAll(setAttendanceDocs));
     unsubs.push(teachingRecordService.subscribeAll(setTeachingRecords));
     unsubs.push(taskService.subscribeAll(setTasks));
+    unsubs.push(
+      settingsService.subscribeOne('global', (docData) => {
+        if (docData?.schoolName) {
+          setSchoolName(String(docData.schoolName));
+        }
+      })
+    );
 
     if (currentRole === 'admin') {
       unsubs.push(paymentService.subscribeAll(setPayments));
@@ -163,6 +185,58 @@ export default function DashboardPage() {
       setTrackingDoc(doc);
     });
   }, [trackingMonth]);
+
+  useEffect(() => {
+    if (!nextTrackingMonth || nextTrackingMonth === trackingMonth) return;
+    return teacherTrackingService.subscribeOne(nextTrackingMonth, (doc) => {
+      setNextTrackingDoc(doc);
+    });
+  }, [nextTrackingMonth, trackingMonth]);
+
+  const activeExamNotice: ActiveExamNotice | null = useMemo(
+    () => resolveActiveExamNotice(trackingDoc, trackingMonth, nextTrackingDoc, nextTrackingMonth),
+    [trackingDoc, trackingMonth, nextTrackingDoc, nextTrackingMonth]
+  );
+
+  // Auto-open Pop-up notification for Teachers whenever Admin sets or updates exam dates
+  useEffect(() => {
+    if (role !== 'teacher' || !activeExamNotice) return;
+    if (dismissedSignatureInSession === activeExamNotice.signature) return;
+
+    const actorKey = teacherProfileId || userId || userName || 'teacher';
+    const ackStorageKey = `examNoticeAck_${actorKey}_${activeExamNotice.monthKey}`;
+    try {
+      const acked = localStorage.getItem(ackStorageKey);
+      if (acked !== activeExamNotice.signature) {
+        setExamPopupOpen(true);
+      }
+    } catch {
+      setExamPopupOpen(true);
+    }
+  }, [role, activeExamNotice, dismissedSignatureInSession, teacherProfileId, userId, userName]);
+
+  const handleAcknowledgeExamNotice = useCallback(() => {
+    if (!activeExamNotice) {
+      setExamPopupOpen(false);
+      return;
+    }
+    const actorKey = teacherProfileId || userId || userName || 'teacher';
+    const ackStorageKey = `examNoticeAck_${actorKey}_${activeExamNotice.monthKey}`;
+    try {
+      localStorage.setItem(ackStorageKey, activeExamNotice.signature);
+    } catch {
+      // ignore storage quota error
+    }
+    setDismissedSignatureInSession(activeExamNotice.signature);
+    setExamPopupOpen(false);
+  }, [activeExamNotice, teacherProfileId, userId, userName]);
+
+  const handleDismissExamNoticeTemp = useCallback(() => {
+    if (activeExamNotice) {
+      setDismissedSignatureInSession(activeExamNotice.signature);
+    }
+    setExamPopupOpen(false);
+  }, [activeExamNotice]);
 
   const enrichedClasses = useMemo(
     () =>
@@ -451,8 +525,21 @@ export default function DashboardPage() {
           monthScores={monthScores}
           teachingRecords={teachingRecords}
           tasks={tasks}
+          activeExamNotice={activeExamNotice}
+          onOpenExamNotice={() => setExamPopupOpen(true)}
         />
       ) : null}
+
+      {/* Teacher Dashboard Exam Schedule Pop-up */}
+      <ExamNoticePopupModal
+        isOpen={examPopupOpen}
+        notice={activeExamNotice}
+        schoolName={schoolName}
+        teacherExamEntry={currentTeacherReport?.trackingSummary?.perWeek?.w4?.entry || null}
+        isAdminPreview={role === 'admin'}
+        onDismissTemporary={handleDismissExamNoticeTemp}
+        onAcknowledge={handleAcknowledgeExamNotice}
+      />
     </div>
   );
 }

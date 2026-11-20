@@ -296,18 +296,21 @@ export function StatusCountNoteCell({
 export function ExamHeaderConfig({
   config,
   onChange,
+  onOpenNotice,
 }: {
   config?: ExamScheduleConfig;
   onChange: (next: ExamScheduleConfig) => void;
+  onOpenNotice?: () => void;
 }) {
   const cfg = config || {};
   const isActive = isExamEnabledInWeek4(cfg);
 
   const dateFields: {
-    key: 'collectDate' | 'examDate' | 'resultDate';
+    key: 'prepareDate' | 'collectDate' | 'examDate' | 'resultDate';
     label: string;
     placeholder: string;
   }[] = [
+    { key: 'prepareDate', label: 'ធ្វើវិញ្ញាសា៖', placeholder: 'dd/mm/yyyy' },
     { key: 'collectDate', label: 'ប្រមូលវិញ្ញាសា៖', placeholder: 'dd/mm/yyyy' },
     { key: 'examDate', label: 'ថ្ងៃត្រូវប្រឡង៖', placeholder: 'dd/mm/yyyy' },
     { key: 'resultDate', label: 'ចេញលទ្ធផល៖', placeholder: 'dd/mm/yyyy' },
@@ -352,7 +355,14 @@ export function ExamHeaderConfig({
               if (checked) {
                 onChange({ ...cfg, enabled: true });
               } else {
-                onChange({ enabled: false, collectDate: '', examDate: '', resultDate: '' });
+                onChange({
+                  ...cfg,
+                  enabled: false,
+                  prepareDate: '',
+                  collectDate: '',
+                  examDate: '',
+                  resultDate: '',
+                });
               }
             }}
             style={{ accentColor: '#7c3aed' }}
@@ -388,13 +398,16 @@ export function ExamHeaderConfig({
                     [df.key]: iso,
                   };
                   const anyDate = Boolean(
-                    updated.collectDate?.trim() ||
+                    updated.prepareDate?.trim() ||
+                      updated.collectDate?.trim() ||
                       updated.examDate?.trim() ||
                       updated.resultDate?.trim()
                   );
                   onChange({
                     ...updated,
                     enabled: anyDate ? true : cfg.enabled,
+                    popupEnabled: cfg.popupEnabled !== false,
+                    noticeUpdatedAt: Date.now(),
                   });
                 }}
                 placeholderText={df.placeholder}
@@ -404,6 +417,33 @@ export function ExamHeaderConfig({
           </div>
         ))}
       </div>
+
+      {onOpenNotice && (
+        <button
+          type="button"
+          onClick={onOpenNotice}
+          style={{
+            marginTop: '0.15rem',
+            width: '100%',
+            padding: '0.3rem 0.55rem',
+            borderRadius: '7px',
+            border: '1px solid rgba(124, 58, 237, 0.35)',
+            background: 'rgba(124, 58, 237, 0.1)',
+            color: '#6d28d9',
+            fontWeight: 700,
+            fontSize: '0.71rem',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.32rem',
+          }}
+          title="បើកលិខិតជូនដំណឹងសម្រាប់ Screenshot ចូល Group Chat និងកំណត់ Pop-up លើ Dashboard គ្រូ"
+        >
+          <AppIcon name="bell" size={12} />
+          <span>លិខិតជូនដំណឹង / Screenshot</span>
+        </button>
+      )}
     </div>
   );
 }
