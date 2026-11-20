@@ -24,6 +24,7 @@ import {
   WEEK_META,
   countExamStages,
   formatKhmerDateWithWeekday,
+  getAutoExamPrepareDate,
 } from '@/components/teacher-tracking/trackingModel';
 import {
   EnrichedClassSummary,
@@ -484,7 +485,7 @@ export default function TeacherDashboardView({
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.38rem' }}>
                 {[
-                  { label: 'ធ្វើវិញ្ញាសា', iso: activeExamNotice.config.prepareDate, color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)' },
+                  { label: 'ធ្វើវិញ្ញាសា', iso: getAutoExamPrepareDate(activeExamNotice.monthKey), color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)' },
                   { label: 'ប្រមូលវិញ្ញាសា', iso: activeExamNotice.config.collectDate, color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)' },
                   { label: 'ថ្ងៃប្រឡង', iso: activeExamNotice.config.examDate, color: '#d97706', bg: 'rgba(217, 119, 6, 0.14)' },
                   { label: 'ចេញលទ្ធផល', iso: activeExamNotice.config.resultDate, color: '#059669', bg: 'rgba(5, 150, 105, 0.12)' },

@@ -89,6 +89,7 @@ export default function TeacherTrackingPage() {
   const [hideFullscreenToolbar, setHideFullscreenToolbar] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [isExamNoticeOpen, setIsExamNoticeOpen] = useState(false);
+  const [adminName, setAdminName] = useState('Admin');
   const [schoolName, setSchoolName] = useState(() =>
     typeof window !== 'undefined'
       ? localStorage.getItem('schoolName') || 'សាលាអន្តរជាតិប្រេនស្តម'
@@ -117,7 +118,9 @@ export default function TeacherTrackingPage() {
   useEffect(() => {
     setMounted(true);
     const currentRole = localStorage.getItem('userRole') || '';
+    const currentName = localStorage.getItem('userName') || 'Admin';
     setRole(currentRole);
+    setAdminName(currentName);
 
     if (currentRole !== 'admin') {
       router.push('/dashboard');
@@ -402,8 +405,12 @@ export default function TeacherTrackingPage() {
   };
 
   const handleExamScheduleChange = (week: WeekKey, nextCfg: ExamScheduleConfig) => {
+    const resolvedCfg: ExamScheduleConfig = {
+      ...nextCfg,
+      issuerName: nextCfg.issuerName !== undefined ? nextCfg.issuerName : adminName,
+    };
     setExamSchedules((prev) => {
-      const next = { ...prev, [week]: nextCfg };
+      const next = { ...prev, [week]: resolvedCfg };
       scheduleSavePatch({ examSchedules: next }, true);
       return next;
     });
@@ -1866,11 +1873,7 @@ export default function TeacherTrackingPage() {
               </span>
               {activeMonthExamRibbons.map((item) => (
                 <span key={item.label}>
-                  [{item.label}]{' '}
-                  {item.cfg.prepareDate?.trim()
-                    ? `ធ្វើវិញ្ញាសា៖ ${formatIsoDateKh(item.cfg.prepareDate)} • `
-                    : ''}
-                  ប្រមូល៖ {formatIsoDateKh(item.cfg.collectDate)} • ប្រឡង៖{' '}
+                  [{item.label}] ប្រមូល៖ {formatIsoDateKh(item.cfg.collectDate)} • ប្រឡង៖{' '}
                   {formatIsoDateKh(item.cfg.examDate)} • លទ្ធផល៖{' '}
                   {formatIsoDateKh(item.cfg.resultDate)}
                 </span>
@@ -2467,8 +2470,10 @@ export default function TeacherTrackingPage() {
       <ExamNoticeModal
         isOpen={isExamNoticeOpen}
         onClose={() => setIsExamNoticeOpen(false)}
+        monthKey={monthKey}
         monthDisplayKh={monthDisplayKh}
         schoolName={schoolName}
+        adminName={adminName}
         config={examSchedules?.[EXAM_WEEK_KEY] || {}}
         onChangeConfig={(nextCfg) => handleExamScheduleChange(EXAM_WEEK_KEY, nextCfg)}
       />

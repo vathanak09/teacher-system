@@ -5,18 +5,21 @@ import CustomDatePicker from '@/components/CustomDatePicker';
 import { AppIcon } from '@/components/AppIcons';
 import ExamNoticeLetterCard, { ExamNoticeStyleVariant } from './ExamNoticeLetterCard';
 import {
-  DEFAULT_EXAM_ISSUER_NAME,
   DEFAULT_EXAM_NOTICE_NOTE,
   ExamScheduleConfig,
   buildExamNoticeGroupChatText,
+  formatKhmerDateWithWeekday,
+  getAutoExamPrepareDate,
   hasAnyExamScheduleDate,
 } from './trackingModel';
 
 interface ExamNoticeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  monthKey: string;
   monthDisplayKh: string;
   schoolName: string;
+  adminName: string;
   config: ExamScheduleConfig;
   onChangeConfig: (next: ExamScheduleConfig) => void;
 }
@@ -24,16 +27,21 @@ interface ExamNoticeModalProps {
 export default function ExamNoticeModal({
   isOpen,
   onClose,
+  monthKey,
   monthDisplayKh,
   schoolName,
+  adminName,
   config,
   onChangeConfig,
 }: ExamNoticeModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [styleVariant, setStyleVariant] = useState<ExamNoticeStyleVariant>('official');
   const [fullscreenShotMode, setFullscreenShotMode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
   const [notifyToast, setNotifyToast] = useState(false);
+
+  const styleVariant: ExamNoticeStyleVariant =
+    config?.popupStyle === 'modern' ? 'modern' : 'official';
+  const autoPrepareFmt = formatKhmerDateWithWeekday(getAutoExamPrepareDate(monthKey));
 
   useEffect(() => {
     setMounted(true);
@@ -61,9 +69,17 @@ export default function ExamNoticeModal({
   if (!mounted || !isOpen) return null;
 
   const updateField = (patch: Partial<ExamScheduleConfig>) => {
+    const resolvedIssuer =
+      patch.issuerName !== undefined
+        ? patch.issuerName
+        : config.issuerName !== undefined
+          ? config.issuerName
+          : adminName;
+
     const updated: ExamScheduleConfig = {
       ...config,
       ...patch,
+      issuerName: resolvedIssuer,
       noticeUpdatedAt: Date.now(),
     };
     const anyDate = hasAnyExamScheduleDate(updated);
@@ -74,11 +90,17 @@ export default function ExamNoticeModal({
     });
   };
 
+  const handleStyleChange = (nextStyle: ExamNoticeStyleVariant) => {
+    updateField({ popupStyle: nextStyle });
+  };
+
   const handleCopyGroupChat = async () => {
     const text = buildExamNoticeGroupChatText({
       schoolName,
+      monthKey,
       monthDisplayKh,
       config,
+      adminName,
     });
     try {
       await navigator.clipboard.writeText(text);
@@ -102,8 +124,10 @@ export default function ExamNoticeModal({
   const handleSendReNotify = () => {
     onChangeConfig({
       ...config,
+      issuerName: config.issuerName?.trim() ? config.issuerName : adminName,
       enabled: true,
       popupEnabled: true,
+      popupStyle: styleVariant,
       noticeUpdatedAt: Date.now(),
     });
     setNotifyToast(true);
@@ -163,7 +187,7 @@ export default function ExamNoticeModal({
                   <button
                     key={st.key}
                     type="button"
-                    onClick={() => setStyleVariant(st.key)}
+                    onClick={() => handleStyleChange(st.key)}
                     style={{
                       padding: '0.3rem 0.65rem',
                       borderRadius: '8px',
@@ -300,7 +324,9 @@ export default function ExamNoticeModal({
           <ExamNoticeLetterCard
             id="printable-exam-notice"
             schoolName={schoolName}
+            monthKey={monthKey}
             monthDisplayKh={monthDisplayKh}
+            adminName={adminName}
             config={config}
             styleVariant={styleVariant}
             showCountdowns={false}
@@ -330,10 +356,30 @@ export default function ExamNoticeModal({
               </h3>
             </div>
 
-            {/* 4 Exam Schedule Dates */}
+            {/* Automatic 20th-of-month Exam Preparation Info */}
+            <div
+              style={{
+                padding: '0.52rem 0.7rem',
+                borderRadius: '10px',
+                background: 'rgba(2, 132, 199, 0.09)',
+                border: '1px solid rgba(2, 132, 199, 0.25)',
+                color: '#0369a1',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+            >
+              <AppIcon name="calendar" size={14} style={{ flexShrink: 0 }} />
+              <span>
+                ថ្ងៃធ្វើវិញ្ញាសា៖ រៀងរាល់ថ្ងៃទី ២០ ({autoPrepareFmt.dmy}) ដោយស្វ័យប្រវត្តិ
+              </span>
+            </div>
+
+            {/* 3 Configurable Exam Schedule Dates */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {[
-                { key: 'prepareDate' as const, label: '១. ថ្ងៃធ្វើវិញ្ញាសា' },
                 { key: 'collectDate' as const, label: '២. ថ្ងៃប្រមូលវិញ្ញាសាប្រឡង' },
                 { key: 'examDate' as const, label: '៣. ថ្ងៃប្រឡង' },
                 { key: 'resultDate' as const, label: '៤. ថ្ងៃចេញលទ្ធផល' },
@@ -381,22 +427,22 @@ export default function ExamNoticeModal({
               />
             </div>
 
-            {/* Issuer / Signature */}
+            {/* Issuer / Admin Name under Issue Date */}
             <div>
               <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, marginBottom: '0.22rem', color: 'var(--text-secondary)' }}>
-                អ្នកចេញលិខិត / ហត្ថលេខា
+                ឈ្មោះ Admin អ្នកចេញលិខិត (ក្រោមកាលបរិច្ឆេទ)
               </label>
               <input
                 type="text"
                 className="input-field"
-                value={config?.issuerName || ''}
+                value={config?.issuerName ?? adminName}
                 onChange={(e) => updateField({ issuerName: e.target.value })}
-                placeholder={DEFAULT_EXAM_ISSUER_NAME}
+                placeholder={adminName || 'ឈ្មោះ Admin'}
                 style={{ width: '100%', fontSize: '0.8rem' }}
               />
             </div>
 
-            {/* Teacher Dashboard Pop-up Controls */}
+            {/* Teacher Dashboard Pop-up Controls & Style Selector */}
             <div
               style={{
                 padding: '0.68rem 0.75rem',
@@ -427,6 +473,39 @@ export default function ExamNoticeModal({
                 />
                 <span>បង្ហាញ Pop-up ជូនដំណឹងលើ Dashboard គ្រូម្នាក់ៗ</span>
               </label>
+
+              <div>
+                <div style={{ fontSize: '0.73rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.32rem' }}>
+                  ទម្រង់ Pop-up លើ Dashboard គ្រូ៖
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                  {[
+                    { key: 'official' as const, label: 'លិខិតផ្លូវការ' },
+                    { key: 'modern' as const, label: 'កាតទំនើប' },
+                  ].map((st) => {
+                    const active = styleVariant === st.key;
+                    return (
+                      <button
+                        key={st.key}
+                        type="button"
+                        onClick={() => handleStyleChange(st.key)}
+                        style={{
+                          padding: '0.36rem 0.5rem',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${active ? '#7c3aed' : 'var(--border-color)'}`,
+                          background: active ? '#7c3aed' : 'var(--modal-bg)',
+                          color: active ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {st.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <button
                 type="button"
@@ -474,7 +553,9 @@ export default function ExamNoticeModal({
             <ExamNoticeLetterCard
               id="printable-exam-notice"
               schoolName={schoolName}
+              monthKey={monthKey}
               monthDisplayKh={monthDisplayKh}
+              adminName={adminName}
               config={config}
               styleVariant={styleVariant}
               showCountdowns={false}

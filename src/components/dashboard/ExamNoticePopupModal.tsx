@@ -43,7 +43,19 @@ export default function ExamNoticePopupModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onDismissTemporary]);
 
+  // Lock background page scroll while modal is open so touch scrolling targets the pop-up body smoothly
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
   if (!mounted || !isOpen || !notice) return null;
+
+  const styleVariant = notice.config.popupStyle === 'modern' ? 'modern' : 'official';
 
   return createPortal(
     <div
@@ -57,7 +69,8 @@ export default function ExamNoticePopupModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0.85rem',
+        padding: '0.65rem',
+        overflow: 'hidden',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onDismissTemporary();
@@ -67,7 +80,7 @@ export default function ExamNoticePopupModal({
         style={{
           width: '100%',
           maxWidth: '660px',
-          maxHeight: '92dvh',
+          maxHeight: 'min(90dvh, calc(100vh - 1.3rem))',
           background: 'var(--modal-bg)',
           border: '1px solid var(--border-color)',
           borderRadius: '20px',
@@ -152,27 +165,35 @@ export default function ExamNoticePopupModal({
         {/* Scrollable Notice Body */}
         <div
           style={{
-            flex: 1,
+            flex: '1 1 auto',
+            minHeight: 0,
             overflowY: 'auto',
-            padding: '0.9rem',
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+            touchAction: 'pan-y',
+            padding: '0.85rem 0.85rem 1.25rem',
             display: 'flex',
             flexDirection: 'column',
             gap: '0.75rem',
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          <ExamNoticeLetterCard
-            schoolName={schoolName}
-            monthDisplayKh={notice.monthDisplayKh}
-            config={notice.config}
-            styleVariant="official"
-            compact={true}
-            showCountdowns={true}
-          />
+          <div style={{ flexShrink: 0 }}>
+            <ExamNoticeLetterCard
+              schoolName={schoolName}
+              monthKey={notice.monthKey}
+              monthDisplayKh={notice.monthDisplayKh}
+              config={notice.config}
+              styleVariant={styleVariant}
+              compact={true}
+              showCountdowns={true}
+            />
+          </div>
 
           {teacherExamEntry && (
             <div
               style={{
+                flexShrink: 0,
                 padding: '0.65rem 0.85rem',
                 borderRadius: '12px',
                 background: 'var(--main-bg)',

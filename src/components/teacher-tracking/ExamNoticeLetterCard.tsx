@@ -5,7 +5,10 @@ import {
   DEFAULT_EXAM_ISSUER_NAME,
   DEFAULT_EXAM_NOTICE_NOTE,
   ExamScheduleConfig,
+  OFFICIAL_OFFICE_NAME,
   formatKhmerDateWithWeekday,
+  getAutoExamPrepareDate,
+  normalizeOfficialSchoolName,
 } from './trackingModel';
 
 export type ExamNoticeStyleVariant = 'official' | 'modern';
@@ -71,39 +74,45 @@ function getCountdownBadge(daysDiff: number | null): {
 export default function ExamNoticeLetterCard({
   id,
   schoolName,
+  monthKey,
   monthDisplayKh,
   config,
+  adminName,
   styleVariant = 'official',
   compact = false,
   showCountdowns = false,
 }: {
   id?: string;
   schoolName: string;
+  monthKey: string;
   monthDisplayKh: string;
   config: ExamScheduleConfig;
+  adminName?: string;
   styleVariant?: ExamNoticeStyleVariant;
   compact?: boolean;
   showCountdowns?: boolean;
 }) {
-  const safeSchool = (schoolName || '').trim() || 'សាលាអន្តរជាតិប្រេនស្តម';
+  const officialSchool = normalizeOfficialSchoolName(schoolName);
   const titleText =
     config.noticeTitle?.trim() ||
     `ស្តីពីកាលបរិច្ឆេទធ្វើវិញ្ញាសា ប្រមូលវិញ្ញាសា ប្រឡង និងចេញលទ្ធផល ប្រចាំ${monthDisplayKh}`;
   const noteText = config.noticeNote?.trim() || DEFAULT_EXAM_NOTICE_NOTE;
-  const issuerText = config.issuerName?.trim() || DEFAULT_EXAM_ISSUER_NAME;
+  const signerName = config.issuerName?.trim() || adminName?.trim() || DEFAULT_EXAM_ISSUER_NAME;
   const todayFormatted = formatKhmerDateWithWeekday(getLocalTodayIso());
+  const autoPrepareIso = getAutoExamPrepareDate(monthKey);
 
-  const allMilestones: MilestoneDef[] = [
-    {
-      key: 'prepareDate',
-      khNum: '១',
-      label: 'កាលបរិច្ឆេទធ្វើវិញ្ញាសា',
-      sublabel: 'រៀបចំ និងពិនិត្យខ្លឹមសារវិញ្ញាសាប្រឡង',
-      icon: 'edit',
-      color: '#0284c7',
-      softBg: 'rgba(2, 132, 199, 0.1)',
-      iso: config.prepareDate,
-    },
+  const prepareMilestone: MilestoneDef = {
+    key: 'prepareDate',
+    khNum: '១',
+    label: 'កាលបរិច្ឆេទធ្វើវិញ្ញាសា',
+    sublabel: 'រៀបចំវិញ្ញាសា និងផ្សាយលិខិតជូនដំណឹង (រៀងរាល់ថ្ងៃទី ២០)',
+    icon: 'edit',
+    color: '#0284c7',
+    softBg: 'rgba(2, 132, 199, 0.1)',
+    iso: autoPrepareIso,
+  };
+
+  const configurableMilestones: MilestoneDef[] = [
     {
       key: 'collectDate',
       khNum: '២',
@@ -136,8 +145,9 @@ export default function ExamNoticeLetterCard({
     },
   ];
 
-  const filledMilestones = allMilestones.filter((m) => Boolean(m.iso?.trim()));
-  const displayMilestones = filledMilestones.length > 0 ? filledMilestones : allMilestones;
+  const filledConfigurable = configurableMilestones.filter((m) => Boolean(m.iso?.trim()));
+  const tailMilestones = filledConfigurable.length > 0 ? filledConfigurable : configurableMilestones;
+  const displayMilestones = autoPrepareIso ? [prepareMilestone, ...tailMilestones] : tailMilestones;
 
   const isOfficial = styleVariant === 'official';
   const logoSize = compact ? 44 : 56;
@@ -231,7 +241,7 @@ export default function ExamNoticeLetterCard({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <img
                 src="/logo.png"
-                alt={safeSchool}
+                alt={officialSchool}
                 style={{
                   width: logoSize,
                   height: logoSize,
@@ -249,10 +259,10 @@ export default function ExamNoticeLetterCard({
                     lineHeight: 1.3,
                   }}
                 >
-                  {safeSchool}
+                  {officialSchool}
                 </div>
-                <div style={{ fontSize: compact ? '0.72rem' : '0.78rem', color: '#475569', fontWeight: 600 }}>
-                  ការិយាល័យសិក្សា និងគ្រប់គ្រងគុណភាពអប់រំ
+                <div style={{ fontSize: compact ? '0.74rem' : '0.8rem', color: '#475569', fontWeight: 700 }}>
+                  {OFFICIAL_OFFICE_NAME}
                 </div>
               </div>
             </div>
@@ -308,7 +318,7 @@ export default function ExamNoticeLetterCard({
             }}
           >
             <div>
-              <strong>គោរពជម្រាបជូន៖</strong> លោកគ្រូ អ្នកគ្រូបង្រៀនទាំងអស់នៃ <strong>{safeSchool}</strong>
+              <strong>គោរពជម្រាបជូន៖</strong> លោកគ្រូ អ្នកគ្រូបង្រៀនទាំងអស់នៃ <strong>{officialSchool}</strong>
             </div>
             <div style={{ marginTop: '0.2rem', color: '#334155' }}>
               សូមលោកគ្រូ អ្នកគ្រូមេត្តាជ្រាបអំពីកាលវិភាគដំណើរការវិញ្ញាសាប្រឡងប្រចាំ{monthDisplayKh} តាមកាលបរិច្ឆេទដូចខាងក្រោម៖
@@ -357,26 +367,22 @@ export default function ExamNoticeLetterCard({
               flexWrap: 'wrap',
             }}
           >
-            <div style={{ fontSize: '0.72rem', color: '#64748b', lineHeight: 1.45 }}>
-              <div>សូមគោរពអរគុណចំពោះកិច្ចសហការ!</div>
-              <div style={{ fontWeight: 600 }}>{safeSchool}</div>
+            <div style={{ fontSize: '0.73rem', color: '#64748b', fontWeight: 600 }}>
+              សូមគោរពអរគុណចំពោះកិច្ចសហការ!
             </div>
 
             <div style={{ textAlign: 'center', minWidth: compact ? '190px' : '225px' }}>
-              <div style={{ fontSize: compact ? '0.74rem' : '0.8rem', color: '#334155', marginBottom: '0.2rem' }}>
+              <div style={{ fontSize: compact ? '0.74rem' : '0.8rem', color: '#334155', marginBottom: '0.28rem' }}>
                 {todayFormatted.fullKh}
               </div>
               <div
                 style={{
-                  fontSize: compact ? '0.85rem' : '0.94rem',
+                  fontSize: compact ? '0.88rem' : '0.96rem',
                   fontWeight: 800,
                   color: '#1e3a8a',
                 }}
               >
-                {issuerText}
-              </div>
-              <div style={{ fontSize: compact ? '0.72rem' : '0.77rem', color: '#475569', fontWeight: 700, marginTop: '0.1rem' }}>
-                {safeSchool}
+                {signerName}
               </div>
             </div>
           </div>
@@ -408,13 +414,13 @@ export default function ExamNoticeLetterCard({
                 >
                   <img
                     src="/logo.png"
-                    alt={safeSchool}
+                    alt={officialSchool}
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.9, fontWeight: 600 }}>
-                    {safeSchool} • {issuerText}
+                  <div style={{ fontSize: '0.77rem', opacity: 0.94, fontWeight: 700 }}>
+                    {officialSchool} • {OFFICIAL_OFFICE_NAME}
                   </div>
                   <div
                     style={{
@@ -498,7 +504,7 @@ export default function ExamNoticeLetterCard({
                 borderTop: '1px dashed #e2e8f0',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-end',
                 flexWrap: 'wrap',
                 gap: '0.5rem',
                 fontSize: '0.75rem',
@@ -506,7 +512,7 @@ export default function ExamNoticeLetterCard({
               }}
             >
               <span>ចេញផ្សាយ៖ {todayFormatted.fullKh}</span>
-              <strong style={{ color: '#0f172a' }}>{issuerText} • {safeSchool}</strong>
+              <strong style={{ color: '#0f172a', fontSize: compact ? '0.82rem' : '0.88rem' }}>{signerName}</strong>
             </div>
           </div>
         </div>

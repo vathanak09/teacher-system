@@ -306,11 +306,10 @@ export function ExamHeaderConfig({
   const isActive = isExamEnabledInWeek4(cfg);
 
   const dateFields: {
-    key: 'prepareDate' | 'collectDate' | 'examDate' | 'resultDate';
+    key: 'collectDate' | 'examDate' | 'resultDate';
     label: string;
     placeholder: string;
   }[] = [
-    { key: 'prepareDate', label: 'ធ្វើវិញ្ញាសា៖', placeholder: 'dd/mm/yyyy' },
     { key: 'collectDate', label: 'ប្រមូលវិញ្ញាសា៖', placeholder: 'dd/mm/yyyy' },
     { key: 'examDate', label: 'ថ្ងៃត្រូវប្រឡង៖', placeholder: 'dd/mm/yyyy' },
     { key: 'resultDate', label: 'ចេញលទ្ធផល៖', placeholder: 'dd/mm/yyyy' },
@@ -398,8 +397,7 @@ export function ExamHeaderConfig({
                     [df.key]: iso,
                   };
                   const anyDate = Boolean(
-                    updated.prepareDate?.trim() ||
-                      updated.collectDate?.trim() ||
+                    updated.collectDate?.trim() ||
                       updated.examDate?.trim() ||
                       updated.resultDate?.trim()
                   );

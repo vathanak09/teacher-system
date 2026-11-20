@@ -144,7 +144,7 @@ export default function ScreenshotReportBoard({
               marginBottom: '0.18rem',
             }}
           >
-            សាលាអន្តរជាតិប្រេនស្គម • ប្រព័ន្ធតាមដានគុណភាពបង្រៀន
+            សាលាអន្តរជាតិប្រេនស្តម • ប្រព័ន្ធតាមដានគុណភាពបង្រៀន
           </div>
           <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.35 }}>
             {isMonthlyScope
@@ -238,9 +238,6 @@ export default function ScreenshotReportBoard({
           {activeExamRibbons.map((item) => (
             <span key={item.label} style={{ display: 'inline-flex', gap: '0.55rem', flexWrap: 'wrap' }}>
               {isMonthlyScope && <strong>[{item.label}]</strong>}
-              {item.cfg.prepareDate?.trim() && (
-                <span>ធ្វើវិញ្ញាសា៖ {formatIsoDateKh(item.cfg.prepareDate)} •</span>
-              )}
               <span>ប្រមូលវិញ្ញាសា៖ {formatIsoDateKh(item.cfg.collectDate)}</span>
               <span>• ថ្ងៃប្រឡង៖ {formatIsoDateKh(item.cfg.examDate)}</span>
               <span>• ចេញលទ្ធផល៖ {formatIsoDateKh(item.cfg.resultDate)}</span>

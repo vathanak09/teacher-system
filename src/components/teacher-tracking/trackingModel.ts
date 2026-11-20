@@ -5,14 +5,15 @@ export type CompletionDropdownStatus = 'none' | 'partial' | 'done';
 
 export interface ExamScheduleConfig {
   enabled?: boolean;
-  prepareDate?: string;     // ថ្ងៃធ្វើវិញ្ញាសា (YYYY-MM-DD)
+  prepareDate?: string;     // Deprecated manual override (legacy compat only; auto uses 20th)
   collectDate?: string;     // ថ្ងៃប្រមូលវិញ្ញាសាពីគ្រូ (YYYY-MM-DD)
   examDate?: string;        // ថ្ងៃត្រូវប្រឡង (YYYY-MM-DD)
   resultDate?: string;      // ថ្ងៃចេញលទ្ធផល (YYYY-MM-DD)
   noticeTitle?: string;     // ចំណងជើងលិខិតជូនដំណឹង (optional custom)
   noticeNote?: string;      // សេចក្តីណែនាំ / កំណត់សម្គាល់បន្ថែមជូនគ្រូ
-  issuerName?: string;      // ហត្ថលេខា / អ្នកចេញលិខិត
+  issuerName?: string;      // ឈ្មោះ Admin អ្នកចេញលិខិត (ក្រោមកាលបរិច្ឆេទ)
   popupEnabled?: boolean;   // បើក/បិទ Pop-up លើ Dashboard គ្រូ (default true when dates exist)
+  popupStyle?: 'official' | 'modern'; // រចនាបទ Pop-up លើ Dashboard គ្រូ
   noticeUpdatedAt?: number; // timestamp bumped on date/notice edits or re-notify
 }
 
@@ -258,7 +259,6 @@ export function hasExamConfigActive(cfg?: ExamScheduleConfig | null): boolean {
   if (cfg.enabled === false) return false;
   return Boolean(
     cfg.enabled ||
-      cfg.prepareDate?.trim() ||
       cfg.collectDate?.trim() ||
       cfg.examDate?.trim() ||
       cfg.resultDate?.trim()
@@ -268,17 +268,36 @@ export function hasExamConfigActive(cfg?: ExamScheduleConfig | null): boolean {
 export function hasAnyExamScheduleDate(cfg?: ExamScheduleConfig | null): boolean {
   if (!cfg || cfg.enabled === false) return false;
   return Boolean(
-    cfg.prepareDate?.trim() ||
-      cfg.collectDate?.trim() ||
+    cfg.collectDate?.trim() ||
       cfg.examDate?.trim() ||
       cfg.resultDate?.trim()
   );
 }
 
+export const OFFICIAL_SCHOOL_NAME = 'សាលាអន្តរជាតិប្រេនស្តម';
+export const OFFICIAL_OFFICE_NAME = 'ការិយាល័យសិក្សា';
+
+export function normalizeOfficialSchoolName(raw?: string): string {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return OFFICIAL_SCHOOL_NAME;
+  if (/ប្រេនស្តម|ប្រេនស្គម|bsis/i.test(trimmed)) {
+    return OFFICIAL_SCHOOL_NAME;
+  }
+  return trimmed.replace(/\s*\(?BSIS\)?\s*/gi, ' ').replace(/\s+/g, ' ').trim() || OFFICIAL_SCHOOL_NAME;
+}
+
+export function getAutoExamPrepareDate(monthKey: string): string {
+  const m = String(monthKey || '').trim().match(/^(\d{4})-(\d{1,2})$/);
+  if (!m) return '';
+  const year = Number(m[1]);
+  const month = String(Number(m[2])).padStart(2, '0');
+  return `${year}-${month}-20`;
+}
+
 export const DEFAULT_EXAM_NOTICE_NOTE =
   'សូមលោកគ្រូ អ្នកគ្រូទាំងអស់មេត្តារៀបចំវិញ្ញាសាប្រឡង ប្រគល់វិញ្ញាសាជូនការិយាល័យសិក្សា បញ្ចូលពិន្ទុ និងចេញលទ្ធផលជូនសិស្សានុសិស្សឱ្យបានទាន់ពេលវេលាកំណត់។';
 
-export const DEFAULT_EXAM_ISSUER_NAME = 'ការិយាល័យសិក្សា';
+export const DEFAULT_EXAM_ISSUER_NAME = 'Admin';
 
 export const KHMER_WEEKDAYS = [
   'អាទិត្យ',
@@ -355,19 +374,19 @@ export function buildExamNoticeSignature(monthKey: string, cfg?: ExamScheduleCon
   if (!cfg) return '';
   return [
     monthKey,
-    cfg.prepareDate || '',
     cfg.collectDate || '',
     cfg.examDate || '',
     cfg.resultDate || '',
     cfg.noticeTitle || '',
     cfg.noticeNote || '',
     cfg.issuerName || '',
+    cfg.popupStyle || 'official',
     cfg.noticeUpdatedAt || 0,
   ].join('|');
 }
 
 function areAllExamDatesOld(cfg: ExamScheduleConfig): boolean {
-  const dates = [cfg.prepareDate, cfg.collectDate, cfg.examDate, cfg.resultDate]
+  const dates = [cfg.collectDate, cfg.examDate, cfg.resultDate]
     .map((s) => formatKhmerDateWithWeekday(s).daysDiff)
     .filter((d): d is number => d !== null);
   if (dates.length === 0) return false;
@@ -417,18 +436,23 @@ export function resolveActiveExamNotice(
 
 export function buildExamNoticeGroupChatText(params: {
   schoolName: string;
+  monthKey: string;
   monthDisplayKh: string;
   config: ExamScheduleConfig;
+  adminName?: string;
 }): string {
-  const { schoolName, monthDisplayKh, config } = params;
+  const { schoolName, monthKey, monthDisplayKh, config, adminName } = params;
+  const officialSchool = normalizeOfficialSchoolName(schoolName);
   const title =
     config.noticeTitle?.trim() ||
     `ស្តីពីកាលបរិច្ឆេទធ្វើវិញ្ញាសា ប្រមូលវិញ្ញាសា ប្រឡង និងចេញលទ្ធផល ប្រចាំ${monthDisplayKh}`;
   const note = config.noticeNote?.trim() || DEFAULT_EXAM_NOTICE_NOTE;
-  const issuer = config.issuerName?.trim() || DEFAULT_EXAM_ISSUER_NAME;
+  const signer = config.issuerName?.trim() || adminName?.trim() || DEFAULT_EXAM_ISSUER_NAME;
+  const autoPrepareIso = getAutoExamPrepareDate(monthKey);
 
   const lines: string[] = [
-    schoolName,
+    officialSchool,
+    OFFICIAL_OFFICE_NAME,
     `សេចក្តីជូនដំណឹង`,
     title,
     `━━━━━━━━━━━━━━━━━━━━`,
@@ -437,17 +461,18 @@ export function buildExamNoticeGroupChatText(params: {
   ];
 
   const milestones: { label: string; iso?: string }[] = [
-    { label: '១. ថ្ងៃធ្វើវិញ្ញាសា', iso: config.prepareDate },
-    { label: '២. ថ្ងៃប្រមូលវិញ្ញាសាប្រឡង', iso: config.collectDate },
-    { label: '៣. ថ្ងៃប្រឡង', iso: config.examDate },
-    { label: '៤. ថ្ងៃចេញលទ្ធផល', iso: config.resultDate },
+    { label: 'ថ្ងៃធ្វើវិញ្ញាសា', iso: autoPrepareIso },
+    { label: 'ថ្ងៃប្រមូលវិញ្ញាសាប្រឡង', iso: config.collectDate },
+    { label: 'ថ្ងៃប្រឡង', iso: config.examDate },
+    { label: 'ថ្ងៃចេញលទ្ធផល', iso: config.resultDate },
   ];
 
+  const khNums = ['១', '២', '៣', '៤'];
   let added = 0;
   for (const m of milestones) {
     if (m.iso?.trim()) {
       const f = formatKhmerDateWithWeekday(m.iso);
-      lines.push(`${m.label}៖ ${f.fullKh} (${f.dmy})`);
+      lines.push(`${khNums[added] || added + 1}. ${m.label}៖ ${f.fullKh} (${f.dmy})`);
       added += 1;
     }
   }
@@ -458,7 +483,7 @@ export function buildExamNoticeGroupChatText(params: {
   lines.push('');
   lines.push(`កំណត់សម្គាល់៖ ${note}`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`${issuer} • ${schoolName}`);
+  lines.push(signer);
   return lines.join('\n');
 }
 
@@ -806,11 +831,8 @@ export function buildGroupChatSummaryText(params: {
 
   lines.push(`របាយការណ៍តាមដានការងារគ្រូ — ${wMeta.label}${dateTag} • ${monthDisplayKh}`);
   if (scopeHasExam && hasExamConfigActive(examCfg)) {
-    const prepPart = examCfg?.prepareDate?.trim()
-      ? `ធ្វើវិញ្ញាសា ${formatIsoDateKh(examCfg.prepareDate)} | `
-      : '';
     lines.push(
-      `កាលវិភាគប្រឡង៖ ${prepPart}ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
+      `កាលវិភាគប្រឡង៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | លទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`
     );
   }
   lines.push(`━━━━━━━━━━━━━━━━━━━━`);
@@ -924,7 +946,7 @@ export async function exportTrackingExcel(params: {
     const examScheduleRow =
       includeExam && hasExamConfigActive(examCfg)
         ? [
-            `កាលវិភាគវិញ្ញាសា៖ ${examCfg?.prepareDate?.trim() ? `ធ្វើវិញ្ញាសា ${formatIsoDateKh(examCfg.prepareDate)} | ` : ''}ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
+            `កាលវិភាគវិញ្ញាសា៖ ប្រមូល ${formatIsoDateKh(examCfg?.collectDate)} | ថ្ងៃប្រឡង ${formatIsoDateKh(examCfg?.examDate)} | ចេញលទ្ធផល ${formatIsoDateKh(examCfg?.resultDate)}`,
           ]
         : [];
 
