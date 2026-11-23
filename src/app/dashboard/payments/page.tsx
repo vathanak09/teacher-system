@@ -362,7 +362,7 @@ export default function PaymentsPage() {
     const startFrom = billing.dueDateStr || billing.enrollDateStr || todayStr;
     const defaultMonths = monthsOverride ?? Math.max(1, billing.monthsDue || 1);
     const unitFee = feeToRiels(student.fee);
-    const anchorDate = student.billingStartDate ? startFrom : student.enrollDate || startFrom;
+    const anchorDate = student.billingStartDate || student.enrollDate || startFrom;
     const nextUntil = addMonthsWithAnniversary(
       startFrom,
       defaultMonths,
@@ -411,7 +411,7 @@ export default function PaymentsPage() {
     const disc = Math.max(0, parseFloat(nextDiscountStr) || 0);
 
     if (nextFrom) {
-      const anchorDate = student?.billingStartDate ? nextFrom : student?.enrollDate || nextFrom;
+      const anchorDate = student?.billingStartDate || student?.enrollDate || nextFrom;
       setPayValidUntil(
         addMonthsWithAnniversary(nextFrom, m, anchorDate)
       );
