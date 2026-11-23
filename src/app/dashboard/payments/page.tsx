@@ -63,6 +63,7 @@ export default function PaymentsPage() {
     schoolPhone: DEFAULT_RECEIPT_PHONE,
     schoolAddress: DEFAULT_RECEIPT_ADDRESS,
     cashierName: DEFAULT_RECEIPT_CASHIER,
+    cashierSignatureUrl: '',
     headerLogoUrl: DEFAULT_RECEIPT_HEADER_DRIVE_URL,
     paymentNote: '',
   });
@@ -142,6 +143,7 @@ export default function PaymentsPage() {
           schoolPhone: docData.schoolPhone || DEFAULT_RECEIPT_PHONE,
           schoolAddress: docData.schoolAddress || DEFAULT_RECEIPT_ADDRESS,
           cashierName: docData.cashierName || DEFAULT_RECEIPT_CASHIER,
+          cashierSignatureUrl: docData.cashierSignatureUrl || '',
           headerLogoUrl: docData.headerLogoUrl || DEFAULT_RECEIPT_HEADER_DRIVE_URL,
           paymentNote: docData.paymentNote || '',
         }));
@@ -2705,6 +2707,28 @@ export default function PaymentsPage() {
 
               <div>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.3rem', fontSize: '0.85rem' }}>
+                  Link រូបភាពហត្ថលេខាអ្នកទទួលប្រាក់ (PNG ពី Google Drive — ទុកទទេដើម្បីប្រើហត្ថលេខាលំនាំដើម)
+                </label>
+                <input
+                  type="text"
+                  value={syncSettings.cashierSignatureUrl}
+                  onChange={(e) =>
+                    setSyncSettings((s) => ({ ...s, cashierSignatureUrl: e.target.value }))
+                  }
+                  placeholder="https://drive.google.com/file/d/... (ជាជម្រើស)"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.3rem', fontSize: '0.85rem' }}>
                   អាសយដ្ឋានសាលា (លើវិក្កយបត្រ & លិខិតជូនដំណឹង)
                 </label>
                 <textarea
@@ -2772,6 +2796,7 @@ export default function PaymentsPage() {
         schoolPhone={syncSettings.schoolPhone}
         schoolAddress={syncSettings.schoolAddress}
         cashierName={syncSettings.cashierName}
+        cashierSignatureUrl={syncSettings.cashierSignatureUrl}
         headerLogoUrl={syncSettings.headerLogoUrl}
         paymentNote={syncSettings.paymentNote}
         onMarkAsPrinted={handleMarkPaymentsPrinted}

@@ -1644,17 +1644,15 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 
   body.printing-receipt-a4 .receipt-a4-preview-scale {
     transform: none !important;
-    width: 29.7cm !important;
-    height: 21cm !important;
+    width: auto !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   body.printing-receipt-a4 .receipt-a4-sheet {
     transform: none !important;
-    width: 29.7cm !important;
-    height: 21cm !important;
     margin: 0 !important;
     padding: 0 !important;
     box-shadow: none !important;
