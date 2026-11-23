@@ -98,6 +98,7 @@ export type PrintDocPayload =
       payment: any;
       student: any;
       roomAndTeacher: string;
+      classCode?: string;
       courseName?: string;
       teacherShortCode?: string;
     }
@@ -130,6 +131,7 @@ interface PaymentPrintModalProps {
   headerLogoUrl?: string;
   paymentNote?: string;
   onMarkAsPrinted?: (paymentIds: string[]) => Promise<void> | void;
+  onSaveSignatureUrl?: (signatureUrl: string) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -150,6 +152,18 @@ function renderReceiptCardByTemplate(
   }
 }
 
+function getItemClassCodes(item: OfficialReceiptItem): string[] {
+  const raw =
+    item.classCode ||
+    item.payment?.className ||
+    (item.roomAndTeacher ? item.roomAndTeacher.split('(')[0] : '') ||
+    '';
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export default function PaymentPrintModal({
   doc,
   schoolName,
@@ -160,6 +174,7 @@ export default function PaymentPrintModal({
   headerLogoUrl,
   paymentNote,
   onMarkAsPrinted,
+  onSaveSignatureUrl,
   onClose,
 }: PaymentPrintModalProps) {
   const [templateId, setTemplateId] = useState<ReceiptTemplateId>('classic');
@@ -171,7 +186,22 @@ export default function PaymentPrintModal({
   const [isMarkingPrinted, setIsMarkingPrinted] = useState(false);
   const [previewScale, setPreviewScale] = useState(1);
 
-  // Restore saved preferences on mount
+  // Print Modal In-Place Filters & Class Sorting
+  const [filterClass, setFilterClass] = useState('all');
+  const [filterDate, setFilterDate] = useState('all');
+  const [filterShift, setFilterShift] = useState('all');
+  const [sortByClass, setSortByClass] = useState(true);
+
+  // Inline Google Drive Signature Link Editor
+  const [isSigEditorOpen, setIsSigEditorOpen] = useState(false);
+  const [draftSignatureUrl, setDraftSignatureUrl] = useState(cashierSignatureUrl || '');
+  const [isSavingSignature, setIsSavingSignature] = useState(false);
+
+  useEffect(() => {
+    setDraftSignatureUrl(cashierSignatureUrl || '');
+  }, [cashierSignatureUrl]);
+
+  // Restore saved template & layout preferences
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -206,8 +236,12 @@ export default function PaymentPrintModal({
     }
   };
 
+  // Reset modal-local filters whenever a new doc/batch opens
   useEffect(() => {
     setHasTriggeredPrint(false);
+    setFilterClass('all');
+    setFilterDate('all');
+    setFilterShift('all');
   }, [doc]);
 
   useEffect(() => {
@@ -233,7 +267,7 @@ export default function PaymentPrintModal({
     return () => window.removeEventListener('resize', updateScale);
   }, [doc, activeSpec.sheetWPx]);
 
-  const receiptItems: OfficialReceiptItem[] = useMemo(() => {
+  const rawReceiptItems: OfficialReceiptItem[] = useMemo(() => {
     if (!doc) return [];
     if (doc.type === 'receipt') {
       return [
@@ -241,6 +275,7 @@ export default function PaymentPrintModal({
           payment: doc.payment,
           student: doc.student,
           roomAndTeacher: doc.roomAndTeacher,
+          classCode: doc.classCode,
           courseName: doc.courseName,
           teacherShortCode: doc.teacherShortCode,
         },
@@ -252,29 +287,97 @@ export default function PaymentPrintModal({
     return [];
   }, [doc]);
 
+  // Distinct Class / Date / Shift Filter Options inside the Print Preview
+  const modalClassOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rawReceiptItems.forEach((item) => {
+      const codes = getItemClassCodes(item);
+      if (codes.length === 0) {
+        counts.set('គ្មានថ្នាក់', (counts.get('គ្មានថ្នាក់') || 0) + 1);
+      } else {
+        codes.forEach((c) => counts.set(c, (counts.get(c) || 0) + 1));
+      }
+    });
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rawReceiptItems]);
+
+  const modalDateOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rawReceiptItems.forEach((item) => {
+      const d = String(item.payment?.paymentDate || '').trim();
+      if (d) counts.set(d, (counts.get(d) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [rawReceiptItems]);
+
+  const modalShiftOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    rawReceiptItems.forEach((item) => {
+      const s = String(item.payment?.shift || item.student?.shift || '').trim();
+      if (s) counts.set(s, (counts.get(s) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [rawReceiptItems]);
+
+  const filteredReceiptItems = useMemo(() => {
+    const filtered = rawReceiptItems.filter((item) => {
+      if (filterClass !== 'all') {
+        const codes = getItemClassCodes(item);
+        if (filterClass === 'គ្មានថ្នាក់') {
+          if (codes.length > 0) return false;
+        } else if (!codes.includes(filterClass)) {
+          return false;
+        }
+      }
+      if (filterDate !== 'all') {
+        const d = String(item.payment?.paymentDate || '').trim();
+        if (d !== filterDate) return false;
+      }
+      if (filterShift !== 'all') {
+        const s = String(item.payment?.shift || item.student?.shift || '').trim();
+        if (s !== filterShift) return false;
+      }
+      return true;
+    });
+
+    if (!sortByClass) return filtered;
+    return [...filtered].sort((a, b) => {
+      const ca = getItemClassCodes(a)[0] || 'ZZZ';
+      const cb = getItemClassCodes(b)[0] || 'ZZZ';
+      if (ca !== cb) return ca.localeCompare(cb);
+      const na = String(a.student?.fullName || a.payment?.studentName || '');
+      const nb = String(b.student?.fullName || b.payment?.studentName || '');
+      return na.localeCompare(nb);
+    });
+  }, [rawReceiptItems, filterClass, filterDate, filterShift, sortByClass]);
+
   const receiptPages = useMemo(() => {
     const pages: OfficialReceiptItem[][] = [];
     const step = activeSpec.perPage;
-    for (let i = 0; i < receiptItems.length; i += step) {
-      pages.push(receiptItems.slice(i, i + step));
+    for (let i = 0; i < filteredReceiptItems.length; i += step) {
+      pages.push(filteredReceiptItems.slice(i, i + step));
     }
     return pages;
-  }, [receiptItems, activeSpec.perPage]);
+  }, [filteredReceiptItems, activeSpec.perPage]);
 
   const unprintedPaymentIds = useMemo(
     () =>
-      receiptItems
+      filteredReceiptItems
         .filter((it) => it.payment?.id && it.payment?.printStatus !== 'printed')
         .map((it) => String(it.payment.id)),
-    [receiptItems]
+    [filteredReceiptItems]
   );
 
   if (!doc || typeof window === 'undefined') return null;
 
   const isReceiptMode = doc.type === 'receipt' || doc.type === 'receipt_batch';
+  const effectiveSignatureUrl = draftSignatureUrl.trim();
+  const hasActiveModalFilter =
+    filterClass !== 'all' || filterDate !== 'all' || filterShift !== 'all';
 
   const handlePrint = () => {
     if (isReceiptMode) {
+      if (filteredReceiptItems.length === 0) return;
       setHasTriggeredPrint(true);
       document.body.classList.add('printing-receipt-a4');
 
@@ -313,13 +416,46 @@ export default function PaymentPrintModal({
     setIsMarkingPrinted(true);
     try {
       await onMarkAsPrinted(unprintedPaymentIds);
-      onClose();
+      if (!hasActiveModalFilter || unprintedPaymentIds.length >= rawReceiptItems.length) {
+        onClose();
+      }
     } finally {
       setIsMarkingPrinted(false);
     }
   };
 
+  const handleSaveSignatureClick = async (nextUrl?: string) => {
+    if (!onSaveSignatureUrl) return;
+    const urlToSave = (nextUrl !== undefined ? nextUrl : draftSignatureUrl).trim();
+    setIsSavingSignature(true);
+    try {
+      setDraftSignatureUrl(urlToSave);
+      await onSaveSignatureUrl(urlToSave);
+    } finally {
+      setIsSavingSignature(false);
+    }
+  };
+
   const renderReceiptSheets = () => {
+    if (filteredReceiptItems.length === 0) {
+      return (
+        <div
+          className="no-print"
+          style={{
+            padding: '2.5rem 1.5rem',
+            borderRadius: '14px',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(255, 255, 255, 0.14)',
+            color: '#cbd5e1',
+            textAlign: 'center',
+            fontSize: '0.92rem',
+          }}
+        >
+          មិនមានវិក្កយបត្រត្រូវតាមលក្ខខណ្ឌច្រោះនេះទេ។ សូមប្តូរ ឬចុច «សម្អាតច្រោះ»។
+        </div>
+      );
+    }
+
     const slotW = activeSpec.orientation === 'portrait' ? '10.5cm' : '14.85cm';
     const slotH = activeSpec.orientation === 'portrait' ? '14.85cm' : '10.5cm';
 
@@ -412,7 +548,7 @@ export default function PaymentPrintModal({
                             schoolPhone,
                             schoolAddress,
                             cashierName,
-                            cashierSignatureUrl,
+                            cashierSignatureUrl: effectiveSignatureUrl,
                             headerLogoUrl,
                             showAmount,
                             showSignature,
@@ -429,7 +565,7 @@ export default function PaymentPrintModal({
                         schoolPhone,
                         schoolAddress,
                         cashierName,
-                        cashierSignatureUrl,
+                        cashierSignatureUrl: effectiveSignatureUrl,
                         headerLogoUrl,
                         showAmount,
                         showSignature,
@@ -646,6 +782,18 @@ export default function PaymentPrintModal({
     );
   };
 
+  const selectStyle: React.CSSProperties = {
+    padding: '0.34rem 0.65rem',
+    borderRadius: '8px',
+    border: '1px solid rgba(255,255,255,0.22)',
+    background: '#1e293b',
+    color: '#ffffff',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    outline: 'none',
+  };
+
   return createPortal(
     <div
       id="payment-print-portal-root"
@@ -653,7 +801,7 @@ export default function PaymentPrintModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.82)',
+        background: 'rgba(15, 23, 42, 0.84)',
         backdropFilter: 'blur(4px)',
         display: 'flex',
         flexDirection: 'column',
@@ -674,8 +822,8 @@ export default function PaymentPrintModal({
           width: '100%',
           maxWidth: isReceiptMode ? '1124px' : '720px',
           marginBottom: '0.85rem',
-          gap: '0.65rem',
-          background: 'rgba(15, 23, 42, 0.94)',
+          gap: '0.6rem',
+          background: 'rgba(15, 23, 42, 0.96)',
           border: '1px solid rgba(255, 255, 255, 0.14)',
           padding: '0.8rem 1rem',
           borderRadius: '14px',
@@ -694,21 +842,22 @@ export default function PaymentPrintModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.12rem' }}>
             <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.96rem' }}>
               {doc.type === 'receipt_batch'
-                ? doc.title || `បោះពុម្ពវិក្កយបត្រជាក្រុម (${receiptItems.length} វិក្កយបត្រ)`
+                ? doc.title || `បោះពុម្ពវិក្កយបត្រជាក្រុម (${filteredReceiptItems.length}/${rawReceiptItems.length} វិក្កយបត្រ)`
                 : doc.type === 'receipt'
                   ? 'វិក្កយបត្របង់ប្រាក់'
                   : 'លិខិតជូនដំណឹងដល់ថ្ងៃបង់ប្រាក់'}
             </span>
             {isReceiptMode && (
               <span style={{ color: '#cbd5e1', fontSize: '0.78rem' }}>
-                {activeSpec.hint} • សរុប {receiptPages.length} ទំព័រ (ជ្រើស Margins: None & Background graphics ពេល Print)
+                {activeSpec.hint} • បង្ហាញ {filteredReceiptItems.length} វិក្កយបត្រ ({receiptPages.length} ទំព័រ)
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
             <button
               type="button"
+              disabled={isReceiptMode && filteredReceiptItems.length === 0}
               onClick={handlePrint}
               className="btn btn-primary"
               style={{
@@ -721,7 +870,9 @@ export default function PaymentPrintModal({
               }}
             >
               <AppIcon name="printer" size={16} />
-              {isReceiptMode ? `Print (${activeSpec.shortLabel})` : 'បោះពុម្ព / Print'}
+              {isReceiptMode
+                ? `Print (${filteredReceiptItems.length}) • ${activeSpec.shortLabel}`
+                : 'បោះពុម្ព / Print'}
             </button>
 
             {isReceiptMode && unprintedPaymentIds.length > 0 && onMarkAsPrinted && (
@@ -777,15 +928,15 @@ export default function PaymentPrintModal({
               flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '0.65rem',
+              gap: '0.6rem',
               paddingTop: '0.55rem',
               borderTop: '1px solid rgba(255,255,255,0.1)',
             }}
           >
             {/* 4 Template Styles */}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.76rem', fontWeight: 700, marginRight: '0.2rem' }}>
-                ស្តាយ៍វិក្កយបត្រ៖
+              <span style={{ color: '#94a3b8', fontSize: '0.76rem', fontWeight: 700, marginRight: '0.15rem' }}>
+                ស្តាយ៍៖
               </span>
               {RECEIPT_TEMPLATE_OPTIONS.map((tpl) => {
                 const active = templateId === tpl.id;
@@ -795,7 +946,7 @@ export default function PaymentPrintModal({
                     type="button"
                     onClick={() => handleSelectTemplate(tpl.id)}
                     style={{
-                      padding: '0.32rem 0.68rem',
+                      padding: '0.3rem 0.65rem',
                       borderRadius: '8px',
                       border: active
                         ? '1px solid #60a5fa'
@@ -816,7 +967,7 @@ export default function PaymentPrintModal({
 
             {/* 4 Paper & Orientation Modes */}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.76rem', fontWeight: 700, marginRight: '0.2rem' }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.76rem', fontWeight: 700, marginRight: '0.15rem' }}>
                 ក្រដាស៖
               </span>
               {(Object.keys(LAYOUT_SPECS) as ReceiptPrintLayout[]).map((layoutKey) => {
@@ -827,7 +978,7 @@ export default function PaymentPrintModal({
                     type="button"
                     onClick={() => handleSelectLayout(layoutKey)}
                     style={{
-                      padding: '0.32rem 0.65rem',
+                      padding: '0.3rem 0.62rem',
                       borderRadius: '8px',
                       border: active
                         ? '1px solid #34d399'
@@ -846,8 +997,8 @@ export default function PaymentPrintModal({
               })}
             </div>
 
-            {/* Quick Checkboxes */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Quick Toggles + Inline Signature Link Button */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
               {activeSpec.perPage === 4 && (
                 <label
                   style={{
@@ -906,7 +1057,224 @@ export default function PaymentPrintModal({
                 />
                 ហត្ថលេខា
               </label>
+
+              <button
+                type="button"
+                onClick={() => setIsSigEditorOpen((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.28rem 0.62rem',
+                  borderRadius: '8px',
+                  border: isSigEditorOpen
+                    ? '1px solid #38bdf8'
+                    : '1px solid rgba(255,255,255,0.22)',
+                  background: isSigEditorOpen
+                    ? 'rgba(56, 189, 248, 0.2)'
+                    : 'rgba(255,255,255,0.08)',
+                  color: '#e0f2fe',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <AppIcon name="edit" size={13} />
+                Link ហត្ថលេខា
+              </button>
             </div>
+          </div>
+        )}
+
+        {/* Row 3: Print-Page Filters (Class, Date, Shift, Group-by-Class) */}
+        {isReceiptMode && rawReceiptItems.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.55rem',
+              paddingTop: '0.55rem',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.76rem', fontWeight: 700 }}>
+                ច្រោះទិន្នន័យ Print៖
+              </span>
+
+              <select
+                aria-label="ច្រោះតាមថ្នាក់"
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">គ្រប់ថ្នាក់ ({rawReceiptItems.length})</option>
+                {modalClassOptions.map(([code, count]) => (
+                  <option key={code} value={code}>
+                    ថ្នាក់ {code} ({count})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="ច្រោះតាមថ្ងៃបង់ប្រាក់"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">គ្រប់ថ្ងៃបង់</option>
+                {modalDateOptions.map(([dateStr, count]) => (
+                  <option key={dateStr} value={dateStr}>
+                    ថ្ងៃ {formatDMYSlash(dateStr)} ({count})
+                  </option>
+                ))}
+              </select>
+
+              {modalShiftOptions.length > 1 && (
+                <select
+                  aria-label="ច្រោះតាមវេន"
+                  value={filterShift}
+                  onChange={(e) => setFilterShift(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="all">គ្រប់វេន</option>
+                  {modalShiftOptions.map(([sh, count]) => (
+                    <option key={sh} value={sh}>
+                      វេន {sh} ({count})
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {hasActiveModalFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterClass('all');
+                    setFilterDate('all');
+                    setFilterShift('all');
+                  }}
+                  style={{
+                    padding: '0.3rem 0.6rem',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(248, 113, 113, 0.45)',
+                    background: 'rgba(239, 68, 68, 0.16)',
+                    color: '#fecaca',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  សម្អាតច្រោះ
+                </button>
+              )}
+            </div>
+
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                color: '#cbd5e1',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={sortByClass}
+                onChange={(e) => setSortByClass(e.target.checked)}
+              />
+              តម្រៀបជាក្រុមតាមថ្នាក់ (ងាយចែកសិស្ស)
+            </label>
+          </div>
+        )}
+
+        {/* Row 4 (Expandable): Google Drive Signature Link Input & Save to DB */}
+        {isReceiptMode && isSigEditorOpen && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.6rem 0.75rem',
+              borderRadius: '10px',
+              background: 'rgba(30, 41, 59, 0.9)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+            }}
+          >
+            <span style={{ color: '#7dd3fc', fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              Link ហត្ថលេខា (Google Drive PNG)៖
+            </span>
+            <input
+              type="text"
+              value={draftSignatureUrl}
+              onChange={(e) => setDraftSignatureUrl(e.target.value)}
+              placeholder="បិទភ្ជាប់ Link ពី Google Drive (https://drive.google.com/file/d/.../view)"
+              style={{
+                flex: '1 1 280px',
+                minWidth: '220px',
+                padding: '0.42rem 0.7rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: '#0f172a',
+                color: '#ffffff',
+                fontSize: '0.8rem',
+                outline: 'none',
+              }}
+            />
+            {onSaveSignatureUrl && (
+              <>
+                <button
+                  type="button"
+                  disabled={isSavingSignature}
+                  onClick={() => handleSaveSignatureClick()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.42rem 0.85rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: isSavingSignature ? 'wait' : 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <AppIcon name="check" size={14} />
+                  {isSavingSignature ? 'កំពុងរក្សាទុក...' : 'រក្សាទុកហត្ថលេខា'}
+                </button>
+                {draftSignatureUrl.trim() && (
+                  <button
+                    type="button"
+                    disabled={isSavingSignature}
+                    onClick={() => handleSaveSignatureClick('')}
+                    style={{
+                      padding: '0.42rem 0.7rem',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'transparent',
+                      color: '#cbd5e1',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    ប្រើហត្ថលេខាដើម
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -928,7 +1296,7 @@ export default function PaymentPrintModal({
             fontSize: '0.84rem',
           }}
         >
-          ប្រសិនបើ Print ចេញរួចរាល់ហើយ សូមចុចប៊ូតុង <strong>«Print រួច → ផ្ទេរទុកដោយឡែក»</strong> ដើម្បីកុំឱ្យលាយឡំជាមួយសិស្សបង់ប្រាក់ថ្មីនៅថ្ងៃស្អែក។
+          ប្រសិនបើ Print ចេញរួចរាល់ហើយ សូមចុចប៊ូតុង <strong>«Print រួច → ផ្ទេរទុកដោយឡែក ({unprintedPaymentIds.length})»</strong> ដើម្បីកុំឱ្យលាយឡំជាមួយសិស្សបង់ប្រាក់ថ្មីនៅថ្ងៃស្អែក។
         </div>
       )}
 

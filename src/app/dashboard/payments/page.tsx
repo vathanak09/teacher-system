@@ -76,6 +76,7 @@ export default function PaymentsPage() {
   const [dueSubFilter, setDueSubFilter] = useState<'all' | 'due_only' | 'overdue_only' | 'include_upcoming'>('all');
   const [paidViewMode, setPaidViewMode] = useState<'latest_per_student' | 'all_receipts'>('all_receipts');
   const [paidMonthFilter, setPaidMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
+  const [queueDateFilter, setQueueDateFilter] = useState('all'); // 'all' or 'YYYY-MM-DD'
   const [printedDateFilter, setPrintedDateFilter] = useState('all'); // 'all' or 'YYYY-MM-DD'
   const [showInactiveStudents, setShowInactiveStudents] = useState(false);
 
@@ -333,9 +334,24 @@ export default function PaymentsPage() {
     [allEnrichedPaidEntries]
   );
 
+  const queueDateOptions = useMemo(() => {
+    const set = new Set<string>();
+    allEnrichedPaidEntries.forEach((item) => {
+      if (item.printStatus !== 'printed' && item.paymentDate) {
+        set.add(item.paymentDate);
+      }
+    });
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((d) => ({ value: d, label: formatDMYSlash(d) || d }));
+  }, [allEnrichedPaidEntries]);
+
   const printQueueEntries = useMemo(() => {
     return allEnrichedPaidEntries.filter((item) => {
       if (item.printStatus === 'printed') return false;
+      if (queueDateFilter !== 'all' && item.paymentDate !== queueDateFilter) {
+        return false;
+      }
       return matchesSearchAndClass(
         item.student || {
           studentId: item.studentIdCode,
@@ -345,7 +361,7 @@ export default function PaymentsPage() {
         item.roomAndTeacher
       );
     });
-  }, [allEnrichedPaidEntries, searchQuery, classFilter]);
+  }, [allEnrichedPaidEntries, queueDateFilter, searchQuery, classFilter]);
 
   const printedDateOptions = useMemo(() => {
     const set = new Set<string>();
@@ -422,9 +438,31 @@ export default function PaymentsPage() {
       enrollDate: row.enrollDateStr,
     },
     roomAndTeacher: row.roomAndTeacher,
+    classCode: row.classCode,
     courseName: row.courseName,
     teacherShortCode: row.teacherShortCode,
   });
+
+  const handleSaveSignatureUrl = async (nextUrl: string) => {
+    const cleaned = nextUrl.trim();
+    const updatedSettings = {
+      ...syncSettings,
+      cashierSignatureUrl: cleaned,
+      id: 'paymentSyncSettings',
+    };
+    setSyncSettings((prev) => ({ ...prev, cashierSignatureUrl: cleaned }));
+    try {
+      await settingsService.add(updatedSettings, 'paymentSyncSettings');
+      showToast(
+        cleaned
+          ? 'បានរក្សាទុក Link ហត្ថលេខាទៅក្នុងប្រព័ន្ធរួចរាល់!'
+          : 'បានប្តូរត្រឡប់ទៅប្រើហត្ថលេខាលំនាំដើមវិញ!'
+      );
+    } catch (error) {
+      console.error('Failed saving signature URL:', error);
+      showToast('មានបញ្ហាក្នុងការរក្សាទុក Link ហត្ថលេខា!', 'error');
+    }
+  };
 
   const handleMarkPaymentsPrinted = async (paymentIds: string[]) => {
     if (!paymentIds.length) return;
@@ -1204,6 +1242,18 @@ export default function PaymentsPage() {
                     label: `រួមទាំងជិតដល់ថ្ងៃ (${syncSettings.upcomingDays}ថ្ងៃ)`,
                   },
                 ]}
+              />
+            </div>
+          )}
+
+          {activeTab === 'print_queue' && (
+            <div style={{ minWidth: '170px' }}>
+              <CustomSelectDropdown
+                value={queueDateFilter}
+                onChange={setQueueDateFilter}
+                searchable={false}
+                menuMinWidth={185}
+                options={[{ value: 'all', label: 'គ្រប់ថ្ងៃបង់ប្រាក់' }, ...queueDateOptions]}
               />
             </div>
           )}
@@ -2800,6 +2850,7 @@ export default function PaymentsPage() {
         headerLogoUrl={syncSettings.headerLogoUrl}
         paymentNote={syncSettings.paymentNote}
         onMarkAsPrinted={handleMarkPaymentsPrinted}
+        onSaveSignatureUrl={handleSaveSignatureUrl}
         onClose={() => setPrintDoc(null)}
       />
     </div>
