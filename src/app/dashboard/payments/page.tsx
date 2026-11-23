@@ -2450,6 +2450,19 @@ export default function PaymentsPage() {
                                 payment: p,
                                 student: historyStudentBilling.student,
                                 roomAndTeacher: historyStudentBilling.roomAndTeacher,
+                                courseName:
+                                  p.courseName ||
+                                  resolveStudentCourseName(
+                                    historyStudentBilling.student,
+                                    classesData
+                                  ),
+                                teacherShortCode:
+                                  p.teacherShortCode ||
+                                  resolveTeacherShortCode(
+                                    historyStudentBilling.teacherName,
+                                    teachersData,
+                                    historyStudentBilling.classCode
+                                  ),
                               })
                             }
                             className="btn btn-outline"
