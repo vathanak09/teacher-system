@@ -12,6 +12,8 @@ import {
 } from '@/services/db';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
+import MultiSelectDropdown from '@/components/MultiSelectDropdown';
+import MultiSortDropdown, { MultiSortOption, SortRule } from '@/components/MultiSortDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
 import { OfficialReceiptItem } from '@/components/OfficialReceiptCard';
@@ -39,6 +41,35 @@ import {
 } from '@/utils/paymentBilling';
 
 type ActiveTab = 'due_overdue' | 'print_queue' | 'printed_archive' | 'all_students';
+
+const PAYMENT_SORT_OPTIONS: MultiSortOption[] = [
+  { value: 'classCode', label: 'ថ្នាក់រៀន / បន្ទប់' },
+  { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
+  { value: 'studentId', label: 'អត្តលេខសិស្ស' },
+  { value: 'dueDate', label: 'ថ្ងៃត្រូវបង់បន្ទាប់' },
+  { value: 'enrollDay', label: 'ថ្ងៃខួបចូលរៀន (១-៣១)' },
+  { value: 'enrollDate', label: 'ថ្ងៃខែឆ្នាំចូលរៀន' },
+  { value: 'overdueDays', label: 'ចំនួនថ្ងៃលើស' },
+  { value: 'level', label: 'វគ្គ / កម្រិតសិក្សា' },
+  { value: 'shift', label: 'វេនសិក្សា' },
+  { value: 'fee', label: 'ថ្លៃសិក្សា / ទឹកប្រាក់' },
+  { value: 'teacherName', label: 'គ្រូបង្រៀន' },
+  { value: 'status', label: 'ស្ថានភាពបង់ប្រាក់' },
+];
+
+const STATUS_SORT_RANK: Record<string, number> = {
+  overdue: 1,
+  due: 2,
+  paid: 3,
+  no_date: 4,
+};
+
+function compareSortValues(valA: string | number, valB: string | number): number {
+  if (typeof valA === 'number' && typeof valB === 'number') {
+    return valA - valB;
+  }
+  return String(valA || '').localeCompare(String(valB || ''), 'km', { numeric: true });
+}
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -72,7 +103,8 @@ export default function PaymentsPage() {
   // Filters & Tabs
   const [activeTab, setActiveTab] = useState<ActiveTab>('due_overdue');
   const [searchQuery, setSearchQuery] = useState('');
-  const [classFilter, setClassFilter] = useState('all');
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [sortRules, setSortRules] = useState<SortRule[]>([]);
   const [dueSubFilter, setDueSubFilter] = useState<'all' | 'due_only' | 'overdue_only' | 'include_upcoming'>('all');
   const [paidViewMode, setPaidViewMode] = useState<'latest_per_student' | 'all_receipts'>('all_receipts');
   const [paidMonthFilter, setPaidMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
@@ -179,15 +211,21 @@ export default function PaymentsPage() {
     );
   }, [activeStudents, payments, classesData]);
 
-  // Unique class options for filter dropdown
+  // Unique class options for multi-select filter dropdown
   const classFilterOptions = useMemo(() => {
     const names = new Set<string>();
     classesData.forEach((c) => {
-      const code = c.classCode || c.className;
+      const code = String(c.classCode || c.className || '').trim();
       if (code) names.add(code);
     });
     billingList.forEach((b) => {
-      if (b.classCode) names.add(b.classCode);
+      if (b.classCode) {
+        b.classCode
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((c) => names.add(c));
+      }
     });
     return Array.from(names)
       .sort()
@@ -195,9 +233,12 @@ export default function PaymentsPage() {
   }, [classesData, billingList]);
 
   const matchesSearchAndClass = (student: any, classCode: string, roomAndTeacher: string) => {
-    if (classFilter && classFilter !== 'all') {
-      const codes = classCode.split(',').map((s) => s.trim());
-      if (!codes.includes(classFilter)) return false;
+    if (selectedClasses.length > 0) {
+      const codes = String(classCode || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!codes.some((c) => selectedClasses.includes(c))) return false;
     }
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -208,6 +249,52 @@ export default function PaymentsPage() {
       (student?.phoneNum || '').toLowerCase().includes(q) ||
       (roomAndTeacher || '').toLowerCase().includes(q)
     );
+  };
+
+  const getBillingSortValue = (b: StudentBillingInfo, field: string): string | number => {
+    switch (field) {
+      case 'classCode':
+        return b.classCode || '';
+      case 'fullName':
+        return b.student?.fullName || '';
+      case 'studentId':
+        return b.student?.studentId || '';
+      case 'dueDate':
+        return parseLocalDate(b.dueDateStr)?.getTime() || 0;
+      case 'enrollDay':
+        return parseLocalDate(b.enrollDateStr)?.getDate() || 99;
+      case 'enrollDate':
+        return parseLocalDate(b.enrollDateStr)?.getTime() || 0;
+      case 'overdueDays':
+        return b.overdueDays || 0;
+      case 'level':
+        return b.student?.level || '';
+      case 'shift':
+        return b.student?.shift || '';
+      case 'fee':
+        return b.amountDue > 0 ? b.amountDue : b.monthlyFee || 0;
+      case 'teacherName':
+        return b.teacherName || '';
+      case 'status':
+        return STATUS_SORT_RANK[b.statusKey] ?? 9;
+      default:
+        return b.student?.studentId || '';
+    }
+  };
+
+  const compareBillingByRules = (
+    a: StudentBillingInfo,
+    b: StudentBillingInfo,
+    fallback: (x: StudentBillingInfo, y: StudentBillingInfo) => number
+  ): number => {
+    for (const rule of sortRules) {
+      const cmp = compareSortValues(
+        getBillingSortValue(a, rule.field),
+        getBillingSortValue(b, rule.field)
+      );
+      if (cmp !== 0) return rule.order === 'asc' ? cmp : -cmp;
+    }
+    return fallback(a, b);
   };
 
   // Due & Overdue List (គិតតាមថ្ងៃខួបចូលរៀន)
@@ -227,11 +314,13 @@ export default function PaymentsPage() {
         }
         return b.statusKey === 'due' || b.statusKey === 'overdue';
       })
-      .sort((a, b) => {
-        if (b.overdueDays !== a.overdueDays) return b.overdueDays - a.overdueDays;
-        return (a.student.studentId || '').localeCompare(b.student.studentId || '');
-      });
-  }, [billingList, dueSubFilter, searchQuery, classFilter, syncSettings.upcomingDays]);
+      .sort((a, b) =>
+        compareBillingByRules(a, b, (x, y) => {
+          if (y.overdueDays !== x.overdueDays) return y.overdueDays - x.overdueDays;
+          return (x.student.studentId || '').localeCompare(y.student.studentId || '');
+        })
+      );
+  }, [billingList, dueSubFilter, searchQuery, selectedClasses, sortRules, syncSettings.upcomingDays]);
 
   // All Due/Overdue rows for Sync (ignores temporary UI sub-filter except class/search if desired — let's sync full active due/overdue cleanly!)
   const dueRowsForSync = useMemo(() => {
@@ -346,8 +435,58 @@ export default function PaymentsPage() {
       .map((d) => ({ value: d, label: formatDMYSlash(d) || d }));
   }, [allEnrichedPaidEntries]);
 
+  const getPaidEntrySortValue = (
+    item: (typeof allEnrichedPaidEntries)[number],
+    field: string
+  ): string | number => {
+    switch (field) {
+      case 'classCode':
+        return item.classCode || '';
+      case 'fullName':
+        return item.studentName || '';
+      case 'studentId':
+        return item.studentIdCode || '';
+      case 'dueDate':
+        return parseLocalDate(item.validUntil)?.getTime() || 0;
+      case 'enrollDay':
+        return parseLocalDate(item.enrollDateStr)?.getDate() || 99;
+      case 'enrollDate':
+        return parseLocalDate(item.enrollDateStr)?.getTime() || 0;
+      case 'overdueDays':
+        return parseLocalDate(item.paymentDate)?.getTime() || 0;
+      case 'level':
+        return item.level || '';
+      case 'shift':
+        return item.shift || '';
+      case 'fee':
+        return item.amount || 0;
+      case 'teacherName':
+        return item.roomAndTeacher || '';
+      case 'status':
+        return item.printStatus === 'printed' ? 2 : 1;
+      default:
+        return item.receiptNo || '';
+    }
+  };
+
+  const sortPaidEntriesByRules = (
+    list: typeof allEnrichedPaidEntries
+  ): typeof allEnrichedPaidEntries => {
+    if (sortRules.length === 0) return list;
+    return [...list].sort((a, b) => {
+      for (const rule of sortRules) {
+        const cmp = compareSortValues(
+          getPaidEntrySortValue(a, rule.field),
+          getPaidEntrySortValue(b, rule.field)
+        );
+        if (cmp !== 0) return rule.order === 'asc' ? cmp : -cmp;
+      }
+      return (b.receiptNo || '').localeCompare(a.receiptNo || '');
+    });
+  };
+
   const printQueueEntries = useMemo(() => {
-    return allEnrichedPaidEntries.filter((item) => {
+    const filtered = allEnrichedPaidEntries.filter((item) => {
       if (item.printStatus === 'printed') return false;
       if (queueDateFilter !== 'all' && item.paymentDate !== queueDateFilter) {
         return false;
@@ -361,7 +500,8 @@ export default function PaymentsPage() {
         item.roomAndTeacher
       );
     });
-  }, [allEnrichedPaidEntries, queueDateFilter, searchQuery, classFilter]);
+    return sortPaidEntriesByRules(filtered);
+  }, [allEnrichedPaidEntries, queueDateFilter, searchQuery, selectedClasses, sortRules]);
 
   const printedDateOptions = useMemo(() => {
     const set = new Set<string>();
@@ -388,7 +528,7 @@ export default function PaymentsPage() {
       });
     }
 
-    return list.filter((item) => {
+    const filtered = list.filter((item) => {
       if (paidMonthFilter !== 'all' && !item.paymentDate.startsWith(paidMonthFilter)) {
         return false;
       }
@@ -404,13 +544,15 @@ export default function PaymentsPage() {
         item.roomAndTeacher
       );
     });
+    return sortPaidEntriesByRules(filtered);
   }, [
     allEnrichedPaidEntries,
     paidViewMode,
     paidMonthFilter,
     printedDateFilter,
     searchQuery,
-    classFilter,
+    selectedClasses,
+    sortRules,
   ]);
 
   // Combined paid entries for Google Sheets Sync
@@ -549,8 +691,12 @@ export default function PaymentsPage() {
   const filteredAllStudents = useMemo(() => {
     return billingList
       .filter((b) => matchesSearchAndClass(b.student, b.classCode, b.roomAndTeacher))
-      .sort((a, b) => (a.student.studentId || '').localeCompare(b.student.studentId || ''));
-  }, [billingList, searchQuery, classFilter]);
+      .sort((a, b) =>
+        compareBillingByRules(a, b, (x, y) =>
+          (x.student.studentId || '').localeCompare(y.student.studentId || '')
+        )
+      );
+  }, [billingList, searchQuery, selectedClasses, sortRules]);
 
   // Dashboard Statistics
   const stats = useMemo(() => {
@@ -1215,16 +1361,22 @@ export default function PaymentsPage() {
             }}
           />
 
-          <div style={{ minWidth: '170px' }}>
-            <CustomSelectDropdown
-              value={classFilter}
-              onChange={(val) => setClassFilter(val || 'all')}
-              placeholder="គ្រប់ថ្នាក់"
-              options={[{ value: 'all', label: 'គ្រប់ថ្នាក់' }, ...classFilterOptions]}
-              searchable
-              menuMinWidth={190}
-            />
-          </div>
+          <MultiSelectDropdown
+            options={classFilterOptions}
+            selectedValues={selectedClasses}
+            onChange={setSelectedClasses}
+            allLabel="គ្រប់ថ្នាក់"
+            title="ជ្រើសរើសថ្នាក់រៀន (អាច Tick ច្រើន)"
+            multiLabel="ថ្នាក់"
+            searchable
+            searchPlaceholder="ស្វែងរកថ្នាក់..."
+          />
+
+          <MultiSortDropdown
+            options={PAYMENT_SORT_OPTIONS}
+            rules={sortRules}
+            onChange={setSortRules}
+          />
 
           {activeTab === 'due_overdue' && (
             <div style={{ minWidth: '210px' }}>
