@@ -38,6 +38,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
   const isPortrait = orientation === 'portrait';
   const slotW = isPortrait ? '10.5cm' : '14.85cm';
   const slotH = isPortrait ? '14.85cm' : '10.5cm';
+  const nameSize = d.studentName.length > 20 ? '10.2pt' : d.studentName.length > 15 ? '11.2pt' : '12.2pt';
+  const courseSize = d.courseName.length > 22 ? '8.6pt' : '9.6pt';
 
   return (
     <div
@@ -46,7 +48,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
         width: slotW,
         height: slotH,
         boxSizing: 'border-box',
-        padding: '2.8mm',
+        padding: '2.5mm',
         background: '#ffffff',
         borderRight: showCutRight ? '0.45pt dashed #cbd5e1' : 'none',
         borderBottom: showCutBottom ? '0.45pt dashed #cbd5e1' : 'none',
@@ -81,8 +83,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             left: '50%',
             top: '56%',
             transform: 'translate(-50%, -50%)',
-            width: '4.2cm',
-            height: '4.2cm',
+            width: '4.6cm',
+            height: '4.6cm',
             objectFit: 'contain',
             opacity: 0.06,
             pointerEvents: 'none',
@@ -95,12 +97,12 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
           style={{
             background: 'linear-gradient(135deg, #0f2957 0%, #1e3a8a 100%)',
             borderBottom: '1.8pt solid #eab308',
-            padding: isPortrait ? '2.8mm 3.4mm' : '2.2mm 3.6mm',
+            padding: isPortrait ? '2.6mm 3.2mm' : '2.2mm 3.4mm',
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '2.5mm',
+            gap: '2.2mm',
             position: 'relative',
             zIndex: 1,
           }}
@@ -108,8 +110,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '2.4mm', minWidth: 0 }}>
             <div
               style={{
-                width: isPortrait ? '1.1cm' : '1.15cm',
-                height: isPortrait ? '1.1cm' : '1.15cm',
+                width: isPortrait ? '1.15cm' : '1.25cm',
+                height: isPortrait ? '1.15cm' : '1.25cm',
                 borderRadius: '50%',
                 background: '#ffffff',
                 padding: '0.7mm',
@@ -129,7 +131,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               <div
                 style={{
                   fontFamily: "'Moul', 'Kantumruy Pro', serif",
-                  fontSize: isPortrait ? '8.4pt' : '9.6pt',
+                  fontSize: isPortrait ? '9pt' : '10.6pt',
                   color: '#ffffff',
                   whiteSpace: 'nowrap',
                 }}
@@ -139,9 +141,9 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               <div
                 style={{
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: isPortrait ? '6.2pt' : '6.8pt',
+                  fontSize: isPortrait ? '6.4pt' : '7.4pt',
                   fontWeight: 700,
-                  letterSpacing: '0.06em',
+                  letterSpacing: '0.05em',
                   color: '#fde68a',
                   whiteSpace: 'nowrap',
                 }}
@@ -150,9 +152,10 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               </div>
               <div
                 style={{
-                  fontSize: '6.3pt',
-                  color: 'rgba(255,255,255,0.85)',
-                  marginTop: '0.4mm',
+                  fontSize: '7.2pt',
+                  fontWeight: 700,
+                  color: 'rgba(255,255,255,0.9)',
+                  marginTop: '0.3mm',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -161,13 +164,13 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             </div>
           </div>
 
-          <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.2 }}>
+          <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.18 }}>
             <div
               style={{
-                fontSize: isPortrait ? '7.5pt' : '8.2pt',
+                fontSize: isPortrait ? '8pt' : '8.8pt',
                 fontWeight: 800,
                 color: '#fde047',
-                letterSpacing: '0.06em',
+                letterSpacing: '0.04em',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -177,12 +180,12 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 marginTop: '0.7mm',
                 display: 'inline-block',
-                padding: '0.5mm 2.2mm',
+                padding: '0.5mm 2.4mm',
                 borderRadius: '999px',
                 background: '#ffffff',
                 color: '#b91c1c',
-                fontWeight: 800,
-                fontSize: '8.5pt',
+                fontWeight: 900,
+                fontSize: '9.6pt',
                 letterSpacing: '0.04em',
                 whiteSpace: 'nowrap',
               }}
@@ -191,7 +194,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             </div>
             <div
               style={{
-                fontSize: '6.9pt',
+                fontSize: '7.8pt',
+                fontWeight: 600,
                 color: '#e2e8f0',
                 marginTop: '0.5mm',
                 whiteSpace: 'nowrap',
@@ -206,11 +210,11 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
         <div
           style={{
             flex: 1,
-            padding: isPortrait ? '2.6mm 3.4mm 1.5mm' : '2mm 3.6mm 1.2mm',
+            padding: isPortrait ? '2.6mm 3.2mm 1.8mm' : '2mm 3.4mm 1.4mm',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            gap: isPortrait ? '2mm' : '1.4mm',
+            gap: isPortrait ? '2.2mm' : '1.5mm',
             position: 'relative',
             zIndex: 1,
           }}
@@ -219,53 +223,51 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: isPortrait ? '1fr 1fr' : '1.45fr 0.72fr 0.78fr',
-              gap: isPortrait ? '1.6mm' : '1.4mm',
+              gridTemplateColumns: isPortrait ? '1fr 1fr' : '1.45fr 0.78fr 0.77fr',
+              gap: isPortrait ? '1.8mm' : '1.5mm',
             }}
           >
             <div
               style={{
                 gridColumn: isPortrait ? '1 / span 2' : 'auto',
                 background: '#f8fafc',
-                border: '0.6pt solid #e2e8f0',
+                border: '0.65pt solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '1.1mm 2.2mm',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '6.2pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 ឈ្មោះសិស្ស / Student&apos;s Name
               </div>
               <div
                 style={{
-                  fontSize: d.studentName.length > 18 ? '8.8pt' : '9.8pt',
+                  fontSize: nameSize,
                   fontWeight: 800,
                   color: '#1e3a8a',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  lineHeight: 1.25,
                 }}
               >
                 {d.studentName || '-'}
-                {d.studentIdCode ? (
-                  <span style={{ fontSize: '7.2pt', color: '#64748b', fontWeight: 600, marginLeft: '2mm' }}>
-                    ({d.studentIdCode})
-                  </span>
-                ) : null}
               </div>
             </div>
 
             <div
               style={{
                 background: '#f8fafc',
-                border: '0.6pt solid #e2e8f0',
+                border: '0.65pt solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '1.1mm 2mm',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '6.2pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 ភេទ & ថ្ងៃចូលរៀន
               </div>
-              <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '9.6pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                 {d.shortGender || '-'} • ថ្ងៃទី {d.enrollDay || '-'}
               </div>
             </div>
@@ -273,15 +275,16 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             <div
               style={{
                 background: '#f8fafc',
-                border: '0.6pt solid #e2e8f0',
+                border: '0.65pt solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '1.1mm 2mm',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '6.2pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 វេនសិក្សា / Shift
               </div>
-              <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '9.4pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                 {d.shiftFullKh || d.shiftCode || '-'} ({d.shiftCode || '-'})
               </div>
             </div>
@@ -290,22 +293,24 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 gridColumn: isPortrait ? '1 / span 2' : 'auto',
                 background: '#f8fafc',
-                border: '0.6pt solid #e2e8f0',
+                border: '0.65pt solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '1.1mm 2.2mm',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '6.2pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 វគ្គសិក្សា / Course
               </div>
               <div
                 style={{
-                  fontSize: '8.4pt',
+                  fontSize: courseSize,
                   fontWeight: 800,
                   color: '#0f172a',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  lineHeight: 1.25,
                 }}
               >
                 {d.courseName || '-'}
@@ -316,16 +321,50 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 gridColumn: isPortrait ? '1 / span 2' : '2 / span 2',
                 background: '#f8fafc',
-                border: '0.6pt solid #e2e8f0',
+                border: '0.65pt solid #cbd5e1',
                 borderRadius: '6px',
                 padding: '1.1mm 2.2mm',
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '6.2pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                បង់ប្រាក់សម្រាប់ / Pay For ({d.monthsPaid} ខែ • {d.payMethod})
+              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                បង់ប្រាក់សម្រាប់ / Pay For ({d.payMethod})
               </div>
-              <div style={{ fontSize: '8.8pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
-                {d.validitySpaced || '-'}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '1.5mm',
+                  lineHeight: 1.25,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '9.8pt',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {d.validitySpaced || '-'}
+                </span>
+                <span
+                  style={{
+                    padding: '0.2mm 2mm',
+                    borderRadius: '999px',
+                    background: '#dbeafe',
+                    color: '#1e40af',
+                    fontSize: '8.4pt',
+                    fontWeight: 800,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}
+                >
+                  {d.monthsPaid} ខែ
+                </span>
               </div>
             </div>
           </div>
@@ -335,9 +374,9 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             <div
               style={{
                 background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-                border: '0.65pt solid #93c5fd',
+                border: '0.7pt solid #93c5fd',
                 borderRadius: '7px',
-                padding: '1.3mm 2.4mm',
+                padding: '1.5mm 2.4mm',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -345,10 +384,10 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               }}
             >
               <div style={{ lineHeight: 1.15, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '6.8pt', fontWeight: 700, color: '#1e40af' }}>សរុបទឹកប្រាក់</div>
-                <div style={{ fontSize: '5.8pt', fontWeight: 600, color: '#3b82f6' }}>Total Paid</div>
+                <div style={{ fontSize: '7.8pt', fontWeight: 700, color: '#1e40af' }}>សរុបទឹកប្រាក់</div>
+                <div style={{ fontSize: '6.5pt', fontWeight: 600, color: '#3b82f6' }}>Total Paid</div>
               </div>
-              <div style={{ fontSize: '9.8pt', fontWeight: 900, color: '#1e3a8a', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '11pt', fontWeight: 900, color: '#1e3a8a', whiteSpace: 'nowrap' }}>
                 {showAmount && d.totalPaid > 0 ? formatRiels(d.totalPaid) : '—'}
               </div>
             </div>
@@ -356,9 +395,9 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             <div
               style={{
                 background: 'linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%)',
-                border: '0.65pt solid #fdba74',
+                border: '0.7pt solid #fdba74',
                 borderRadius: '7px',
-                padding: '1.3mm 2.4mm',
+                padding: '1.5mm 2.4mm',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -366,10 +405,10 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               }}
             >
               <div style={{ lineHeight: 1.15, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '6.8pt', fontWeight: 700, color: '#9a3412' }}>ថ្ងៃបង់បន្ទាប់</div>
-                <div style={{ fontSize: '5.8pt', fontWeight: 600, color: '#c2410c' }}>Next Payment</div>
+                <div style={{ fontSize: '7.8pt', fontWeight: 700, color: '#9a3412' }}>ថ្ងៃបង់បន្ទាប់</div>
+                <div style={{ fontSize: '6.5pt', fontWeight: 600, color: '#c2410c' }}>Next Payment</div>
               </div>
-              <div style={{ fontSize: '8.7pt', fontWeight: 900, color: '#9a3412', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '9.8pt', fontWeight: 900, color: '#9a3412', whiteSpace: 'nowrap' }}>
                 {d.nextPaymentKh}
               </div>
             </div>
@@ -382,19 +421,19 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               flexDirection: isPortrait ? 'column' : 'row',
               alignItems: isPortrait ? 'stretch' : 'flex-end',
               justifyContent: 'space-between',
-              gap: isPortrait ? '1.8mm' : '2mm',
+              gap: isPortrait ? '1.8mm' : '1.8mm',
               borderTop: '0.55pt dashed #cbd5e1',
               paddingTop: '1.2mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.018em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.02em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
                 <strong style={{ color: '#0f172a' }}>បញ្ជាក់៖</strong> ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
               </div>
               <div style={{ whiteSpace: 'nowrap' }}>
                 ការបង់ប្រាក់បន្ទាប់ត្រូវបង់មុនថ្ងៃផុតកំណត់យ៉ាងហោចណាស់ ៣ថ្ងៃ • យឺតយ៉ាវត្រូវផាកពិន័យ។
               </div>
-              <div style={{ marginTop: '0.5mm', color: '#1e293b', whiteSpace: 'nowrap' }}>
+              <div style={{ marginTop: '0.4mm', color: '#1e293b', whiteSpace: 'nowrap' }}>
                 <strong>ទំនាក់ទំនង៖</strong> {d.phoneText}
               </div>
               <div style={{ color: '#334155', whiteSpace: 'pre-line' }}>
@@ -404,36 +443,36 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
 
             <div
               style={{
-                width: isPortrait ? '3.8cm' : '3.45cm',
+                width: isPortrait ? '3.9cm' : '3.5cm',
                 marginLeft: isPortrait ? 'auto' : 0,
                 flexShrink: 0,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '8pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
                 អ្នកទទួលប្រាក់ / Cashier
               </div>
               <div
                 style={{
                   marginTop: '0.4mm',
-                  minHeight: '1.25cm',
+                  minHeight: '1.22cm',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
                   borderBottom: '0.6pt solid #94a3b8',
-                  paddingBottom: '0.6mm',
+                  paddingBottom: '0.5mm',
                 }}
               >
                 {showSignature && (
                   <ReceiptSignature
                     signatureUrl={cashierSignatureUrl}
-                    height="9mm"
+                    height="9.2mm"
                     color="#1e3a8a"
                   />
                 )}
               </div>
-              <div style={{ fontSize: '8.8pt', fontWeight: 800, color: '#0f2957', marginTop: '0.5mm', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '9.2pt', fontWeight: 800, color: '#0f2957', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
                 {d.cashierText}
               </div>
             </div>
@@ -461,6 +500,8 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
   const isPortrait = orientation === 'portrait';
   const slotW = isPortrait ? '10.5cm' : '14.85cm';
   const slotH = isPortrait ? '14.85cm' : '10.5cm';
+  const nameSize = d.studentName.length > 20 ? '10.4pt' : d.studentName.length > 15 ? '11.4pt' : '12.4pt';
+  const courseSize = d.courseName.length > 20 ? '8.4pt' : '9.2pt';
 
   return (
     <div
@@ -469,7 +510,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
         width: slotW,
         height: slotH,
         boxSizing: 'border-box',
-        padding: '2.8mm',
+        padding: '2.5mm',
         background: '#ffffff',
         borderRight: showCutRight ? '0.45pt dashed #cbd5e1' : 'none',
         borderBottom: showCutBottom ? '0.45pt dashed #cbd5e1' : 'none',
@@ -486,7 +527,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
           borderLeft: isPortrait ? '0.75pt solid #99f6e4' : '3mm solid #0d9488',
           borderTop: isPortrait ? '3mm solid #0d9488' : '0.75pt solid #99f6e4',
           borderRadius: '10px',
-          padding: isPortrait ? '2.8mm 3.4mm' : '2.4mm 3.6mm',
+          padding: isPortrait ? '2.8mm 3.4mm' : '2.2mm 3.4mm',
           background: '#ffffff',
           color: '#0f172a',
           fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
@@ -505,7 +546,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             justifyContent: 'space-between',
             gap: '2mm',
             borderBottom: '0.65pt solid #e2e8f0',
-            paddingBottom: '1.6mm',
+            paddingBottom: '1.5mm',
           }}
         >
           <img
@@ -519,8 +560,8 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               }
             }}
             style={{
-              height: isPortrait ? '1.05cm' : '1.2cm',
-              maxWidth: isPortrait ? '5.8cm' : '7.4cm',
+              height: isPortrait ? '1.22cm' : '1.45cm',
+              maxWidth: isPortrait ? '6.1cm' : '8.2cm',
               objectFit: 'contain',
               display: 'block',
             }}
@@ -535,23 +576,26 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
                 background: '#ccfbf1',
                 color: '#0f766e',
                 border: '0.6pt solid #5eead4',
-                fontSize: '7pt',
+                fontSize: '7.6pt',
                 fontWeight: 800,
                 whiteSpace: 'nowrap',
               }}
             >
               បានបង់រួច • PAID
             </span>
-            <div style={{ fontSize: '9.4pt', fontWeight: 900, color: '#0f172a', marginTop: '0.6mm', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '10.6pt', fontWeight: 900, color: '#0f172a', marginTop: '0.5mm', whiteSpace: 'nowrap' }}>
               № <span style={{ color: '#0d9488' }}>{d.receiptNo6}</span>
             </div>
-            <div style={{ fontSize: '6.8pt', color: '#64748b', whiteSpace: 'nowrap' }}>
-              {d.dateDash} {[d.levelCode, d.shiftCode].filter(Boolean).length ? `• ${[d.teacherShortCode, d.levelCode, d.shiftCode].filter(Boolean).join(' / ')}` : ''}
+            <div style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+              {d.dateDash}{' '}
+              {[d.teacherShortCode, d.levelCode, d.shiftCode].filter(Boolean).length
+                ? `• ${[d.teacherShortCode, d.levelCode, d.shiftCode].filter(Boolean).join(' / ')}`
+                : ''}
             </div>
           </div>
         </div>
 
-        {/* Clean Title + Student Name Strip */}
+        {/* Clean Student Name Strip (No Student ID) */}
         <div
           style={{
             display: 'flex',
@@ -559,47 +603,46 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             justifyContent: 'space-between',
             gap: '2mm',
             background: '#f0fdfa',
-            border: '0.6pt solid #ccfbf1',
-            borderRadius: '7px',
-            padding: '1.5mm 2.6mm',
-            marginTop: '1mm',
+            border: '0.65pt solid #99f6e4',
+            borderRadius: '8px',
+            padding: '1.6mm 2.8mm',
+            marginTop: '0.8mm',
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '6.4pt', color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '7.2pt', color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap' }}>
               បង្កាន់ដៃទទួលប្រាក់ • STUDENT RECEIPT
             </div>
             <div
               style={{
-                fontSize: d.studentName.length > 18 ? '9.2pt' : '10.4pt',
+                fontSize: nameSize,
                 fontWeight: 900,
                 color: '#0f172a',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                lineHeight: 1.25,
               }}
             >
               {d.studentName || '-'}
             </div>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: '7.4pt', fontWeight: 700, color: '#334155' }}>
+          <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '8.6pt', fontWeight: 800, color: '#1e293b' }}>
               ភេទ៖ {d.shortGender || '-'} • ចូលរៀនថ្ងៃទី {d.enrollDay || '-'}
             </div>
-            {d.studentIdCode && (
-              <div style={{ fontSize: '6.8pt', color: '#64748b', fontWeight: 600 }}>
-                ID: {d.studentIdCode}
-              </div>
-            )}
+            <div style={{ fontSize: '8.2pt', color: '#0f766e', fontWeight: 800 }}>
+              វេន៖ {d.shiftFullKh || d.shiftCode || '-'} ({d.shiftCode || '-'})
+            </div>
           </div>
         </div>
 
-        {/* Clean Key-Value Rows */}
+        {/* Clean Key-Value Rows (Larger Fonts + Months Paid Badge) */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: isPortrait ? '1fr' : '1fr 1fr',
-            gap: isPortrait ? '1.6mm' : '1.4mm 2.4mm',
+            gap: isPortrait ? '2mm' : '1.6mm 2.4mm',
             marginTop: '1mm',
           }}
         >
@@ -608,17 +651,43 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              borderBottom: '0.5pt solid #e2e8f0',
-              paddingBottom: '1mm',
-              gap: '2mm',
+              borderBottom: '0.6pt solid #cbd5e1',
+              paddingBottom: '1.2mm',
+              gap: '1.5mm',
+              minWidth: 0,
             }}
           >
-            <span style={{ fontSize: '7.2pt', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              បង់ប្រាក់សម្រាប់ (Pay for)
+            <span style={{ fontSize: '8.1pt', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              បង់សម្រាប់
             </span>
-            <span style={{ fontSize: '8.5pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
-              {d.validitySpaced || '-'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.4mm', minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: '9.4pt',
+                  fontWeight: 800,
+                  color: '#0f172a',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {d.validitySpaced || '-'}
+              </span>
+              <span
+                style={{
+                  padding: '0.2mm 1.8mm',
+                  borderRadius: '999px',
+                  background: '#ccfbf1',
+                  color: '#0f766e',
+                  fontSize: '8.2pt',
+                  fontWeight: 800,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {d.monthsPaid} ខែ
+              </span>
+            </div>
           </div>
 
           <div
@@ -626,17 +695,18 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              borderBottom: '0.5pt solid #e2e8f0',
-              paddingBottom: '1mm',
-              gap: '2mm',
+              borderBottom: '0.6pt solid #cbd5e1',
+              paddingBottom: '1.2mm',
+              gap: '1.5mm',
+              minWidth: 0,
             }}
           >
-            <span style={{ fontSize: '7.2pt', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              វគ្គសិក្សា (Course)
+            <span style={{ fontSize: '8.1pt', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              វគ្គសិក្សា
             </span>
             <span
               style={{
-                fontSize: '8.1pt',
+                fontSize: courseSize,
                 fontWeight: 800,
                 color: '#0f172a',
                 whiteSpace: 'nowrap',
@@ -644,7 +714,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
                 textOverflow: 'ellipsis',
               }}
             >
-              {d.courseName || '-'} ({d.shiftFullKh || d.shiftCode || '-'})
+              {d.courseName || '-'}
             </span>
           </div>
 
@@ -655,15 +725,15 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               alignItems: 'center',
               background: '#0d9488',
               color: '#ffffff',
-              borderRadius: '6px',
-              padding: '1.3mm 2.4mm',
+              borderRadius: '7px',
+              padding: '1.6mm 2.6mm',
               gap: '2mm',
             }}
           >
-            <span style={{ fontSize: '7.2pt', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              សរុបទឹកប្រាក់ (Total)
+            <span style={{ fontSize: '8.2pt', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              សរុបទឹកប្រាក់
             </span>
-            <span style={{ fontSize: '9.4pt', fontWeight: 900, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '10.8pt', fontWeight: 900, whiteSpace: 'nowrap' }}>
               {showAmount && d.totalPaid > 0 ? formatRiels(d.totalPaid) : '—'}
             </span>
           </div>
@@ -674,17 +744,17 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               justifyContent: 'space-between',
               alignItems: 'center',
               background: '#fef2f2',
-              border: '0.6pt solid #fecaca',
+              border: '0.65pt solid #fecaca',
               color: '#991b1b',
-              borderRadius: '6px',
-              padding: '1.3mm 2.4mm',
+              borderRadius: '7px',
+              padding: '1.6mm 2.6mm',
               gap: '2mm',
             }}
           >
-            <span style={{ fontSize: '7.2pt', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              ថ្ងៃបង់បន្ទាប់ (Next)
+            <span style={{ fontSize: '8.2pt', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              ថ្ងៃបង់បន្ទាប់
             </span>
-            <span style={{ fontSize: '8.7pt', fontWeight: 900, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '10pt', fontWeight: 900, whiteSpace: 'nowrap' }}>
               {d.nextPaymentKh}
             </span>
           </div>
@@ -697,13 +767,13 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             flexDirection: isPortrait ? 'column' : 'row',
             alignItems: isPortrait ? 'stretch' : 'flex-end',
             justifyContent: 'space-between',
-            gap: isPortrait ? '1.8mm' : '2mm',
-            marginTop: '1.2mm',
+            gap: isPortrait ? '1.8mm' : '1.8mm',
+            marginTop: '1mm',
             paddingTop: '1mm',
-            borderTop: '0.5pt solid #e2e8f0',
+            borderTop: '0.55pt solid #e2e8f0',
           }}
         >
-          <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.018em' }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.02em' }}>
             <div style={{ whiteSpace: 'nowrap' }}>
               <strong style={{ color: '#0f766e' }}>បញ្ជាក់៖</strong> ប្រាក់ដែលបានបង់រួចហើយមិនអាចដកវិញ ឬផ្ទេរបានឡើយ • បង់មុនផុតកំណត់ ៣ថ្ងៃ។
             </div>
@@ -717,18 +787,18 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
 
           <div
             style={{
-              width: isPortrait ? '3.8cm' : '3.45cm',
+              width: isPortrait ? '3.9cm' : '3.5cm',
               marginLeft: isPortrait ? 'auto' : 0,
               flexShrink: 0,
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '8pt', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
               អ្នកទទួលប្រាក់
             </div>
             <div
               style={{
-                minHeight: '1.25cm',
+                minHeight: '1.22cm',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'flex-end',
@@ -740,12 +810,12 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               {showSignature && (
                 <ReceiptSignature
                   signatureUrl={cashierSignatureUrl}
-                  height="8.8mm"
+                  height="9mm"
                   color="#0f766e"
                 />
               )}
             </div>
-            <div style={{ fontSize: '8.8pt', fontWeight: 800, color: '#0f766e', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '9.2pt', fontWeight: 800, color: '#0f766e', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
               {d.cashierText}
             </div>
           </div>
@@ -772,7 +842,8 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
   const isPortrait = orientation === 'portrait';
   const slotW = isPortrait ? '10.5cm' : '14.85cm';
   const slotH = isPortrait ? '14.85cm' : '10.5cm';
-  const cellBorder = '0.55pt solid #94a3b8';
+  const cellBorder = '0.6pt solid #94a3b8';
+  const nameSize = d.studentName.length > 20 ? '10pt' : d.studentName.length > 15 ? '11pt' : '11.8pt';
 
   return (
     <div
@@ -781,7 +852,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
         width: slotW,
         height: slotH,
         boxSizing: 'border-box',
-        padding: '2.6mm',
+        padding: '2.4mm',
         background: '#ffffff',
         borderRight: showCutRight ? '0.45pt dashed #cbd5e1' : 'none',
         borderBottom: showCutBottom ? '0.45pt dashed #cbd5e1' : 'none',
@@ -796,7 +867,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
           boxSizing: 'border-box',
           border: '0.9pt solid #1d4ed8',
           borderRadius: '8px',
-          padding: '1mm',
+          padding: '0.9mm',
           background: '#ffffff',
         }}
       >
@@ -807,7 +878,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
             boxSizing: 'border-box',
             border: '0.45pt solid #93c5fd',
             borderRadius: '6px',
-            padding: isPortrait ? '2.5mm 3mm' : '2mm 3.2mm',
+            padding: isPortrait ? '2.5mm 3mm' : '1.9mm 3mm',
             position: 'relative',
             overflow: 'hidden',
             display: 'flex',
@@ -827,8 +898,8 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               left: '50%',
               top: '54%',
               transform: 'translate(-50%, -50%)',
-              width: '4.4cm',
-              height: '4.4cm',
+              width: '4.6cm',
+              height: '4.6cm',
               objectFit: 'contain',
               opacity: 0.08,
               pointerEvents: 'none',
@@ -843,7 +914,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                 position: 'absolute',
                 top: 0,
                 right: 0,
-                fontSize: '7.4pt',
+                fontSize: '8.2pt',
                 fontWeight: 800,
                 color: '#1e40af',
                 textAlign: 'right',
@@ -855,7 +926,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               {d.shiftCode && <div style={{ color: '#475569' }}>{d.shiftCode}</div>}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center', paddingRight: '1.2cm' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', paddingRight: '1.4cm' }}>
               <img
                 src={d.bannerSrc}
                 alt="BSIS"
@@ -867,8 +938,8 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   }
                 }}
                 style={{
-                  height: isPortrait ? '1.12cm' : '1.3cm',
-                  maxWidth: isPortrait ? '7.2cm' : '8.8cm',
+                  height: isPortrait ? '1.25cm' : '1.48cm',
+                  maxWidth: isPortrait ? '7.5cm' : '9.2cm',
                   objectFit: 'contain',
                 }}
               />
@@ -879,12 +950,12 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                marginTop: '1mm',
+                marginTop: '0.8mm',
                 gap: '1.5mm',
                 whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: '7.6pt', fontWeight: 700, color: '#1e40af' }}>
+              <span style={{ fontSize: '8.4pt', fontWeight: 700, color: '#1e40af' }}>
                 Date: <em style={{ fontStyle: 'italic' }}>{d.dateDash}</em>
               </span>
 
@@ -894,7 +965,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   borderRadius: '999px',
                   background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
                   color: '#ffffff',
-                  fontSize: '8.2pt',
+                  fontSize: '9pt',
                   fontWeight: 800,
                   letterSpacing: '0.02em',
                 }}
@@ -902,22 +973,23 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                 បង្កាន់ដៃទទួលប្រាក់ • RECEIPT
               </span>
 
-              <span style={{ fontSize: '8.4pt', fontWeight: 900, color: '#b91c1c' }}>
+              <span style={{ fontSize: '9.6pt', fontWeight: 900, color: '#b91c1c' }}>
                 № {d.receiptNo6}
               </span>
             </div>
           </div>
 
-          {/* Crisp Academic Table */}
+          {/* Crisp Academic Table (Larger Fonts, No Student ID, Always Shows Months Paid) */}
           <table
             style={{
               width: '100%',
               borderCollapse: 'collapse',
+              tableLayout: 'fixed',
               position: 'relative',
               zIndex: 1,
-              marginTop: '1mm',
-              background: 'rgba(255,255,255,0.68)',
-              fontSize: '7.8pt',
+              marginTop: '0.8mm',
+              background: 'rgba(255,255,255,0.72)',
+              fontSize: '8.8pt',
             }}
           >
             <tbody>
@@ -926,10 +998,10 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     border: cellBorder,
                     background: '#eff6ff',
-                    padding: '1.1mm 1.8mm',
+                    padding: '1.3mm 1.8mm',
                     fontWeight: 700,
                     color: '#1e3a8a',
-                    width: isPortrait ? '33%' : '20%',
+                    width: isPortrait ? '34%' : '20%',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -939,15 +1011,16 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   colSpan={isPortrait ? 1 : 3}
                   style={{
                     border: cellBorder,
-                    padding: '1.1mm 2mm',
+                    padding: '1.3mm 2mm',
                     fontWeight: 800,
-                    fontSize: '9.4pt',
+                    fontSize: nameSize,
                     color: '#1e3a8a',
                     whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   {d.studentName || '-'}
-                  {d.studentIdCode ? ` (${d.studentIdCode})` : ''}
                 </td>
               </tr>
 
@@ -956,7 +1029,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     border: cellBorder,
                     background: '#eff6ff',
-                    padding: '1.1mm 1.8mm',
+                    padding: '1.3mm 1.8mm',
                     fontWeight: 700,
                     color: '#1e3a8a',
                     whiteSpace: 'nowrap',
@@ -967,9 +1040,11 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                 <td
                   style={{
                     border: cellBorder,
-                    padding: '1.1mm 2mm',
-                    fontWeight: 700,
+                    padding: '1.3mm 2mm',
+                    fontWeight: 800,
+                    fontSize: '9.2pt',
                     whiteSpace: 'nowrap',
+                    width: isPortrait ? '66%' : '30%',
                   }}
                 >
                   {d.shortGender || '-'} • ថ្ងៃទី {d.enrollDay || '-'}
@@ -980,10 +1055,10 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                       style={{
                         border: cellBorder,
                         background: '#eff6ff',
-                        padding: '1.1mm 1.8mm',
+                        padding: '1.3mm 1.8mm',
                         fontWeight: 700,
                         color: '#1e3a8a',
-                        width: '18%',
+                        width: '17%',
                         whiteSpace: 'nowrap',
                       }}
                     >
@@ -992,9 +1067,13 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                     <td
                       style={{
                         border: cellBorder,
-                        padding: '1.1mm 2mm',
-                        fontWeight: 700,
+                        padding: '1.3mm 2mm',
+                        fontWeight: 800,
+                        fontSize: d.courseName.length > 18 ? '8.2pt' : '8.8pt',
                         whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        width: '33%',
                       }}
                     >
                       {d.courseName || '-'} ({d.shiftFullKh || d.shiftCode || '-'})
@@ -1009,7 +1088,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                     style={{
                       border: cellBorder,
                       background: '#eff6ff',
-                      padding: '1.1mm 1.8mm',
+                      padding: '1.3mm 1.8mm',
                       fontWeight: 700,
                       color: '#1e3a8a',
                       whiteSpace: 'nowrap',
@@ -1020,9 +1099,12 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   <td
                     style={{
                       border: cellBorder,
-                      padding: '1.1mm 2mm',
-                      fontWeight: 700,
+                      padding: '1.3mm 2mm',
+                      fontWeight: 800,
+                      fontSize: '9pt',
                       whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
                   >
                     {d.courseName || '-'} ({d.shiftFullKh || d.shiftCode || '-'})
@@ -1035,7 +1117,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     border: cellBorder,
                     background: '#eff6ff',
-                    padding: '1.1mm 1.8mm',
+                    padding: '1.3mm 1.8mm',
                     fontWeight: 700,
                     color: '#1e3a8a',
                     whiteSpace: 'nowrap',
@@ -1046,12 +1128,16 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                 <td
                   style={{
                     border: cellBorder,
-                    padding: '1.1mm 2mm',
+                    padding: '1.3mm 2mm',
                     fontWeight: 800,
+                    fontSize: '9.2pt',
                     whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   {d.validitySpaced || '-'}
+                  {isPortrait ? ` (${d.monthsPaid} ខែ)` : ''}
                 </td>
                 {!isPortrait && (
                   <>
@@ -1059,23 +1145,25 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                       style={{
                         border: cellBorder,
                         background: '#eff6ff',
-                        padding: '1.1mm 1.8mm',
+                        padding: '1.3mm 1.8mm',
                         fontWeight: 700,
                         color: '#1e3a8a',
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      វិធីបង់ / ខែ
+                      ចំនួនខែបង់
                     </td>
                     <td
                       style={{
                         border: cellBorder,
-                        padding: '1.1mm 2mm',
-                        fontWeight: 700,
+                        padding: '1.3mm 2mm',
+                        fontWeight: 800,
+                        fontSize: '9.2pt',
+                        color: '#1e40af',
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {d.monthsPaid} ខែ • {d.payMethod}
+                      {d.monthsPaid} ខែ ({d.payMethod})
                     </td>
                   </>
                 )}
@@ -1086,7 +1174,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     border: cellBorder,
                     background: '#dbeafe',
-                    padding: '1.2mm 1.8mm',
+                    padding: '1.4mm 1.8mm',
                     fontWeight: 800,
                     color: '#1e3a8a',
                     whiteSpace: 'nowrap',
@@ -1098,9 +1186,9 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     border: cellBorder,
                     background: '#eff6ff',
-                    padding: '1.2mm 2mm',
+                    padding: '1.4mm 2mm',
                     fontWeight: 900,
-                    fontSize: '9pt',
+                    fontSize: '10.2pt',
                     color: '#1e3a8a',
                     whiteSpace: 'nowrap',
                   }}
@@ -1113,7 +1201,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                       style={{
                         border: cellBorder,
                         background: '#fed7aa',
-                        padding: '1.2mm 1.8mm',
+                        padding: '1.4mm 1.8mm',
                         fontWeight: 800,
                         color: '#9a3412',
                         whiteSpace: 'nowrap',
@@ -1125,9 +1213,9 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                       style={{
                         border: cellBorder,
                         background: '#ffedd5',
-                        padding: '1.2mm 2mm',
+                        padding: '1.4mm 2mm',
                         fontWeight: 900,
-                        fontSize: '8.5pt',
+                        fontSize: '9.6pt',
                         color: '#9a3412',
                         whiteSpace: 'nowrap',
                       }}
@@ -1144,7 +1232,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                     style={{
                       border: cellBorder,
                       background: '#fed7aa',
-                      padding: '1.2mm 1.8mm',
+                      padding: '1.4mm 1.8mm',
                       fontWeight: 800,
                       color: '#9a3412',
                       whiteSpace: 'nowrap',
@@ -1156,9 +1244,9 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                     style={{
                       border: cellBorder,
                       background: '#ffedd5',
-                      padding: '1.2mm 2mm',
+                      padding: '1.4mm 2mm',
                       fontWeight: 900,
-                      fontSize: '8.7pt',
+                      fontSize: '10pt',
                       color: '#9a3412',
                       whiteSpace: 'nowrap',
                     }}
@@ -1179,11 +1267,11 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               flexDirection: isPortrait ? 'column' : 'row',
               alignItems: isPortrait ? 'stretch' : 'flex-end',
               justifyContent: 'space-between',
-              gap: isPortrait ? '1.6mm' : '1.8mm',
-              marginTop: '1mm',
+              gap: isPortrait ? '1.6mm' : '1.6mm',
+              marginTop: '0.8mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#334155', letterSpacing: '-0.018em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#334155', letterSpacing: '-0.02em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
                 <strong style={{ color: '#1e3a8a', textDecoration: 'underline' }}>បញ្ជាក់៖</strong>{' '}
                 ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
@@ -1201,19 +1289,19 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
 
             <div
               style={{
-                width: isPortrait ? '3.8cm' : '3.45cm',
+                width: isPortrait ? '3.9cm' : '3.5cm',
                 marginLeft: isPortrait ? 'auto' : 0,
                 flexShrink: 0,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#1e3a8a', marginBottom: '0.5mm', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8.6pt', fontWeight: 800, color: '#1e3a8a', marginBottom: '0.5mm', whiteSpace: 'nowrap' }}>
                 អ្នកទទួលប្រាក់
               </div>
               <div
                 style={{
-                  height: '1.55cm',
-                  border: '0.6pt solid #93c5fd',
+                  height: '1.58cm',
+                  border: '0.65pt solid #93c5fd',
                   borderRadius: '6px',
                   background: '#f8fafc',
                   display: 'flex',
@@ -1227,12 +1315,12 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   <div style={{ width: '100%', marginBottom: '-0.6mm' }}>
                     <ReceiptSignature
                       signatureUrl={cashierSignatureUrl}
-                      height="9mm"
+                      height="9.2mm"
                       color="#1d4ed8"
                     />
                   </div>
                 )}
-                <span style={{ fontSize: '8.8pt', fontWeight: 800, color: '#9b3a24', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '9.2pt', fontWeight: 800, color: '#9b3a24', whiteSpace: 'nowrap' }}>
                   {d.cashierText}
                 </span>
               </div>

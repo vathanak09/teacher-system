@@ -25,6 +25,7 @@ export interface OfficialReceiptItem {
   payment: any;
   student: any;
   roomAndTeacher?: string;
+  classCode?: string;
   courseName?: string;
   teacherShortCode?: string;
 }
@@ -470,16 +471,44 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   border: thinBorder,
                   background: 'rgba(255, 255, 255, 0.45)',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 1.4mm',
-                  fontSize: '10.8pt',
-                  fontWeight: 800,
-                  color: '#1e293b',
-                  whiteSpace: 'nowrap',
+                  alignItems: 'stretch',
                 }}
               >
-                {d.validitySpaced}
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 1.2mm',
+                    fontSize: '10.4pt',
+                    fontWeight: 800,
+                    color: '#1e293b',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {d.validitySpaced}
+                </div>
+                <div
+                  style={{
+                    width: '1.18cm',
+                    flexShrink: 0,
+                    borderLeft: thinBorder,
+                    background: 'rgba(241, 245, 249, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '9pt',
+                    fontWeight: 800,
+                    color: '#1e40af',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {d.monthsPaid} ខែ
+                </div>
               </div>
 
               <div
@@ -718,14 +747,40 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   border: thinBorder,
                   background: 'rgba(255,255,255,0.52)',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '10.5pt',
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
+                  alignItems: 'stretch',
                 }}
               >
-                {d.validitySpaced}
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 1.2mm',
+                    fontSize: '10.2pt',
+                    fontWeight: 800,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {d.validitySpaced}
+                </div>
+                <div
+                  style={{
+                    width: '1.3cm',
+                    flexShrink: 0,
+                    borderLeft: thinBorder,
+                    background: 'rgba(241, 245, 249, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '9pt',
+                    fontWeight: 800,
+                    color: '#1e40af',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {d.monthsPaid} ខែ
+                </div>
               </div>
             </div>
 
