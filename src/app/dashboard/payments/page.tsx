@@ -8,28 +8,37 @@ import {
   paymentService,
   settingsService,
   studentService,
+  teacherService,
 } from '@/services/db';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
+import { OfficialReceiptItem } from '@/components/OfficialReceiptCard';
 import { AppIcon } from '@/components/AppIcons';
 import { isStudentActive } from '@/components/dashboard/dashboardMetrics';
 import {
   addMonthsWithAnniversary,
   computeStudentBillingInfo,
+  DEFAULT_RECEIPT_ADDRESS,
+  DEFAULT_RECEIPT_CASHIER,
+  DEFAULT_RECEIPT_HEADER_DRIVE_URL,
+  DEFAULT_RECEIPT_PHONE,
   feeToRiels,
   formatDMYSlash,
   formatKhmerValidityPeriod,
+  formatReceiptNo6Digit,
   formatRiels,
   getStudentClassInfo,
   normalizePaymentRiels,
   parseLocalDate,
+  resolveStudentCourseName,
+  resolveTeacherShortCode,
   StudentBillingInfo,
   toISODateString,
 } from '@/utils/paymentBilling';
 
-type ActiveTab = 'due_overdue' | 'paid' | 'all_students';
+type ActiveTab = 'due_overdue' | 'print_queue' | 'printed_archive' | 'all_students';
 
 export default function PaymentsPage() {
   const router = useRouter();
@@ -42,6 +51,7 @@ export default function PaymentsPage() {
   // Firestore Collections
   const [students, setStudents] = useState<any[]>([]);
   const [classesData, setClassesData] = useState<any[]>([]);
+  const [teachersData, setTeachersData] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
 
   // Settings
@@ -50,8 +60,10 @@ export default function PaymentsPage() {
     dueSheetName: 'សិស្សដល់ថ្ងៃនិងលើសថ្ងៃ',
     paidSheetName: 'សិស្សបង់រួច',
     upcomingDays: 5,
-    schoolPhone: '',
-    schoolAddress: '',
+    schoolPhone: DEFAULT_RECEIPT_PHONE,
+    schoolAddress: DEFAULT_RECEIPT_ADDRESS,
+    cashierName: DEFAULT_RECEIPT_CASHIER,
+    headerLogoUrl: DEFAULT_RECEIPT_HEADER_DRIVE_URL,
     paymentNote: '',
   });
   const [fallbackStudentSheetUrl, setFallbackStudentSheetUrl] = useState('');
@@ -63,7 +75,13 @@ export default function PaymentsPage() {
   const [dueSubFilter, setDueSubFilter] = useState<'all' | 'due_only' | 'overdue_only' | 'include_upcoming'>('all');
   const [paidViewMode, setPaidViewMode] = useState<'latest_per_student' | 'all_receipts'>('all_receipts');
   const [paidMonthFilter, setPaidMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
+  const [printedDateFilter, setPrintedDateFilter] = useState('all'); // 'all' or 'YYYY-MM-DD'
   const [showInactiveStudents, setShowInactiveStudents] = useState(false);
+
+  // Batch Print Queue Selection
+  const [selectedQueueIds, setSelectedQueueIds] = useState<string[]>([]);
+  const [selectedPrintedIds, setSelectedPrintedIds] = useState<string[]>([]);
+  const [isUpdatingPrintStatus, setIsUpdatingPrintStatus] = useState(false);
 
   // Sync & Toast State
   const [isSyncingSheets, setIsSyncingSheets] = useState(false);
@@ -83,6 +101,8 @@ export default function PaymentsPage() {
   const [payDiscount, setPayDiscount] = useState('0');
   const [payAmount, setPayAmount] = useState('0');
   const [payMethod, setPayMethod] = useState('Cash');
+  const [payCourseName, setPayCourseName] = useState('');
+  const [payTeacherCode, setPayTeacherCode] = useState('');
   const [payNote, setPayNote] = useState('');
 
   // Print Modal & Student History Modal
@@ -109,6 +129,7 @@ export default function PaymentsPage() {
 
     const unsubStudents = studentService.subscribeAll(setStudents);
     const unsubClasses = classService.subscribeAll(setClassesData);
+    const unsubTeachers = teacherService.subscribeAll(setTeachersData);
     const unsubPayments = paymentService.subscribeAll(setPayments);
     const unsubPaymentSettings = settingsService.subscribeOne('paymentSyncSettings', (docData) => {
       if (docData) {
@@ -118,8 +139,10 @@ export default function PaymentsPage() {
           dueSheetName: docData.dueSheetName || 'សិស្សដល់ថ្ងៃនិងលើសថ្ងៃ',
           paidSheetName: docData.paidSheetName || 'សិស្សបង់រួច',
           upcomingDays: Number(docData.upcomingDays ?? 5),
-          schoolPhone: docData.schoolPhone || '',
-          schoolAddress: docData.schoolAddress || '',
+          schoolPhone: docData.schoolPhone || DEFAULT_RECEIPT_PHONE,
+          schoolAddress: docData.schoolAddress || DEFAULT_RECEIPT_ADDRESS,
+          cashierName: docData.cashierName || DEFAULT_RECEIPT_CASHIER,
+          headerLogoUrl: docData.headerLogoUrl || DEFAULT_RECEIPT_HEADER_DRIVE_URL,
           paymentNote: docData.paymentNote || '',
         }));
       }
@@ -133,6 +156,7 @@ export default function PaymentsPage() {
     return () => {
       unsubStudents();
       unsubClasses();
+      unsubTeachers();
       unsubPayments();
       unsubPaymentSettings();
       unsubStudentSettings();
@@ -226,11 +250,11 @@ export default function PaymentsPage() {
       .map((ym) => ({ value: ym, label: ym }));
   }, [payments]);
 
-  const paidEntries = useMemo(() => {
+  const allEnrichedPaidEntries = useMemo(() => {
     const studentMap = new Map<string, any>();
     students.forEach((s) => studentMap.set(s.id, s));
 
-    const enriched = payments
+    return payments
       .map((p) => {
         const studentDocId = p.studentDocId || p.studentId;
         const student = studentMap.get(studentDocId);
@@ -246,12 +270,28 @@ export default function PaymentsPage() {
         const validFrom = p.validFrom || p.paymentDate || '';
         const validityPeriod =
           p.validityPeriod || formatKhmerValidityPeriod(validFrom, validUntil);
+        const courseName =
+          p.courseName ||
+          (student ? resolveStudentCourseName(student, classesData) : '') ||
+          p.level ||
+          '';
+        const teacherShortCode =
+          p.teacherShortCode ||
+          resolveTeacherShortCode(
+            classInfo.teacherName || p.teacherName,
+            teachersData,
+            classInfo.classCode
+          );
+        const printStatus: 'pending' | 'printed' =
+          p.printStatus === 'printed' ? 'printed' : 'pending';
+        const printedAt = typeof p.printedAt === 'string' ? p.printedAt : '';
+        const printedDateKey = printedAt ? printedAt.slice(0, 10) : '';
 
         return {
           payment: p,
           studentDocId,
           student,
-          receiptNo: p.receiptNo || `INV-${String(p.id || '').slice(0, 6).toUpperCase()}`,
+          receiptNo: formatReceiptNo6Digit(p.receiptNo || p.id),
           studentIdCode: student?.studentId || p.studentIdCode || '',
           studentName: student?.fullName || p.studentName || '',
           gender: student?.gender || p.gender || '',
@@ -261,10 +301,15 @@ export default function PaymentsPage() {
           validFrom,
           validUntil,
           validityPeriod,
+          courseName,
+          teacherShortCode,
           roomAndTeacher: classInfo.roomAndTeacher || p.roomAndTeacher || '',
           classCode: classInfo.classCode,
           paymentDate: p.paymentDate || '',
           amount: normalizePaymentRiels(p.amount, p),
+          printStatus,
+          printedAt,
+          printedDateKey,
         };
       })
       .sort((a, b) => {
@@ -273,11 +318,51 @@ export default function PaymentsPage() {
         if (db !== da) return db - da;
         return (b.receiptNo || '').localeCompare(a.receiptNo || '');
       });
+  }, [payments, students, classesData, teachersData]);
 
-    let list = enriched;
+  // Separate Queue: Receipts waiting to be printed (today's / newly recorded)
+  const pendingQueueTotalCount = useMemo(
+    () => allEnrichedPaidEntries.filter((e) => e.printStatus !== 'printed').length,
+    [allEnrichedPaidEntries]
+  );
+
+  const printedArchiveTotalCount = useMemo(
+    () => allEnrichedPaidEntries.filter((e) => e.printStatus === 'printed').length,
+    [allEnrichedPaidEntries]
+  );
+
+  const printQueueEntries = useMemo(() => {
+    return allEnrichedPaidEntries.filter((item) => {
+      if (item.printStatus === 'printed') return false;
+      return matchesSearchAndClass(
+        item.student || {
+          studentId: item.studentIdCode,
+          fullName: item.studentName,
+        },
+        item.classCode,
+        item.roomAndTeacher
+      );
+    });
+  }, [allEnrichedPaidEntries, searchQuery, classFilter]);
+
+  const printedDateOptions = useMemo(() => {
+    const set = new Set<string>();
+    allEnrichedPaidEntries.forEach((item) => {
+      if (item.printStatus === 'printed' && item.printedDateKey) {
+        set.add(item.printedDateKey);
+      }
+    });
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .map((d) => ({ value: d, label: formatDMYSlash(d) || d }));
+  }, [allEnrichedPaidEntries]);
+
+  // Separate Archive: Receipts already printed (kept isolated from new pending payments)
+  const printedArchiveEntries = useMemo(() => {
+    let list = allEnrichedPaidEntries.filter((item) => item.printStatus === 'printed');
     if (paidViewMode === 'latest_per_student') {
       const seen = new Set<string>();
-      list = enriched.filter((item) => {
+      list = list.filter((item) => {
         const key = item.studentDocId || item.studentIdCode;
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -289,6 +374,9 @@ export default function PaymentsPage() {
       if (paidMonthFilter !== 'all' && !item.paymentDate.startsWith(paidMonthFilter)) {
         return false;
       }
+      if (printedDateFilter !== 'all' && item.printedDateKey !== printedDateFilter) {
+        return false;
+      }
       return matchesSearchAndClass(
         item.student || {
           studentId: item.studentIdCode,
@@ -298,7 +386,125 @@ export default function PaymentsPage() {
         item.roomAndTeacher
       );
     });
-  }, [payments, students, classesData, paidViewMode, paidMonthFilter, searchQuery, classFilter]);
+  }, [
+    allEnrichedPaidEntries,
+    paidViewMode,
+    paidMonthFilter,
+    printedDateFilter,
+    searchQuery,
+    classFilter,
+  ]);
+
+  // Combined paid entries for Google Sheets Sync
+  const paidEntries = allEnrichedPaidEntries;
+
+  // Keep selections clean when queue/archive items change
+  useEffect(() => {
+    const validQueueSet = new Set(printQueueEntries.map((r) => String(r.payment.id)));
+    setSelectedQueueIds((prev) => prev.filter((id) => validQueueSet.has(id)));
+  }, [printQueueEntries]);
+
+  useEffect(() => {
+    const validPrintedSet = new Set(printedArchiveEntries.map((r) => String(r.payment.id)));
+    setSelectedPrintedIds((prev) => prev.filter((id) => validPrintedSet.has(id)));
+  }, [printedArchiveEntries]);
+
+  const buildReceiptItem = (row: (typeof allEnrichedPaidEntries)[number]): OfficialReceiptItem => ({
+    payment: row.payment,
+    student: row.student || {
+      studentId: row.studentIdCode,
+      fullName: row.studentName,
+      gender: row.gender,
+      shift: row.shift,
+      level: row.level,
+      enrollDate: row.enrollDateStr,
+    },
+    roomAndTeacher: row.roomAndTeacher,
+    courseName: row.courseName,
+    teacherShortCode: row.teacherShortCode,
+  });
+
+  const handleMarkPaymentsPrinted = async (paymentIds: string[]) => {
+    if (!paymentIds.length) return;
+    setIsUpdatingPrintStatus(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const batchId = `BATCH-${nowIso.slice(0, 16).replace(/[-:T]/g, '')}`;
+      await Promise.all(
+        paymentIds.map((id) =>
+          paymentService.update(id, {
+            printStatus: 'printed',
+            printedAt: nowIso,
+            printBatchId: batchId,
+          })
+        )
+      );
+      setSelectedQueueIds((prev) => prev.filter((id) => !paymentIds.includes(id)));
+      showToast(
+        `បានផ្ទេរវិក្កយបត្រ ${paymentIds.length} ទៅបញ្ជី «Print រួច» ដោយឡែករួចរាល់!`
+      );
+    } catch (error) {
+      console.error('Failed marking payments as printed:', error);
+      showToast('មានបញ្ហាក្នុងការប្តូរស្ថានភាព Print!', 'error');
+    } finally {
+      setIsUpdatingPrintStatus(false);
+    }
+  };
+
+  const handleMovePaymentsToQueue = async (paymentIds: string[]) => {
+    if (!paymentIds.length) return;
+    setIsUpdatingPrintStatus(true);
+    try {
+      await Promise.all(
+        paymentIds.map((id) =>
+          paymentService.update(id, {
+            printStatus: 'pending',
+            printedAt: '',
+            printBatchId: '',
+          })
+        )
+      );
+      setSelectedPrintedIds((prev) => prev.filter((id) => !paymentIds.includes(id)));
+      showToast(`បានផ្ទេរវិក្កយបត្រ ${paymentIds.length} ត្រឡប់ទៅ «ត្រូវ Print» វិញ!`);
+    } catch (error) {
+      console.error('Failed moving payments back to print queue:', error);
+      showToast('មានបញ្ហាក្នុងការផ្ទេរវិក្កយបត្រ!', 'error');
+    } finally {
+      setIsUpdatingPrintStatus(false);
+    }
+  };
+
+  const handleBatchPrintQueue = () => {
+    const targets =
+      selectedQueueIds.length > 0
+        ? printQueueEntries.filter((r) => selectedQueueIds.includes(String(r.payment.id)))
+        : printQueueEntries;
+    if (targets.length === 0) {
+      showToast('មិនមានវិក្កយបត្រក្នុងបញ្ជីត្រូវ Print ទេ!', 'error');
+      return;
+    }
+    setPrintDoc({
+      type: 'receipt_batch',
+      items: targets.map(buildReceiptItem),
+      title: `បោះពុម្ពបញ្ជីត្រូវ Print (${targets.length} វិក្កយបត្រ)`,
+    });
+  };
+
+  const handleBatchPrintArchive = () => {
+    const targets =
+      selectedPrintedIds.length > 0
+        ? printedArchiveEntries.filter((r) => selectedPrintedIds.includes(String(r.payment.id)))
+        : printedArchiveEntries;
+    if (targets.length === 0) {
+      showToast('សូមជ្រើសរើសវិក្កយបត្រដែលចង់ Print ម្តងទៀត!', 'error');
+      return;
+    }
+    setPrintDoc({
+      type: 'receipt_batch',
+      items: targets.map(buildReceiptItem),
+      title: `បោះពុម្ពឡើងវិញ (${targets.length} វិក្កយបត្រ)`,
+    });
+  };
 
   const filteredAllStudents = useMemo(() => {
     return billingList
@@ -346,7 +552,7 @@ export default function PaymentsPage() {
         }
       }
     });
-    return `INV-${String(maxNum + 1).padStart(4, '0')}`;
+    return String(maxNum + 1).padStart(6, '0');
   };
 
   const applyPaymentStudentDefaults = (
@@ -358,6 +564,7 @@ export default function PaymentsPage() {
     if (!student) return;
 
     const billing = computeStudentBillingInfo(student, payments, classesData);
+    const classInfo = getStudentClassInfo(student, classesData);
     const todayStr = paymentDateOverride || toISODateString(new Date());
     const startFrom = billing.dueDateStr || billing.enrollDateStr || todayStr;
     const defaultMonths = monthsOverride ?? Math.max(1, billing.monthsDue || 1);
@@ -376,6 +583,10 @@ export default function PaymentsPage() {
     setPayUnitFee(String(unitFee));
     setPayDiscount('0');
     setPayAmount(String(Math.max(0, unitFee * defaultMonths)));
+    setPayCourseName(resolveStudentCourseName(student, classesData));
+    setPayTeacherCode(
+      resolveTeacherShortCode(classInfo.teacherName, teachersData, classInfo.classCode)
+    );
   };
 
   const openRecordPaymentModal = (billing?: StudentBillingInfo) => {
@@ -395,6 +606,8 @@ export default function PaymentsPage() {
       setPayUnitFee('0');
       setPayDiscount('0');
       setPayAmount('0');
+      setPayCourseName('');
+      setPayTeacherCode('');
     }
     setIsPaymentModalOpen(true);
   };
@@ -419,8 +632,7 @@ export default function PaymentsPage() {
     setPayAmount(String(Math.max(0, unit * m - disc)));
   };
 
-  const handleSavePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const savePaymentRecord = async (openPreviewNow: boolean) => {
     const student = students.find((s) => s.id === payStudentDocId);
     if (!student) {
       showToast('សូមជ្រើសរើសសិស្សជាមុនសិន!', 'error');
@@ -439,7 +651,12 @@ export default function PaymentsPage() {
       const discount = Math.max(0, parseFloat(payDiscount) || 0);
       const amount = Math.max(0, parseFloat(payAmount) || 0);
       const validityPeriod = formatKhmerValidityPeriod(payValidFrom || payDate, payValidUntil);
-      const receiptNo = payReceiptNo.trim() || generateNextReceiptNo();
+      const receiptNo = formatReceiptNo6Digit(payReceiptNo.trim() || generateNextReceiptNo());
+      const resolvedCourse =
+        payCourseName.trim() || resolveStudentCourseName(student, classesData) || student.level || '';
+      const resolvedTeacherCode =
+        payTeacherCode.trim() ||
+        resolveTeacherShortCode(classInfo.teacherName, teachersData, classInfo.classCode);
 
       const payload = {
         receiptNo,
@@ -450,6 +667,8 @@ export default function PaymentsPage() {
         gender: student.gender || '',
         shift: student.shift || '',
         level: student.level || '',
+        courseName: resolvedCourse,
+        teacherShortCode: resolvedTeacherCode,
         enrollDate: student.enrollDate || '',
         className: classInfo.classCode,
         teacherName: classInfo.teacherName,
@@ -466,6 +685,9 @@ export default function PaymentsPage() {
         method: payMethod,
         note: payNote.trim(),
         recordedBy: currentUserName,
+        printStatus: 'pending',
+        printedAt: '',
+        printBatchId: '',
       };
 
       const savedId = await paymentService.add(payload);
@@ -474,21 +696,29 @@ export default function PaymentsPage() {
       });
 
       setIsPaymentModalOpen(false);
-      showToast(`បានកត់ត្រាវិក្កយបត្រ ${receiptNo} រួចរាល់!`);
+      showToast(`បានកត់ត្រាវិក្កយបត្រ ${receiptNo} និងដាក់ចូលបញ្ជី «ត្រូវ Print» រួចរាល់!`);
 
-      // Open printable receipt immediately
-      setPrintDoc({
-        type: 'receipt',
-        payment: { ...payload, id: savedId },
-        student,
-        roomAndTeacher: classInfo.roomAndTeacher,
-      });
+      if (openPreviewNow) {
+        setPrintDoc({
+          type: 'receipt',
+          payment: { ...payload, id: savedId },
+          student,
+          roomAndTeacher: classInfo.roomAndTeacher,
+          courseName: resolvedCourse,
+          teacherShortCode: resolvedTeacherCode,
+        });
+      }
     } catch (error) {
       console.error('Error saving payment:', error);
       showToast('មានបញ្ហាក្នុងការរក្សាទុកការបង់ប្រាក់!', 'error');
     } finally {
       setIsSavingPayment(false);
     }
+  };
+
+  const handleSavePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await savePaymentRecord(false);
   };
 
   const handleDeletePayment = async (paymentRecord: any) => {
@@ -684,6 +914,30 @@ export default function PaymentsPage() {
 
           <button
             type="button"
+            onClick={() => {
+              setActiveTab('print_queue');
+              if (pendingQueueTotalCount > 0) {
+                handleBatchPrintQueue();
+              }
+            }}
+            className="btn btn-outline"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.55rem 1rem',
+              borderColor: '#4f46e5',
+              color: '#4f46e5',
+              background: pendingQueueTotalCount > 0 ? 'rgba(79, 70, 229, 0.08)' : 'transparent',
+              fontWeight: 700,
+            }}
+          >
+            <AppIcon name="printer" size={16} />
+            Print A4 ({pendingQueueTotalCount})
+          </button>
+
+          <button
+            type="button"
             onClick={handleSyncToGoogleSheets}
             disabled={isSyncingSheets}
             className="btn btn-outline"
@@ -802,29 +1056,29 @@ export default function PaymentsPage() {
         </div>
 
         <div
-          onClick={() => setActiveTab('paid')}
+          onClick={() => setActiveTab(pendingQueueTotalCount > 0 ? 'print_queue' : 'printed_archive')}
           className="glass-panel"
           style={{
             padding: '1.1rem 1.25rem',
             borderRadius: '16px',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            background: 'rgba(16, 185, 129, 0.06)',
+            border: '1px solid rgba(79, 70, 229, 0.25)',
+            background: 'rgba(79, 70, 229, 0.06)',
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>
-            សិស្សបានបង់រួច (មានសុពលភាព)
+          <div style={{ fontSize: '0.85rem', color: '#4f46e5', fontWeight: 700 }}>
+            វិក្កយបត្រត្រូវ Print / Print រួច
           </div>
           <div style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0.25rem 0' }}>
-            {stats.paidValidCount} នាក់
+            {pendingQueueTotalCount} ត្រូវ Print
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            វិក្កយបត្រសរុប៖ {payments.length}
+            Print រួច៖ {printedArchiveTotalCount} | បង់មានសុពលភាព៖ {stats.paidValidCount} នាក់
           </div>
         </div>
 
         <div
-          onClick={() => setActiveTab('paid')}
+          onClick={() => setActiveTab('printed_archive')}
           className="glass-panel"
           style={{
             padding: '1.1rem 1.25rem',
@@ -866,8 +1120,13 @@ export default function PaymentsPage() {
               color: '#ef4444',
             },
             {
-              id: 'paid' as ActiveTab,
-              label: `សិស្សដែលបង់រួច (${paidEntries.length})`,
+              id: 'print_queue' as ActiveTab,
+              label: `ត្រូវ Print (${printQueueEntries.length})`,
+              color: '#4f46e5',
+            },
+            {
+              id: 'printed_archive' as ActiveTab,
+              label: `Print រួច (${printedArchiveEntries.length})`,
               color: '#10b981',
             },
             {
@@ -947,18 +1206,15 @@ export default function PaymentsPage() {
             </div>
           )}
 
-          {activeTab === 'paid' && (
+          {activeTab === 'printed_archive' && (
             <>
-              <div style={{ minWidth: '200px' }}>
+              <div style={{ minWidth: '170px' }}>
                 <CustomSelectDropdown
-                  value={paidViewMode}
-                  onChange={(v) => setPaidViewMode(v as any)}
+                  value={printedDateFilter}
+                  onChange={setPrintedDateFilter}
                   searchable={false}
-                  menuMinWidth={220}
-                  options={[
-                    { value: 'all_receipts', label: 'វិក្កយបត្របង់រួចទាំងអស់' },
-                    { value: 'latest_per_student', label: 'ចុងក្រោយតាមសិស្សម្នាក់ៗ' },
-                  ]}
+                  menuMinWidth={180}
+                  options={[{ value: 'all', label: 'គ្រប់ថ្ងៃ Print' }, ...printedDateOptions]}
                 />
               </div>
               <div style={{ minWidth: '150px' }}>
@@ -967,7 +1223,19 @@ export default function PaymentsPage() {
                   onChange={setPaidMonthFilter}
                   searchable={false}
                   menuMinWidth={160}
-                  options={[{ value: 'all', label: 'គ្រប់ខែ' }, ...paidMonthOptions]}
+                  options={[{ value: 'all', label: 'គ្រប់ខែបង់' }, ...paidMonthOptions]}
+                />
+              </div>
+              <div style={{ minWidth: '200px' }}>
+                <CustomSelectDropdown
+                  value={paidViewMode}
+                  onChange={(v) => setPaidViewMode(v as any)}
+                  searchable={false}
+                  menuMinWidth={220}
+                  options={[
+                    { value: 'all_receipts', label: 'វិក្កយបត្រទាំងអស់' },
+                    { value: 'latest_per_student', label: 'ចុងក្រោយតាមសិស្សម្នាក់ៗ' },
+                  ]}
                 />
               </div>
             </>
@@ -1135,116 +1403,492 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* TAB 2: Paid Records Table */}
-      {activeTab === 'paid' && (
-        <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1150px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(16, 185, 129, 0.08)', borderBottom: '1px solid var(--border-color)' }}>
-                  <th>លេខវិក្កយបត្រ</th>
-                  <th>អត្តលេខសិស្ស</th>
-                  <th>ឈ្មោះសិស្ស</th>
-                  <th>ភេទ</th>
-                  <th>វេនសិក្សា</th>
-                  <th>វគ្គសិក្សា</th>
-                  <th>ថ្ងៃខួបចូលរៀន</th>
-                  <th>ថ្ងៃខែ ឆ្នាំ បង់ប្រាក់ បន្ទាប់</th>
-                  <th>សុពលភាពនៃការរៀន</th>
-                  <th>លេខបន្ទប់និងឈ្មោះគ្រូបង្រៀន</th>
-                  <th style={{ textAlign: 'right' }}>ជម្រើស</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paidEntries.map((row) => (
-                  <tr
-                    key={row.payment.id}
-                    style={{ borderBottom: '1px solid var(--border-color)' }}
-                  >
-                    <td>
-                      <strong style={{ color: '#10b981' }}>{row.receiptNo}</strong>
-                    </td>
-                    <td>
-                      <code>{row.studentIdCode || '-'}</code>
-                    </td>
-                    <td style={{ fontWeight: 700 }}>{row.studentName || '-'}</td>
-                    <td>{row.gender || '-'}</td>
-                    <td>{row.shift || '-'}</td>
-                    <td>{row.level || '-'}</td>
-                    <td>{formatDMYSlash(row.enrollDateStr) || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>{formatDMYSlash(row.validUntil) || '-'}</td>
-                    <td>
-                      <span
+      {/* TAB 2: Print Queue (បញ្ជីត្រូវ Print — ដាច់ដោយឡែកពី Print រួច) */}
+      {activeTab === 'print_queue' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          {/* Batch Action Bar */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '0.9rem 1.15rem',
+              borderRadius: '14px',
+              border: '1px solid rgba(79, 70, 229, 0.28)',
+              background: 'rgba(79, 70, 229, 0.06)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.94rem', color: '#4338ca' }}>
+                បញ្ជីវិក្កយបត្រត្រូវ Print ({printQueueEntries.length} វិក្កយបត្រ •{' '}
+                {Math.max(1, Math.ceil((selectedQueueIds.length || printQueueEntries.length || 1) / 4))}{' '}
+                ទំព័រ A4 ផ្ដេក)
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                សិស្សបង់ប្រាក់ថ្មីនឹងចូលមកទីនេះដោយស្វ័យប្រវត្តិ។ ពេល Print រួច សូមចុច «សម្គាល់ថា Print រួច» ដើម្បីផ្ទេរទុកដោយឡែកកុំឱ្យលាយឡំជាមួយថ្ងៃបន្ទាប់។
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                disabled={printQueueEntries.length === 0}
+                onClick={handleBatchPrintQueue}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.52rem 1.05rem',
+                  background: '#4f46e5',
+                  borderColor: '#4f46e5',
+                  fontWeight: 700,
+                }}
+              >
+                <AppIcon name="printer" size={16} />
+                Print A4 ផ្ដេក 4/ទំព័រ ({selectedQueueIds.length > 0 ? selectedQueueIds.length : printQueueEntries.length})
+              </button>
+
+              <button
+                type="button"
+                disabled={printQueueEntries.length === 0 || isUpdatingPrintStatus}
+                onClick={async () => {
+                  const targetIds =
+                    selectedQueueIds.length > 0
+                      ? selectedQueueIds
+                      : printQueueEntries.map((r) => String(r.payment.id));
+                  if (targetIds.length === 0) return;
+                  const ok = await confirmDialog({
+                    title: 'បញ្ជាក់ថា Print រួចរាល់',
+                    message: `តើអ្នកចង់សម្គាល់វិក្កយបត្រចំនួន ${targetIds.length} ថា «Print រួច» ហើយផ្ទេរចេញពីបញ្ជីត្រូវ Print ទុកដោយឡែកមែនទេ?`,
+                    confirmText: 'ផ្ទេរទៅ Print រួច',
+                    variant: 'info',
+                  });
+                  if (ok) await handleMarkPaymentsPrinted(targetIds);
+                }}
+                className="btn btn-outline"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.52rem 0.95rem',
+                  borderColor: '#10b981',
+                  color: '#059669',
+                  fontWeight: 700,
+                }}
+              >
+                <AppIcon name="check-circle" size={15} />
+                សម្គាល់ថា Print រួច ({selectedQueueIds.length > 0 ? selectedQueueIds.length : printQueueEntries.length})
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1150px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(79, 70, 229, 0.08)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ width: '42px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          printQueueEntries.length > 0 &&
+                          selectedQueueIds.length === printQueueEntries.length
+                        }
+                        onChange={(e) =>
+                          setSelectedQueueIds(
+                            e.target.checked
+                              ? printQueueEntries.map((r) => String(r.payment.id))
+                              : []
+                          )
+                        }
+                      />
+                    </th>
+                    <th>លេខវិក្កយបត្រ</th>
+                    <th>ថ្ងៃបង់ប្រាក់</th>
+                    <th>អត្តលេខ & ឈ្មោះសិស្ស</th>
+                    <th>ភេទ</th>
+                    <th>វគ្គ & វេន</th>
+                    <th>សុពលភាព</th>
+                    <th>ថ្ងៃបង់បន្ទាប់</th>
+                    <th>ទឹកប្រាក់</th>
+                    <th>បន្ទប់ & គ្រូ</th>
+                    <th style={{ textAlign: 'right' }}>ជម្រើស</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {printQueueEntries.map((row) => {
+                    const idStr = String(row.payment.id);
+                    const isChecked = selectedQueueIds.includes(idStr);
+                    return (
+                      <tr
+                        key={idStr}
                         style={{
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '8px',
-                          background: 'rgba(16, 185, 129, 0.12)',
-                          color: '#059669',
-                          fontWeight: 600,
-                          fontSize: '0.84rem',
+                          borderBottom: '1px solid var(--border-color)',
+                          background: isChecked ? 'rgba(79, 70, 229, 0.04)' : 'transparent',
                         }}
                       >
-                        {row.validityPeriod || '-'}
-                      </span>
-                    </td>
-                    <td>{row.roomAndTeacher || '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPrintDoc({
-                              type: 'receipt',
-                              payment: row.payment,
-                              student: row.student || {
-                                studentId: row.studentIdCode,
-                                fullName: row.studentName,
-                                gender: row.gender,
-                                shift: row.shift,
-                                level: row.level,
-                                enrollDate: row.enrollDateStr,
-                              },
-                              roomAndTeacher: row.roomAndTeacher,
-                            })
-                          }
-                          className="btn btn-outline"
-                          style={{
-                            padding: '0.32rem 0.65rem',
-                            fontSize: '0.82rem',
-                            borderColor: '#3b82f6',
-                            color: '#3b82f6',
-                          }}
-                          title="មើល & បោះពុម្ពវិក្កយបត្រ"
-                        >
-                          វិក្កយបត្រ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePayment(row.payment)}
-                          className="btn"
-                          style={{
-                            padding: '0.32rem 0.6rem',
-                            fontSize: '0.82rem',
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            color: '#ef4444',
-                            border: 'none',
-                          }}
-                        >
-                          លុប
-                        </button>
-                      </div>
-                    </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) =>
+                              setSelectedQueueIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, idStr]
+                                  : prev.filter((x) => x !== idStr)
+                              )
+                            }
+                          />
+                        </td>
+                        <td>
+                          <strong style={{ color: '#b91c1c' }}>{row.receiptNo}</strong>
+                        </td>
+                        <td>{formatDMYSlash(row.paymentDate) || '-'}</td>
+                        <td>
+                          <div style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                            <code>{row.studentIdCode || '-'}</code>
+                          </div>
+                        </td>
+                        <td>{row.gender || '-'}</td>
+                        <td>
+                          <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>{row.courseName || row.level || '-'}</div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                            {[row.level, row.shift].filter(Boolean).join(' • ') || '-'}
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '8px',
+                              background: 'rgba(79, 70, 229, 0.1)',
+                              color: '#4338ca',
+                              fontWeight: 600,
+                              fontSize: '0.84rem',
+                            }}
+                          >
+                            {row.validityPeriod || '-'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{formatDMYSlash(row.validUntil) || '-'}</td>
+                        <td style={{ fontWeight: 700 }}>{formatRiels(row.amount)}</td>
+                        <td>{row.roomAndTeacher || '-'}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPrintDoc({
+                                  type: 'receipt',
+                                  ...buildReceiptItem(row),
+                                  roomAndTeacher: row.roomAndTeacher,
+                                })
+                              }
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.6rem',
+                                fontSize: '0.8rem',
+                                borderColor: '#4f46e5',
+                                color: '#4f46e5',
+                              }}
+                              title="មើល & Print វិក្កយបត្រ"
+                            >
+                              មើល
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isUpdatingPrintStatus}
+                              onClick={() => handleMarkPaymentsPrinted([idStr])}
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.6rem',
+                                fontSize: '0.8rem',
+                                borderColor: '#10b981',
+                                color: '#059669',
+                              }}
+                              title="ផ្ទេរទៅ Print រួច"
+                            >
+                              Print រួច
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayment(row.payment)}
+                              className="btn"
+                              style={{
+                                padding: '0.3rem 0.55rem',
+                                fontSize: '0.8rem',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                border: 'none',
+                              }}
+                            >
+                              លុប
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {printQueueEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ padding: '2.75rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        គ្មានវិក្កយបត្ររង់ចាំ Print ទេ។ នៅពេលកត់ត្រាសិស្សបង់ប្រាក់ថ្មី វិក្កយបត្រនឹងបង្ហាញនៅទីនេះសម្រាប់ប្រមូល Print ជាក្រុម (A4 4/ទំព័រ)។
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Printed Archive (បញ្ជី Print រួច — ទុកដោយឡែកមិនលាយឡំជាមួយសិស្សបង់ថ្មី) */}
+      {activeTab === 'printed_archive' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div
+            className="glass-panel"
+            style={{
+              padding: '0.85rem 1.15rem',
+              borderRadius: '14px',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              background: 'rgba(16, 185, 129, 0.05)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.94rem', color: '#059669' }}>
+                បញ្ជីវិក្កយបត្រដែលបាន Print រួច ({printedArchiveEntries.length} វិក្កយបត្រ)
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                ទិន្នន័យ Print រួចត្រូវបានរក្សាទុកដាច់ដោយឡែកពីបញ្ជីត្រូវ Print ថ្មី។ អ្នកអាច Print ម្តងទៀត ឬផ្ទេរត្រឡប់ទៅ «ត្រូវ Print» វិញបានគ្រប់ពេល។
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                disabled={printedArchiveEntries.length === 0}
+                onClick={handleBatchPrintArchive}
+                className="btn btn-outline"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.5rem 0.95rem',
+                  borderColor: '#10b981',
+                  color: '#059669',
+                  fontWeight: 700,
+                }}
+              >
+                <AppIcon name="printer" size={15} />
+                Print ម្តងទៀត A4 ({selectedPrintedIds.length > 0 ? selectedPrintedIds.length : printedArchiveEntries.length})
+              </button>
+
+              {selectedPrintedIds.length > 0 && (
+                <button
+                  type="button"
+                  disabled={isUpdatingPrintStatus}
+                  onClick={() => handleMovePaymentsToQueue(selectedPrintedIds)}
+                  className="btn btn-outline"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.5rem 0.9rem',
+                    borderColor: '#f59e0b',
+                    color: '#d97706',
+                    fontWeight: 700,
+                  }}
+                >
+                  <AppIcon name="rotate-cw" size={14} />
+                  ផ្ទេរទៅត្រូវ Print វិញ ({selectedPrintedIds.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(16, 185, 129, 0.08)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ width: '42px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          printedArchiveEntries.length > 0 &&
+                          selectedPrintedIds.length === printedArchiveEntries.length
+                        }
+                        onChange={(e) =>
+                          setSelectedPrintedIds(
+                            e.target.checked
+                              ? printedArchiveEntries.map((r) => String(r.payment.id))
+                              : []
+                          )
+                        }
+                      />
+                    </th>
+                    <th>លេខវិក្កយបត្រ</th>
+                    <th>ថ្ងៃ Print រួច</th>
+                    <th>អត្តលេខ & ឈ្មោះសិស្ស</th>
+                    <th>ភេទ</th>
+                    <th>វគ្គ & វេន</th>
+                    <th>សុពលភាព</th>
+                    <th>ថ្ងៃបង់បន្ទាប់</th>
+                    <th>ទឹកប្រាក់</th>
+                    <th>បន្ទប់ & គ្រូ</th>
+                    <th style={{ textAlign: 'right' }}>ជម្រើស</th>
                   </tr>
-                ))}
-                {paidEntries.length === 0 && (
-                  <tr>
-                    <td colSpan={11} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      មិនទាន់មានទិន្នន័យការបង់ប្រាក់ទេ។
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {printedArchiveEntries.map((row) => {
+                    const idStr = String(row.payment.id);
+                    const isChecked = selectedPrintedIds.includes(idStr);
+                    return (
+                      <tr
+                        key={idStr}
+                        style={{
+                          borderBottom: '1px solid var(--border-color)',
+                          background: isChecked ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
+                        }}
+                      >
+                        <td style={{ textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) =>
+                              setSelectedPrintedIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, idStr]
+                                  : prev.filter((x) => x !== idStr)
+                              )
+                            }
+                          />
+                        </td>
+                        <td>
+                          <strong style={{ color: '#059669' }}>{row.receiptNo}</strong>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              padding: '0.18rem 0.5rem',
+                              borderRadius: '999px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              color: '#059669',
+                              fontWeight: 700,
+                              fontSize: '0.78rem',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {row.printedDateKey ? formatDMYSlash(row.printedDateKey) : 'Print រួច'}
+                          </span>
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                            <code>{row.studentIdCode || '-'}</code>
+                          </div>
+                        </td>
+                        <td>{row.gender || '-'}</td>
+                        <td>
+                          <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>{row.courseName || row.level || '-'}</div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                            {[row.level, row.shift].filter(Boolean).join(' • ') || '-'}
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '8px',
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              color: '#059669',
+                              fontWeight: 600,
+                              fontSize: '0.84rem',
+                            }}
+                          >
+                            {row.validityPeriod || '-'}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{formatDMYSlash(row.validUntil) || '-'}</td>
+                        <td style={{ fontWeight: 700 }}>{formatRiels(row.amount)}</td>
+                        <td>{row.roomAndTeacher || '-'}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPrintDoc({
+                                  type: 'receipt',
+                                  ...buildReceiptItem(row),
+                                  roomAndTeacher: row.roomAndTeacher,
+                                })
+                              }
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.6rem',
+                                fontSize: '0.8rem',
+                                borderColor: '#3b82f6',
+                                color: '#3b82f6',
+                              }}
+                              title="Print វិក្កយបត្រម្តងទៀត"
+                            >
+                              Print ម្តងទៀត
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isUpdatingPrintStatus}
+                              onClick={() => handleMovePaymentsToQueue([idStr])}
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.55rem',
+                                fontSize: '0.8rem',
+                                borderColor: '#f59e0b',
+                                color: '#d97706',
+                              }}
+                              title="ផ្ទេរត្រឡប់ទៅត្រូវ Print វិញ"
+                            >
+                              ផ្ទេរវិញ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePayment(row.payment)}
+                              className="btn"
+                              style={{
+                                padding: '0.3rem 0.55rem',
+                                fontSize: '0.8rem',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                border: 'none',
+                              }}
+                            >
+                              លុប
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {printedArchiveEntries.length === 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ padding: '2.75rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        មិនទាន់មានវិក្កយបត្រដែលបាន Print រួចនៅឡើយទេ។
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1594,6 +2238,47 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.85rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.9rem' }}>
+                    វគ្គសិក្សា (បង្ហាញលើវិក្កយបត្រ)
+                  </label>
+                  <input
+                    type="text"
+                    value={payCourseName}
+                    onChange={(e) => setPayCourseName(e.target.value)}
+                    placeholder="ឧ. Smart English Alphabet"
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.9rem' }}>
+                    កូដគ្រូ (ជ្រុងលើស្តាំ)
+                  </label>
+                  <input
+                    type="text"
+                    value={payTeacherCode}
+                    onChange={(e) => setPayTeacherCode(e.target.value)}
+                    placeholder="ឧ. NIN"
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
                 <div>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.35rem', fontSize: '0.9rem' }}>
@@ -1634,22 +2319,36 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
                   onClick={() => setIsPaymentModalOpen(false)}
                   className="btn btn-outline"
-                  style={{ padding: '0.55rem 1.15rem' }}
+                  style={{ padding: '0.55rem 1rem' }}
                 >
                   បោះបង់
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingPayment}
+                  onClick={() => savePaymentRecord(true)}
+                  className="btn btn-outline"
+                  style={{
+                    padding: '0.55rem 1rem',
+                    borderColor: '#4f46e5',
+                    color: '#4f46e5',
+                    fontWeight: 700,
+                  }}
+                >
+                  រក្សាទុក & មើលវិក្កយបត្រ
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingPayment}
                   className="btn btn-primary"
-                  style={{ padding: '0.55rem 1.35rem' }}
+                  style={{ padding: '0.55rem 1.25rem', fontWeight: 700 }}
                 >
-                  {isSavingPayment ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក និងបើកវិក្កយបត្រ'}
+                  {isSavingPayment ? 'កំពុងរក្សាទុក...' : 'រក្សាទុកចូលបញ្ជីត្រូវ Print'}
                 </button>
               </div>
             </form>
@@ -1946,16 +2645,62 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.3rem', fontSize: '0.85rem' }}>
+                    ឈ្មោះអ្នកទទួលប្រាក់ (លើវិក្កយបត្រ)
+                  </label>
+                  <input
+                    type="text"
+                    value={syncSettings.cashierName}
+                    onChange={(e) =>
+                      setSyncSettings((s) => ({ ...s, cashierName: e.target.value }))
+                    }
+                    placeholder={DEFAULT_RECEIPT_CASHIER}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.3rem', fontSize: '0.85rem' }}>
+                    Link Logo & ផ្លាកសាលា (Google Drive)
+                  </label>
+                  <input
+                    type="text"
+                    value={syncSettings.headerLogoUrl}
+                    onChange={(e) =>
+                      setSyncSettings((s) => ({ ...s, headerLogoUrl: e.target.value }))
+                    }
+                    placeholder={DEFAULT_RECEIPT_HEADER_DRIVE_URL}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.3rem', fontSize: '0.85rem' }}>
                   អាសយដ្ឋានសាលា (លើវិក្កយបត្រ & លិខិតជូនដំណឹង)
                 </label>
-                <input
-                  type="text"
+                <textarea
+                  rows={2}
                   value={syncSettings.schoolAddress}
                   onChange={(e) =>
                     setSyncSettings((s) => ({ ...s, schoolAddress: e.target.value }))
                   }
+                  placeholder={DEFAULT_RECEIPT_ADDRESS}
                   style={{
                     width: '100%',
                     padding: '0.5rem 0.75rem',
@@ -2013,7 +2758,10 @@ export default function PaymentsPage() {
         schoolName={schoolName}
         schoolPhone={syncSettings.schoolPhone}
         schoolAddress={syncSettings.schoolAddress}
+        cashierName={syncSettings.cashierName}
+        headerLogoUrl={syncSettings.headerLogoUrl}
         paymentNote={syncSettings.paymentNote}
+        onMarkAsPrinted={handleMarkPaymentsPrinted}
         onClose={() => setPrintDoc(null)}
       />
     </div>

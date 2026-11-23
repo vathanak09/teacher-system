@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  feeToRiels,
   formatDMYSlash,
   formatKhmerFullDate,
-  formatKhmerValidityPeriod,
   formatRiels,
-  normalizePaymentRiels,
 } from '@/utils/paymentBilling';
+import OfficialReceiptCard, { OfficialReceiptItem } from './OfficialReceiptCard';
+import { AppIcon } from './AppIcons';
 
 export type PrintDocPayload =
   | {
@@ -17,6 +16,13 @@ export type PrintDocPayload =
       payment: any;
       student: any;
       roomAndTeacher: string;
+      courseName?: string;
+      teacherShortCode?: string;
+    }
+  | {
+      type: 'receipt_batch';
+      items: OfficialReceiptItem[];
+      title?: string;
     }
   | {
       type: 'due_notice';
@@ -37,18 +43,37 @@ interface PaymentPrintModalProps {
   schoolName: string;
   schoolPhone?: string;
   schoolAddress?: string;
+  cashierName?: string;
+  headerLogoUrl?: string;
   paymentNote?: string;
+  onMarkAsPrinted?: (paymentIds: string[]) => Promise<void> | void;
   onClose: () => void;
 }
+
+const A4_WIDTH_PX = 1122.52; // 29.7cm @ 96dpi
+const A4_HEIGHT_PX = 793.7; // 21.0cm @ 96dpi
 
 export default function PaymentPrintModal({
   doc,
   schoolName,
   schoolPhone,
   schoolAddress,
+  cashierName,
+  headerLogoUrl,
   paymentNote,
+  onMarkAsPrinted,
   onClose,
 }: PaymentPrintModalProps) {
+  const [showCutLines, setShowCutLines] = useState(true);
+  const [showAmount, setShowAmount] = useState(true);
+  const [hasTriggeredPrint, setHasTriggeredPrint] = useState(false);
+  const [isMarkingPrinted, setIsMarkingPrinted] = useState(false);
+  const [previewScale, setPreviewScale] = useState(1);
+
+  useEffect(() => {
+    setHasTriggeredPrint(false);
+  }, [doc]);
+
   useEffect(() => {
     if (!doc) return;
     const onKey = (e: KeyboardEvent) => {
@@ -58,9 +83,83 @@ export default function PaymentPrintModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [doc, onClose]);
 
+  useEffect(() => {
+    if (!doc || doc.type === 'due_notice') return;
+    const updateScale = () => {
+      const availWidth = Math.max(300, window.innerWidth - 48);
+      const nextScale = Math.min(1, availWidth / A4_WIDTH_PX);
+      setPreviewScale(nextScale);
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [doc]);
+
+  const receiptItems: OfficialReceiptItem[] = useMemo(() => {
+    if (!doc) return [];
+    if (doc.type === 'receipt') {
+      return [
+        {
+          payment: doc.payment,
+          student: doc.student,
+          roomAndTeacher: doc.roomAndTeacher,
+          courseName: doc.courseName,
+          teacherShortCode: doc.teacherShortCode,
+        },
+      ];
+    }
+    if (doc.type === 'receipt_batch') {
+      return doc.items;
+    }
+    return [];
+  }, [doc]);
+
+  const receiptPages = useMemo(() => {
+    const pages: OfficialReceiptItem[][] = [];
+    for (let i = 0; i < receiptItems.length; i += 4) {
+      pages.push(receiptItems.slice(i, i + 4));
+    }
+    return pages;
+  }, [receiptItems]);
+
+  const unprintedPaymentIds = useMemo(
+    () =>
+      receiptItems
+        .filter((it) => it.payment?.id && it.payment?.printStatus !== 'printed')
+        .map((it) => String(it.payment.id)),
+    [receiptItems]
+  );
+
   if (!doc || typeof window === 'undefined') return null;
 
+  const isReceiptMode = doc.type === 'receipt' || doc.type === 'receipt_batch';
+
   const handlePrint = () => {
+    if (isReceiptMode) {
+      setHasTriggeredPrint(true);
+      document.body.classList.add('printing-receipt-a4');
+
+      let styleEl = document.getElementById('bsis-a4-landscape-page-rule');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'bsis-a4-landscape-page-rule';
+        styleEl.textContent = '@page { size: A4 landscape; margin: 0; }';
+        document.head.appendChild(styleEl);
+      }
+
+      const cleanup = () => {
+        document.body.classList.remove('printing-receipt-a4');
+        const el = document.getElementById('bsis-a4-landscape-page-rule');
+        if (el) el.remove();
+      };
+      window.addEventListener('afterprint', cleanup, { once: true });
+      setTimeout(() => {
+        window.print();
+        setTimeout(cleanup, 2000);
+      }, 80);
+      return;
+    }
+
     document.body.classList.add('printing-payment-doc');
     const cleanup = () => document.body.classList.remove('printing-payment-doc');
     window.addEventListener('afterprint', cleanup, { once: true });
@@ -70,245 +169,114 @@ export default function PaymentPrintModal({
     }, 60);
   };
 
-  const renderReceipt = () => {
-    if (doc.type !== 'receipt') return null;
-    const { payment, student, roomAndTeacher } = doc;
-    const validity =
-      payment.validityPeriod ||
-      formatKhmerValidityPeriod(payment.validFrom || payment.paymentDate, payment.validUntil);
-    const monthsCount = Number(payment.monthsPaid || 1);
-    const unitFee =
-      payment.unitFee !== undefined && payment.unitFee !== null
-        ? normalizePaymentRiels(payment.unitFee, payment)
-        : feeToRiels(student?.fee);
-    const discount = normalizePaymentRiels(payment.discount || 0, payment);
-    const totalPaid =
-      payment.amount !== undefined && payment.amount !== null
-        ? normalizePaymentRiels(payment.amount, payment)
-        : Math.max(0, unitFee * monthsCount - discount);
+  const handleMarkBatchPrinted = async () => {
+    if (!onMarkAsPrinted || unprintedPaymentIds.length === 0) return;
+    setIsMarkingPrinted(true);
+    try {
+      await onMarkAsPrinted(unprintedPaymentIds);
+      onClose();
+    } finally {
+      setIsMarkingPrinted(false);
+    }
+  };
 
+  const renderReceiptSheets = () => {
     return (
       <div
-        id="printable-payment-doc"
+        className="receipt-a4-sheets-container"
         style={{
-          background: '#ffffff',
-          color: '#111827',
-          borderRadius: '14px',
-          padding: '2rem',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-          width: '100%',
-          maxWidth: '720px',
-          margin: '0 auto',
-          fontFamily: "'Kantumruy Pro', 'Inter', sans-serif",
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1.25rem',
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            borderBottom: '2px solid #1e3a8a',
-            paddingBottom: '1rem',
-            marginBottom: '1.25rem',
-            gap: '1rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#1e3a8a' }}>
-              {schoolName}
-            </h2>
-            {schoolAddress && (
-              <div style={{ fontSize: '0.85rem', color: '#4b5563', marginTop: '0.2rem' }}>
-                {schoolAddress}
-              </div>
-            )}
-            {schoolPhone && (
-              <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>
-                ទូរស័ព្ទ៖ {schoolPhone}
-              </div>
-            )}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div
-              style={{
-                display: 'inline-block',
-                padding: '0.35rem 0.9rem',
-                borderRadius: '8px',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                fontWeight: 800,
-                fontSize: '1rem',
-                border: '1px solid #bfdbfe',
-              }}
-            >
-              វិក្កយបត្របង់ប្រាក់ / RECEIPT
-            </div>
-            <div style={{ marginTop: '0.45rem', fontSize: '0.88rem', color: '#374151' }}>
-              លេខវិក្កយបត្រ៖ <strong>{payment.receiptNo || '-'}</strong>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>
-              កាលបរិច្ឆេទបង់៖ {formatDMYSlash(payment.paymentDate)}
-            </div>
-          </div>
-        </div>
-
-        {/* Student Info */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            gap: '0.6rem 1.25rem',
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '10px',
-            padding: '1rem',
-            marginBottom: '1.25rem',
-            fontSize: '0.92rem',
-          }}
-        >
-          <div>
-            <span style={{ color: '#64748b' }}>អត្តលេខសិស្ស៖ </span>
-            <strong>{student?.studentId || payment.studentIdCode || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>ឈ្មោះសិស្ស៖ </span>
-            <strong>{student?.fullName || payment.studentName || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>ភេទ៖ </span>
-            <strong>{student?.gender || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>វេនសិក្សា៖ </span>
-            <strong>{student?.shift || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>វគ្គសិក្សា៖ </span>
-            <strong>{student?.level || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>បន្ទប់ & គ្រូ៖ </span>
-            <strong>{roomAndTeacher || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>ថ្ងៃខួបចូលរៀន៖ </span>
-            <strong>{formatDMYSlash(student?.enrollDate) || '-'}</strong>
-          </div>
-          <div>
-            <span style={{ color: '#64748b' }}>វិធីបង់ប្រាក់៖ </span>
-            <strong>{payment.method || 'Cash'}</strong>
-          </div>
-        </div>
-
-        {/* Line Items */}
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            marginBottom: '1.25rem',
-            fontSize: '0.92rem',
-          }}
-        >
-          <thead>
-            <tr style={{ background: '#1e3a8a', color: '#ffffff' }}>
-              <th style={{ padding: '0.65rem 0.75rem', textAlign: 'left', border: '1px solid #1e3a8a' }}>
-                បរិយាយ (Description)
-              </th>
-              <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', border: '1px solid #1e3a8a' }}>
-                សុពលភាពនៃការរៀន
-              </th>
-              <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', border: '1px solid #1e3a8a' }}>
-                ថ្ងៃបង់ប្រាក់បន្ទាប់
-              </th>
-              <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right', border: '1px solid #1e3a8a' }}>
-                ចំនួនទឹកប្រាក់
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ padding: '0.75rem', border: '1px solid #cbd5e1' }}>
-                ថ្លៃសិក្សា ({monthsCount} ខែ{unitFee > 0 ? ` × ${formatRiels(unitFee)}` : ''})
-                {payment.note && (
-                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.25rem' }}>
-                    សម្គាល់៖ {payment.note}
-                  </div>
-                )}
-              </td>
-              <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                {validity || '-'}
-              </td>
-              <td style={{ padding: '0.75rem', textAlign: 'center', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                {formatDMYSlash(payment.validUntil) || '-'}
-              </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 600 }}>
-                {formatRiels(totalPaid + discount)}
-              </td>
-            </tr>
-            {discount > 0 && (
-              <tr>
-                <td colSpan={3} style={{ padding: '0.55rem 0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', color: '#475569' }}>
-                  បញ្ចុះតម្លៃ (Discount)
-                </td>
-                <td style={{ padding: '0.55rem 0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', color: '#dc2626' }}>
-                  -{formatRiels(discount)}
-                </td>
-              </tr>
-            )}
-            <tr style={{ background: '#f1f5f9' }}>
-              <td colSpan={3} style={{ padding: '0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 800 }}>
-                ទឹកប្រាក់សរុបបានបង់ (TOTAL PAID)
-              </td>
-              <td style={{ padding: '0.75rem', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '1.05rem', color: '#059669' }}>
-                {formatRiels(totalPaid)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {paymentNote && (
+        {receiptPages.map((pageItems, pageIdx) => (
           <div
+            key={`sheet-${pageIdx}`}
             style={{
-              padding: '0.65rem 0.9rem',
-              background: '#fefce8',
-              border: '1px solid #fde68a',
-              borderRadius: '8px',
-              fontSize: '0.84rem',
-              color: '#713f12',
-              marginBottom: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.4rem',
             }}
           >
-            {paymentNote}
-          </div>
-        )}
+            <div
+              className="no-print"
+              style={{
+                fontSize: '0.8rem',
+                color: 'rgba(255,255,255,0.85)',
+                fontWeight: 600,
+              }}
+            >
+              ទំព័រ A4 ផ្ដេក ទី {pageIdx + 1} / {receiptPages.length} ({pageItems.length} វិក្កយបត្រ • ទំហំ 10.5cm × 14.85cm)
+            </div>
 
-        {/* Signatures */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '2rem',
-            marginTop: '1.75rem',
-            textAlign: 'center',
-            fontSize: '0.9rem',
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: '3.2rem' }}>ហត្ថលេខាអ្នកបង់ប្រាក់ / Payer</div>
-            <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '0.35rem', color: '#64748b' }}>
-              {student?.fullName || ''}
+            <div
+              className="receipt-a4-preview-scale"
+              style={{
+                width: `${A4_WIDTH_PX * previewScale}px`,
+                height: `${A4_HEIGHT_PX * previewScale}px`,
+                overflow: 'visible',
+              }}
+            >
+              <div
+                className="receipt-a4-sheet"
+                style={{
+                  width: '29.7cm',
+                  height: '21cm',
+                  background: '#ffffff',
+                  display: 'grid',
+                  gridTemplateColumns: '14.85cm 14.85cm',
+                  gridTemplateRows: '10.5cm 10.5cm',
+                  boxShadow: '0 20px 45px rgba(0, 0, 0, 0.35)',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  transformOrigin: 'top left',
+                  transform: previewScale < 1 ? `scale(${previewScale})` : 'none',
+                }}
+              >
+                {[0, 1, 2, 3].map((slotIdx) => {
+                  const slotItem = pageItems[slotIdx];
+                  const isLeftCol = slotIdx % 2 === 0;
+                  const isTopRow = slotIdx < 2;
+
+                  if (!slotItem) {
+                    return (
+                      <div
+                        key={`empty-${pageIdx}-${slotIdx}`}
+                        style={{
+                          width: '14.85cm',
+                          height: '10.5cm',
+                          boxSizing: 'border-box',
+                          background: '#ffffff',
+                          borderRight:
+                            showCutLines && isLeftCol ? '0.5pt dashed #e2e8f0' : 'none',
+                          borderBottom:
+                            showCutLines && isTopRow ? '0.5pt dashed #e2e8f0' : 'none',
+                        }}
+                      />
+                    );
+                  }
+
+                  return (
+                    <OfficialReceiptCard
+                      key={slotItem.payment?.id || `slot-${pageIdx}-${slotIdx}`}
+                      item={slotItem}
+                      schoolPhone={schoolPhone}
+                      schoolAddress={schoolAddress}
+                      cashierName={cashierName}
+                      headerLogoUrl={headerLogoUrl}
+                      showAmount={showAmount}
+                      showCutRight={showCutLines && isLeftCol}
+                      showCutBottom={showCutLines && isTopRow}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: '3.2rem' }}>ហត្ថលេខាអ្នកទទួលប្រាក់ / Cashier</div>
-            <div style={{ borderTop: '1px dashed #94a3b8', paddingTop: '0.35rem', color: '#64748b' }}>
-              {payment.recordedBy || schoolName}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     );
   };
@@ -525,61 +493,146 @@ export default function PaymentPrintModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.6)',
+        background: 'rgba(15, 23, 42, 0.78)',
         backdropFilter: 'blur(4px)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
         overflowY: 'auto',
-        padding: '1.5rem 1rem',
+        padding: '1.15rem 1rem 2rem',
         zIndex: 25000,
       }}
     >
+      {/* Top Action Toolbar (Hidden when printing) */}
       <div
         className="no-print"
         onClick={(e) => e.stopPropagation()}
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
           width: '100%',
-          maxWidth: '720px',
+          maxWidth: isReceiptMode ? '1124px' : '720px',
           marginBottom: '0.85rem',
-          gap: '0.75rem',
+          gap: '0.65rem',
+          background: 'rgba(15, 23, 42, 0.9)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          padding: '0.75rem 1rem',
+          borderRadius: '14px',
         }}
       >
-        <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '1rem' }}>
-          {doc.type === 'receipt' ? 'វិក្កយបត្របង់ប្រាក់' : 'លិខិតជូនដំណឹងដល់ថ្ងៃបង់ប្រាក់'}
-        </span>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.96rem' }}>
+            {doc.type === 'receipt_batch'
+              ? doc.title || `បោះពុម្ពវិក្កយបត្រជាក្រុម (${receiptItems.length} វិក្កយបត្រ)`
+              : doc.type === 'receipt'
+                ? 'វិក្កយបត្របង់ប្រាក់ (10.5cm × 14.85cm)'
+                : 'លិខិតជូនដំណឹងដល់ថ្ងៃបង់ប្រាក់'}
+          </span>
+          {isReceiptMode && (
+            <span style={{ color: '#cbd5e1', fontSize: '0.78rem' }}>
+              ទម្រង់ A4 ផ្ដេក • 4 វិក្កយបត្រ/ទំព័រ • សរុប {receiptPages.length} ទំព័រ (សូមជ្រើស Margins: None ពេល Print)
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem' }}>
+          {isReceiptMode && (
+            <>
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: '#e2e8f0',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showCutLines}
+                  onChange={(e) => setShowCutLines(e.target.checked)}
+                />
+                បន្ទាត់កាត់
+              </label>
+
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  color: '#e2e8f0',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showAmount}
+                  onChange={(e) => setShowAmount(e.target.checked)}
+                />
+                បង្ហាញទឹកប្រាក់
+              </label>
+            </>
+          )}
+
           <button
             type="button"
             onClick={handlePrint}
             className="btn btn-primary"
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '0.45rem',
-              padding: '0.55rem 1.15rem',
+              padding: '0.52rem 1.05rem',
               borderRadius: '10px',
+              fontWeight: 700,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="6 9 6 2 18 2 18 9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-            បោះពុម្ព / Print
+            <AppIcon name="printer" size={16} />
+            {isReceiptMode ? 'Print A4 ផ្ដេក' : 'បោះពុម្ព / Print'}
           </button>
+
+          {isReceiptMode && unprintedPaymentIds.length > 0 && onMarkAsPrinted && (
+            <button
+              type="button"
+              disabled={isMarkingPrinted}
+              onClick={handleMarkBatchPrinted}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.52rem 1rem',
+                borderRadius: '10px',
+                border: 'none',
+                background: hasTriggeredPrint ? '#10b981' : '#059669',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.86rem',
+                cursor: isMarkingPrinted ? 'wait' : 'pointer',
+                boxShadow: hasTriggeredPrint ? '0 0 0 3px rgba(16, 185, 129, 0.45)' : 'none',
+              }}
+            >
+              <AppIcon name="check-circle" size={15} />
+              {isMarkingPrinted
+                ? 'កំពុងផ្ទេរ...'
+                : `Print រួច → ផ្ទេរទុកដោយឡែក (${unprintedPaymentIds.length})`}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}
             style={{
-              padding: '0.55rem 1rem',
+              padding: '0.52rem 0.9rem',
               borderRadius: '10px',
               border: '1px solid rgba(255,255,255,0.25)',
-              background: 'rgba(15, 23, 42, 0.85)',
+              background: 'rgba(30, 41, 59, 0.9)',
               color: '#ffffff',
               fontWeight: 600,
               cursor: 'pointer',
@@ -590,8 +643,42 @@ export default function PaymentPrintModal({
         </div>
       </div>
 
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '720px' }}>
-        {doc.type === 'receipt' ? renderReceipt() : renderDueNotice()}
+      {/* Post-Print Reminder Banner */}
+      {isReceiptMode && hasTriggeredPrint && unprintedPaymentIds.length > 0 && onMarkAsPrinted && (
+        <div
+          className="no-print"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: '100%',
+            maxWidth: '1124px',
+            marginBottom: '0.85rem',
+            padding: '0.65rem 1rem',
+            borderRadius: '10px',
+            background: 'rgba(16, 185, 129, 0.16)',
+            border: '1px solid rgba(16, 185, 129, 0.5)',
+            color: '#d1fae5',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+          }}
+        >
+          <span>
+            ប្រសិនបើ Print ចេញរួចរាល់ហើយ សូមចុចប៊ូតុង <strong>«Print រួច → ផ្ទេរទុកដោយឡែក»</strong> ដើម្បីកុំឱ្យលាយឡំជាមួយសិស្សបង់ប្រាក់ថ្មីនៅថ្ងៃស្អែក។
+          </span>
+        </div>
+      )}
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: isReceiptMode ? '1124px' : '720px',
+        }}
+      >
+        {isReceiptMode ? renderReceiptSheets() : renderDueNotice()}
       </div>
     </div>,
     document.body

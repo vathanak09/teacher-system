@@ -319,3 +319,165 @@ export function computeStudentBillingInfo(
     studentPayments,
   };
 }
+
+export const DEFAULT_RECEIPT_HEADER_DRIVE_URL =
+  'https://drive.google.com/file/d/1ua9ZtPExXLinQMzRRuxpRCfM4HmgUhD0/view?usp=drive_link';
+export const DEFAULT_RECEIPT_PHONE = '077 30 85 40 /011 59 59 71';
+export const DEFAULT_RECEIPT_ADDRESS =
+  'ផ្លូវជាតិលេខ២១ ស្ពានលេខ៧០ ភូមិកំពង់ថ្កុល\nសង្កាត់សំពៅពូន ក្រុងសំពៅពូន ខេត្តកណ្តាល';
+export const DEFAULT_RECEIPT_CASHIER = 'សំរិត វឌ្ឍនៈ';
+
+const KHMER_DIGITS = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+
+export function toKhmerDigits(input: string | number): string {
+  return String(input ?? '').replace(/\d/g, (d) => KHMER_DIGITS[Number(d)] || d);
+}
+
+export function formatDMYDash(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return '';
+  const d = dateInput instanceof Date ? dateInput : parseLocalDate(dateInput);
+  if (!d) return typeof dateInput === 'string' ? dateInput : '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+export function formatKhmerValidityPeriodSpaced(
+  fromStr: string | null | undefined,
+  toStr: string | null | undefined
+): string {
+  const fromFormatted = formatKhmerDayMonth(fromStr);
+  const toFormatted = formatKhmerDayMonth(toStr);
+  if (fromFormatted && toFormatted) return `${fromFormatted} - ${toFormatted}`;
+  return fromFormatted || toFormatted || '';
+}
+
+/** Matches receipt box style: "11-វិច្ឆិកា -២០២៦" */
+export function formatKhmerNextPaymentDate(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return '';
+  const d = dateInput instanceof Date ? dateInput : parseLocalDate(dateInput);
+  if (!d) return typeof dateInput === 'string' ? dateInput : '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const monthKh = KHMER_MONTHS[d.getMonth()] || '';
+  const yearKh = toKhmerDigits(d.getFullYear());
+  return `${day}-${monthKh} -${yearKh}`;
+}
+
+export function formatReceiptNo6Digit(rawReceiptNo?: string | null): string {
+  const trimmed = String(rawReceiptNo || '').trim();
+  if (!trimmed) return '000001';
+  const match = trimmed.match(/(\d+)$/);
+  if (match) {
+    return match[1].padStart(6, '0');
+  }
+  return trimmed;
+}
+
+export function formatShortGenderKh(gender?: string | null): string {
+  const g = String(gender || '').trim().toLowerCase();
+  if (!g) return '';
+  if (g === 'ស្រី' || g === 'f' || g === 'female' || g === 'ស') return 'ស';
+  if (g === 'ប្រុស' || g === 'm' || g === 'male' || g === 'ប') return 'ប';
+  return String(gender || '').trim().slice(0, 2);
+}
+
+export function formatShiftTwoLinesKh(shift?: string | null): [string, string] {
+  const s = String(shift || '').trim().toUpperCase();
+  if (!s) return ['', ''];
+  if (s === 'FM' || s === 'FA' || s === 'F' || s.includes('FULL') || s.includes('ពេញ')) {
+    return ['ពេញ', 'ម៉ោង'];
+  }
+  if (s === 'E' || s === 'P' || s === 'PT' || s.includes('PART') || s.includes('ក្រៅ')) {
+    return ['ក្រៅ', 'ម៉ោង'];
+  }
+  return [String(shift || '').trim(), ''];
+}
+
+export function extractEnrollDay(enrollDateStr?: string | null): string {
+  const dt = parseLocalDate(enrollDateStr);
+  if (!dt) return '';
+  return String(dt.getDate());
+}
+
+const LEVEL_TO_COURSE_MAP: Record<string, string> = {
+  K0: 'Smart English Alphabet',
+  K1: 'Smart English 1',
+  K2: 'Smart English 2',
+  K2A: 'Smart English 2',
+  L1: 'Family & Friends 01',
+  L1A: 'Family & Friends 01',
+  L2: 'Family & Friends 2',
+  L3: 'Team Together 03',
+  SPK: 'Everyone Speak Kids',
+  SPK1: 'Everyone Speak Kids',
+  BEG: 'New Headway Beginner',
+  'PRE-INT': 'Thought & Notion',
+  'ខ្មែរ': 'ភាសាខ្មែរ',
+};
+
+export function resolveStudentCourseName(student: any, classesData: any[]): string {
+  const rawLevel = String(student?.level || '').trim();
+  const levelKey = rawLevel.toUpperCase();
+  if (LEVEL_TO_COURSE_MAP[levelKey]) return LEVEL_TO_COURSE_MAP[levelKey];
+  if (LEVEL_TO_COURSE_MAP[rawLevel]) return LEVEL_TO_COURSE_MAP[rawLevel];
+
+  const sClasses = (classesData || []).filter(
+    (c: any) => Array.isArray(c.studentIds) && c.studentIds.includes(student?.id)
+  );
+  for (const cls of sClasses) {
+    if (Array.isArray(cls.books)) {
+      const firstBook = cls.books.map((b: any) => String(b?.title || b?.name || '').trim()).find(Boolean);
+      if (firstBook) return firstBook;
+    }
+    if (cls.className) return String(cls.className).trim();
+  }
+  return rawLevel || '';
+}
+
+const KNOWN_TEACHER_SHORT_CODES: Record<string, string> = {
+  'DOU DANIN': 'NIN',
+  'DOU DANET': 'NET',
+  'CHOUY SREYNAT': 'NAT',
+  'NENG SREYMOM': 'MOM',
+  'NENG RATHA': 'THA',
+  'NAN SIEV.I': 'SIEV.I',
+  'SAMRITH VATHANAK': 'NAK',
+};
+
+export function resolveTeacherShortCode(
+  teacherName?: string | null,
+  teachersData?: any[],
+  fallbackClassCode?: string | null
+): string {
+  const cleanName = String(teacherName || '').trim();
+  if (cleanName && Array.isArray(teachersData) && teachersData.length > 0) {
+    const firstTeacherName = cleanName.split(',')[0].trim();
+    const matched = teachersData.find(
+      (t: any) => String(t?.fullName || '').trim() === firstTeacherName
+    );
+    if (matched) {
+      if (matched.nickname && String(matched.nickname).trim()) {
+        return String(matched.nickname).trim().toUpperCase();
+      }
+      const eng = String(matched.englishName || '').trim().toUpperCase();
+      if (eng) {
+        if (KNOWN_TEACHER_SHORT_CODES[eng]) return KNOWN_TEACHER_SHORT_CODES[eng];
+        const parts = eng.split(/\s+/).filter(Boolean);
+        const lastWord = parts[parts.length - 1] || eng;
+        return lastWord.length > 6 ? lastWord.slice(-3) : lastWord;
+      }
+    }
+  }
+  if (fallbackClassCode) return String(fallbackClassCode).split(',')[0].trim();
+  return cleanName.split(/\s+/).pop() || '';
+}
+
+export function resolveReceiptBannerSrc(configuredUrl?: string | null): string {
+  const raw = String(configuredUrl || '').trim();
+  if (!raw || raw.includes('1ua9ZtPExXLinQMzRRuxpRCfM4HmgUhD0')) {
+    return '/bsis_receipt_banner.png';
+  }
+  if (raw.startsWith('/')) return raw;
+  return `/api/proxy-image?url=${encodeURIComponent(raw)}`;
+}
