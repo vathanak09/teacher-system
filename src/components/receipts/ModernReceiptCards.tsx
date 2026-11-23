@@ -387,7 +387,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               paddingTop: '1.2mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: '5.75pt', lineHeight: 1.38, color: '#475569', letterSpacing: '-0.015em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.018em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
                 <strong style={{ color: '#0f172a' }}>បញ្ជាក់៖</strong> ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
               </div>
@@ -404,19 +404,19 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
 
             <div
               style={{
-                width: isPortrait ? '3.6cm' : '3.2cm',
+                width: isPortrait ? '3.8cm' : '3.45cm',
                 marginLeft: isPortrait ? 'auto' : 0,
                 flexShrink: 0,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '7pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
                 អ្នកទទួលប្រាក់ / Cashier
               </div>
               <div
                 style={{
                   marginTop: '0.4mm',
-                  minHeight: '1.15cm',
+                  minHeight: '1.25cm',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
@@ -428,12 +428,12 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 {showSignature && (
                   <ReceiptSignature
                     signatureUrl={cashierSignatureUrl}
-                    height="7.8mm"
+                    height="9mm"
                     color="#1e3a8a"
                   />
                 )}
               </div>
-              <div style={{ fontSize: '7.8pt', fontWeight: 800, color: '#0f2957', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8.8pt', fontWeight: 800, color: '#0f2957', marginTop: '0.5mm', whiteSpace: 'nowrap' }}>
                 {d.cashierText}
               </div>
             </div>
@@ -703,7 +703,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             borderTop: '0.5pt solid #e2e8f0',
           }}
         >
-          <div style={{ flex: 1, minWidth: 0, fontSize: '5.75pt', lineHeight: 1.38, color: '#475569', letterSpacing: '-0.015em' }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.018em' }}>
             <div style={{ whiteSpace: 'nowrap' }}>
               <strong style={{ color: '#0f766e' }}>បញ្ជាក់៖</strong> ប្រាក់ដែលបានបង់រួចហើយមិនអាចដកវិញ ឬផ្ទេរបានឡើយ • បង់មុនផុតកំណត់ ៣ថ្ងៃ។
             </div>
@@ -717,18 +717,18 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
 
           <div
             style={{
-              width: isPortrait ? '3.6cm' : '3.2cm',
+              width: isPortrait ? '3.8cm' : '3.45cm',
               marginLeft: isPortrait ? 'auto' : 0,
               flexShrink: 0,
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '6.9pt', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '8pt', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
               អ្នកទទួលប្រាក់
             </div>
             <div
               style={{
-                minHeight: '1.1cm',
+                minHeight: '1.25cm',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'flex-end',
@@ -740,12 +740,12 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               {showSignature && (
                 <ReceiptSignature
                   signatureUrl={cashierSignatureUrl}
-                  height="7.6mm"
+                  height="8.8mm"
                   color="#0f766e"
                 />
               )}
             </div>
-            <div style={{ fontSize: '7.8pt', fontWeight: 800, color: '#0f766e', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '8.8pt', fontWeight: 800, color: '#0f766e', marginTop: '0.4mm', whiteSpace: 'nowrap' }}>
               {d.cashierText}
             </div>
           </div>
@@ -1183,7 +1183,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               marginTop: '1mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: '5.75pt', lineHeight: 1.38, color: '#334155', letterSpacing: '-0.015em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: '6.55pt', lineHeight: 1.4, color: '#334155', letterSpacing: '-0.018em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
                 <strong style={{ color: '#1e3a8a', textDecoration: 'underline' }}>បញ្ជាក់៖</strong>{' '}
                 ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
@@ -1201,18 +1201,18 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
 
             <div
               style={{
-                width: isPortrait ? '3.6cm' : '3.2cm',
+                width: isPortrait ? '3.8cm' : '3.45cm',
                 marginLeft: isPortrait ? 'auto' : 0,
                 flexShrink: 0,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '7.4pt', fontWeight: 800, color: '#1e3a8a', marginBottom: '0.5mm', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#1e3a8a', marginBottom: '0.5mm', whiteSpace: 'nowrap' }}>
                 អ្នកទទួលប្រាក់
               </div>
               <div
                 style={{
-                  height: '1.38cm',
+                  height: '1.55cm',
                   border: '0.6pt solid #93c5fd',
                   borderRadius: '6px',
                   background: '#f8fafc',
@@ -1227,12 +1227,12 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
                   <div style={{ width: '100%', marginBottom: '-0.6mm' }}>
                     <ReceiptSignature
                       signatureUrl={cashierSignatureUrl}
-                      height="7.8mm"
+                      height="9mm"
                       color="#1d4ed8"
                     />
                   </div>
                 )}
-                <span style={{ fontSize: '8pt', fontWeight: 800, color: '#9b3a24', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '8.8pt', fontWeight: 800, color: '#9b3a24', whiteSpace: 'nowrap' }}>
                   {d.cashierText}
                 </span>
               </div>
