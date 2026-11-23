@@ -120,7 +120,12 @@ export function addMonthsWithAnniversary(
   const base = parseLocalDate(baseDateStr);
   if (!base) return '';
   const enroll = parseLocalDate(enrollDateStr);
-  const targetDay = enroll ? enroll.getDate() : base.getDate();
+  const lastDayOfBaseMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  const isBaseClampedMonthEnd =
+    enroll !== null &&
+    base.getDate() === lastDayOfBaseMonth &&
+    enroll.getDate() > base.getDate();
+  const targetDay = isBaseClampedMonthEnd ? enroll.getDate() : base.getDate();
 
   const totalMonths = base.getFullYear() * 12 + base.getMonth() + monthsToAdd;
   const targetYear = Math.floor(totalMonths / 12);
@@ -219,11 +224,13 @@ export function computeStudentBillingInfo(
   const lastPayment = studentPayments.length > 0 ? studentPayments[0] : null;
   const enrollDateObj = parseLocalDate(student.enrollDate);
   const enrollDateStr = enrollDateObj ? toISODateString(enrollDateObj) : '';
+  const billingStartObj = parseLocalDate(student.billingStartDate);
+  const baselineAnchorObj = billingStartObj || enrollDateObj;
 
   const dueDateObj =
     parseLocalDate(student.nextPaymentDate) ||
     parseLocalDate(lastPayment?.validUntil) ||
-    enrollDateObj;
+    baselineAnchorObj;
   const dueDateStr = dueDateObj ? toISODateString(dueDateObj) : '';
 
   if (!dueDateObj) {
@@ -250,7 +257,7 @@ export function computeStudentBillingInfo(
   const diffDays = Math.round((today.getTime() - dueDateObj.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diffDays > 0) {
-    const monthsDue = countElapsedBillingMonths(dueDateObj, today, enrollDateObj);
+    const monthsDue = countElapsedBillingMonths(dueDateObj, today, baselineAnchorObj);
     return {
       student,
       classCode,

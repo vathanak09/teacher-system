@@ -14,6 +14,7 @@ import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
 import { AppIcon } from '@/components/AppIcons';
+import { isStudentActive } from '@/components/dashboard/dashboardMetrics';
 import {
   addMonthsWithAnniversary,
   computeStudentBillingInfo,
@@ -141,8 +142,7 @@ export default function PaymentsPage() {
   const activeStudents = useMemo(() => {
     return students.filter((s) => {
       if (showInactiveStudents) return true;
-      const st = (s.status || '').trim();
-      return st !== 'ឈប់រៀន' && st !== 'ផ្អាក' && st !== 'បញ្ចប់ការសិក្សា';
+      return isStudentActive(s.status);
     });
   }, [students, showInactiveStudents]);
 
@@ -362,10 +362,11 @@ export default function PaymentsPage() {
     const startFrom = billing.dueDateStr || billing.enrollDateStr || todayStr;
     const defaultMonths = monthsOverride ?? Math.max(1, billing.monthsDue || 1);
     const unitFee = feeToRiels(student.fee);
+    const anchorDate = student.billingStartDate ? startFrom : student.enrollDate || startFrom;
     const nextUntil = addMonthsWithAnniversary(
       startFrom,
       defaultMonths,
-      student.enrollDate || startFrom
+      anchorDate
     );
 
     setPayStudentDocId(studentDocId);
@@ -410,8 +411,9 @@ export default function PaymentsPage() {
     const disc = Math.max(0, parseFloat(nextDiscountStr) || 0);
 
     if (nextFrom) {
+      const anchorDate = student?.billingStartDate ? nextFrom : student?.enrollDate || nextFrom;
       setPayValidUntil(
-        addMonthsWithAnniversary(nextFrom, m, student?.enrollDate || nextFrom)
+        addMonthsWithAnniversary(nextFrom, m, anchorDate)
       );
     }
     setPayAmount(String(Math.max(0, unit * m - disc)));
@@ -515,7 +517,9 @@ export default function PaymentsPage() {
             return db - da;
           });
         const fallbackNext =
-          remaining.length > 0 ? remaining[0].validUntil || '' : student.enrollDate || '';
+          remaining.length > 0
+            ? remaining[0].validUntil || ''
+            : student.billingStartDate || student.enrollDate || '';
         await studentService.update(student.id, {
           nextPaymentDate: fallbackNext,
         });
