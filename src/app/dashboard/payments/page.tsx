@@ -168,7 +168,7 @@ export default function PaymentsPage() {
   }, [classesData, billingList]);
 
   const matchesSearchAndClass = (student: any, classCode: string, roomAndTeacher: string) => {
-    if (classFilter !== 'all') {
+    if (classFilter && classFilter !== 'all') {
       const codes = classCode.split(',').map((s) => s.trim());
       if (!codes.includes(classFilter)) return false;
     }
@@ -919,9 +919,8 @@ export default function PaymentsPage() {
           <div style={{ minWidth: '170px' }}>
             <CustomSelectDropdown
               value={classFilter}
-              onChange={setClassFilter}
+              onChange={(val) => setClassFilter(val || 'all')}
               placeholder="គ្រប់ថ្នាក់"
-              emptyOptionLabel="គ្រប់ថ្នាក់"
               options={[{ value: 'all', label: 'គ្រប់ថ្នាក់' }, ...classFilterOptions]}
               searchable
               menuMinWidth={190}
