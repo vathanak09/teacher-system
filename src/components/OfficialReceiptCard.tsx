@@ -40,6 +40,7 @@ export interface ReceiptCardSharedProps {
   headerLogoUrl?: string;
   showAmount?: boolean;
   showSignature?: boolean;
+  prePrintedOnly?: boolean;
   showCutRight?: boolean;
   showCutBottom?: boolean;
 }
@@ -112,6 +113,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
     cashierSignatureUrl,
     showAmount = true,
     showSignature = true,
+    prePrintedOnly = false,
     showCutRight = false,
     showCutBottom = false,
   } = props;
@@ -146,7 +148,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           width: '100%',
           height: '100%',
           boxSizing: 'border-box',
-          border: outerBorder,
+          border: prePrintedOnly ? '0.9pt solid transparent' : outerBorder,
           borderRadius: '9px',
           padding: isPortrait ? '3.2mm 3.4mm 2.8mm' : '2.2mm 3.4mm 2mm',
           position: 'relative',
@@ -159,25 +161,27 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           justifyContent: 'space-between',
         }}
       >
-        {/* Center School Emblem Watermark (Matches original large faint seal) */}
-        <img
-          src="/logo.png"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: isPortrait ? '51%' : '54%',
-            transform: 'translate(-50%, -50%)',
-            width: isPortrait ? '5.4cm' : '5.2cm',
-            height: isPortrait ? '5.4cm' : '5.2cm',
-            objectFit: 'contain',
-            opacity: 0.13,
-            pointerEvents: 'none',
-            zIndex: 0,
-            userSelect: 'none',
-          }}
-        />
+        {/* Center School Emblem Watermark (Hidden when printing onto pre-printed stationery) */}
+        {!prePrintedOnly && (
+          <img
+            src="/logo.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: isPortrait ? '51%' : '54%',
+              transform: 'translate(-50%, -50%)',
+              width: isPortrait ? '5.4cm' : '5.2cm',
+              height: isPortrait ? '5.4cm' : '5.2cm',
+              objectFit: 'contain',
+              opacity: 0.13,
+              pointerEvents: 'none',
+              zIndex: 0,
+              userSelect: 'none',
+            }}
+          />
+        )}
 
         {/* Top-Right Teacher Short Code + Level + Shift */}
         <div
@@ -223,13 +227,14 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           )}
         </div>
 
-        {/* Header Banner + Title + Date/ReceiptNo */}
+        {/* Header Banner + Title (visibility:hidden preserves exact mm coordinates in prePrintedOnly mode) */}
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div
             style={{
               display: 'flex',
               justifyContent: 'center',
               paddingRight: isPortrait ? '1.3cm' : '1.9cm',
+              visibility: prePrintedOnly ? 'hidden' : 'visible',
             }}
           >
             <img
@@ -251,7 +256,13 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             />
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: isPortrait ? '1.2mm' : '0.2mm' }}>
+          <div
+            style={{
+              textAlign: 'center',
+              marginTop: isPortrait ? '1.2mm' : '0.2mm',
+              visibility: prePrintedOnly ? 'hidden' : 'visible',
+            }}
+          >
             <div
               style={{
                 fontFamily: "'Moul', 'Kantumruy Pro', serif",
@@ -884,7 +895,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           </div>
         )}
 
-        {/* Footer: Generous Readable Notes/Contact + Signature Box */}
+        {/* Footer: visibility:hidden preserves exact mm spacing when prePrintedOnly is enabled */}
         <div
           style={{
             position: 'relative',
@@ -895,6 +906,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             justifyContent: 'space-between',
             gap: isPortrait ? '2.2mm' : '1.8mm',
             marginTop: '1mm',
+            visibility: prePrintedOnly ? 'hidden' : 'visible',
           }}
         >
           <div

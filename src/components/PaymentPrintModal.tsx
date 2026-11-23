@@ -182,6 +182,7 @@ export default function PaymentPrintModal({
   const [showCutLines, setShowCutLines] = useState(true);
   const [showAmount, setShowAmount] = useState(true);
   const [showSignature, setShowSignature] = useState(true);
+  const [prePrintedOnly, setPrePrintedOnly] = useState(false);
   const [hasTriggeredPrint, setHasTriggeredPrint] = useState(false);
   const [isMarkingPrinted, setIsMarkingPrinted] = useState(false);
   const [previewScale, setPreviewScale] = useState(1);
@@ -213,10 +214,23 @@ export default function PaymentPrintModal({
       if (savedLayout && savedLayout in LAYOUT_SPECS) {
         setPrintLayout(savedLayout);
       }
+      const savedPrePrinted = localStorage.getItem('bsis_receipt_preprinted_only');
+      if (savedPrePrinted === '1') {
+        setPrePrintedOnly(true);
+      }
     } catch {
       // ignore storage errors
     }
   }, []);
+
+  const handleTogglePrePrintedOnly = (checked: boolean) => {
+    setPrePrintedOnly(checked);
+    try {
+      localStorage.setItem('bsis_receipt_preprinted_only', checked ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  };
 
   const handleSelectTemplate = (next: ReceiptTemplateId) => {
     setTemplateId(next);
@@ -552,6 +566,7 @@ export default function PaymentPrintModal({
                             headerLogoUrl,
                             showAmount,
                             showSignature,
+                            prePrintedOnly: templateId === 'classic' ? prePrintedOnly : false,
                             showCutRight: showCutLines && isLeftCol,
                             showCutBottom: showCutLines && isTopRow,
                           })}
@@ -569,6 +584,7 @@ export default function PaymentPrintModal({
                         headerLogoUrl,
                         showAmount,
                         showSignature,
+                        prePrintedOnly: templateId === 'classic' ? prePrintedOnly : false,
                         showCutRight: false,
                         showCutBottom: false,
                       })
@@ -997,8 +1013,40 @@ export default function PaymentPrintModal({
               })}
             </div>
 
-            {/* Quick Toggles + Inline Signature Link Button */}
+            {/* Quick Toggles + Classic Pre-Printed Overlay Mode + Signature Link */}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.65rem' }}>
+              {templateId === 'classic' && (
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.32rem',
+                    padding: '0.24rem 0.6rem',
+                    borderRadius: '8px',
+                    border: prePrintedOnly
+                      ? '1px solid #f59e0b'
+                      : '1px solid rgba(255,255,255,0.22)',
+                    background: prePrintedOnly
+                      ? 'rgba(245, 158, 11, 0.22)'
+                      : 'rgba(255,255,255,0.06)',
+                    color: prePrintedOnly ? '#fde68a' : '#e2e8f0',
+                    fontSize: '0.78rem',
+                    fontWeight: prePrintedOnly ? 700 : 500,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="ព្រីនតែផ្នែកកណ្ដាលដែលគូសរង្វង់ (លាក់ Header, Watermark, ស៊ុមក្រៅ និងផ្នែកខាងក្រោម)"
+                >
+                  <input
+                    type="checkbox"
+                    checked={prePrintedOnly}
+                    onChange={(e) => handleTogglePrePrintedOnly(e.target.checked)}
+                  />
+                  ព្រីនតែផ្នែករង្វង់ (គំរូស្រាប់)
+                </label>
+              )}
+
               {activeSpec.perPage === 4 && (
                 <label
                   style={{
