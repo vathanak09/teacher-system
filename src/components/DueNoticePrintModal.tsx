@@ -7,6 +7,7 @@ import DueNoticeCard, {
   DEFAULT_PENALTY_PERCENT_PER_DAY,
   DueNoticeItem,
   calculateNoticePenalty,
+  getEffectiveNoticePrintCount,
 } from './receipts/DueNoticeCard';
 import { AppIcon } from './AppIcons';
 
@@ -31,6 +32,7 @@ export interface DueNoticePrintModalProps {
   noticeSignatureUrl?: string;
   initialPenaltyPercent?: number;
   onSaveNoticeSettings?: (patch: DueNoticeSettingsPatch) => Promise<void> | void;
+  onRecordNoticesPrinted?: (printedItems: DueNoticeItem[]) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -53,6 +55,7 @@ export default function DueNoticePrintModal({
   noticeSignatureUrl,
   initialPenaltyPercent = DEFAULT_PENALTY_PERCENT_PER_DAY,
   onSaveNoticeSettings,
+  onRecordNoticesPrinted,
   onClose,
 }: DueNoticePrintModalProps) {
   const [penaltyPercent, setPenaltyPercent] = useState<number>(initialPenaltyPercent);
@@ -61,8 +64,13 @@ export default function DueNoticePrintModal({
   const [hideAmount, setHideAmount] = useState<boolean>(false);
   const [hideHeader, setHideHeader] = useState<boolean>(false);
   const [hideFooter, setHideFooter] = useState<boolean>(false);
+  const [hidePrintCount, setHidePrintCount] = useState<boolean>(false);
   const [showCutLines, setShowCutLines] = useState<boolean>(true);
   const [showSignature, setShowSignature] = useState<boolean>(true);
+  const [autoCountPrint, setAutoCountPrint] = useState<boolean>(true);
+  const [recordedBatchCount, setRecordedBatchCount] = useState<number>(0);
+  const [isRecordingPrint, setIsRecordingPrint] = useState<boolean>(false);
+  const [sessionPrintNumMap, setSessionPrintNumMap] = useState<Record<string, number>>({});
   const [issueDateStr, setIssueDateStr] = useState<string>(() => getTodayYMD());
   const [previewScale, setPreviewScale] = useState<number>(1);
 
@@ -70,6 +78,7 @@ export default function DueNoticePrintModal({
   const [filterClass, setFilterClass] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterShift, setFilterShift] = useState<string>('all');
+  const [filterPrintCount, setFilterPrintCount] = useState<'all' | 'unprinted' | 'printed'>('all');
   const [sortByClass, setSortByClass] = useState<boolean>(true);
 
   // Inline Cashier & Signature Editor
@@ -94,6 +103,7 @@ export default function DueNoticePrintModal({
       if (localStorage.getItem('bsis_due_hide_amount') === '1') setHideAmount(true);
       if (localStorage.getItem('bsis_due_hide_header') === '1') setHideHeader(true);
       if (localStorage.getItem('bsis_due_hide_footer') === '1') setHideFooter(true);
+      if (localStorage.getItem('bsis_due_hide_print_count') === '1') setHidePrintCount(true);
       if (localStorage.getItem('bsis_due_show_cut_lines') === '0') setShowCutLines(false);
       if (localStorage.getItem('bsis_due_show_signature') === '0') setShowSignature(false);
     } catch {
@@ -125,6 +135,9 @@ export default function DueNoticePrintModal({
       setFilterClass('all');
       setFilterStatus('all');
       setFilterShift('all');
+      setFilterPrintCount('all');
+      setRecordedBatchCount(0);
+      setSessionPrintNumMap({});
       setIssueDateStr(getTodayYMD());
     }
   }, [isOpen, items]);
@@ -205,6 +218,11 @@ export default function DueNoticePrintModal({
     persistFlag('bsis_due_hide_footer', checked);
   };
 
+  const handleToggleHidePrintCount = (checked: boolean) => {
+    setHidePrintCount(checked);
+    persistFlag('bsis_due_hide_print_count', checked);
+  };
+
   const handleToggleCutLines = (checked: boolean) => {
     setShowCutLines(checked);
     persistFlag('bsis_due_show_cut_lines', checked);
@@ -229,6 +247,8 @@ export default function DueNoticePrintModal({
     let overdueCount = 0;
     let dueCount = 0;
     let upcomingCount = 0;
+    let unprintedCount = 0;
+    let printedBeforeCount = 0;
 
     items.forEach((it) => {
       const cls = String(it.classCode || it.student?.classCode || '').trim();
@@ -240,6 +260,13 @@ export default function DueNoticePrintModal({
       if (it.overdueDays > 0 || it.statusKey === 'overdue') overdueCount += 1;
       else if (it.statusKey === 'due') dueCount += 1;
       else upcomingCount += 1;
+
+      const pCount =
+        typeof it.noticePrintCount === 'number'
+          ? it.noticePrintCount
+          : getEffectiveNoticePrintCount(it.student, it.dueDateStr);
+      if (pCount > 0) printedBeforeCount += 1;
+      else unprintedCount += 1;
     });
 
     const classes = Array.from(classCounts.entries()).sort((a, b) =>
@@ -247,7 +274,15 @@ export default function DueNoticePrintModal({
     );
     const shifts = Array.from(shiftCounts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-    return { classes, shifts, overdueCount, dueCount, upcomingCount };
+    return {
+      classes,
+      shifts,
+      overdueCount,
+      dueCount,
+      upcomingCount,
+      unprintedCount,
+      printedBeforeCount,
+    };
   }, [items]);
 
   const filteredItems = useMemo(() => {
@@ -267,6 +302,14 @@ export default function DueNoticePrintModal({
       } else if (filterStatus === 'upcoming') {
         if (it.overdueDays > 0 || it.statusKey === 'overdue' || it.statusKey === 'due') return false;
       }
+      if (filterPrintCount !== 'all') {
+        const pCount =
+          typeof it.noticePrintCount === 'number'
+            ? it.noticePrintCount
+            : getEffectiveNoticePrintCount(it.student, it.dueDateStr);
+        if (filterPrintCount === 'unprinted' && pCount > 0) return false;
+        if (filterPrintCount === 'printed' && pCount <= 0) return false;
+      }
       return true;
     });
 
@@ -284,10 +327,13 @@ export default function DueNoticePrintModal({
         'km'
       );
     });
-  }, [items, filterClass, filterShift, filterStatus, sortByClass]);
+  }, [items, filterClass, filterShift, filterStatus, filterPrintCount, sortByClass]);
 
   const hasActiveModalFilter =
-    filterClass !== 'all' || filterStatus !== 'all' || filterShift !== 'all';
+    filterClass !== 'all' ||
+    filterStatus !== 'all' ||
+    filterShift !== 'all' ||
+    filterPrintCount !== 'all';
 
   // Summary totals for toolbar preview
   const summaryStats = useMemo(() => {
@@ -317,8 +363,34 @@ export default function DueNoticePrintModal({
     return chunks;
   }, [filteredItems]);
 
+  const recordCurrentBatchPrint = async (targets: DueNoticeItem[]) => {
+    if (!onRecordNoticesPrinted || targets.length === 0) return;
+    setIsRecordingPrint(true);
+    try {
+      await onRecordNoticesPrinted(targets);
+      setRecordedBatchCount(targets.length);
+    } finally {
+      setIsRecordingPrint(false);
+    }
+  };
+
   const handlePrint = () => {
     if (typeof window === 'undefined' || filteredItems.length === 0) return;
+
+    const batchTargets = [...filteredItems];
+    // Freeze the displayed "លើកទី X" numbers for this print session so Firestore updates don't jump mid-print
+    const nextSnapshot: Record<string, number> = { ...sessionPrintNumMap };
+    batchTargets.forEach((it) => {
+      const sid = String(it.student?.id || '');
+      if (sid && !nextSnapshot[sid]) {
+        const baseCount =
+          typeof it.noticePrintCount === 'number'
+            ? it.noticePrintCount
+            : getEffectiveNoticePrintCount(it.student, it.dueDateStr);
+        nextSnapshot[sid] = baseCount + 1;
+      }
+    });
+    setSessionPrintNumMap(nextSnapshot);
 
     const styleId = 'bsis-a4-landscape-page-rule';
     let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
@@ -331,17 +403,23 @@ export default function DueNoticePrintModal({
 
     document.body.classList.add('printing-receipt-a4');
 
+    let handledAfter = false;
     const cleanup = () => {
+      if (handledAfter) return;
+      handledAfter = true;
       document.body.classList.remove('printing-receipt-a4');
       window.removeEventListener('afterprint', cleanup);
+      if (autoCountPrint && onRecordNoticesPrinted && recordedBatchCount === 0) {
+        void recordCurrentBatchPrint(batchTargets);
+      }
     };
     window.addEventListener('afterprint', cleanup);
 
     setTimeout(() => {
       window.print();
       setTimeout(() => {
-        document.body.classList.remove('printing-receipt-a4');
-      }, 1200);
+        cleanup();
+      }, 1000);
     }, 80);
   };
 
@@ -451,6 +529,42 @@ export default function DueNoticePrintModal({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {onRecordNoticesPrinted && (
+              <label
+                title="រាប់ +1 ទៅចំនួនព្រីនរបស់សិស្សនីមួយៗដោយស្វ័យប្រវត្តិពេលចុច Print (នឹងសម្អាតចេញពេលសិស្សបង់ប្រាក់រួច)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.36rem 0.65rem',
+                  borderRadius: '8px',
+                  background: recordedBatchCount > 0
+                    ? 'rgba(22, 163, 74, 0.2)'
+                    : 'rgba(56, 189, 248, 0.14)',
+                  border: `1px solid ${recordedBatchCount > 0 ? '#22c55e' : '#0284c7'}`,
+                  color: recordedBatchCount > 0 ? '#86efac' : '#bae6fd',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={autoCountPrint}
+                  onChange={(e) => setAutoCountPrint(e.target.checked)}
+                  style={{ accentColor: '#22c55e' }}
+                />
+                <span>
+                  {isRecordingPrint
+                    ? 'កំពុងកត់ត្រាចំនួនព្រីន...'
+                    : recordedBatchCount > 0
+                      ? `បានរាប់ចំនួនព្រីន +1 (${recordedBatchCount} នាក់)`
+                      : 'រាប់ចំនួនព្រីន (+1)'}
+                </span>
+              </label>
+            )}
+
             <button
               type="button"
               onClick={handlePrint}
@@ -714,6 +828,25 @@ export default function DueNoticePrintModal({
           >
             <input
               type="checkbox"
+              checked={hidePrintCount}
+              onChange={(e) => handleToggleHidePrintCount(e.target.checked)}
+            />
+            <span>លាក់លើកទីព្រីន</span>
+          </label>
+
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              fontSize: '0.76rem',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
               checked={showCutLines}
               onChange={(e) => handleToggleCutLines(e.target.checked)}
             />
@@ -842,6 +975,24 @@ export default function DueNoticePrintModal({
             ))}
           </select>
 
+          <select
+            value={filterPrintCount}
+            onChange={(e) => setFilterPrintCount(e.target.value as 'all' | 'unprinted' | 'printed')}
+            style={{
+              padding: '0.26rem 0.55rem',
+              borderRadius: '6px',
+              border: '1px solid #334155',
+              background: '#1e293b',
+              color: '#f8fafc',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+            }}
+          >
+            <option value="all">គ្រប់ចំនួនព្រីន ({items.length})</option>
+            <option value="unprinted">មិនទាន់ព្រីន ({filterOptions.unprintedCount})</option>
+            <option value="printed">ធ្លាប់ព្រីនហើយ ({filterOptions.printedBeforeCount})</option>
+          </select>
+
           <label
             style={{
               display: 'inline-flex',
@@ -868,6 +1019,7 @@ export default function DueNoticePrintModal({
                 setFilterClass('all');
                 setFilterStatus('all');
                 setFilterShift('all');
+                setFilterPrintCount('all');
               }}
               style={{
                 padding: '0.22rem 0.55rem',
@@ -1074,6 +1226,15 @@ export default function DueNoticePrintModal({
                         );
                       }
 
+                      const slotStudentId = String(slotItem.student?.id || '');
+                      const basePrintCount =
+                        typeof slotItem.noticePrintCount === 'number'
+                          ? slotItem.noticePrintCount
+                          : getEffectiveNoticePrintCount(slotItem.student, slotItem.dueDateStr);
+                      const displayPrintNum =
+                        (slotStudentId && sessionPrintNumMap[slotStudentId]) ||
+                        basePrintCount + 1;
+
                       return (
                         <DueNoticeCard
                           key={`${slotItem.student?.id || slotIdx}-${pageIdx}-${slotIdx}`}
@@ -1084,6 +1245,8 @@ export default function DueNoticePrintModal({
                           hideHeader={hideHeader}
                           hideFooter={hideFooter}
                           showSignature={showSignature}
+                          showPrintCount={!hidePrintCount}
+                          displayPrintNumber={displayPrintNum}
                           issueDate={issueDateStr}
                           schoolPhone={schoolPhone}
                           schoolAddress={schoolAddress}

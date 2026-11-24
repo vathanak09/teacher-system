@@ -22,6 +22,7 @@ import {
   DEFAULT_NOTICE_CASHIER,
   DEFAULT_PENALTY_PERCENT_PER_DAY,
   DueNoticeItem,
+  getEffectiveNoticePrintCount,
 } from '@/components/receipts/DueNoticeCard';
 import { AppIcon } from '@/components/AppIcons';
 import { isStudentActive } from '@/components/dashboard/dashboardMetrics';
@@ -607,7 +608,41 @@ export default function PaymentsPage() {
     overdueDays: Math.max(0, b.overdueDays || 0),
     daysRemaining: b.daysRemaining,
     amountDue: Math.max(b.amountDue, b.monthlyFee),
+    noticePrintCount: getEffectiveNoticePrintCount(b.student, b.dueDateStr),
+    lastNoticePrintedAt: String(b.student?.lastDueNoticePrintedAt || ''),
   });
+
+  const handleRecordDueNoticesPrinted = async (printedItems: DueNoticeItem[]) => {
+    if (!printedItems.length) return;
+    const uniqueByStudent = new Map<string, DueNoticeItem>();
+    printedItems.forEach((it) => {
+      const sid = String(it.student?.id || '');
+      if (sid && !uniqueByStudent.has(sid)) {
+        uniqueByStudent.set(sid, it);
+      }
+    });
+    const entries = Array.from(uniqueByStudent.entries());
+    if (entries.length === 0) return;
+
+    const nowIso = new Date().toISOString();
+    try {
+      await Promise.all(
+        entries.map(([sid, it]) => {
+          const latestStudent = students.find((s) => String(s.id) === sid) || it.student;
+          const prevCount = getEffectiveNoticePrintCount(latestStudent, it.dueDateStr);
+          return studentService.update(sid, {
+            dueNoticePrintCount: prevCount + 1,
+            dueNoticeCycleKey: it.dueDateStr || '',
+            lastDueNoticePrintedAt: nowIso,
+          });
+        })
+      );
+      showToast(`បានកត់ត្រាចំនួនព្រីនលិខិតជូនដំណឹង +1 សម្រាប់សិស្ស ${entries.length} នាក់!`);
+    } catch (error) {
+      console.error('Failed recording due notice print counts:', error);
+      showToast('មានបញ្ហាក្នុងការកត់ត្រាចំនួនព្រីនលិខិតជូនដំណឹង!', 'error');
+    }
+  };
 
   const handleBatchPrintDueNotices = () => {
     const targets =
@@ -972,6 +1007,9 @@ export default function PaymentsPage() {
       const savedId = await paymentService.add(payload);
       await studentService.update(student.id, {
         nextPaymentDate: payValidUntil,
+        dueNoticePrintCount: 0,
+        dueNoticeCycleKey: payValidUntil,
+        lastDueNoticePrintedAt: '',
       });
 
       setIsPaymentModalOpen(false);
@@ -1662,6 +1700,7 @@ export default function PaymentsPage() {
                     <th>ថ្ងៃខែឆ្នាំត្រូវបង់ប្រាក់</th>
                     <th>ចំនួនប្រាក់ត្រូវបង់</th>
                     <th>ចំនួនថ្ងៃដែលលើស</th>
+                    <th style={{ textAlign: 'center' }}>ចំនួនព្រីនលិខិត</th>
                     <th>លេខបន្ទប់និងឈ្មោះគ្រូបង្រៀន</th>
                     <th style={{ textAlign: 'right' }}>ជម្រើស</th>
                   </tr>
@@ -1748,6 +1787,55 @@ export default function PaymentsPage() {
                           </span>
                         )}
                       </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {(() => {
+                          const pCount = getEffectiveNoticePrintCount(item.student, item.dueDateStr);
+                          const lastPrinted = item.student?.lastDueNoticePrintedAt
+                            ? formatDMYSlash(String(item.student.lastDueNoticePrintedAt).slice(0, 10))
+                            : '';
+                          if (pCount <= 0) {
+                            return (
+                              <span
+                                style={{
+                                  padding: '0.18rem 0.55rem',
+                                  borderRadius: '999px',
+                                  background: 'rgba(148, 163, 184, 0.14)',
+                                  color: 'var(--text-secondary)',
+                                  fontWeight: 600,
+                                  fontSize: '0.78rem',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                មិនទាន់ព្រីន (0)
+                              </span>
+                            );
+                          }
+                          const badgeBg =
+                            pCount >= 3
+                              ? 'rgba(239, 68, 68, 0.14)'
+                              : pCount === 2
+                                ? 'rgba(245, 158, 11, 0.16)'
+                                : 'rgba(37, 99, 235, 0.14)';
+                          const badgeColor =
+                            pCount >= 3 ? '#dc2626' : pCount === 2 ? '#d97706' : '#2563eb';
+                          return (
+                            <span
+                              title={lastPrinted ? `ព្រីនចុងក្រោយ៖ ${lastPrinted}` : undefined}
+                              style={{
+                                padding: '0.18rem 0.58rem',
+                                borderRadius: '999px',
+                                background: badgeBg,
+                                color: badgeColor,
+                                fontWeight: 700,
+                                fontSize: '0.8rem',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              ព្រីន {pCount} ដង
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td>{item.roomAndTeacher || '-'}</td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
@@ -1785,7 +1873,7 @@ export default function PaymentsPage() {
                   })}
                   {dueOverdueList.length === 0 && (
                     <tr>
-                      <td colSpan={13} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan={14} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         មិនមានសិស្សដល់ថ្ងៃ ឬលើសថ្ងៃបង់ប្រាក់ទេ។
                       </td>
                     </tr>
@@ -2323,13 +2411,27 @@ export default function PaymentsPage() {
                     <td style={{ fontWeight: 600 }}>{formatDMYSlash(b.dueDateStr) || '-'}</td>
                     <td>
                       {b.statusKey === 'overdue' ? (
-                        <span style={{ padding: '0.2rem 0.55rem', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', fontWeight: 700, fontSize: '0.82rem' }}>
-                          {b.statusLabel}
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <span style={{ padding: '0.2rem 0.55rem', borderRadius: '999px', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', fontWeight: 700, fontSize: '0.82rem' }}>
+                            {b.statusLabel}
+                          </span>
+                          {getEffectiveNoticePrintCount(b.student, b.dueDateStr) > 0 && (
+                            <span style={{ padding: '0.16rem 0.45rem', borderRadius: '999px', background: 'rgba(37, 99, 235, 0.12)', color: '#2563eb', fontWeight: 700, fontSize: '0.74rem' }}>
+                              ព្រីន {getEffectiveNoticePrintCount(b.student, b.dueDateStr)} ដង
+                            </span>
+                          )}
+                        </div>
                       ) : b.statusKey === 'due' ? (
-                        <span style={{ padding: '0.2rem 0.55rem', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.14)', color: '#d97706', fontWeight: 700, fontSize: '0.82rem' }}>
-                          {b.statusLabel}
-                        </span>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          <span style={{ padding: '0.2rem 0.55rem', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.14)', color: '#d97706', fontWeight: 700, fontSize: '0.82rem' }}>
+                            {b.statusLabel}
+                          </span>
+                          {getEffectiveNoticePrintCount(b.student, b.dueDateStr) > 0 && (
+                            <span style={{ padding: '0.16rem 0.45rem', borderRadius: '999px', background: 'rgba(37, 99, 235, 0.12)', color: '#2563eb', fontWeight: 700, fontSize: '0.74rem' }}>
+                              ព្រីន {getEffectiveNoticePrintCount(b.student, b.dueDateStr)} ដង
+                            </span>
+                          )}
+                        </div>
                       ) : b.statusKey === 'paid' ? (
                         <span style={{ padding: '0.2rem 0.55rem', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 700, fontSize: '0.82rem' }}>
                           {b.statusLabel}
@@ -3199,6 +3301,7 @@ export default function PaymentsPage() {
         noticeSignatureUrl={syncSettings.noticeSignatureUrl}
         initialPenaltyPercent={syncSettings.noticePenaltyPercent}
         onSaveNoticeSettings={handleSaveNoticeSettings}
+        onRecordNoticesPrinted={handleRecordDueNoticesPrinted}
         onClose={() => setDueNoticeModalState(null)}
       />
     </div>
