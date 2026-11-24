@@ -103,6 +103,7 @@ export default function AttendancePrintModal({
   const [showPart2, setShowPart2] = useState<boolean>(true);
   const [highlightWeekends, setHighlightWeekends] = useState<boolean>(true);
   const [highlightHolidays, setHighlightHolidays] = useState<boolean>(true);
+  const [zebraRows, setZebraRows] = useState<boolean>(true);
   const [extraHolidayInput, setExtraHolidayInput] = useState<string>('');
   const [extraBlankRows, setExtraBlankRows] = useState<number>(2);
   const [previewScale, setPreviewScale] = useState<number>(1);
@@ -761,6 +762,24 @@ export default function AttendancePrintModal({
             <span>Highlight បុណ្យជាតិកម្ពុជា</span>
           </label>
 
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.32rem',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={zebraRows}
+              onChange={(e) => setZebraRows(e.target.checked)}
+            />
+            <span>ឆ្នូតជួរដេក (ស/ប្រផេះស្រទន់)</span>
+          </label>
+
           <div
             style={{
               display: 'inline-flex',
@@ -904,6 +923,7 @@ export default function AttendancePrintModal({
                     showPart2={showPart2}
                     highlightWeekends={highlightWeekends}
                     highlightHolidays={highlightHolidays}
+                    zebraRows={zebraRows}
                     extraHolidayDays={extraHolidayDays}
                     extraBlankRows={extraBlankRows}
                   />

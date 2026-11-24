@@ -31,14 +31,18 @@ export interface PrintableAttendanceSheetProps {
   showPart2: boolean;
   highlightWeekends: boolean;
   highlightHolidays: boolean;
+  zebraRows?: boolean;
   extraHolidayDays: number[];
   extraBlankRows: number;
 }
 
 const WEEKEND_HEADER_BG = '#6aa84f';
 const WEEKEND_CELL_BG = '#c5e0b4';
+const WEEKEND_CELL_ALT_BG = '#b4d69f';
 const HOLIDAY_HEADER_BG = '#ea9999';
 const HOLIDAY_CELL_BG = '#f4cccc';
+const HOLIDAY_CELL_ALT_BG = '#e9b7b7';
+const ZEBRA_ROW_BG = '#eceff3';
 const DAY_ORANGE_BG = '#e69138';
 const MONTH_SAGE_BG = '#d9ead3';
 const SCORE_PEACH_BG = '#f9cb9c';
@@ -77,18 +81,23 @@ function getDayHeaderBg(
 function getDayCellBg(
   d: AttendanceCalendarDay,
   highlightWeekends: boolean,
-  highlightHolidays: boolean
+  highlightHolidays: boolean,
+  isZebraAltRow = false
 ): string {
-  if (highlightHolidays && d.isHoliday) return HOLIDAY_CELL_BG;
-  if (highlightWeekends && d.isWeekend) return WEEKEND_CELL_BG;
-  return '#ffffff';
+  if (highlightHolidays && d.isHoliday) {
+    return isZebraAltRow ? HOLIDAY_CELL_ALT_BG : HOLIDAY_CELL_BG;
+  }
+  if (highlightWeekends && d.isWeekend) {
+    return isZebraAltRow ? WEEKEND_CELL_ALT_BG : WEEKEND_CELL_BG;
+  }
+  return isZebraAltRow ? ZEBRA_ROW_BG : '#ffffff';
 }
 
 export function getAttendanceSheetSpec(layoutMode: AttendancePrintLayoutMode) {
   const isLandscape = layoutMode === 'split_a4_landscape';
   return {
     isLandscape,
-    sheetW: isLandscape ? '296.6mm' : '210mm',
+    sheetW: isLandscape ? '296.6mm' : '209.6mm',
     sheetH: isLandscape ? '209.6mm' : '296.6mm',
     sheetWPx: isLandscape ? 1121 : 793.7,
     sheetHPx: isLandscape ? 792 : 1121,
@@ -108,6 +117,7 @@ export default function PrintableAttendanceSheet({
   showPart2,
   highlightWeekends,
   highlightHolidays,
+  zebraRows = true,
   extraHolidayDays,
   extraBlankRows,
 }: PrintableAttendanceSheetProps) {
@@ -143,63 +153,69 @@ export default function PrintableAttendanceSheet({
     ...Array.from({ length: blankCount }, () => null),
   ];
 
-  // Dynamic row height so every sheet fits cleanly inside 1 A4 page without clipping/overflow
+  // Dynamic row height so every sheet fits cleanly inside 1 A4 page with safe print margins
   const computeRowHeightMm = (singleTableOnPage: boolean): number => {
     const availHeightMm = isLandscape
-      ? 162
+      ? 156
       : singleTableOnPage
-        ? 246
-        : 112;
+        ? 238
+        : 107;
     const raw = availHeightMm / Math.max(1, totalRowSlots);
-    const maxCap = singleTableOnPage ? (isLandscape ? 6.4 : 6.8) : 5.4;
-    const minFloor = 3.8;
+    const maxCap = singleTableOnPage ? (isLandscape ? 6.2 : 6.6) : 5.2;
+    const minFloor = 3.7;
     return Number(Math.max(minFloor, Math.min(maxCap, raw)).toFixed(2));
   };
 
   const part1RowH = computeRowHeightMm(!isCombined);
   const part2RowH = computeRowHeightMm(!isCombined);
 
-  const cellFontPt = isLandscape
-    ? part1RowH >= 5.6
-      ? '8pt'
-      : '7.2pt'
-    : part1RowH >= 5.2
-      ? '7.4pt'
-      : part1RowH >= 4.4
-        ? '6.8pt'
-        : '6.2pt';
+  const metaFontPt = isLandscape
+    ? part1RowH >= 5.4
+      ? '7.2pt'
+      : '6.6pt'
+    : part1RowH >= 5
+      ? '6.2pt'
+      : '5.8pt';
+
+  const idFontPt = isLandscape
+    ? part1RowH >= 5.4
+      ? '6.8pt'
+      : '6.2pt'
+    : part1RowH >= 5
+      ? '5.9pt'
+      : '5.5pt';
 
   const nameFontPt = isLandscape
-    ? part1RowH >= 5.6
+    ? part1RowH >= 5.4
       ? '8.8pt'
       : '8pt'
-    : part1RowH >= 5.2
-      ? '8.2pt'
-      : part1RowH >= 4.4
-        ? '7.5pt'
-        : '6.8pt';
+    : part1RowH >= 5
+      ? '8pt'
+      : part1RowH >= 4.3
+        ? '7.4pt'
+        : '6.9pt';
 
-  // Exact column widths for Part 1 (Portrait = 200mm, Landscape = 285mm)
+  // Tight metadata columns + generous Student Name column so Khmer names never clip
   const p1Cols = isLandscape
     ? {
-        no: '6.2mm',
-        shift: '7.5mm',
-        level: '8.5mm',
-        id: '14mm',
-        name: '39mm',
-        gender: '8mm',
-        enroll: '7mm',
-        totalPX: '7.4mm',
+        no: '5.2mm',
+        shift: '6mm',
+        level: '6.8mm',
+        id: '11.8mm',
+        name: '44mm',
+        gender: '6.8mm',
+        enroll: '5.8mm',
+        totalPX: '6.8mm',
       }
     : {
-        no: '5mm',
-        shift: '5.8mm',
-        level: '6.8mm',
-        id: '11.4mm',
-        name: '26.5mm',
-        gender: '6.2mm',
-        enroll: '5.5mm',
-        totalPX: '5.8mm',
+        no: '4.2mm',
+        shift: '4.6mm',
+        level: '5.2mm',
+        id: '9.4mm',
+        name: '31.5mm',
+        gender: '5.4mm',
+        enroll: '4.7mm',
+        totalPX: '5.4mm',
       };
 
   const renderHeaderBanner = (subtitleLabel?: string) => (
@@ -686,104 +702,124 @@ export default function PrintableAttendanceSheet({
         </thead>
 
         <tbody>
-          {rowSlots.map((st, idx) => (
-            <tr key={`att-row-${idx}`} style={{ height: `${part1RowH}mm` }}>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: cellFontPt,
-                  fontWeight: 600,
-                  padding: 0,
-                }}
-              >
-                {idx + 1}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: cellFontPt,
-                  padding: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                }}
-              >
-                {st?.shift || ''}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: cellFontPt,
-                  padding: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                }}
-              >
-                {st?.level || ''}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: isLandscape ? '7.4pt' : '6.4pt',
-                  padding: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                }}
-              >
-                {st?.studentId || ''}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'left',
-                  fontSize: nameFontPt,
-                  fontWeight: 600,
-                  padding: '0 1mm',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {st?.fullName || ''}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: cellFontPt,
-                  padding: 0,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {st?.gender || ''}
-              </td>
-              <td
-                style={{
-                  border: '0.5pt solid #000000',
-                  textAlign: 'center',
-                  fontSize: cellFontPt,
-                  padding: 0,
-                }}
-              >
-                {st ? extractEnrollDayNumber(st.enrollDate) : ''}
-              </td>
-              {calendarDays.map((d) => (
+          {rowSlots.map((st, idx) => {
+            const isAltRow = zebraRows && idx % 2 === 1;
+            const rowBg = isAltRow ? ZEBRA_ROW_BG : '#ffffff';
+            return (
+              <tr key={`att-row-${idx}`} style={{ height: `${part1RowH}mm`, background: rowBg }}>
                 <td
-                  key={`c-${idx}-${d.day}`}
                   style={{
                     border: '0.5pt solid #000000',
-                    background: getDayCellBg(d, highlightWeekends, highlightHolidays),
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: metaFontPt,
+                    fontWeight: 400,
                     padding: 0,
                   }}
-                />
-              ))}
-              <td style={{ border: '0.5pt solid #000000', padding: 0 }} />
-              <td style={{ border: '0.5pt solid #000000', padding: 0 }} />
-            </tr>
-          ))}
+                >
+                  {idx + 1}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: metaFontPt,
+                    fontWeight: 400,
+                    letterSpacing: '-0.02em',
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.shift || ''}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: metaFontPt,
+                    fontWeight: 400,
+                    letterSpacing: '-0.02em',
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.level || ''}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: idFontPt,
+                    fontWeight: 400,
+                    letterSpacing: '-0.02em',
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.studentId || ''}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'left',
+                    fontSize: nameFontPt,
+                    fontWeight: 400,
+                    letterSpacing: '-0.015em',
+                    padding: '0 0.8mm',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {st?.fullName || ''}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: metaFontPt,
+                    fontWeight: 400,
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {st?.gender || ''}
+                </td>
+                <td
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: rowBg,
+                    textAlign: 'center',
+                    fontSize: metaFontPt,
+                    fontWeight: 400,
+                    padding: 0,
+                  }}
+                >
+                  {st ? extractEnrollDayNumber(st.enrollDate) : ''}
+                </td>
+                {calendarDays.map((d) => (
+                  <td
+                    key={`c-${idx}-${d.day}`}
+                    style={{
+                      border: '0.5pt solid #000000',
+                      background: getDayCellBg(d, highlightWeekends, highlightHolidays, isAltRow),
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                <td style={{ border: '0.5pt solid #000000', background: rowBg, padding: 0 }} />
+                <td style={{ border: '0.5pt solid #000000', background: rowBg, padding: 0 }} />
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -1000,177 +1036,212 @@ export default function PrintableAttendanceSheet({
           </thead>
 
           <tbody>
-            {rowSlots.map((st, idx) => (
-              <tr key={`score-row-${idx}`} style={{ height: `${part2RowH}mm` }}>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'center',
-                    fontSize: cellFontPt,
-                    fontWeight: 600,
-                    padding: 0,
-                  }}
-                >
-                  {idx + 1}
-                </td>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'center',
-                    fontSize: cellFontPt,
-                    padding: 0,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {st?.shift || ''}
-                </td>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'center',
-                    fontSize: cellFontPt,
-                    padding: 0,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {st?.level || ''}
-                </td>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'center',
-                    fontSize: isLandscape ? '7.4pt' : '6.4pt',
-                    padding: 0,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {st?.studentId || ''}
-                </td>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'left',
-                    fontSize: nameFontPt,
-                    fontWeight: 600,
-                    padding: '0 1mm',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {st?.fullName || ''}
-                </td>
-                <td
-                  style={{
-                    border: thinCell,
-                    textAlign: 'center',
-                    fontSize: cellFontPt,
-                    padding: 0,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {st?.gender || ''}
-                </td>
-                {/* Blank enroll/spacer cell matching Part 1 */}
-                <td style={{ border: thinCell, padding: 0 }} />
-                {/* 2 narrow spacer columns */}
-                {blankSubCols.map((bIdx) => (
+            {rowSlots.map((st, idx) => {
+              const isAltRow = zebraRows && idx % 2 === 1;
+              const rowBg = isAltRow ? ZEBRA_ROW_BG : '#ffffff';
+              return (
+                <tr key={`score-row-${idx}`} style={{ height: `${part2RowH}mm`, background: rowBg }}>
                   <td
-                    key={`sp-${idx}-${bIdx}`}
                     style={{
                       border: thinCell,
-                      borderRight: bIdx === 1 ? thickDivider : thinCell,
+                      background: rowBg,
+                      textAlign: 'center',
+                      fontSize: metaFontPt,
+                      fontWeight: 400,
+                      padding: 0,
+                    }}
+                  >
+                    {idx + 1}
+                  </td>
+                  <td
+                    style={{
+                      border: thinCell,
+                      background: rowBg,
+                      textAlign: 'center',
+                      fontSize: metaFontPt,
+                      fontWeight: 400,
+                      letterSpacing: '-0.02em',
+                      padding: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {st?.shift || ''}
+                  </td>
+                  <td
+                    style={{
+                      border: thinCell,
+                      background: rowBg,
+                      textAlign: 'center',
+                      fontSize: metaFontPt,
+                      fontWeight: 400,
+                      letterSpacing: '-0.02em',
+                      padding: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {st?.level || ''}
+                  </td>
+                  <td
+                    style={{
+                      border: thinCell,
+                      background: rowBg,
+                      textAlign: 'center',
+                      fontSize: idFontPt,
+                      fontWeight: 400,
+                      letterSpacing: '-0.02em',
+                      padding: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {st?.studentId || ''}
+                  </td>
+                  <td
+                    style={{
+                      border: thinCell,
+                      background: rowBg,
+                      textAlign: 'left',
+                      fontSize: nameFontPt,
+                      fontWeight: 400,
+                      letterSpacing: '-0.015em',
+                      padding: '0 0.8mm',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {st?.fullName || ''}
+                  </td>
+                  <td
+                    style={{
+                      border: thinCell,
+                      background: rowBg,
+                      textAlign: 'center',
+                      fontSize: metaFontPt,
+                      fontWeight: 400,
+                      padding: 0,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {st?.gender || ''}
+                  </td>
+                  {/* Blank enroll/spacer cell matching Part 1 */}
+                  <td style={{ border: thinCell, background: rowBg, padding: 0 }} />
+                  {/* 2 narrow spacer columns */}
+                  {blankSubCols.map((bIdx) => (
+                    <td
+                      key={`sp-${idx}-${bIdx}`}
+                      style={{
+                        border: thinCell,
+                        borderRight: bIdx === 1 ? thickDivider : thinCell,
+                        background: rowBg,
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  {/* Attendance */}
+                  <td
+                    style={{
+                      border: thinCell,
+                      borderLeft: thickDivider,
+                      borderRight: thickDivider,
+                      background: rowBg,
                       padding: 0,
                     }}
                   />
-                ))}
-                {/* Attendance */}
-                <td
-                  style={{
-                    border: thinCell,
-                    borderLeft: thickDivider,
-                    borderRight: thickDivider,
-                    padding: 0,
-                  }}
-                />
-                {/* Homework & Exercise (5 cols) */}
-                {hwCols.map((hIdx) => (
+                  {/* Homework & Exercise (5 cols) */}
+                  {hwCols.map((hIdx) => (
+                    <td
+                      key={`hw-${idx}-${hIdx}`}
+                      style={{
+                        border: thinCell,
+                        borderLeft: hIdx === 0 ? thickDivider : thinCell,
+                        borderRight: hIdx === hwCols.length - 1 ? thickDivider : thinCell,
+                        background: rowBg,
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  {/* Quizzes, Dictation, Speaking (6 cols) */}
+                  {quizCols.map((qIdx) => (
+                    <td
+                      key={`qz-${idx}-${qIdx}`}
+                      style={{
+                        border: thinCell,
+                        borderLeft: qIdx === 0 ? thickDivider : thinCell,
+                        borderRight: qIdx === quizCols.length - 1 ? thickDivider : thinCell,
+                        background: rowBg,
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  {/* Test (3 cols) */}
+                  {testCols.map((tIdx) => (
+                    <td
+                      key={`ts-${idx}-${tIdx}`}
+                      style={{
+                        border: thinCell,
+                        borderLeft: tIdx === 0 ? thickDivider : thinCell,
+                        borderRight: tIdx === testCols.length - 1 ? thickDivider : thinCell,
+                        background: rowBg,
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  {/* Total */}
                   <td
-                    key={`hw-${idx}-${hIdx}`}
                     style={{
                       border: thinCell,
-                      borderLeft: hIdx === 0 ? thickDivider : thinCell,
-                      borderRight: hIdx === hwCols.length - 1 ? thickDivider : thinCell,
+                      borderLeft: thickDivider,
+                      background: rowBg,
                       padding: 0,
                     }}
                   />
-                ))}
-                {/* Quizzes, Dictation, Speaking (6 cols) */}
-                {quizCols.map((qIdx) => (
-                  <td
-                    key={`qz-${idx}-${qIdx}`}
-                    style={{
-                      border: thinCell,
-                      borderLeft: qIdx === 0 ? thickDivider : thinCell,
-                      borderRight: qIdx === quizCols.length - 1 ? thickDivider : thinCell,
-                      padding: 0,
-                    }}
-                  />
-                ))}
-                {/* Test (3 cols) */}
-                {testCols.map((tIdx) => (
-                  <td
-                    key={`ts-${idx}-${tIdx}`}
-                    style={{
-                      border: thinCell,
-                      borderLeft: tIdx === 0 ? thickDivider : thinCell,
-                      borderRight: tIdx === testCols.length - 1 ? thickDivider : thinCell,
-                      padding: 0,
-                    }}
-                  />
-                ))}
-                {/* Total */}
-                <td
-                  style={{
-                    border: thinCell,
-                    borderLeft: thickDivider,
-                    padding: 0,
-                  }}
-                />
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
     );
   };
 
+  // Outer A4 container has padding: 0 (so globals.css print reset never strips margins);
+  // Inner safe-margin wrapper guarantees 6mm–7mm margins on all 4 sides in Chrome Print!
   const sheetBaseStyle: React.CSSProperties = {
     width: spec.sheetW,
     height: spec.sheetH,
     boxSizing: 'border-box',
-    padding: isLandscape ? '5mm 5.5mm' : '4.5mm 4.8mm',
+    padding: 0,
     background: '#ffffff',
     color: '#000000',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
     overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2.2mm',
     WebkitPrintColorAdjust: 'exact',
     printColorAdjust: 'exact',
+  };
+
+  const innerPageStyle: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
+    boxSizing: 'border-box',
+    padding: isLandscape ? '6mm 7mm' : '6mm 6.5mm',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2mm',
   };
 
   // Mode 1: Combined Part 1 + Part 2 on ONE A4 Portrait sheet
   if (effectiveRenderPart === 'combined') {
     return (
       <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-        {renderHeaderBanner()}
-        {renderPart1Table()}
-        <div style={{ marginTop: '0.8mm' }}>{renderPart2ScoreTable()}</div>
+        <div style={innerPageStyle}>
+          {renderHeaderBanner()}
+          {renderPart1Table()}
+          <div style={{ marginTop: '0.8mm' }}>{renderPart2ScoreTable()}</div>
+        </div>
       </div>
     );
   }
@@ -1179,16 +1250,20 @@ export default function PrintableAttendanceSheet({
   if (effectiveRenderPart === 'part1_only') {
     return (
       <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-        {renderHeaderBanner()}
-        {renderPart1Table()}
+        <div style={innerPageStyle}>
+          {renderHeaderBanner()}
+          {renderPart1Table()}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-      {renderHeaderBanner('បញ្ជីពិន្ទុ')}
-      {renderPart2ScoreTable()}
+      <div style={innerPageStyle}>
+        {renderHeaderBanner('បញ្ជីពិន្ទុ')}
+        {renderPart2ScoreTable()}
+      </div>
     </div>
   );
 }
