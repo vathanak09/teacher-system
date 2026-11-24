@@ -781,131 +781,74 @@ export default function ClassesPage() {
                     {IconComp}
                   </div>
 
-                  {/* Card Top: Icon + Class Name/Code + Edit/Delete */}
+                  {/* Card Top: Icon + Full Class Name & Code (Edit/Delete moved into Class Details header) */}
                   <div
                     style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
                       alignItems: 'flex-start',
-                      gap: '0.45rem',
+                      gap: '0.55rem',
                       position: 'relative',
                       zIndex: 1,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          width: '34px',
-                          height: '34px',
-                          borderRadius: '9px',
-                          background: `${colorHex}18`,
-                          color: colorHex,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          transform: 'scale(0.88)',
-                        }}
-                      >
-                        {IconComp}
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <h3
-                            style={{
-                              fontSize: '0.96rem',
-                              fontWeight: 700,
-                              color: 'var(--text-primary)',
-                              margin: 0,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                            title={c.className}
-                          >
-                            {c.className}
-                          </h3>
-                          {c.classCode && (
-                            <span
-                              style={{
-                                padding: '0.08rem 0.35rem',
-                                background: 'var(--bg-secondary)',
-                                borderRadius: '4px',
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                color: 'var(--text-secondary)',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {c.classCode}
-                            </span>
-                          )}
-                        </div>
-                        <p
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '9px',
+                        background: `${colorHex}18`,
+                        color: colorHex,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        marginTop: '0.05rem',
+                        transform: 'scale(0.85)',
+                      }}
+                    >
+                      {IconComp}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.32rem' }}>
+                        <h3
                           style={{
-                            fontSize: '0.74rem',
-                            color: 'var(--text-secondary)',
-                            margin: '0.1rem 0 0',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            color: 'var(--text-primary)',
+                            margin: 0,
+                            lineHeight: 1.3,
+                            wordBreak: 'break-word',
                           }}
                         >
-                          {c.shift || c.academicYear}
-                          {c.time ? ` • ${c.time}` : ''}
-                        </p>
+                          {c.className}
+                        </h3>
+                        {c.classCode && (
+                          <span
+                            style={{
+                              padding: '0.08rem 0.35rem',
+                              background: 'var(--bg-secondary)',
+                              borderRadius: '4px',
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              color: 'var(--text-secondary)',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {c.classCode}
+                          </span>
+                        )}
                       </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEditClass(c);
-                        }}
+                      <p
                         style={{
-                          width: '25px',
-                          height: '25px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          color: '#3b82f6',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
+                          fontSize: '0.74rem',
+                          color: 'var(--text-secondary)',
+                          margin: '0.15rem 0 0',
+                          lineHeight: 1.25,
                         }}
-                        title="កែប្រែ"
                       >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteClass(c.id);
-                        }}
-                        style={{
-                          width: '25px',
-                          height: '25px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'rgba(239, 68, 68, 0.1)',
-                          color: '#ef4444',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                        }}
-                        title="លុប"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
+                        {c.shift || c.academicYear}
+                        {c.time ? ` • ${c.time}` : ''}
+                      </p>
                     </div>
                   </div>
 
@@ -1085,21 +1028,67 @@ export default function ClassesPage() {
         <div style={{ width: '100%', minWidth: 0 }}>
           {viewingClass ? (
             <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '600px' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', background: `${COLORS.find(c => c.id === viewingClass.color)?.value || COLORS[0].value}15`, borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
-                  <div style={{ color: COLORS.find(c => c.id === viewingClass.color)?.value || COLORS[0].value }}>
-                     {ICONS.find(i => i.id === viewingClass.icon)?.icon || ICONS[0].icon}
+              <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', background: `${COLORS.find(c => c.id === viewingClass.color)?.value || COLORS[0].value}15`, borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                    <div style={{ color: COLORS.find(c => c.id === viewingClass.color)?.value || COLORS[0].value }}>
+                       {ICONS.find(i => i.id === viewingClass.icon)?.icon || ICONS[0].icon}
+                    </div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>ថ្នាក់ {viewingClass.className} {viewingClass.classCode && `(${viewingClass.classCode})`}</h2>
                   </div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>ថ្នាក់ {viewingClass.className} {viewingClass.classCode && `(${viewingClass.classCode})`}</h2>
+                  <p style={{ color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', margin: 0 }}>
+                    <span><strong style={{ color: 'var(--text-primary)' }}>គ្រូ៖</strong> {viewingClass.teacherName || 'មិនទាន់កំណត់'}</span>
+                    <span>•</span>
+                    <span><strong style={{ color: 'var(--text-primary)' }}>ម៉ោង៖</strong> {viewingClass.time || 'មិនទាន់កំណត់'}</span>
+                    <span>•</span>
+                    <span>{viewingClass.shift}</span>
+                  </p>
+                  {viewingClass.description && <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', marginBottom: 0, fontStyle: 'italic' }}>{viewingClass.description}</p>}
                 </div>
-                <p style={{ color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-                  <span><strong style={{ color: 'var(--text-primary)' }}>គ្រូ៖</strong> {viewingClass.teacherName || 'មិនទាន់កំណត់'}</span>
-                  <span>•</span>
-                  <span><strong style={{ color: 'var(--text-primary)' }}>ម៉ោង៖</strong> {viewingClass.time || 'មិនទាន់កំណត់'}</span>
-                  <span>•</span>
-                  <span>{viewingClass.shift}</span>
-                </p>
-                {viewingClass.description && <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontStyle: 'italic' }}>{viewingClass.description}</p>}
+
+                {/* Class Edit & Delete Actions inside Class Detail Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditClass(viewingClass)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.48rem 0.85rem',
+                      background: 'rgba(59, 130, 246, 0.14)',
+                      color: '#2563eb',
+                      border: '1px solid rgba(59, 130, 246, 0.35)',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    <AppIcon name="edit" size={15} />
+                    <span>កែប្រែថ្នាក់</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteClass(viewingClass.id)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.48rem 0.85rem',
+                      background: 'rgba(239, 68, 68, 0.12)',
+                      color: '#dc2626',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    <AppIcon name="trash" size={15} />
+                    <span>លុបថ្នាក់</span>
+                  </button>
+                </div>
               </div>
               
               <div style={{ borderBottom: '1px solid var(--border-color)', display: 'flex' }}>
