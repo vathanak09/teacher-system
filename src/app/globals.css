@@ -583,6 +583,13 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   max-width: 200px;
 }
 
+.table-responsive table td.actions-cell,
+.table-responsive table td.no-clip-cell {
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
 /* By default, things flow naturally. Media queries change them below */
 .flex-col-mobile {
   display: flex;

@@ -166,6 +166,9 @@ export default function PaymentsPage() {
   const [payValidUntil, setPayValidUntil] = useState('');
   const [payUnitFee, setPayUnitFee] = useState('0');
   const [payDiscount, setPayDiscount] = useState('0');
+  const [payIncludePenalty, setPayIncludePenalty] = useState(false);
+  const [payPenaltyAmount, setPayPenaltyAmount] = useState('0');
+  const [payOverdueDays, setPayOverdueDays] = useState(0);
   const [payAmount, setPayAmount] = useState('0');
   const [payMethod, setPayMethod] = useState('Cash');
   const [payCourseName, setPayCourseName] = useState('');
@@ -1077,12 +1080,21 @@ export default function PaymentsPage() {
       anchorDate
     );
 
+    const defaultPenalty = calculateNoticePenalty(
+      unitFee * defaultMonths,
+      billing.overdueDays,
+      activePenaltyPercent
+    );
+
     setPayStudentDocId(studentDocId);
     setPayValidFrom(startFrom);
     setPayMonths(String(defaultMonths));
     setPayValidUntil(nextUntil);
     setPayUnitFee(String(unitFee));
     setPayDiscount('0');
+    setPayOverdueDays(Math.max(0, billing.overdueDays || 0));
+    setPayIncludePenalty(false);
+    setPayPenaltyAmount(String(defaultPenalty));
     setPayAmount(String(Math.max(0, unitFee * defaultMonths)));
     setPayCourseName(resolveStudentCourseName(student, classesData));
     setPayTeacherCode(
@@ -1106,6 +1118,9 @@ export default function PaymentsPage() {
       setPayValidUntil(addMonthsWithAnniversary(todayStr, 1, todayStr));
       setPayUnitFee('0');
       setPayDiscount('0');
+      setPayOverdueDays(0);
+      setPayIncludePenalty(false);
+      setPayPenaltyAmount('0');
       setPayAmount('0');
       setPayCourseName('');
       setPayTeacherCode('');
@@ -1117,12 +1132,22 @@ export default function PaymentsPage() {
     nextFrom: string,
     nextMonthsStr: string,
     nextUnitFeeStr: string,
-    nextDiscountStr: string
+    nextDiscountStr: string,
+    nextIncludePenalty?: boolean,
+    nextPenaltyStr?: string,
+    recalcPenaltyFromBase?: boolean
   ) => {
     const student = students.find((s) => s.id === payStudentDocId);
     const m = Math.max(1, parseInt(nextMonthsStr, 10) || 1);
     const unit = Math.max(0, parseFloat(nextUnitFeeStr) || 0);
     const disc = Math.max(0, parseFloat(nextDiscountStr) || 0);
+    const includePen = nextIncludePenalty ?? payIncludePenalty;
+
+    let penVal = Math.max(0, parseFloat(nextPenaltyStr ?? payPenaltyAmount) || 0);
+    if (recalcPenaltyFromBase && payOverdueDays > 0) {
+      penVal = calculateNoticePenalty(unit * m, payOverdueDays, activePenaltyPercent);
+      setPayPenaltyAmount(String(penVal));
+    }
 
     if (nextFrom) {
       const anchorDate = student?.billingStartDate || student?.enrollDate || nextFrom;
@@ -1130,7 +1155,7 @@ export default function PaymentsPage() {
         addMonthsWithAnniversary(nextFrom, m, anchorDate)
       );
     }
-    setPayAmount(String(Math.max(0, unit * m - disc)));
+    setPayAmount(String(Math.max(0, unit * m - disc + (includePen ? penVal : 0))));
   };
 
   const savePaymentRecord = async (openPreviewNow: boolean) => {
@@ -1150,6 +1175,9 @@ export default function PaymentsPage() {
       const monthsPaid = Math.max(1, parseInt(payMonths, 10) || 1);
       const unitFee = Math.max(0, parseFloat(payUnitFee) || 0);
       const discount = Math.max(0, parseFloat(payDiscount) || 0);
+      const penaltyAmount = payIncludePenalty
+        ? Math.max(0, Math.round(parseFloat(payPenaltyAmount) || 0))
+        : 0;
       const amount = Math.max(0, parseFloat(payAmount) || 0);
       const validityPeriod = formatKhmerValidityPeriod(payValidFrom || payDate, payValidUntil);
       const receiptNo = formatReceiptNo6Digit(payReceiptNo.trim() || generateNextReceiptNo());
@@ -1181,6 +1209,8 @@ export default function PaymentsPage() {
         monthsPaid,
         unitFee: Math.round(unitFee),
         discount: Math.round(discount),
+        penaltyIncluded: payIncludePenalty,
+        penaltyAmount,
         amount: Math.round(amount),
         currency: 'KHR',
         method: payMethod,
@@ -2121,7 +2151,7 @@ export default function PaymentsPage() {
 
           <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
             <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1180px', textAlign: 'left' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1440px', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: 'rgba(239, 68, 68, 0.06)', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ width: '40px', textAlign: 'center' }}>
@@ -2194,7 +2224,7 @@ export default function PaymentsPage() {
                         {item.monthsDue} ខែ
                       </td>
                       <td style={{ fontWeight: 600 }}>{formatDMYSlash(item.dueDateStr) || '-'}</td>
-                      <td style={{ fontWeight: 700, color: '#ef4444' }}>
+                      <td className="no-clip-cell" style={{ fontWeight: 700, color: '#ef4444' }}>
                         {(() => {
                           const baseAmt = Math.max(Number(item.amountDue || 0), Number(item.monthlyFee || 0));
                           const penAmt = calculateNoticePenalty(baseAmt, item.overdueDays, activePenaltyPercent);
@@ -2210,7 +2240,7 @@ export default function PaymentsPage() {
                           );
                         })()}
                       </td>
-                      <td>
+                      <td className="no-clip-cell">
                         {(() => {
                           const baseAmt = Math.max(Number(item.amountDue || 0), Number(item.monthlyFee || 0));
                           const penAmt = calculateNoticePenalty(baseAmt, item.overdueDays, activePenaltyPercent);
@@ -2437,8 +2467,8 @@ export default function PaymentsPage() {
                         })()}
                       </td>
                       <td>{item.roomAndTeacher || '-'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                      <td className="actions-cell" style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                           <button
                             type="button"
                             onClick={() => openStudentQuickEdit(item.student, item.roomAndTeacher)}
@@ -2449,6 +2479,7 @@ export default function PaymentsPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '0.28rem',
+                              flexShrink: 0,
                             }}
                             title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
                           >
@@ -2676,8 +2707,8 @@ export default function PaymentsPage() {
                         <td style={{ fontWeight: 600 }}>{formatDMYSlash(row.validUntil) || '-'}</td>
                         <td style={{ fontWeight: 700 }}>{formatRiels(row.amount)}</td>
                         <td>{row.roomAndTeacher || '-'}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                        <td className="actions-cell" style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.35rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                             <button
                               type="button"
                               onClick={() =>
@@ -2693,6 +2724,7 @@ export default function PaymentsPage() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '0.25rem',
+                                flexShrink: 0,
                               }}
                               title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
                             >
@@ -2942,8 +2974,8 @@ export default function PaymentsPage() {
                         <td style={{ fontWeight: 600 }}>{formatDMYSlash(row.validUntil) || '-'}</td>
                         <td style={{ fontWeight: 700 }}>{formatRiels(row.amount)}</td>
                         <td>{row.roomAndTeacher || '-'}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                        <td className="actions-cell" style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.35rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                             <button
                               type="button"
                               onClick={() =>
@@ -2959,6 +2991,7 @@ export default function PaymentsPage() {
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '0.25rem',
+                                flexShrink: 0,
                               }}
                               title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
                             >
@@ -3100,8 +3133,8 @@ export default function PaymentsPage() {
                         </span>
                       )}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                    <td className="actions-cell" style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                         <button
                           type="button"
                           onClick={() => openStudentQuickEdit(b.student, b.roomAndTeacher)}
@@ -3112,6 +3145,7 @@ export default function PaymentsPage() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.25rem',
+                            flexShrink: 0,
                           }}
                           title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
                         >
@@ -3286,7 +3320,7 @@ export default function PaymentsPage() {
                     searchable={false}
                     onChange={(v) => {
                       setPayMonths(v);
-                      handleRecalcFromFields(payValidFrom, v, payUnitFee, payDiscount);
+                      handleRecalcFromFields(payValidFrom, v, payUnitFee, payDiscount, undefined, undefined, true);
                     }}
                     options={[1, 2, 3, 4, 5, 6, 9, 12].map((m) => ({
                       value: String(m),
@@ -3340,7 +3374,7 @@ export default function PaymentsPage() {
                     value={payUnitFee}
                     onChange={(e) => {
                       setPayUnitFee(e.target.value);
-                      handleRecalcFromFields(payValidFrom, payMonths, e.target.value, payDiscount);
+                      handleRecalcFromFields(payValidFrom, payMonths, e.target.value, payDiscount, undefined, undefined, true);
                     }}
                     style={{
                       width: '100%',
@@ -3396,6 +3430,108 @@ export default function PaymentsPage() {
                       fontWeight: 800,
                     }}
                   />
+                </div>
+              </div>
+
+              {/* Include Penalty Checkbox + Editable Penalty Amount */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.65rem',
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: '12px',
+                  border: payIncludePenalty
+                    ? '1px solid rgba(220, 38, 38, 0.5)'
+                    : '1px solid var(--border-color)',
+                  background: payIncludePenalty
+                    ? 'rgba(220, 38, 38, 0.07)'
+                    : 'var(--bg-secondary)',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={payIncludePenalty}
+                    onChange={(e) => {
+                      const nextChecked = e.target.checked;
+                      setPayIncludePenalty(nextChecked);
+                      handleRecalcFromFields(
+                        payValidFrom,
+                        payMonths,
+                        payUnitFee,
+                        payDiscount,
+                        nextChecked,
+                        payPenaltyAmount
+                      );
+                    }}
+                    style={{ width: '16px', height: '16px', accentColor: '#dc2626' }}
+                  />
+                  <div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '0.88rem',
+                        color: payIncludePenalty ? '#dc2626' : 'var(--text-primary)',
+                      }}
+                    >
+                      បូកថ្លៃផាកពិន័យ
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                      {payOverdueDays > 0
+                        ? `លើស ${payOverdueDays} ថ្ងៃ × ${activePenaltyPercent}%/ថ្ងៃ`
+                        : 'គ្មានថ្ងៃលើស (អាចវាយចំនួនផាកបន្ថែមបាន)'}
+                    </div>
+                  </div>
+                </label>
+
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#dc2626' }}>+</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={payPenaltyAmount}
+                    onChange={(e) => {
+                      const nextPen = e.target.value;
+                      setPayPenaltyAmount(nextPen);
+                      handleRecalcFromFields(
+                        payValidFrom,
+                        payMonths,
+                        payUnitFee,
+                        payDiscount,
+                        payIncludePenalty,
+                        nextPen
+                      );
+                    }}
+                    style={{
+                      width: '115px',
+                      padding: '0.4rem 0.6rem',
+                      borderRadius: '8px',
+                      border: payIncludePenalty
+                        ? '1px solid rgba(220, 38, 38, 0.5)'
+                        : '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: payIncludePenalty ? '#dc2626' : 'var(--text-secondary)',
+                      fontWeight: 800,
+                      textAlign: 'right',
+                      fontSize: '0.88rem',
+                      opacity: payIncludePenalty ? 1 : 0.7,
+                    }}
+                  />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    រៀល
+                  </span>
                 </div>
               </div>
 
@@ -3979,16 +4115,13 @@ export default function PaymentsPage() {
         onClose={() => setDueNoticeModalState(null)}
       />
 
-      {/* Quick View & Edit Student Info Modal */}
+      {/* Exact Shortcut to Students Page Edit Student Modal */}
       <StudentQuickEditModal
         student={editingStudentModal?.student || null}
-        roomAndTeacher={editingStudentModal?.roomAndTeacher}
+        allStudents={students}
+        classesData={classesData}
         onSaved={(name) => showToast(`បានរក្សាទុកព័ត៌មានសិស្ស «${name}» រួចរាល់!`)}
         onError={(msg) => showToast(msg, 'error')}
-        onOpenStudentsPage={() => {
-          setEditingStudentModal(null);
-          router.push('/dashboard/students');
-        }}
         onClose={() => setEditingStudentModal(null)}
       />
     </div>
