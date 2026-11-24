@@ -1621,7 +1621,7 @@ export default function PaymentsPage() {
                   border: 'none',
                 }}
               >
-                <AppIcon name="print" size={16} color="#ffffff" />
+                <AppIcon name="printer" size={16} style={{ color: '#ffffff' }} />
                 <span>
                   Print លិខិតជូនដំណឹង A4 បញ្ឈរ 6/ទំព័រ (
                   {selectedDueIds.length > 0 ? selectedDueIds.length : dueOverdueList.length})

@@ -146,7 +146,7 @@ export default function DueNoticeCard({
         boxSizing: 'border-box',
         padding: '2.4mm 3.2mm 2.2mm',
         background: '#ffffff',
-        color: '#0f172a',
+        color: '#000000',
         fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
         borderRight: showCutRight ? '0.5pt dashed #94a3b8' : 'none',
         borderBottom: showCutBottom ? '0.5pt dashed #94a3b8' : 'none',
@@ -225,16 +225,16 @@ export default function DueNoticeCard({
         >
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'flex-end', gap: '2.2mm' }}>
             {teacherShortCode && (
-              <span style={{ fontSize: '7.8pt', fontWeight: 700, color: '#cbd5e1' }}>
+              <span style={{ fontSize: '7.8pt', fontWeight: 700, color: '#000000' }}>
                 {teacherShortCode}
               </span>
             )}
-            <span style={{ fontSize: '8.4pt', fontWeight: 800, color: '#0f172a' }}>
+            <span style={{ fontSize: '8.4pt', fontWeight: 800, color: '#000000' }}>
               {levelCode}
             </span>
           </div>
           {shiftCode && (
-            <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#0f172a', marginTop: '0.8mm' }}>
+            <div style={{ fontSize: '8.4pt', fontWeight: 800, color: '#000000', marginTop: '0.8mm' }}>
               {shiftCode}
             </div>
           )}
@@ -271,7 +271,7 @@ export default function DueNoticeCard({
             style={{
               fontFamily: "'Moul', 'Kantumruy Pro', serif",
               fontSize: '10.2pt',
-              color: '#1e293b',
+              color: '#000000',
               textDecoration: 'underline',
               textUnderlineOffset: '2.5px',
               marginTop: '0.6mm',
@@ -299,7 +299,7 @@ export default function DueNoticeCard({
             style={{
               fontSize: '9.2pt',
               fontWeight: 700,
-              color: '#0f172a',
+              color: '#000000',
               whiteSpace: 'nowrap',
               flexShrink: 0,
             }}
@@ -311,7 +311,7 @@ export default function DueNoticeCard({
               flex: 1,
               minWidth: 0,
               height: '8.2mm',
-              border: '0.9pt dashed #1e293b',
+              border: '0.9pt dashed #000000',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -343,14 +343,14 @@ export default function DueNoticeCard({
           }}
         >
           <div>
-            <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a' }}>
+            <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000' }}>
               មកបង់ថ្លៃសិក្សា ចំនួន{' '}
             </span>
             <span style={{ fontSize: '10.4pt', fontWeight: 900, color: '#1d4ed8' }}>
               {monthsKh2Digit} ខែ
             </span>
           </div>
-          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a' }}>
+          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000' }}>
             ដែលសិស្សខាងលើ
           </span>
         </div>
@@ -365,7 +365,7 @@ export default function DueNoticeCard({
             whiteSpace: 'nowrap',
           }}
         >
-          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a' }}>
+          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000' }}>
             ត្រូវបង់នៅ ថ្ងៃទី
           </span>
           <span
@@ -384,11 +384,11 @@ export default function DueNoticeCard({
           >
             {dueDay}
           </span>
-          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a' }}>ខែ</span>
+          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000' }}>ខែ</span>
           <span style={{ fontSize: '10pt', fontWeight: 900, color: '#1d4ed8' }}>
             {dueMonthKh}
           </span>
-          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a', marginLeft: '1.5mm' }}>
+          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000', marginLeft: '1.5mm' }}>
             ឆ្នាំ
           </span>
           <span style={{ fontSize: '10.2pt', fontWeight: 900, color: '#1d4ed8' }}>
@@ -407,7 +407,7 @@ export default function DueNoticeCard({
             visibility: showAmount ? 'visible' : 'hidden',
           }}
         >
-          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#0f172a', flexShrink: 0 }}>
+          <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000', flexShrink: 0 }}>
             សរុបជាទឹកប្រាក់ ចំនួន
           </span>
           <div
@@ -434,7 +434,7 @@ export default function DueNoticeCard({
             style={{
               fontSize: '8.7pt',
               fontWeight: 700,
-              color: '#0f172a',
+              color: '#000000',
               whiteSpace: 'nowrap',
               letterSpacing: '-0.01em',
             }}
@@ -454,7 +454,7 @@ export default function DueNoticeCard({
               style={{
                 fontSize: '8.7pt',
                 fontWeight: 700,
-                color: '#0f172a',
+                color: '#000000',
                 letterSpacing: '-0.015em',
               }}
             >
@@ -485,7 +485,7 @@ export default function DueNoticeCard({
             fontSize: '5.85pt',
             lineHeight: 1.38,
             letterSpacing: '-0.02em',
-            color: '#1e293b',
+            color: '#000000',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1mm' }}>
@@ -533,7 +533,7 @@ export default function DueNoticeCard({
             lineHeight: 1.15,
           }}
         >
-          <div style={{ fontSize: '7.6pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '7.6pt', fontWeight: 800, color: '#000000', whiteSpace: 'nowrap' }}>
             បេឡា
           </div>
           <div
@@ -549,11 +549,11 @@ export default function DueNoticeCard({
               <ReceiptSignature
                 signatureUrl={noticeSignatureUrl}
                 height="8.6mm"
-                color="#0f172a"
+                color="#000000"
               />
             )}
           </div>
-          <div style={{ fontSize: '7.5pt', fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '7.5pt', fontWeight: 800, color: '#000000', whiteSpace: 'nowrap' }}>
             {cashierText}
           </div>
         </div>

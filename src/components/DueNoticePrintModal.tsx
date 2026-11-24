@@ -420,7 +420,7 @@ export default function DueNoticePrintModal({
                 flexShrink: 0,
               }}
             >
-              <AppIcon name="print" size={17} color="#ffffff" />
+              <AppIcon name="printer" size={17} style={{ color: '#ffffff' }} />
             </span>
             <div>
               <div style={{ fontWeight: 800, fontSize: '0.96rem', lineHeight: 1.25 }}>
@@ -474,7 +474,7 @@ export default function DueNoticePrintModal({
                   filteredItems.length === 0 ? 'none' : '0 2px 10px rgba(37,99,235,0.4)',
               }}
             >
-              <AppIcon name="print" size={16} color="#ffffff" />
+              <AppIcon name="printer" size={16} style={{ color: '#ffffff' }} />
               <span>Print A4 បញ្ឈរ ({filteredItems.length})</span>
             </button>
 
@@ -697,7 +697,7 @@ export default function DueNoticePrintModal({
               cursor: 'pointer',
             }}
           >
-            <AppIcon name="document" size={14} color={isPrePrintedMode ? '#86efac' : '#94a3b8'} />
+            <AppIcon name="file-text" size={14} style={{ color: isPrePrintedMode ? '#86efac' : '#94a3b8' }} />
             <span>{isPrePrintedMode ? 'កំពុងលាក់ Header+Footer' : 'ព្រីនលើក្រដាសគំរូស្រាប់'}</span>
           </button>
 
@@ -759,7 +759,7 @@ export default function DueNoticePrintModal({
               cursor: 'pointer',
             }}
           >
-            <AppIcon name="settings" size={14} color={isCashierEditorOpen ? '#7dd3fc' : '#94a3b8'} />
+            <AppIcon name="sliders" size={14} style={{ color: isCashierEditorOpen ? '#7dd3fc' : '#94a3b8' }} />
             <span>បេឡា & ហត្ថលេខា</span>
           </button>
         </div>

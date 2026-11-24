@@ -65,7 +65,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
           borderRadius: '10px',
           overflow: 'hidden',
           background: '#ffffff',
-          color: '#0f172a',
+          color: '#000000',
           fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
           display: 'flex',
           flexDirection: 'column',
@@ -237,7 +237,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 ឈ្មោះសិស្ស / Student&apos;s Name
               </div>
               <div
@@ -264,10 +264,10 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 ភេទ & ថ្ងៃចូលរៀន
               </div>
-              <div style={{ fontSize: '9.6pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
+              <div style={{ fontSize: '9.6pt', fontWeight: 800, color: '#000000', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                 {d.shortGender || '-'} • ថ្ងៃទី {d.enrollDay || '-'}
               </div>
             </div>
@@ -281,10 +281,10 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 វេនសិក្សា / Shift
               </div>
-              <div style={{ fontSize: '9.4pt', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
+              <div style={{ fontSize: '9.4pt', fontWeight: 800, color: '#000000', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                 {d.shiftFullKh || d.shiftCode || '-'} ({d.shiftCode || '-'})
               </div>
             </div>
@@ -299,14 +299,14 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 វគ្គសិក្សា / Course
               </div>
               <div
                 style={{
                   fontSize: courseSize,
                   fontWeight: 800,
-                  color: '#0f172a',
+                  color: '#000000',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -327,7 +327,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 minWidth: 0,
               }}
             >
-              <div style={{ fontSize: '7.1pt', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '7.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 បង់ប្រាក់សម្រាប់ / Pay For ({d.payMethod})
               </div>
               <div
@@ -343,7 +343,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                   style={{
                     fontSize: '9.8pt',
                     fontWeight: 800,
-                    color: '#0f172a',
+                    color: '#000000',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -426,17 +426,17 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
               paddingTop: '1.2mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.02em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#000000', letterSpacing: '-0.02em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
-                <strong style={{ color: '#0f172a' }}>បញ្ជាក់៖</strong> ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
+                <strong style={{ color: '#000000' }}>បញ្ជាក់៖</strong> ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។
               </div>
               <div style={{ whiteSpace: 'nowrap' }}>
                 ការបង់ប្រាក់បន្ទាប់ត្រូវបង់មុនថ្ងៃផុតកំណត់យ៉ាងហោចណាស់ ៣ថ្ងៃ • យឺតយ៉ាវត្រូវផាកពិន័យ។
               </div>
-              <div style={{ marginTop: '0.4mm', color: '#1e293b', whiteSpace: 'nowrap' }}>
+              <div style={{ marginTop: '0.4mm', color: '#000000', whiteSpace: 'nowrap' }}>
                 <strong>ទំនាក់ទំនង៖</strong> {d.phoneText}
               </div>
-              <div style={{ color: '#334155', whiteSpace: 'pre-line' }}>
+              <div style={{ color: '#000000', whiteSpace: 'pre-line' }}>
                 <strong>អាសយដ្ឋាន៖</strong> {d.addressText}
               </div>
             </div>
@@ -449,7 +449,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#000000', whiteSpace: 'nowrap' }}>
                 អ្នកទទួលប្រាក់ / Cashier
               </div>
               <div
@@ -529,7 +529,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
           borderRadius: '10px',
           padding: isPortrait ? '2.8mm 3.4mm' : '2.2mm 3.4mm',
           background: '#ffffff',
-          color: '#0f172a',
+          color: '#000000',
           fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
           display: 'flex',
           flexDirection: 'column',
@@ -583,10 +583,10 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             >
               បានបង់រួច • PAID
             </span>
-            <div style={{ fontSize: '10.6pt', fontWeight: 900, color: '#0f172a', marginTop: '0.5mm', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '10.6pt', fontWeight: 900, color: '#000000', marginTop: '0.5mm', whiteSpace: 'nowrap' }}>
               № <span style={{ color: '#0d9488' }}>{d.receiptNo6}</span>
             </div>
-            <div style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000', whiteSpace: 'nowrap' }}>
               {d.dateDash}{' '}
               {[d.teacherShortCode, d.levelCode, d.shiftCode].filter(Boolean).length
                 ? `• ${[d.teacherShortCode, d.levelCode, d.shiftCode].filter(Boolean).join(' / ')}`
@@ -617,7 +617,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 fontSize: nameSize,
                 fontWeight: 900,
-                color: '#0f172a',
+                color: '#000000',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -628,7 +628,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-            <div style={{ fontSize: '8.6pt', fontWeight: 800, color: '#1e293b' }}>
+            <div style={{ fontSize: '8.6pt', fontWeight: 800, color: '#000000' }}>
               ភេទ៖ {d.shortGender || '-'} • ចូលរៀនថ្ងៃទី {d.enrollDay || '-'}
             </div>
             <div style={{ fontSize: '8.2pt', color: '#0f766e', fontWeight: 800 }}>
@@ -657,7 +657,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               minWidth: 0,
             }}
           >
-            <span style={{ fontSize: '8.1pt', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '8.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
               បង់សម្រាប់
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.4mm', minWidth: 0 }}>
@@ -665,7 +665,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
                 style={{
                   fontSize: '9.4pt',
                   fontWeight: 800,
-                  color: '#0f172a',
+                  color: '#000000',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -701,14 +701,14 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               minWidth: 0,
             }}
           >
-            <span style={{ fontSize: '8.1pt', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '8.1pt', color: '#000000', fontWeight: 700, whiteSpace: 'nowrap' }}>
               វគ្គសិក្សា
             </span>
             <span
               style={{
                 fontSize: courseSize,
                 fontWeight: 800,
-                color: '#0f172a',
+                color: '#000000',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -773,11 +773,11 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
             borderTop: '0.55pt solid #e2e8f0',
           }}
         >
-          <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#475569', letterSpacing: '-0.02em' }}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#000000', letterSpacing: '-0.02em' }}>
             <div style={{ whiteSpace: 'nowrap' }}>
               <strong style={{ color: '#0f766e' }}>បញ្ជាក់៖</strong> ប្រាក់ដែលបានបង់រួចហើយមិនអាចដកវិញ ឬផ្ទេរបានឡើយ • បង់មុនផុតកំណត់ ៣ថ្ងៃ។
             </div>
-            <div style={{ marginTop: '0.4mm', color: '#0f172a', whiteSpace: 'nowrap' }}>
+            <div style={{ marginTop: '0.4mm', color: '#000000', whiteSpace: 'nowrap' }}>
               <strong>TEL/Telegram:</strong> {d.phoneText}
             </div>
             <div style={{ whiteSpace: 'pre-line' }}>
@@ -793,7 +793,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '8.4pt', fontWeight: 700, color: '#000000', whiteSpace: 'nowrap' }}>
               អ្នកទទួលប្រាក់
             </div>
             <div
@@ -885,7 +885,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
             flexDirection: 'column',
             justifyContent: 'space-between',
             fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
-            color: '#0f172a',
+            color: '#000000',
           }}
         >
           {/* Watermark */}
@@ -923,7 +923,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               }}
             >
               <div>{[d.teacherShortCode, d.levelCode].filter(Boolean).join(' • ')}</div>
-              {d.shiftCode && <div style={{ color: '#475569' }}>{d.shiftCode}</div>}
+              {d.shiftCode && <div style={{ color: '#000000' }}>{d.shiftCode}</div>}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center', paddingRight: '1.4cm' }}>
@@ -1271,7 +1271,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               marginTop: '0.8mm',
             }}
           >
-            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#334155', letterSpacing: '-0.02em' }}>
+            <div style={{ flex: 1, minWidth: 0, fontSize: isPortrait ? '6.6pt' : '6.8pt', lineHeight: 1.4, color: '#000000', letterSpacing: '-0.02em' }}>
               <div style={{ whiteSpace: 'nowrap' }}>
                 <strong style={{ color: '#1e3a8a', textDecoration: 'underline' }}>បញ្ជាក់៖</strong>{' '}
                 ទឹកប្រាក់ដែលបានបង់រួចហើយ មិនអាចដកវិញ ឬផ្ទេរទៅអ្នកផ្សេងបានឡើយ។

@@ -123,8 +123,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
   const slotW = isPortrait ? '10.5cm' : '14.85cm';
   const slotH = isPortrait ? '14.85cm' : '10.5cm';
 
-  const thinBorder = '0.75pt solid #334155';
-  const outerBorder = '0.9pt solid #334155';
+  const thinBorder = '0.75pt solid #000000';
+  const outerBorder = '0.9pt solid #000000';
   const nameFontSize =
     d.studentName.length > 22 ? '10.5pt' : d.studentName.length > 16 ? '11.8pt' : '13pt';
 
@@ -154,7 +154,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           position: 'relative',
           overflow: 'hidden',
           background: '#ffffff',
-          color: '#1e293b',
+          color: '#000000',
           fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
           display: 'flex',
           flexDirection: 'column',
@@ -201,7 +201,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                 style={{
                   fontSize: '8.8pt',
                   fontWeight: 700,
-                  color: '#94a3b8',
+                  color: '#000000',
                   letterSpacing: '0.02em',
                 }}
               >
@@ -212,7 +212,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 fontSize: '9.4pt',
                 fontWeight: 800,
-                color: '#1e293b',
+                color: '#000000',
                 minWidth: '7mm',
                 display: 'inline-block',
               }}
@@ -221,7 +221,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             </span>
           </div>
           {d.shiftCode && (
-            <div style={{ fontSize: '9.4pt', fontWeight: 800, color: '#1e293b', marginTop: '0.6mm' }}>
+            <div style={{ fontSize: '9.4pt', fontWeight: 800, color: '#000000', marginTop: '0.6mm' }}>
               {d.shiftCode}
             </div>
           )}
@@ -267,7 +267,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 fontFamily: "'Moul', 'Kantumruy Pro', serif",
                 fontSize: isPortrait ? '13pt' : '14.2pt',
-                color: '#374151',
+                color: '#000000',
                 lineHeight: 1.32,
                 whiteSpace: 'nowrap',
               }}
@@ -279,7 +279,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                 fontFamily: "'Inter', 'Roboto', sans-serif",
                 fontWeight: 900,
                 fontSize: isPortrait ? '11.8pt' : '12.8pt',
-                color: '#374151',
+                color: '#000000',
                 letterSpacing: '0.04em',
                 lineHeight: 1.05,
                 marginTop: '-0.8mm',
@@ -300,7 +300,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             }}
           >
             <div>
-              <span style={{ fontSize: '9.6pt', fontWeight: 600, color: '#334155' }}>Date:</span>
+              <span style={{ fontSize: '9.6pt', fontWeight: 600, color: '#000000' }}>Date:</span>
               <span
                 style={{
                   fontSize: '10pt',
@@ -314,7 +314,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               </span>
             </div>
             <div>
-              <span style={{ fontSize: '9.8pt', fontWeight: 700, color: '#334155' }}>№ :</span>
+              <span style={{ fontSize: '9.8pt', fontWeight: 700, color: '#000000' }}>№ :</span>
               <span
                 style={{
                   fontSize: '11.6pt',
@@ -355,10 +355,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '10pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.015em' }}>
+                <span style={{ fontSize: '10pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.015em' }}>
                   ឈ្មោះសិស្ស
                 </span>
-                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569' }}>
+                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>
                   Student&apos;s Name
                 </span>
               </div>
@@ -399,8 +399,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9.4pt', fontWeight: 700, color: '#374151' }}>ភេទ</span>
-                <span style={{ fontSize: '7.4pt', fontWeight: 600, color: '#475569' }}>Gender</span>
+                <span style={{ fontSize: '9.4pt', fontWeight: 700, color: '#000000' }}>ភេទ</span>
+                <span style={{ fontSize: '7.4pt', fontWeight: 600, color: '#000000' }}>Gender</span>
               </div>
               <div
                 style={{
@@ -414,7 +414,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   justifyContent: 'center',
                   fontSize: '11.4pt',
                   fontWeight: 800,
-                  color: '#1e293b',
+                  color: '#000000',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -431,10 +431,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.02em' }}>
                   ចូលរៀនថ្ងៃទី
                 </span>
-                <span style={{ fontSize: '7.4pt', fontWeight: 600, color: '#475569' }}>Enroll Date</span>
+                <span style={{ fontSize: '7.4pt', fontWeight: 600, color: '#000000' }}>Enroll Date</span>
               </div>
               <div
                 style={{
@@ -448,7 +448,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   justifyContent: 'center',
                   fontSize: '11.4pt',
                   fontWeight: 800,
-                  color: '#1e293b',
+                  color: '#000000',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -469,10 +469,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9.4pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '9.4pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.02em' }}>
                   បង់ប្រាក់សម្រាប់
                 </span>
-                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569' }}>Pay for</span>
+                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>Pay for</span>
               </div>
               <div
                 style={{
@@ -495,7 +495,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                     padding: '0 1.2mm',
                     fontSize: '10.4pt',
                     fontWeight: 800,
-                    color: '#1e293b',
+                    color: '#000000',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -534,10 +534,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9.5pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.02em' }}>
+                <span style={{ fontSize: '9.5pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.02em' }}>
                   សរុបទឹកប្រាក់
                 </span>
-                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569' }}>Total Amount</span>
+                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>Total Amount</span>
               </div>
               <div
                 style={{
@@ -552,7 +552,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   padding: '0 1.2mm',
                   fontSize: '10.8pt',
                   fontWeight: 800,
-                  color: '#1e293b',
+                  color: '#000000',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -573,10 +573,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9.5pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.015em' }}>
+                <span style={{ fontSize: '9.5pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.015em' }}>
                   វគ្គសិក្សា
                 </span>
-                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569' }}>Course</span>
+                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>Course</span>
               </div>
 
               <div
@@ -601,7 +601,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                     padding: '0.4mm 1.4mm',
                     fontSize: d.courseName.length > 22 ? '8.6pt' : '9.6pt',
                     fontWeight: 800,
-                    color: '#1e293b',
+                    color: '#000000',
                     lineHeight: 1.14,
                   }}
                 >
@@ -619,7 +619,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                     textAlign: 'center',
                     fontSize: '8.6pt',
                     fontWeight: 800,
-                    color: '#1e293b',
+                    color: '#000000',
                     lineHeight: 1.1,
                     whiteSpace: 'nowrap',
                   }}
@@ -641,10 +641,10 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <span style={{ fontSize: '9pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.025em' }}>
+                <span style={{ fontSize: '9pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.025em' }}>
                   ថ្ងៃបង់ប្រាក់បន្ទាប់
                 </span>
-                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#475569' }}>Next Payment</span>
+                <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>Next Payment</span>
               </div>
               <div
                 style={{
@@ -682,8 +682,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             {/* Name Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm' }}>
               <div style={{ width: '2.5cm', flexShrink: 0, lineHeight: 1.14, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '9.4pt', fontWeight: 700, color: '#374151' }}>ឈ្មោះសិស្ស</div>
-                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#475569' }}>Student&apos;s Name</div>
+                <div style={{ fontSize: '9.4pt', fontWeight: 700, color: '#000000' }}>ឈ្មោះសិស្ស</div>
+                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#000000' }}>Student&apos;s Name</div>
               </div>
               <div
                 style={{
@@ -706,8 +706,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             {/* Gender + Enroll Day Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm' }}>
               <div style={{ width: '2.5cm', flexShrink: 0, lineHeight: 1.14, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '9pt', fontWeight: 700, color: '#374151' }}>ភេទ / ចូលរៀន</div>
-                <div style={{ fontSize: '7pt', fontWeight: 600, color: '#475569' }}>Gender / Enroll</div>
+                <div style={{ fontSize: '9pt', fontWeight: 700, color: '#000000' }}>ភេទ / ចូលរៀន</div>
+                <div style={{ fontSize: '7pt', fontWeight: 600, color: '#000000' }}>Gender / Enroll</div>
               </div>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1.8mm' }}>
                 <div
@@ -748,8 +748,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             {/* Pay For Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm' }}>
               <div style={{ width: '2.5cm', flexShrink: 0, lineHeight: 1.14, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '9pt', fontWeight: 700, color: '#374151', letterSpacing: '-0.02em' }}>បង់ប្រាក់សម្រាប់</div>
-                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#475569' }}>Pay for</div>
+                <div style={{ fontSize: '9pt', fontWeight: 700, color: '#000000', letterSpacing: '-0.02em' }}>បង់ប្រាក់សម្រាប់</div>
+                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#000000' }}>Pay for</div>
               </div>
               <div
                 style={{
@@ -798,8 +798,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             {/* Course + Shift Row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm' }}>
               <div style={{ width: '2.5cm', flexShrink: 0, lineHeight: 1.14, whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '9.4pt', fontWeight: 700, color: '#374151' }}>វគ្គសិក្សា</div>
-                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#475569' }}>Course</div>
+                <div style={{ fontSize: '9.4pt', fontWeight: 700, color: '#000000' }}>វគ្គសិក្សា</div>
+                <div style={{ fontSize: '7.2pt', fontWeight: 600, color: '#000000' }}>Course</div>
               </div>
               <div
                 style={{
@@ -850,7 +850,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             {/* Total Amount + Next Payment Dual Boxes */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2mm', marginTop: '0.8mm' }}>
               <div>
-                <div style={{ fontSize: '8.2pt', fontWeight: 700, color: '#374151', marginBottom: '0.8mm', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '8.2pt', fontWeight: 700, color: '#000000', marginBottom: '0.8mm', whiteSpace: 'nowrap' }}>
                   សរុបទឹកប្រាក់ / Total
                 </div>
                 <div
@@ -863,7 +863,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                     justifyContent: 'center',
                     fontSize: '10.6pt',
                     fontWeight: 800,
-                    color: '#1e293b',
+                    color: '#000000',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -871,7 +871,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '8.2pt', fontWeight: 700, color: '#374151', marginBottom: '0.8mm', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: '8.2pt', fontWeight: 700, color: '#000000', marginBottom: '0.8mm', whiteSpace: 'nowrap' }}>
                   ថ្ងៃបង់បន្ទាប់ / Next
                 </div>
                 <div
@@ -916,7 +916,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               fontSize: isPortrait ? '6.6pt' : '7.15pt',
               lineHeight: 1.44,
               letterSpacing: '-0.02em',
-              color: '#1e293b',
+              color: '#000000',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.2mm' }}>
@@ -980,7 +980,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               style={{
                 fontWeight: 800,
                 fontSize: '9.4pt',
-                color: '#1e293b',
+                color: '#000000',
                 marginBottom: '0.8mm',
                 whiteSpace: 'nowrap',
               }}
