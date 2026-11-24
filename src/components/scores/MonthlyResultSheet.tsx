@@ -410,9 +410,12 @@ export function computeMonthlyResultPacket({
 
   const scoreByStudentKey = new Map<string, any>();
   classScoreRows.forEach((sr) => {
-    if (sr?.studentId) scoreByStudentKey.set(`sid:${cleanStr(sr.studentId)}`, sr);
+    if (sr?.studentId) scoreByStudentKey.set(`id:${cleanStr(sr.studentId)}`, sr);
+    if (sr?.studentIdCode) scoreByStudentKey.set(`sid:${cleanStr(sr.studentIdCode)}`, sr);
     if (sr?.id) scoreByStudentKey.set(`rid:${cleanStr(sr.id)}`, sr);
   });
+
+  const looksLikeFirestoreDocId = (val: string) => /^[A-Za-z0-9]{18,}$/.test(val);
 
   const seenStudentIdentity = new Set<string>();
   const rawEntries: {
@@ -427,23 +430,46 @@ export function computeMonthlyResultPacket({
 
   // 1. Add scored rows first so every entered score is guaranteed to appear
   classScoreRows.forEach((sr, idx) => {
+    const rawSrStudentId = cleanStr(sr.studentId);
+    const rawSrDocId = cleanStr(sr.studentDocId);
+    const rawSrCode = cleanStr(sr.studentIdCode);
+
     const matchedStudent =
-      (sr.studentDocId && studentByKey.get(`id:${cleanStr(sr.studentDocId)}`)) ||
-      (sr.studentId && studentByKey.get(`sid:${cleanStr(sr.studentId)}`)) ||
+      (rawSrStudentId && studentByKey.get(`id:${rawSrStudentId}`)) ||
+      (rawSrDocId && studentByKey.get(`id:${rawSrDocId}`)) ||
+      (rawSrCode && studentByKey.get(`sid:${rawSrCode}`)) ||
+      (rawSrStudentId && studentByKey.get(`sid:${rawSrStudentId}`)) ||
       null;
-    const identity = cleanStr(matchedStudent?.id) || cleanStr(sr.studentId) || cleanStr(sr.id) || `score-${idx}`;
+
+    const identity =
+      cleanStr(matchedStudent?.id) ||
+      rawSrStudentId ||
+      rawSrCode ||
+      cleanStr(sr.id) ||
+      `score-${idx}`;
     if (seenStudentIdentity.has(identity)) return;
     seenStudentIdentity.add(identity);
     if (matchedStudent?.id) seenStudentIdentity.add(cleanStr(matchedStudent.id));
     if (matchedStudent?.studentId) seenStudentIdentity.add(cleanStr(matchedStudent.studentId));
-    if (sr.studentId) seenStudentIdentity.add(cleanStr(sr.studentId));
+    if (rawSrStudentId) seenStudentIdentity.add(rawSrStudentId);
+    if (rawSrCode) seenStudentIdentity.add(rawSrCode);
+
+    const resolvedStudentCode =
+      cleanStr(matchedStudent?.studentId) ||
+      rawSrCode ||
+      (rawSrStudentId && !looksLikeFirestoreDocId(rawSrStudentId) ? rawSrStudentId : '');
+
+    const resolvedFullName =
+      cleanStr(matchedStudent?.fullName) ||
+      cleanStr(sr.fullName) ||
+      cleanStr(sr.studentName);
 
     rawEntries.push({
       rowKey: cleanStr(sr.id) || identity,
       student: matchedStudent,
       scoreRow: sr,
-      studentId: cleanStr(matchedStudent?.studentId || sr.studentId),
-      fullName: cleanStr(matchedStudent?.fullName || sr.studentName),
+      studentId: resolvedStudentCode,
+      fullName: resolvedFullName,
       gender: cleanStr(matchedStudent?.gender || sr.gender),
       level: cleanStr(matchedStudent?.level || sr.level),
     });
@@ -467,7 +493,10 @@ export function computeMonthlyResultPacket({
       if (stDocId) seenStudentIdentity.add(stDocId);
       if (stCode) seenStudentIdentity.add(stCode);
 
-      const sr = (stCode && scoreByStudentKey.get(`sid:${stCode}`)) || null;
+      const sr =
+        (stDocId && scoreByStudentKey.get(`id:${stDocId}`)) ||
+        (stCode && scoreByStudentKey.get(`sid:${stCode}`)) ||
+        null;
       rawEntries.push({
         rowKey: stDocId || stCode,
         student: st,
@@ -876,7 +905,7 @@ function VerticalSchoolLogo({
       <div
         style={{
           fontSize: '9pt',
-          fontWeight: 800,
+          fontWeight: 400,
           color: accentColor,
           fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
           whiteSpace: 'nowrap',
@@ -998,7 +1027,7 @@ export default function MonthlyResultSheet({
             style={{
               textAlign: 'center',
               color: theme.mottoColor,
-              lineHeight: 1.45,
+              lineHeight: 1.5,
               paddingTop: '0.8mm',
               paddingRight: '2mm',
             }}
@@ -1006,7 +1035,7 @@ export default function MonthlyResultSheet({
             <div
               style={{
                 fontSize: '10.2pt',
-                fontWeight: 700,
+                fontWeight: 400,
                 fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
               }}
             >
@@ -1015,7 +1044,7 @@ export default function MonthlyResultSheet({
             <div
               style={{
                 fontSize: '9.8pt',
-                fontWeight: 700,
+                fontWeight: 400,
                 fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
               }}
             >
@@ -1035,7 +1064,7 @@ export default function MonthlyResultSheet({
           <div
             style={{
               fontSize: '15.5pt',
-              fontWeight: 800,
+              fontWeight: 400,
               color: theme.titleColor,
               fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
               letterSpacing: '0.2px',
@@ -1043,7 +1072,7 @@ export default function MonthlyResultSheet({
           >
             {titleText}
             {totalPagesForClass > 1 && (
-              <span style={{ fontSize: '9.5pt', fontWeight: 600, marginLeft: '2mm', color: theme.metaLabelColor }}>
+              <span style={{ fontSize: '9.5pt', fontWeight: 400, marginLeft: '2mm', color: theme.metaLabelColor }}>
                 ({pageIndex + 1}/{totalPagesForClass})
               </span>
             )}
@@ -1189,6 +1218,8 @@ export default function MonthlyResultSheet({
                         padding: '0.25mm 0.8mm',
                         verticalAlign: 'middle',
                         whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                       }}
                     >
                       {row.studentId || '-'}
@@ -1401,7 +1432,7 @@ export default function MonthlyResultSheet({
                       marginTop: '0.5mm',
                       marginLeft: '14mm',
                       fontSize: '9.8pt',
-                      fontWeight: 700,
+                      fontWeight: 400,
                       color: theme.signatoryColor,
                       fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
                       position: 'relative',
