@@ -16,7 +16,13 @@ import MultiSelectDropdown from '@/components/MultiSelectDropdown';
 import MultiSortDropdown, { MultiSortOption, SortRule } from '@/components/MultiSortDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
+import DueNoticePrintModal, { DueNoticeSettingsPatch } from '@/components/DueNoticePrintModal';
 import { OfficialReceiptItem } from '@/components/OfficialReceiptCard';
+import {
+  DEFAULT_NOTICE_CASHIER,
+  DEFAULT_PENALTY_PERCENT_PER_DAY,
+  DueNoticeItem,
+} from '@/components/receipts/DueNoticeCard';
 import { AppIcon } from '@/components/AppIcons';
 import { isStudentActive } from '@/components/dashboard/dashboardMetrics';
 import {
@@ -95,6 +101,9 @@ export default function PaymentsPage() {
     schoolAddress: DEFAULT_RECEIPT_ADDRESS,
     cashierName: DEFAULT_RECEIPT_CASHIER,
     cashierSignatureUrl: '',
+    noticeCashierName: DEFAULT_NOTICE_CASHIER,
+    noticeSignatureUrl: '',
+    noticePenaltyPercent: DEFAULT_PENALTY_PERCENT_PER_DAY,
     headerLogoUrl: DEFAULT_RECEIPT_HEADER_DRIVE_URL,
     paymentNote: '',
   });
@@ -113,6 +122,7 @@ export default function PaymentsPage() {
   const [showInactiveStudents, setShowInactiveStudents] = useState(false);
 
   // Batch Print Queue Selection
+  const [selectedDueIds, setSelectedDueIds] = useState<string[]>([]);
   const [selectedQueueIds, setSelectedQueueIds] = useState<string[]>([]);
   const [selectedPrintedIds, setSelectedPrintedIds] = useState<string[]>([]);
   const [isUpdatingPrintStatus, setIsUpdatingPrintStatus] = useState(false);
@@ -141,6 +151,10 @@ export default function PaymentsPage() {
 
   // Print Modal & Student History Modal
   const [printDoc, setPrintDoc] = useState<PrintDocPayload | null>(null);
+  const [dueNoticeModalState, setDueNoticeModalState] = useState<{
+    items: DueNoticeItem[];
+    title?: string;
+  } | null>(null);
   const [historyStudentBilling, setHistoryStudentBilling] = useState<StudentBillingInfo | null>(null);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -177,6 +191,11 @@ export default function PaymentsPage() {
           schoolAddress: docData.schoolAddress || DEFAULT_RECEIPT_ADDRESS,
           cashierName: docData.cashierName || DEFAULT_RECEIPT_CASHIER,
           cashierSignatureUrl: docData.cashierSignatureUrl || '',
+          noticeCashierName: docData.noticeCashierName || DEFAULT_NOTICE_CASHIER,
+          noticeSignatureUrl: docData.noticeSignatureUrl || '',
+          noticePenaltyPercent: Number(
+            docData.noticePenaltyPercent ?? DEFAULT_PENALTY_PERCENT_PER_DAY
+          ),
           headerLogoUrl: docData.headerLogoUrl || DEFAULT_RECEIPT_HEADER_DRIVE_URL,
           paymentNote: docData.paymentNote || '',
         }));
@@ -558,7 +577,12 @@ export default function PaymentsPage() {
   // Combined paid entries for Google Sheets Sync
   const paidEntries = allEnrichedPaidEntries;
 
-  // Keep selections clean when queue/archive items change
+  // Keep selections clean when due/queue/archive items change
+  useEffect(() => {
+    const validDueSet = new Set(dueOverdueList.map((r) => String(r.student.id)));
+    setSelectedDueIds((prev) => prev.filter((id) => validDueSet.has(id)));
+  }, [dueOverdueList]);
+
   useEffect(() => {
     const validQueueSet = new Set(printQueueEntries.map((r) => String(r.payment.id)));
     setSelectedQueueIds((prev) => prev.filter((id) => validQueueSet.has(id)));
@@ -568,6 +592,75 @@ export default function PaymentsPage() {
     const validPrintedSet = new Set(printedArchiveEntries.map((r) => String(r.payment.id)));
     setSelectedPrintedIds((prev) => prev.filter((id) => validPrintedSet.has(id)));
   }, [printedArchiveEntries]);
+
+  const buildDueNoticeItem = (b: StudentBillingInfo): DueNoticeItem => ({
+    student: b.student,
+    classCode: b.classCode,
+    teacherName: b.teacherName,
+    teacherShortCode: resolveTeacherShortCode(b.teacherName, teachersData, b.classCode),
+    roomAndTeacher: b.roomAndTeacher,
+    monthlyFee: b.monthlyFee,
+    enrollDateStr: b.enrollDateStr,
+    dueDateStr: b.dueDateStr,
+    statusKey: b.statusKey,
+    monthsDue: Math.max(1, b.monthsDue || 1),
+    overdueDays: Math.max(0, b.overdueDays || 0),
+    daysRemaining: b.daysRemaining,
+    amountDue: Math.max(b.amountDue, b.monthlyFee),
+  });
+
+  const handleBatchPrintDueNotices = () => {
+    const targets =
+      selectedDueIds.length > 0
+        ? dueOverdueList.filter((item) => selectedDueIds.includes(String(item.student.id)))
+        : dueOverdueList;
+    if (targets.length === 0) {
+      showToast('មិនមានសិស្សដល់ថ្ងៃ ឬលើសថ្ងៃសម្រាប់ Print ទេ!', 'error');
+      return;
+    }
+    setDueNoticeModalState({
+      items: targets.map(buildDueNoticeItem),
+      title:
+        selectedDueIds.length > 0
+          ? `Print លិខិតជូនដំណឹងដែលបានជ្រើស (${targets.length} នាក់ • 6 លិខិត/ទំព័រ A4 បញ្ឈរ)`
+          : `Print លិខិតជូនដំណឹងសិស្សដល់ថ្ងៃ & លើសថ្ងៃ (${targets.length} នាក់ • 6 លិខិត/ទំព័រ A4 បញ្ឈរ)`,
+    });
+  };
+
+  const handleSaveNoticeSettings = async (patch: DueNoticeSettingsPatch) => {
+    const nextSettings = {
+      ...syncSettings,
+      ...(patch.noticeCashierName !== undefined
+        ? { noticeCashierName: patch.noticeCashierName }
+        : {}),
+      ...(patch.noticeSignatureUrl !== undefined
+        ? { noticeSignatureUrl: patch.noticeSignatureUrl }
+        : {}),
+      ...(patch.noticePenaltyPercent !== undefined
+        ? { noticePenaltyPercent: patch.noticePenaltyPercent }
+        : {}),
+      id: 'paymentSyncSettings',
+    };
+    setSyncSettings((prev) => ({
+      ...prev,
+      ...(patch.noticeCashierName !== undefined
+        ? { noticeCashierName: patch.noticeCashierName }
+        : {}),
+      ...(patch.noticeSignatureUrl !== undefined
+        ? { noticeSignatureUrl: patch.noticeSignatureUrl }
+        : {}),
+      ...(patch.noticePenaltyPercent !== undefined
+        ? { noticePenaltyPercent: patch.noticePenaltyPercent }
+        : {}),
+    }));
+    try {
+      await settingsService.add(nextSettings, 'paymentSyncSettings');
+      showToast('បានរក្សាទុកព័ត៌មានបេឡា ហត្ថលេខា និងភាគរយផាកពិន័យរួចរាល់!');
+    } catch (error) {
+      console.error('Failed saving due notice settings:', error);
+      showToast('មានបញ្ហាក្នុងការរក្សាទុកការកំណត់លិខិតជូនដំណឹង!', 'error');
+    }
+  };
 
   const buildReceiptItem = (row: (typeof allEnrichedPaidEntries)[number]): OfficialReceiptItem => ({
     payment: row.payment,
@@ -1469,140 +1562,237 @@ export default function PaymentsPage() {
 
       {/* TAB 1: Due & Overdue Table */}
       {activeTab === 'due_overdue' && (
-        <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1150px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ background: 'rgba(239, 68, 68, 0.06)', borderBottom: '1px solid var(--border-color)' }}>
-                  <th>លេខរៀង</th>
-                  <th>អត្តលេខសិស្ស</th>
-                  <th>ឈ្មោះសិស្ស</th>
-                  <th>ភេទ</th>
-                  <th>វេនសិក្សា</th>
-                  <th>វគ្គ</th>
-                  <th>ចំនួនខែដែលត្រូវបង់ឬលើស</th>
-                  <th>ថ្ងៃខែឆ្នាំត្រូវបង់ប្រាក់</th>
-                  <th>ចំនួនប្រាក់ត្រូវបង់</th>
-                  <th>ចំនួនថ្ងៃដែលលើស</th>
-                  <th>លេខបន្ទប់និងឈ្មោះគ្រូបង្រៀន</th>
-                  <th style={{ textAlign: 'right' }}>ជម្រើស</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dueOverdueList.map((item, idx) => (
-                  <tr
-                    key={item.student.id}
-                    style={{ borderBottom: '1px solid var(--border-color)' }}
-                  >
-                    <td>{idx + 1}</td>
-                    <td>
-                      <code>{item.student.studentId || '-'}</code>
-                    </td>
-                    <td style={{ fontWeight: 700 }}>{item.student.fullName}</td>
-                    <td>{item.student.gender || '-'}</td>
-                    <td>{item.student.shift || '-'}</td>
-                    <td>{item.student.level || '-'}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>
-                      {item.monthsDue} ខែ
-                    </td>
-                    <td style={{ fontWeight: 600 }}>{formatDMYSlash(item.dueDateStr) || '-'}</td>
-                    <td style={{ fontWeight: 700, color: '#ef4444' }}>
-                      {formatRiels(item.amountDue)}
-                    </td>
-                    <td>
-                      {item.statusKey === 'overdue' ? (
-                        <span
-                          style={{
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '999px',
-                            background: 'rgba(239, 68, 68, 0.12)',
-                            color: '#ef4444',
-                            fontWeight: 700,
-                            fontSize: '0.82rem',
-                          }}
-                        >
-                          លើស {item.overdueDays} ថ្ងៃ
-                        </span>
-                      ) : item.statusKey === 'due' ? (
-                        <span
-                          style={{
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '999px',
-                            background: 'rgba(245, 158, 11, 0.14)',
-                            color: '#d97706',
-                            fontWeight: 700,
-                            fontSize: '0.82rem',
-                          }}
-                        >
-                          ដល់ថ្ងៃបង់ (0 ថ្ងៃ)
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            padding: '0.2rem 0.55rem',
-                            borderRadius: '999px',
-                            background: 'rgba(59, 130, 246, 0.12)',
-                            color: '#3b82f6',
-                            fontWeight: 600,
-                            fontSize: '0.82rem',
-                          }}
-                        >
-                          សល់ {item.daysRemaining} ថ្ងៃ
-                        </span>
-                      )}
-                    </td>
-                    <td>{item.roomAndTeacher || '-'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
-                        <button
-                          type="button"
-                          onClick={() => openRecordPaymentModal(item)}
-                          className="btn btn-primary"
-                          style={{ padding: '0.32rem 0.7rem', fontSize: '0.82rem' }}
-                        >
-                          បង់ប្រាក់
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPrintDoc({
-                              type: 'due_notice',
-                              billing: {
-                                student: item.student,
-                                roomAndTeacher: item.roomAndTeacher,
-                                monthlyFee: item.monthlyFee,
-                                enrollDateStr: item.enrollDateStr,
-                                dueDateStr: item.dueDateStr,
-                                monthsDue: Math.max(1, item.monthsDue),
-                                overdueDays: item.overdueDays,
-                                amountDue: Math.max(item.amountDue, item.monthlyFee),
-                              },
-                            })
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          {/* Batch Print Bar for Due & Overdue Notices (6-Up A4 Portrait 10.5cm × 9.9cm) */}
+          <div
+            className="glass-panel"
+            style={{
+              padding: '0.9rem 1.15rem',
+              borderRadius: '14px',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              background: 'rgba(245, 158, 11, 0.07)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.18rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                បញ្ជីលិខិតជូនដំណឹងសិស្សដល់ថ្ងៃ & លើសថ្ងៃ ({dueOverdueList.length} នាក់ •{' '}
+                {Math.ceil(
+                  (selectedDueIds.length > 0 ? selectedDueIds.length : dueOverdueList.length) / 6
+                )}{' '}
+                ទំព័រ A4 បញ្ឈរ)
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                ទំហំ 10.5cm × 9.9cm • តម្រៀប 6 លិខិត/ទំព័រ A4 បញ្ឈរ • អាចកំណត់ % ផាកពិន័យ និងលាក់ Header / Footer / ទឹកប្រាក់ / ផាកពិន័យ
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
+              {selectedDueIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDueIds([])}
+                  className="btn btn-outline"
+                  style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem' }}
+                >
+                  លុបការជ្រើស ({selectedDueIds.length})
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={dueOverdueList.length === 0}
+                onClick={handleBatchPrintDueNotices}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.52rem 1rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  background:
+                    dueOverdueList.length === 0
+                      ? undefined
+                      : 'linear-gradient(135deg, #d97706, #dc2626)',
+                  border: 'none',
+                }}
+              >
+                <AppIcon name="print" size={16} color="#ffffff" />
+                <span>
+                  Print លិខិតជូនដំណឹង A4 បញ្ឈរ 6/ទំព័រ (
+                  {selectedDueIds.length > 0 ? selectedDueIds.length : dueOverdueList.length})
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1180px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(239, 68, 68, 0.06)', borderBottom: '1px solid var(--border-color)' }}>
+                    <th style={{ width: '40px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          dueOverdueList.length > 0 &&
+                          selectedDueIds.length === dueOverdueList.length
+                        }
+                        onChange={(e) =>
+                          setSelectedDueIds(
+                            e.target.checked
+                              ? dueOverdueList.map((r) => String(r.student.id))
+                              : []
+                          )
+                        }
+                        title="ជ្រើសរើសទាំងអស់"
+                      />
+                    </th>
+                    <th>លេខរៀង</th>
+                    <th>អត្តលេខសិស្ស</th>
+                    <th>ឈ្មោះសិស្ស</th>
+                    <th>ភេទ</th>
+                    <th>វេនសិក្សា</th>
+                    <th>វគ្គ</th>
+                    <th>ចំនួនខែដែលត្រូវបង់ឬលើស</th>
+                    <th>ថ្ងៃខែឆ្នាំត្រូវបង់ប្រាក់</th>
+                    <th>ចំនួនប្រាក់ត្រូវបង់</th>
+                    <th>ចំនួនថ្ងៃដែលលើស</th>
+                    <th>លេខបន្ទប់និងឈ្មោះគ្រូបង្រៀន</th>
+                    <th style={{ textAlign: 'right' }}>ជម្រើស</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dueOverdueList.map((item, idx) => {
+                    const idStr = String(item.student.id);
+                    const isChecked = selectedDueIds.includes(idStr);
+                    return (
+                    <tr
+                      key={item.student.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-color)',
+                        background: isChecked ? 'rgba(245, 158, 11, 0.06)' : 'transparent',
+                      }}
+                    >
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) =>
+                            setSelectedDueIds((prev) =>
+                              e.target.checked
+                                ? [...prev, idStr]
+                                : prev.filter((x) => x !== idStr)
+                            )
                           }
-                          className="btn btn-outline"
-                          style={{
-                            padding: '0.32rem 0.65rem',
-                            fontSize: '0.82rem',
-                            borderColor: '#f59e0b',
-                            color: '#d97706',
-                          }}
-                          title="បង្កើត/បោះពុម្ព លិខិតដល់ថ្ងៃបង់"
-                        >
-                          លិខិតដល់ថ្ងៃបង់
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {dueOverdueList.length === 0 && (
-                  <tr>
-                    <td colSpan={12} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      មិនមានសិស្សដល់ថ្ងៃ ឬលើសថ្ងៃបង់ប្រាក់ទេ។
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        />
+                      </td>
+                      <td>{idx + 1}</td>
+                      <td>
+                        <code>{item.student.studentId || '-'}</code>
+                      </td>
+                      <td style={{ fontWeight: 700 }}>{item.student.fullName}</td>
+                      <td>{item.student.gender || '-'}</td>
+                      <td>{item.student.shift || '-'}</td>
+                      <td>{item.student.level || '-'}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                        {item.monthsDue} ខែ
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{formatDMYSlash(item.dueDateStr) || '-'}</td>
+                      <td style={{ fontWeight: 700, color: '#ef4444' }}>
+                        {formatRiels(item.amountDue)}
+                      </td>
+                      <td>
+                        {item.statusKey === 'overdue' ? (
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '999px',
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            លើស {item.overdueDays} ថ្ងៃ
+                          </span>
+                        ) : item.statusKey === 'due' ? (
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '999px',
+                              background: 'rgba(245, 158, 11, 0.14)',
+                              color: '#d97706',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            ដល់ថ្ងៃបង់ (0 ថ្ងៃ)
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              padding: '0.2rem 0.55rem',
+                              borderRadius: '999px',
+                              background: 'rgba(59, 130, 246, 0.12)',
+                              color: '#3b82f6',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            សល់ {item.daysRemaining} ថ្ងៃ
+                          </span>
+                        )}
+                      </td>
+                      <td>{item.roomAndTeacher || '-'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            onClick={() => openRecordPaymentModal(item)}
+                            className="btn btn-primary"
+                            style={{ padding: '0.32rem 0.7rem', fontSize: '0.82rem' }}
+                          >
+                            បង់ប្រាក់
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDueNoticeModalState({
+                                items: [buildDueNoticeItem(item)],
+                                title: `លិខិតជូនដំណឹង — ${item.student.fullName}`,
+                              })
+                            }
+                            className="btn btn-outline"
+                            style={{
+                              padding: '0.32rem 0.65rem',
+                              fontSize: '0.82rem',
+                              borderColor: '#f59e0b',
+                              color: '#d97706',
+                            }}
+                            title="បង្កើត/បោះពុម្ព លិខិតដល់ថ្ងៃបង់ (10.5cm × 9.9cm)"
+                          >
+                            លិខិតដល់ថ្ងៃបង់
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    );
+                  })}
+                  {dueOverdueList.length === 0 && (
+                    <tr>
+                      <td colSpan={13} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        មិនមានសិស្សដល់ថ្ងៃ ឬលើសថ្ងៃបង់ប្រាក់ទេ។
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -2172,18 +2362,9 @@ export default function PaymentsPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              setPrintDoc({
-                                type: 'due_notice',
-                                billing: {
-                                  student: b.student,
-                                  roomAndTeacher: b.roomAndTeacher,
-                                  monthlyFee: b.monthlyFee,
-                                  enrollDateStr: b.enrollDateStr,
-                                  dueDateStr: b.dueDateStr,
-                                  monthsDue: Math.max(1, b.monthsDue),
-                                  overdueDays: b.overdueDays,
-                                  amountDue: Math.max(b.amountDue, b.monthlyFee),
-                                },
+                              setDueNoticeModalState({
+                                items: [buildDueNoticeItem(b)],
+                                title: `លិខិតជូនដំណឹង — ${b.student.fullName}`,
                               })
                             }
                             className="btn btn-outline"
@@ -2991,7 +3172,7 @@ export default function PaymentsPage() {
           document.body
         )}
 
-      {/* Printable Receipt & Due Notice Modal */}
+      {/* Printable Receipt Modal */}
       <PaymentPrintModal
         doc={printDoc}
         schoolName={schoolName}
@@ -3004,6 +3185,21 @@ export default function PaymentsPage() {
         onMarkAsPrinted={handleMarkPaymentsPrinted}
         onSaveSignatureUrl={handleSaveSignatureUrl}
         onClose={() => setPrintDoc(null)}
+      />
+
+      {/* Printable 6-Up A4 Portrait Due & Overdue Notice Modal (10.5cm × 9.9cm) */}
+      <DueNoticePrintModal
+        isOpen={Boolean(dueNoticeModalState)}
+        items={dueNoticeModalState?.items || []}
+        title={dueNoticeModalState?.title}
+        schoolPhone={syncSettings.schoolPhone}
+        schoolAddress={syncSettings.schoolAddress}
+        headerLogoUrl={syncSettings.headerLogoUrl}
+        noticeCashierName={syncSettings.noticeCashierName}
+        noticeSignatureUrl={syncSettings.noticeSignatureUrl}
+        initialPenaltyPercent={syncSettings.noticePenaltyPercent}
+        onSaveNoticeSettings={handleSaveNoticeSettings}
+        onClose={() => setDueNoticeModalState(null)}
       />
     </div>
   );
