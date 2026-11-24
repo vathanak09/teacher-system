@@ -6,6 +6,7 @@ import SortDropdown from '@/components/SortDropdown';
 import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
+import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/components/scores/MonthlyResultPrintModal';
 import { AppIcon } from '@/components/AppIcons';
 
 type ClassCoeffConfig = {
@@ -165,6 +166,37 @@ export default function ScoresPage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isMonthlyResultOpen, setIsMonthlyResultOpen] = useState(false);
+
+  const handleSaveMonthlyResultBranding = async (patch: MonthlyResultBrandingConfig) => {
+    const nextSettings = { ...settings, ...patch };
+    setSettings(nextSettings);
+    await settingsService.add(nextSettings, 'scoreSettings');
+  };
+
+  const monthlyResultButton = (
+    <button
+      type="button"
+      onClick={() => setIsMonthlyResultOpen(true)}
+      style={{
+        padding: '0.5rem 0.95rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+        border: 'none',
+        borderRadius: '8px',
+        color: '#ffffff',
+        cursor: 'pointer',
+        fontWeight: 600,
+        boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+      }}
+      title="ព្រីនលទ្ធផលប្រចាំខែ (ក្រដាស A4)"
+    >
+      <AppIcon name="printer" size={16} strokeWidth={2.2} />
+      <span>លទ្ធផលប្រចាំខែ</span>
+    </button>
+  );
 
   const guideButton = (
     <button
@@ -831,6 +863,24 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   const activeFilterIds = selectedClassIdsFilter !== null ? selectedClassIdsFilter : displayClasses.map(c => c.id);
   const filteredDisplayClasses = displayClasses.filter(c => activeFilterIds.includes(c.id));
 
+  const monthlyResultModal = isMonthlyResultOpen ? (
+    <MonthlyResultPrintModal
+      isOpen={isMonthlyResultOpen}
+      onClose={() => setIsMonthlyResultOpen(false)}
+      classes={displayClasses}
+      allStudents={allStudents}
+      allTeachers={allTeachers}
+      allScores={allScores}
+      monthCoeffMap={monthCoeffMap}
+      scoreSettings={settings}
+      selectedMonth={selectedMonth}
+      onMonthChange={setSelectedMonth}
+      monthExtraData={monthExtraData}
+      initialClassId={selectedClassId}
+      onSaveBrandingSettings={handleSaveMonthlyResultBranding}
+    />
+  ) : null;
+
   if (!selectedClassId) {
     return (
       <div className="page-container animate-fade-in">
@@ -1248,6 +1298,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               />
             </div>
 
+            {monthlyResultButton}
             {guideButton}
           </div>
         </div>
@@ -1516,6 +1567,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           document.body
         )}
         <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+        {monthlyResultModal}
       </div>
     );
   }
@@ -1544,6 +1596,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
             />
           </div>
+          {monthlyResultButton}
           {guideButton}
         </div>
       </div>
@@ -1998,6 +2051,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           document.body
         )}
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      {monthlyResultModal}
     </div>
   );
 }
