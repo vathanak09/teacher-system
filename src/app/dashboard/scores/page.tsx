@@ -7,13 +7,23 @@ import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
 import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/components/scores/MonthlyResultPrintModal';
+import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
 import { AppIcon } from '@/components/AppIcons';
+
+type LevelCoeffEntry = {
+  coefficientType: 'auto' | 'custom';
+  customMaxScore: number;
+};
 
 type ClassCoeffConfig = {
   coefficientType: 'auto' | 'custom';
   customMaxScore: number;
   isCustomSavedForMonth?: boolean;
+  splitByLevel?: boolean;
+  levelCoefficients?: Record<string, LevelCoeffEntry>;
 };
+
+const UNASSIGNED_LEVEL_LABEL = 'មិនទាន់កំណត់វគ្គ';
 
 function getClassMonthCoeffConfig(
   classId: string | null | undefined,
@@ -21,6 +31,35 @@ function getClassMonthCoeffConfig(
   fallbackSettings: any
 ): ClassCoeffConfig {
   const saved = classId ? monthCoeffs?.[classId] : null;
+  const splitByLevel = Boolean(saved?.splitByLevel);
+  const levelCoefficients: Record<string, LevelCoeffEntry> =
+    saved?.levelCoefficients && typeof saved.levelCoefficients === 'object'
+      ? saved.levelCoefficients
+      : {};
+
+  if (saved && (saved.coefficientType === 'custom' || saved.coefficientType === 'auto')) {
+    return {
+      coefficientType: saved.coefficientType,
+      customMaxScore: Number(saved.customMaxScore) > 0 ? Number(saved.customMaxScore) : 250,
+      isCustomSavedForMonth: true,
+      splitByLevel,
+      levelCoefficients,
+    };
+  }
+  return {
+    coefficientType: fallbackSettings?.coefficientType === 'custom' ? 'custom' : 'auto',
+    customMaxScore: Number(fallbackSettings?.customMaxScore) > 0 ? Number(fallbackSettings.customMaxScore) : 250,
+    isCustomSavedForMonth: false,
+    splitByLevel,
+    levelCoefficients,
+  };
+}
+
+function getLevelCoeffConfig(
+  classCfg: ClassCoeffConfig,
+  levelKey: string
+): ClassCoeffConfig {
+  const saved = classCfg.levelCoefficients?.[levelKey];
   if (saved && (saved.coefficientType === 'custom' || saved.coefficientType === 'auto')) {
     return {
       coefficientType: saved.coefficientType,
@@ -29,8 +68,8 @@ function getClassMonthCoeffConfig(
     };
   }
   return {
-    coefficientType: fallbackSettings?.coefficientType === 'custom' ? 'custom' : 'auto',
-    customMaxScore: Number(fallbackSettings?.customMaxScore) > 0 ? Number(fallbackSettings.customMaxScore) : 250,
+    coefficientType: classCfg.coefficientType,
+    customMaxScore: classCfg.customMaxScore,
     isCustomSavedForMonth: false,
   };
 }
@@ -322,54 +361,214 @@ export default function ScoresPage() {
     [selectedClassId, monthCoeffMap, settings]
   );
 
-  const computedScores = useMemo(() => {
-    const { currentCoeff, maxTotalScore } = computeClassCoeffValue(scores, activeClassCoeff);
+  const studentMasterMaps = useMemo(() => {
+    const byId = new Map<string, any>();
+    const byCode = new Map<string, any>();
+    allStudents.forEach((st: any) => {
+      if (st?.id) byId.set(String(st.id).trim(), st);
+      if (st?.studentId) byCode.set(String(st.studentId).trim(), st);
+    });
+    return { byId, byCode };
+  }, [allStudents]);
 
-    const mapped = scores.map(s => {
-      const total = parseFloat(s.totalScore) || 0;
-      let avg = total / currentCoeff;
-      
-      const avgPercentage = (avg / 50) * 100;
-      let grade = 'F';
-      if (avgPercentage >= (settings.gradeA || 90)) grade = 'A';
-      else if (avgPercentage >= (settings.gradeB || 80)) grade = 'B';
-      else if (avgPercentage >= (settings.gradeC || 70)) grade = 'C';
-      else if (avgPercentage >= (settings.gradeD || 60)) grade = 'D';
-      else if (avgPercentage >= (settings.gradeE || 50)) grade = 'E';
-      
+  const resolveScoreStudentMeta = useCallback(
+    (s: any) => {
+      const sid = String(s?.studentId || '').trim();
+      const sCode = String(s?.studentIdCode || '').trim();
+      const master =
+        (sid && studentMasterMaps.byId.get(sid)) ||
+        (sCode && studentMasterMaps.byCode.get(sCode)) ||
+        (sid && studentMasterMaps.byCode.get(sid)) ||
+        null;
+      const masterLevel = String(master?.level || '').trim();
+      const scoreLevel = String(s?.level || '').trim();
+      const effectiveLevel = scoreLevel || masterLevel;
+      const isLevelOverridden = Boolean(scoreLevel && scoreLevel !== masterLevel);
+      const displayFullName = String(master?.fullName || s?.fullName || '').trim();
+      const displayGender = String(master?.gender || s?.gender || '').trim();
+      const displayStudentCode = String(master?.studentId || s?.studentIdCode || '').trim();
+      return {
+        master,
+        masterLevel,
+        scoreLevel,
+        effectiveLevel,
+        isLevelOverridden,
+        displayFullName,
+        displayGender,
+        displayStudentCode,
+      };
+    },
+    [studentMasterMaps]
+  );
+
+  const computedScores = useMemo(() => {
+    const computeGroup = (groupRows: any[], coeffCfg: ClassCoeffConfig) => {
+      const { currentCoeff, maxTotalScore } = computeClassCoeffValue(groupRows, coeffCfg);
+
+      const mapped = groupRows.map((s) => {
+        const total = parseFloat(s.totalScore) || 0;
+        const avg = total / currentCoeff;
+
+        const avgPercentage = (avg / 50) * 100;
+        let grade = 'F';
+        if (avgPercentage >= (settings.gradeA || 90)) grade = 'A';
+        else if (avgPercentage >= (settings.gradeB || 80)) grade = 'B';
+        else if (avgPercentage >= (settings.gradeC || 70)) grade = 'C';
+        else if (avgPercentage >= (settings.gradeD || 60)) grade = 'D';
+        else if (avgPercentage >= (settings.gradeE || 50)) grade = 'E';
+
+        return {
+          ...s,
+          dynAverage: s.totalScore === '' || s.totalScore === undefined || s.totalScore === null ? '' : avg.toFixed(2),
+          dynGrade: s.totalScore === '' || s.totalScore === undefined || s.totalScore === null ? '' : grade,
+          dynRemarks: s.totalScore === '' || s.totalScore === undefined || s.totalScore === null ? '' : calculateRemarks(grade),
+          avgNum: s.totalScore === '' || s.totalScore === undefined || s.totalScore === null ? -1 : avg,
+        };
+      });
+
+      const scored = [...mapped].filter((s) => s.avgNum !== -1);
+      scored.sort((a, b) => b.avgNum - a.avgNum);
+
+      let currentRank = 1;
+      let currentAvg = -1;
+      const ranks: Record<string, number> = {};
+      for (let i = 0; i < scored.length; i++) {
+        const s = scored[i];
+        const avgKey = Number(s.avgNum.toFixed(6));
+        if (avgKey !== currentAvg) {
+          currentRank = i + 1;
+          currentAvg = avgKey;
+        }
+        ranks[s.id as string] = currentRank;
+      }
+
+      return {
+        currentCoeff,
+        maxTotalScore,
+        rows: mapped.map((s) => ({
+          ...s,
+          dynRank: ranks[s.id] || '',
+        })),
+      };
+    };
+
+    const enriched = scores.map((s) => {
+      const meta = resolveScoreStudentMeta(s);
       return {
         ...s,
-        dynAverage: s.totalScore === '' ? '' : avg.toFixed(2),
-        dynGrade: s.totalScore === '' ? '' : grade,
-        dynRemarks: s.totalScore === '' ? '' : calculateRemarks(grade),
-        avgNum: s.totalScore === '' ? -1 : avg
+        effectiveLevel: meta.effectiveLevel,
+        masterLevel: meta.masterLevel,
+        isLevelOverridden: meta.isLevelOverridden,
+        displayFullName: meta.displayFullName,
+        displayGender: meta.displayGender,
+        displayStudentCode: meta.displayStudentCode,
       };
     });
-    
-    const scored = [...mapped].filter(s => s.avgNum !== -1);
-    scored.sort((a, b) => b.avgNum - a.avgNum);
-    
-    let currentRank = 1;
-    let currentAvg = -1;
-    const ranks: Record<string, number> = {};
-    for (let i = 0; i < scored.length; i++) {
-      const s = scored[i];
-      if (s.avgNum !== currentAvg) {
-        currentRank = i + 1;
-        currentAvg = s.avgNum;
-      }
-      ranks[s.id as string] = currentRank;
+
+    const uniqueLevels = Array.from(
+      new Set(enriched.map((r) => r.effectiveLevel).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+
+    const isSplitByLevel = Boolean(activeClassCoeff.splitByLevel);
+
+    if (!isSplitByLevel) {
+      const single = computeGroup(enriched, activeClassCoeff);
+      return {
+        currentCoeff: single.currentCoeff,
+        maxTotalScore: single.maxTotalScore,
+        isSplitByLevel: false,
+        uniqueLevels,
+        groups: [
+          {
+            levelKey: '__ALL__',
+            levelLabel: 'ទាំងអស់',
+            currentCoeff: single.currentCoeff,
+            maxTotalScore: single.maxTotalScore,
+            isCustomCoeff: Boolean(activeClassCoeff.isCustomSavedForMonth),
+            rows: single.rows,
+          },
+        ],
+        rows: single.rows,
+      };
     }
-    
+
+    // Split mode: group rows by effectiveLevel (unassigned placed last) and compute independently
+    const groupedMap = new Map<string, any[]>();
+    enriched.forEach((row) => {
+      const key = row.effectiveLevel || UNASSIGNED_LEVEL_LABEL;
+      const bucket = groupedMap.get(key) || [];
+      bucket.push(row);
+      groupedMap.set(key, bucket);
+    });
+
+    const sortedKeys = Array.from(groupedMap.keys()).sort((a, b) => {
+      if (a === UNASSIGNED_LEVEL_LABEL) return 1;
+      if (b === UNASSIGNED_LEVEL_LABEL) return -1;
+      return a.localeCompare(b, 'en', { numeric: true });
+    });
+
+    const groups = sortedKeys.map((levelKey) => {
+      const groupRows = groupedMap.get(levelKey) || [];
+      const levelCoeffCfg = getLevelCoeffConfig(activeClassCoeff, levelKey);
+      const res = computeGroup(groupRows, levelCoeffCfg);
+      return {
+        levelKey,
+        levelLabel: levelKey,
+        currentCoeff: res.currentCoeff,
+        maxTotalScore: res.maxTotalScore,
+        isCustomCoeff: Boolean(levelCoeffCfg.isCustomSavedForMonth),
+        rows: res.rows,
+      };
+    });
+
+    const allRows = groups.flatMap((g) => g.rows);
+    const wholeClassSummary = computeClassCoeffValue(enriched, activeClassCoeff);
+
     return {
-      currentCoeff,
-      maxTotalScore,
-      rows: mapped.map(s => ({
-        ...s,
-        dynRank: ranks[s.id] || ''
-      }))
+      currentCoeff: wholeClassSummary.currentCoeff,
+      maxTotalScore: wholeClassSummary.maxTotalScore,
+      isSplitByLevel: true,
+      uniqueLevels,
+      groups,
+      rows: allRows,
     };
-  }, [scores, activeClassCoeff, settings]);
+  }, [scores, activeClassCoeff, settings, resolveScoreStudentMeta]);
+
+  const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
+  const [coeffTargetLevel, setCoeffTargetLevel] = useState<string | null>(null);
+  const [isTogglingSplit, setIsTogglingSplit] = useState(false);
+  const [isAssignLevelOpen, setIsAssignLevelOpen] = useState(false);
+  const [assignInitialLevel, setAssignInitialLevel] = useState<string>('');
+  const [assignInitialScoreIds, setAssignInitialScoreIds] = useState<string[]>([]);
+
+  const suggestedLevelsForModal = useMemo(() => {
+    const set = new Set<string>();
+    computedScores.uniqueLevels.forEach((l) => set.add(l));
+    const cls = classes.find((c) => c.id === selectedClassId);
+    if (cls && Array.isArray(cls.books)) {
+      cls.books.forEach((b: any) => {
+        const lvl = String(b?.level || b?.levelId || '').trim();
+        if (lvl) set.add(lvl);
+      });
+    }
+    allStudents.forEach((st: any) => {
+      const lvl = String(st?.level || '').trim();
+      if (lvl) set.add(lvl);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  }, [computedScores.uniqueLevels, classes, selectedClassId, allStudents]);
+
+  const assignableStudents: AssignableScoreStudent[] = useMemo(() => {
+    return computedScores.rows.map((r: any) => ({
+      scoreId: r.id,
+      studentIdCode: r.displayStudentCode || r.studentIdCode || '',
+      fullName: r.displayFullName || r.fullName || '',
+      gender: r.displayGender || r.gender || '',
+      effectiveLevel: r.effectiveLevel || '',
+      masterLevel: r.masterLevel || '',
+      isLevelOverridden: Boolean(r.isLevelOverridden),
+    }));
+  }, [computedScores.rows]);
 
   useEffect(() => {
     if (
@@ -401,7 +600,6 @@ export default function ScoresPage() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [computedScores, scores, selectedClassId, loadedCoeffMonth, loadedScoresMonth, selectedMonth]);
-const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -632,7 +830,20 @@ const [isCoeffModalOpen, setIsCoeffModalOpen] = useState(false);
     }
   };
 const handleScoreChange = async (scoreRec: any, field: string, value: string) => {
-    const updatedScore = { ...scoreRec, [field]: value };
+    const baseRecord = scores.find((s) => s.id === scoreRec.id) || scoreRec;
+    const updatedScore = { ...baseRecord, [field]: value };
+
+    // Resolve the cohort (either this student's level group when split-by-level is ON, or full class)
+    const getCohortForCalc = (nextAllRows: any[]) => {
+      if (!activeClassCoeff.splitByLevel) {
+        return { cohortRows: nextAllRows, coeffCfg: activeClassCoeff };
+      }
+      const targetLevelKey = resolveScoreStudentMeta(updatedScore).effectiveLevel || UNASSIGNED_LEVEL_LABEL;
+      const cohortRows = nextAllRows.filter(
+        (r) => (resolveScoreStudentMeta(r).effectiveLevel || UNASSIGNED_LEVEL_LABEL) === targetLevelKey
+      );
+      return { cohortRows, coeffCfg: getLevelCoeffConfig(activeClassCoeff, targetLevelKey) };
+    };
     
     // Auto calculate if a subject changes
     const subjects = ['quiz', 'exercise', 'speaking', 'homework', 'test'];
@@ -650,7 +861,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       if (hasAnyValue) {
         updatedScore.totalScore = total.toString();
         const nextRows = scores.map((s) => (s.id === updatedScore.id ? updatedScore : s));
-        const { currentCoeff } = computeClassCoeffValue(nextRows, activeClassCoeff);
+        const { cohortRows, coeffCfg } = getCohortForCalc(nextRows);
+        const { currentCoeff } = computeClassCoeffValue(cohortRows, coeffCfg);
         const avgNum = total / currentCoeff;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
@@ -668,7 +880,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       const totalNum = parseFloat(value);
       if (!isNaN(totalNum)) {
         const nextRows = scores.map((s) => (s.id === updatedScore.id ? updatedScore : s));
-        const { currentCoeff } = computeClassCoeffValue(nextRows, activeClassCoeff);
+        const { cohortRows, coeffCfg } = getCohortForCalc(nextRows);
+        const { currentCoeff } = computeClassCoeffValue(cohortRows, coeffCfg);
         const avgNum = totalNum / currentCoeff;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
@@ -685,25 +898,34 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     }
   };
 
-  
-
-  const handlePaste = async (e: React.ClipboardEvent, startStudentIndex: number, field: string) => {
+  const handlePaste = async (
+    e: React.ClipboardEvent,
+    startStudentIndex: number,
+    field: string,
+    visibleRows?: any[]
+  ) => {
     e.preventDefault();
     const pasteText = e.clipboardData.getData('text');
     const rows = pasteText.split(/\r?\n/);
+    const targetList = Array.isArray(visibleRows) && visibleRows.length > 0 ? visibleRows : scores;
     
     for (let i = 0; i < rows.length; i++) {
       const val = rows[i].trim();
       const studentIndex = startStudentIndex + i;
-      if (studentIndex < scores.length && val !== '') {
-        await handleScoreChange(scores[studentIndex], field, val);
+      if (studentIndex < targetList.length && val !== '') {
+        await handleScoreChange(targetList[studentIndex], field, val);
       }
     }
   };
 
-  const openCoeffModal = () => {
-    setCoeffTypeDraft(activeClassCoeff.coefficientType);
-    setCustomMaxDraft(String(activeClassCoeff.customMaxScore || 250));
+  const openCoeffModal = (levelKey?: string | null) => {
+    const cleanLevel = levelKey ? String(levelKey).trim() : null;
+    setCoeffTargetLevel(cleanLevel);
+    const targetCfg = cleanLevel
+      ? getLevelCoeffConfig(activeClassCoeff, cleanLevel)
+      : activeClassCoeff;
+    setCoeffTypeDraft(targetCfg.coefficientType);
+    setCustomMaxDraft(String(targetCfg.customMaxScore || 250));
     setIsCoeffModalOpen(true);
   };
 
@@ -716,29 +938,102 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       return;
     }
     const cleanMax = isFinite(parsedMax) && parsedMax > 0 ? parsedMax : 250;
-    const entry = {
-      coefficientType: coeffTypeDraft,
-      customMaxScore: cleanMax,
-      updatedByName: userName || role || '',
-      updatedAt: new Date().toISOString(),
-    };
+    const existingClassEntry = monthCoeffMap?.[selectedClassId] || {};
+    const existingLevelCoeffs =
+      existingClassEntry?.levelCoefficients && typeof existingClassEntry.levelCoefficients === 'object'
+        ? { ...existingClassEntry.levelCoefficients }
+        : {};
+
+    let nextClassEntry: any;
+    if (coeffTargetLevel) {
+      existingLevelCoeffs[coeffTargetLevel] = {
+        coefficientType: coeffTypeDraft,
+        customMaxScore: cleanMax,
+      };
+      nextClassEntry = {
+        ...existingClassEntry,
+        coefficientType: existingClassEntry.coefficientType || activeClassCoeff.coefficientType,
+        customMaxScore: existingClassEntry.customMaxScore || activeClassCoeff.customMaxScore,
+        splitByLevel: Boolean(existingClassEntry.splitByLevel ?? activeClassCoeff.splitByLevel),
+        levelCoefficients: existingLevelCoeffs,
+        updatedByName: userName || role || '',
+        updatedAt: new Date().toISOString(),
+      };
+    } else {
+      nextClassEntry = {
+        ...existingClassEntry,
+        coefficientType: coeffTypeDraft,
+        customMaxScore: cleanMax,
+        splitByLevel: Boolean(existingClassEntry.splitByLevel ?? activeClassCoeff.splitByLevel),
+        levelCoefficients: existingLevelCoeffs,
+        updatedByName: userName || role || '',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
     setIsSavingCoeff(true);
     try {
       setMonthCoeffMap((prev) => ({
         ...prev,
-        [selectedClassId]: entry,
+        [selectedClassId]: nextClassEntry,
       }));
       await scoreCoefficientService.update(selectedMonth, {
-        [`classes/${selectedClassId}`]: entry,
+        [`classes/${selectedClassId}`]: nextClassEntry,
         month: selectedMonth,
       });
       setIsCoeffModalOpen(false);
+      setCoeffTargetLevel(null);
     } catch (err: any) {
       console.error('Failed to save class month coefficient:', err);
       alert('មានបញ្ហាក្នុងការរក្សាទុកមេគុណ៖ ' + (err?.message || ''));
     } finally {
       setIsSavingCoeff(false);
     }
+  };
+
+  const handleToggleSplitByLevel = async () => {
+    if (!selectedClassId || !selectedMonth) return;
+    const existingClassEntry = monthCoeffMap?.[selectedClassId] || {};
+    const nextSplit = !Boolean(existingClassEntry.splitByLevel);
+    const nextClassEntry = {
+      ...existingClassEntry,
+      coefficientType: existingClassEntry.coefficientType || activeClassCoeff.coefficientType,
+      customMaxScore: existingClassEntry.customMaxScore || activeClassCoeff.customMaxScore,
+      splitByLevel: nextSplit,
+      levelCoefficients: existingClassEntry.levelCoefficients || {},
+      updatedByName: userName || role || '',
+      updatedAt: new Date().toISOString(),
+    };
+    setIsTogglingSplit(true);
+    try {
+      setMonthCoeffMap((prev) => ({
+        ...prev,
+        [selectedClassId]: nextClassEntry,
+      }));
+      await scoreCoefficientService.update(selectedMonth, {
+        [`classes/${selectedClassId}`]: nextClassEntry,
+        month: selectedMonth,
+      });
+    } catch (err: any) {
+      console.error('Failed to toggle split by level:', err);
+      alert('មានបញ្ហាក្នុងការបំបែកតារាងតាមវគ្គ៖ ' + (err?.message || ''));
+    } finally {
+      setIsTogglingSplit(false);
+    }
+  };
+
+  const openAssignLevelModal = (initialLevel = '', initialScoreIds: string[] = []) => {
+    setAssignInitialLevel(initialLevel === UNASSIGNED_LEVEL_LABEL ? '' : initialLevel);
+    setAssignInitialScoreIds(initialScoreIds);
+    setIsAssignLevelOpen(true);
+  };
+
+  const handleAssignStudentsToLevel = async (scoreIds: string[], targetLevel: string) => {
+    const idSet = new Set(scoreIds);
+    setScores((prev) =>
+      prev.map((s) => (idSet.has(s.id) ? { ...s, level: targetLevel } : s))
+    );
+    await Promise.all(scoreIds.map((id) => scoreService.update(id, { level: targetLevel })));
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -829,24 +1124,25 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   };
 
   const exportToCSV = () => {
-    if (scores.length === 0) return;
-    const headers = ['អត្តលេខ', 'ឈ្មោះសិស្ស', 'ភេទ', 'Quiz', 'Exercise', 'Speaking', 'Homework', 'Test', 'ពិន្ទុសរុប', 'មធ្យមភាគ', 'និទ្ទេស', 'ចំណាត់ថ្នាក់', 'មូលវិចារណ៍'];
+    if (computedScores.rows.length === 0) return;
+    const headers = ['អត្តលេខ', 'ឈ្មោះសិស្ស', 'ភេទ', 'វគ្គ', 'Quiz', 'Exercise', 'Speaking', 'Homework', 'Test', 'ពិន្ទុសរុប', 'មធ្យមភាគ', 'និទ្ទេស', 'ចំណាត់ថ្នាក់', 'មូលវិចារណ៍'];
     const csvContent = [
       headers.join(','),
-      ...scores.map(s => [
-        `"${s.studentIdCode || ''}"`,
-        `"${s.fullName || ''}"`,
-        `"${s.gender || ''}"`,
+      ...computedScores.rows.map((s: any) => [
+        `"${s.displayStudentCode || s.studentIdCode || ''}"`,
+        `"${s.displayFullName || s.fullName || ''}"`,
+        `"${s.displayGender || s.gender || ''}"`,
+        `"${s.effectiveLevel || ''}"`,
         `"${s.quiz || ''}"`,
         `"${s.exercise || ''}"`,
         `"${s.speaking || ''}"`,
         `"${s.homework || ''}"`,
         `"${s.test || ''}"`,
         `"${s.totalScore || ''}"`,
-        `"${s.average || ''}"`,
-        `"${s.grade || ''}"`,
-        `"${s.rank || ''}"`,
-        `"${s.remarks || ''}"`
+        `"${s.dynAverage || s.average || ''}"`,
+        `"${s.dynGrade || s.grade || ''}"`,
+        `"${s.dynRank || s.rank || ''}"`,
+        `"${s.dynRemarks || s.remarks || ''}"`
       ].join(','))
     ].join('\n');
     
@@ -1621,20 +1917,98 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           </button>
 
           <button 
-            onClick={openCoeffModal}
+            onClick={() => openCoeffModal(null)}
             style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: activeClassCoeff.isCustomSavedForMonth ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-secondary)', border: activeClassCoeff.isCustomSavedForMonth ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}
             title="កំណត់មេគុណសម្រាប់មធ្យមភាគនៃថ្នាក់ និងខែនេះ"
           >
             <AppIcon name="hash" size={16} style={{ color: activeClassCoeff.isCustomSavedForMonth ? '#7c3aed' : 'var(--primary-color, #3b82f6)' }} />
             <span>
-              មេគុណ ({selectedMonth}): {Number(computedScores.currentCoeff.toFixed(2))}
+              {computedScores.isSplitByLevel
+                ? `មេគុណលំនាំដើម (${selectedMonth})`
+                : `មេគុណ (${selectedMonth}): ${Number(computedScores.currentCoeff.toFixed(2))}`}
             </span>
           </button>
+
+          <button
+            type="button"
+            disabled={isTogglingSplit}
+            onClick={handleToggleSplitByLevel}
+            style={{
+              padding: '0.5rem 0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: computedScores.isSplitByLevel
+                ? 'linear-gradient(135deg, #4f46e5, #7c3aed)'
+                : 'var(--bg-secondary)',
+              border: computedScores.isSplitByLevel
+                ? '1px solid #6366f1'
+                : '1px solid var(--border-color)',
+              borderRadius: '8px',
+              color: computedScores.isSplitByLevel ? '#ffffff' : 'var(--text-primary)',
+              cursor: isTogglingSplit ? 'wait' : 'pointer',
+              fontWeight: 600,
+              boxShadow: computedScores.isSplitByLevel ? '0 3px 10px rgba(99, 102, 241, 0.28)' : 'none',
+            }}
+            title="បំបែកតារាងបញ្ជីពិន្ទុតាមវគ្គនីមួយៗក្នុងថ្នាក់តែមួយ ដើម្បីគណនាមេគុណ មធ្យមភាគ និងចំណាត់ថ្នាក់ដាច់ដោយឡែក"
+          >
+            <AppIcon name="layers" size={16} />
+            <span>
+              {computedScores.isSplitByLevel ? 'កំពុងបំបែកតាមវគ្គ' : 'បំបែកតារាងតាមវគ្គ'}
+            </span>
+            {computedScores.uniqueLevels.length > 0 && (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '0.08rem 0.42rem',
+                  borderRadius: '999px',
+                  background: computedScores.isSplitByLevel
+                    ? 'rgba(255, 255, 255, 0.22)'
+                    : computedScores.uniqueLevels.length > 1
+                      ? 'rgba(79, 70, 229, 0.14)'
+                      : 'rgba(148, 163, 184, 0.2)',
+                  color: computedScores.isSplitByLevel
+                    ? '#ffffff'
+                    : computedScores.uniqueLevels.length > 1
+                      ? '#4f46e5'
+                      : 'var(--text-secondary)',
+                }}
+              >
+                {computedScores.uniqueLevels.length} វគ្គ
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openAssignLevelModal('', [])}
+            disabled={scores.length === 0}
+            style={{
+              padding: '0.5rem 0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: 'rgba(14, 165, 233, 0.12)',
+              border: '1px solid rgba(14, 165, 233, 0.35)',
+              borderRadius: '8px',
+              color: '#0284c7',
+              cursor: scores.length === 0 ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              opacity: scores.length === 0 ? 0.55 : 1,
+            }}
+            title="ជ្រើសឈ្មោះសិស្សបញ្ចូលវគ្គណាមួយក្នុងថ្នាក់សម្រាប់ចេញលទ្ធផលខែនេះ ដោយមិនប៉ះពាល់ទិន្នន័យដើម"
+          >
+            <AppIcon name="users" size={16} />
+            <span>ជ្រើសសិស្សចូលវគ្គ</span>
+          </button>
+
           <SortDropdown 
             options={[
               { value: 'studentIdCode', label: 'អត្តលេខ' },
               { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
               { value: 'gender', label: 'ភេទ' },
+              { value: 'effectiveLevel', label: 'វគ្គ' },
               { value: 'totalScore', label: 'ពិន្ទុសរុប' },
               { value: 'average', label: 'មធ្យមភាគ' },
               { value: 'rank', label: 'ចំណាត់ថ្នាក់' }
