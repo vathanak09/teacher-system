@@ -10,6 +10,7 @@ import MonthlyResultSheet, {
   MonthlyResultStudentRow,
   RESULT_COLOR_THEMES,
   ResultColorTheme,
+  ResultPageLayoutMode,
   ResultSortMode,
   computeMonthlyResultPacketsForClass,
   formatDefaultKhmerDate,
@@ -66,6 +67,7 @@ export default function MonthlyResultPrintModal({
 
   const [sortMode, setSortMode] = useState<ResultSortMode>('rank_asc');
   const [splitBehavior, setSplitBehavior] = useState<'auto' | 'always' | 'never'>('auto');
+  const [pageLayoutMode, setPageLayoutMode] = useState<ResultPageLayoutMode>('fit_one_page');
   const [includeUnscored, setIncludeUnscored] = useState<boolean>(true);
   const [showStampAndSignature, setShowStampAndSignature] = useState<boolean>(true);
 
@@ -264,7 +266,7 @@ export default function MonthlyResultPrintModal({
     }[] = [];
 
     classPackets.forEach((packet) => {
-      const slices = paginateMonthlyResultRows(packet.rows);
+      const slices = paginateMonthlyResultRows(packet.rows, pageLayoutMode);
       const levelSuffix = packet.splitLevelLabel ? ` • វគ្គ ${packet.splitLevelLabel}` : '';
       slices.forEach((sl) => {
         pages.push({
@@ -284,7 +286,7 @@ export default function MonthlyResultPrintModal({
     });
 
     return pages;
-  }, [classPackets]);
+  }, [classPackets, pageLayoutMode]);
 
   const handlePrint = () => {
     if (typeof window === 'undefined' || renderedPages.length === 0) return;
@@ -658,6 +660,55 @@ export default function MonthlyResultPrintModal({
               <option value="always">វគ្គ៖ បំបែកគ្រប់វគ្គដាច់ដោយឡែក</option>
               <option value="never">វគ្គ៖ រួមជាតារាងថ្នាក់តែមួយ</option>
             </select>
+
+            {/* 1-Page Fit Height vs Multi-Page Toggle */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: '#1e293b',
+                border: '1px solid rgba(148, 163, 184, 0.35)',
+                borderRadius: '8px',
+                padding: '0.16rem',
+                gap: '0.16rem',
+              }}
+              title="ជ្រើសរើសរវាង ១ ទំព័រពេញតាមកម្ពស់ (សល់ចន្លោះសងខាងបើសិស្សច្រើន) ឬ បំបែកជា ២ ទំព័រ"
+            >
+              <button
+                type="button"
+                onClick={() => setPageLayoutMode('fit_one_page')}
+                style={{
+                  padding: '0.26rem 0.55rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: pageLayoutMode === 'fit_one_page' ? '#2563eb' : 'transparent',
+                  color: pageLayoutMode === 'fit_one_page' ? '#ffffff' : '#cbd5e1',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ១ ទំព័រ (Fit)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPageLayoutMode('multi_page')}
+                style={{
+                  padding: '0.26rem 0.55rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: pageLayoutMode === 'multi_page' ? '#4f46e5' : 'transparent',
+                  color: pageLayoutMode === 'multi_page' ? '#ffffff' : '#cbd5e1',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                បំបែក ២ ទំព័រ
+              </button>
+            </div>
 
             {/* 5 Beautiful Table Color Themes */}
             <div
@@ -1159,6 +1210,7 @@ export default function MonthlyResultPrintModal({
                     signatoryName={signatoryName}
                     showStampAndSignature={showStampAndSignature}
                     schoolProfile={schoolProfile}
+                    layoutMode={pageLayoutMode}
                   />
                 </div>
               </div>

@@ -238,10 +238,12 @@ export const A4_PORTRAIT_SPEC = {
   pageCss: '@page { size: A4 portrait; margin: 0; }',
 };
 
-export const MAX_SINGLE_PAGE_RESULT_ROWS = 28;
-export const FIRST_PAGE_NO_FOOTER_MAX = 34;
-export const CONT_PAGE_NO_FOOTER_MAX = 38;
-export const CONT_PAGE_WITH_FOOTER_MAX = 31;
+export type ResultPageLayoutMode = 'fit_one_page' | 'multi_page';
+
+export const MAX_SINGLE_PAGE_RESULT_ROWS = 32;
+export const FIRST_PAGE_NO_FOOTER_MAX = 39;
+export const CONT_PAGE_NO_FOOTER_MAX = 43;
+export const CONT_PAGE_WITH_FOOTER_MAX = 35;
 
 export interface PaginatedResultSlice {
   rowsSlice: MonthlyResultStudentRow[];
@@ -252,11 +254,14 @@ export interface PaginatedResultSlice {
 }
 
 /**
- * Splits class rows across A4 Portrait pages while preserving comfortable readable row height
- * (>= 6.2mm) and font size (>= 9.5pt) and never leaving an orphaned footer-only last page.
+ * Splits class rows across A4 Portrait pages in 'multi_page' mode,
+ * or keeps the entire class on 1 single vertically-fitted A4 Portrait page in 'fit_one_page' mode.
  */
-export function paginateMonthlyResultRows(rows: MonthlyResultStudentRow[]): PaginatedResultSlice[] {
-  if (rows.length <= MAX_SINGLE_PAGE_RESULT_ROWS) {
+export function paginateMonthlyResultRows(
+  rows: MonthlyResultStudentRow[],
+  layoutMode: ResultPageLayoutMode = 'fit_one_page'
+): PaginatedResultSlice[] {
+  if (layoutMode === 'fit_one_page' || rows.length <= MAX_SINGLE_PAGE_RESULT_ROWS) {
     return [
       {
         rowsSlice: rows,
@@ -1077,6 +1082,7 @@ export interface MonthlyResultSheetProps {
   approvalLabel?: string;
   showStampAndSignature?: boolean;
   schoolProfile?: SchoolProfileInfo;
+  layoutMode?: ResultPageLayoutMode;
 }
 
 export default function MonthlyResultSheet({
@@ -1097,15 +1103,28 @@ export default function MonthlyResultSheet({
   approvalLabel = 'បានឃើញ និងឯកភាព',
   showStampAndSignature = true,
   schoolProfile,
+  layoutMode = 'fit_one_page',
 }: MonthlyResultSheetProps) {
   const rowCountOnPage = rowsSlice.length;
-  // Maintain comfortable, clearly legible row spacing & font size even for large classes
-  const isCompact = rowCountOnPage > 24;
+  // Slightly tighter, clean row height while keeping Khmer font comfortably readable
+  const isCompact = rowCountOnPage > 22;
 
-  const rowHeightMm = isCompact ? 6.2 : 6.6;
-  const headerHeightMm = 9.2;
-  const bodyFontPt = isCompact ? 9.5 : 9.8;
-  const headerFontPt = 9.6;
+  const rowHeightMm = isCompact ? 5.35 : 5.8;
+  const headerHeightMm = isCompact ? 8.2 : 8.6;
+  const bodyFontPt = isCompact ? 9.2 : 9.5;
+  const headerFontPt = isCompact ? 9.3 : 9.5;
+
+  // In 'fit_one_page' mode, proportionally scale content by vertical height so the entire list + footer
+  // fits cleanly on 1 A4 Portrait sheet, naturally leaving balanced white margins on left & right sides.
+  const headerBudgetMm = pageIndex === 0 ? 39 : 13;
+  const footerBudgetMm = isLastPageForClass ? (showStampAndSignature ? 49 : 21) : 0;
+  const estimatedContentHeightMm =
+    headerBudgetMm + headerHeightMm + rowCountOnPage * (rowHeightMm + 0.16) + footerBudgetMm;
+  const usablePageHeightMm = 283.5; // 296.6mm - 11mm vertical padding - safety margin
+  const fitScale =
+    layoutMode === 'fit_one_page' && estimatedContentHeightMm > usablePageHeightMm
+      ? Math.max(0.52, usablePageHeightMm / estimatedContentHeightMm)
+      : 1;
 
   const titleText = formatKhmerMonthTitle(monthStr, customMonthName);
 
@@ -1130,13 +1149,25 @@ export default function MonthlyResultSheet({
         style={{
           width: '100%',
           height: '100%',
-          padding: '6mm 9mm 6mm 9mm',
+          padding: '5.5mm 9mm 5.5mm 9mm',
           boxSizing: 'border-box',
           display: 'flex',
-          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+          overflow: 'hidden',
           position: 'relative',
         }}
       >
+        <div
+          style={{
+            width: '191.6mm',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            transform: fitScale < 1 ? `scale(${fitScale})` : undefined,
+            transformOrigin: 'top center',
+          }}
+        >
         {pageIndex === 0 ? (
           <>
             {/* Top Row: Vertical Logo (Left, shifted slightly right & 1 line lower than motto) + National Motto (Top-Right) */}
@@ -1610,6 +1641,7 @@ export default function MonthlyResultSheet({
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

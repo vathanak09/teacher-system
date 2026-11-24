@@ -523,13 +523,26 @@ export default function ScoresPage() {
 
     const allRows = groups.flatMap((g) => g.rows);
     const wholeClassSummary = computeClassCoeffValue(enriched, activeClassCoeff);
+    const safeGroups =
+      groups.length > 0
+        ? groups
+        : [
+            {
+              levelKey: '__ALL__',
+              levelLabel: 'ទាំងអស់',
+              currentCoeff: wholeClassSummary.currentCoeff,
+              maxTotalScore: wholeClassSummary.maxTotalScore,
+              isCustomCoeff: Boolean(activeClassCoeff.isCustomSavedForMonth),
+              rows: [],
+            },
+          ];
 
     return {
       currentCoeff: wholeClassSummary.currentCoeff,
       maxTotalScore: wholeClassSummary.maxTotalScore,
       isSplitByLevel: true,
       uniqueLevels,
-      groups,
+      groups: safeGroups,
       rows: allRows,
     };
   }, [scores, activeClassCoeff, settings, resolveScoreStudentMeta]);
@@ -2167,7 +2180,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 marginBottom: computedScores.isSplitByLevel ? '1.35rem' : 0,
               }}
             >
-              {computedScores.isSplitByLevel && (
+              {computedScores.isSplitByLevel && group.levelKey !== '__ALL__' && (
                 <div
                   style={{
                     padding: '0.8rem 1.1rem',
@@ -2458,6 +2471,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         if (computedScores.isSplitByLevel && computedScores.groups.length > 0) {
           return <div>{computedScores.groups.map((grp) => renderScoreTable(grp))}</div>;
         }
+        if (!computedScores.groups[0]) return null;
         return renderScoreTable(computedScores.groups[0]);
       })()}
 
