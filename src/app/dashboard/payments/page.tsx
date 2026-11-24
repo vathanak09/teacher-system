@@ -17,11 +17,13 @@ import MultiSortDropdown, { MultiSortOption, SortRule } from '@/components/Multi
 import { useConfirm } from '@/components/ConfirmDialog';
 import PaymentPrintModal, { PrintDocPayload } from '@/components/PaymentPrintModal';
 import DueNoticePrintModal, { DueNoticeSettingsPatch } from '@/components/DueNoticePrintModal';
+import StudentQuickEditModal from '@/components/StudentQuickEditModal';
 import { OfficialReceiptItem } from '@/components/OfficialReceiptCard';
 import {
   DEFAULT_NOTICE_CASHIER,
   DEFAULT_PENALTY_PERCENT_PER_DAY,
   DueNoticeItem,
+  calculateNoticePenalty,
   getEffectiveNoticePrintCount,
 } from '@/components/receipts/DueNoticeCard';
 import { AppIcon } from '@/components/AppIcons';
@@ -129,6 +131,13 @@ export default function PaymentsPage() {
   const [isBatchPrintCountOpen, setIsBatchPrintCountOpen] = useState<boolean>(false);
   const [batchPrintCountInput, setBatchPrintCountInput] = useState<string>('0');
   const [isUpdatingNoticeCounts, setIsUpdatingNoticeCounts] = useState<boolean>(false);
+  const [activePenaltyPercent, setActivePenaltyPercent] = useState<number>(
+    DEFAULT_PENALTY_PERCENT_PER_DAY
+  );
+  const [editingStudentModal, setEditingStudentModal] = useState<{
+    student: any;
+    roomAndTeacher?: string;
+  } | null>(null);
   const [paidViewMode, setPaidViewMode] = useState<'latest_per_student' | 'all_receipts'>('all_receipts');
   const [paidMonthFilter, setPaidMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
   const [queueDateFilter, setQueueDateFilter] = useState('all'); // 'all' or 'YYYY-MM-DD'
@@ -188,6 +197,14 @@ export default function PaymentsPage() {
 
     setSchoolName(localStorage.getItem('schoolName') || 'សាលាអន្តរជាតិប្រេនស្តម');
     setCurrentUserName(localStorage.getItem('userName') || 'Admin');
+    try {
+      const savedPct = localStorage.getItem('bsis_due_penalty_pct');
+      if (savedPct !== null && !Number.isNaN(Number(savedPct))) {
+        setActivePenaltyPercent(Math.max(0, Number(savedPct)));
+      }
+    } catch {
+      // ignore
+    }
 
     const unsubStudents = studentService.subscribeAll(setStudents);
     const unsubClasses = classService.subscribeAll(setClassesData);
@@ -197,6 +214,16 @@ export default function PaymentsPage() {
       if (docData) {
         const savedUpcoming = Number(docData.upcomingDays ?? 5);
         setCustomUpcomingDays(Math.max(1, savedUpcoming));
+        const savedPenalty = Number(
+          docData.noticePenaltyPercent ?? DEFAULT_PENALTY_PERCENT_PER_DAY
+        );
+        try {
+          if (localStorage.getItem('bsis_due_penalty_pct') === null) {
+            setActivePenaltyPercent(Math.max(0, savedPenalty));
+          }
+        } catch {
+          setActivePenaltyPercent(Math.max(0, savedPenalty));
+        }
         setSyncSettings((prev) => ({
           ...prev,
           googleSheetUrl: docData.googleSheetUrl || '',
@@ -786,7 +813,43 @@ export default function PaymentsPage() {
     });
   };
 
+  const openStudentQuickEdit = (studentOrId: any, roomAndTeacher?: string) => {
+    const targetId =
+      typeof studentOrId === 'string'
+        ? studentOrId
+        : String(studentOrId?.id || '');
+    const latest =
+      (targetId ? students.find((s) => String(s.id) === targetId) : null) ||
+      (typeof studentOrId === 'object' ? studentOrId : null);
+    if (!latest || !latest.id) {
+      showToast('រកមិនឃើញទិន្នន័យសិស្សនេះក្នុងប្រព័ន្ធទេ!', 'error');
+      return;
+    }
+    setEditingStudentModal({ student: latest, roomAndTeacher });
+  };
+
+  const handleTablePenaltyPercentChange = (raw: string) => {
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) return;
+    setActivePenaltyPercent(parsed);
+    try {
+      localStorage.setItem('bsis_due_penalty_pct', String(parsed));
+    } catch {
+      // ignore
+    }
+  };
+
+  const dueOverdueTotalPenalty = useMemo(() => {
+    return dueOverdueList.reduce((sum, item) => {
+      const base = Math.max(Number(item.amountDue || 0), Number(item.monthlyFee || 0));
+      return sum + calculateNoticePenalty(base, item.overdueDays, activePenaltyPercent);
+    }, 0);
+  }, [dueOverdueList, activePenaltyPercent]);
+
   const handleSaveNoticeSettings = async (patch: DueNoticeSettingsPatch) => {
+    if (patch.noticePenaltyPercent !== undefined) {
+      setActivePenaltyPercent(Math.max(0, Number(patch.noticePenaltyPercent) || 0));
+    }
     const nextSettings = {
       ...syncSettings,
       ...(patch.noticeCashierName !== undefined
@@ -1873,9 +1936,37 @@ export default function PaymentsPage() {
                   (selectedDueIds.length > 0 ? selectedDueIds.length : dueOverdueList.length) / 6
                 )}{' '}
                 ទំព័រ A4 បញ្ឈរ)
+                {dueOverdueTotalPenalty > 0 && (
+                  <span style={{ color: '#dc2626', marginLeft: '0.45rem' }}>
+                    • សរុបផាកពិន័យ៖ {formatRiels(dueOverdueTotalPenalty)}
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                ទំហំ 10.5cm × 9.9cm • តម្រៀប 6 លិខិត/ទំព័រ A4 បញ្ឈរ • អាចកំណត់ % ផាកពិន័យ និងលាក់ Header / Footer / ទឹកប្រាក់ / ផាកពិន័យ
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
+                <span>ទំហំ 10.5cm × 9.9cm • តម្រៀប 6 លិខិត/ទំព័រ A4 បញ្ឈរ</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                  <span>អត្រាផាកពិន័យ៖</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    value={activePenaltyPercent}
+                    onChange={(e) => handleTablePenaltyPercentChange(e.target.value)}
+                    style={{
+                      width: '54px',
+                      padding: '0.12rem 0.3rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(220, 38, 38, 0.35)',
+                      background: 'var(--bg-secondary)',
+                      color: '#dc2626',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      textAlign: 'center',
+                    }}
+                  />
+                  <span>%/ថ្ងៃ</span>
+                </span>
               </div>
             </div>
 
@@ -2059,6 +2150,7 @@ export default function PaymentsPage() {
                     <th>ចំនួនខែដែលត្រូវបង់ឬលើស</th>
                     <th>ថ្ងៃខែឆ្នាំត្រូវបង់ប្រាក់</th>
                     <th>ចំនួនប្រាក់ត្រូវបង់</th>
+                    <th>ប្រាក់ផាកពិន័យ ({activePenaltyPercent}%/ថ្ងៃ)</th>
                     <th>ចំនួនថ្ងៃដែលលើស</th>
                     <th style={{ textAlign: 'center' }}>ចំនួនព្រីនលិខិត</th>
                     <th>លេខបន្ទប់និងឈ្មោះគ្រូបង្រៀន</th>
@@ -2103,7 +2195,54 @@ export default function PaymentsPage() {
                       </td>
                       <td style={{ fontWeight: 600 }}>{formatDMYSlash(item.dueDateStr) || '-'}</td>
                       <td style={{ fontWeight: 700, color: '#ef4444' }}>
-                        {formatRiels(item.amountDue)}
+                        {(() => {
+                          const baseAmt = Math.max(Number(item.amountDue || 0), Number(item.monthlyFee || 0));
+                          const penAmt = calculateNoticePenalty(baseAmt, item.overdueDays, activePenaltyPercent);
+                          return (
+                            <div>
+                              <div>{formatRiels(item.amountDue)}</div>
+                              {penAmt > 0 && (
+                                <div style={{ fontSize: '0.74rem', color: '#1d4ed8', fontWeight: 700, marginTop: '0.1rem' }}>
+                                  សរុប៖ {formatRiels(baseAmt + penAmt)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td>
+                        {(() => {
+                          const baseAmt = Math.max(Number(item.amountDue || 0), Number(item.monthlyFee || 0));
+                          const penAmt = calculateNoticePenalty(baseAmt, item.overdueDays, activePenaltyPercent);
+                          if (penAmt <= 0) {
+                            return (
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                                0 ៛
+                              </span>
+                            );
+                          }
+                          return (
+                            <div>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '0.16rem 0.5rem',
+                                  borderRadius: '8px',
+                                  background: 'rgba(220, 38, 38, 0.12)',
+                                  color: '#dc2626',
+                                  fontWeight: 800,
+                                  fontSize: '0.83rem',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                +{formatRiels(penAmt)}
+                              </span>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.1rem', whiteSpace: 'nowrap' }}>
+                                {item.overdueDays} ថ្ងៃ × {activePenaltyPercent}%
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td>
                         {item.statusKey === 'overdue' ? (
@@ -2302,6 +2441,22 @@ export default function PaymentsPage() {
                         <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
                           <button
                             type="button"
+                            onClick={() => openStudentQuickEdit(item.student, item.roomAndTeacher)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: '0.32rem 0.58rem',
+                              fontSize: '0.8rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.28rem',
+                            }}
+                            title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
+                          >
+                            <AppIcon name="edit" size={13} />
+                            <span>ព័ត៌មាន</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => openRecordPaymentModal(item)}
                             className="btn btn-primary"
                             style={{ padding: '0.32rem 0.7rem', fontSize: '0.82rem' }}
@@ -2334,7 +2489,7 @@ export default function PaymentsPage() {
                   })}
                   {dueOverdueList.length === 0 && (
                     <tr>
-                      <td colSpan={14} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <td colSpan={15} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                         មិនមានសិស្សដល់ថ្ងៃ ឬលើសថ្ងៃបង់ប្រាក់ទេ។
                       </td>
                     </tr>
@@ -2523,6 +2678,27 @@ export default function PaymentsPage() {
                         <td>{row.roomAndTeacher || '-'}</td>
                         <td style={{ textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end' }}>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openStudentQuickEdit(
+                                  row.student || row.payment.studentDocId || row.payment.studentId,
+                                  row.roomAndTeacher
+                                )
+                              }
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.55rem',
+                                fontSize: '0.78rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                              }}
+                              title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
+                            >
+                              <AppIcon name="edit" size={13} />
+                              <span>ព័ត៌មាន</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() =>
@@ -2771,6 +2947,27 @@ export default function PaymentsPage() {
                             <button
                               type="button"
                               onClick={() =>
+                                openStudentQuickEdit(
+                                  row.student || row.payment.studentDocId || row.payment.studentId,
+                                  row.roomAndTeacher
+                                )
+                              }
+                              className="btn btn-outline"
+                              style={{
+                                padding: '0.3rem 0.55rem',
+                                fontSize: '0.78rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                              }}
+                              title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
+                            >
+                              <AppIcon name="edit" size={13} />
+                              <span>ព័ត៌មាន</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
                                 setPrintDoc({
                                   type: 'receipt',
                                   ...buildReceiptItem(row),
@@ -2905,6 +3102,22 @@ export default function PaymentsPage() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          onClick={() => openStudentQuickEdit(b.student, b.roomAndTeacher)}
+                          className="btn btn-outline"
+                          style={{
+                            padding: '0.3rem 0.58rem',
+                            fontSize: '0.8rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                          }}
+                          title="មើល ឬកែប្រែព័ត៌មានសិស្ស"
+                        >
+                          <AppIcon name="edit" size={13} />
+                          <span>ព័ត៌មាន</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => openRecordPaymentModal(b)}
@@ -3760,10 +3973,23 @@ export default function PaymentsPage() {
         headerLogoUrl={syncSettings.headerLogoUrl}
         noticeCashierName={syncSettings.noticeCashierName}
         noticeSignatureUrl={syncSettings.noticeSignatureUrl}
-        initialPenaltyPercent={syncSettings.noticePenaltyPercent}
+        initialPenaltyPercent={activePenaltyPercent}
         onSaveNoticeSettings={handleSaveNoticeSettings}
         onRecordNoticesPrinted={handleRecordDueNoticesPrinted}
         onClose={() => setDueNoticeModalState(null)}
+      />
+
+      {/* Quick View & Edit Student Info Modal */}
+      <StudentQuickEditModal
+        student={editingStudentModal?.student || null}
+        roomAndTeacher={editingStudentModal?.roomAndTeacher}
+        onSaved={(name) => showToast(`បានរក្សាទុកព័ត៌មានសិស្ស «${name}» រួចរាល់!`)}
+        onError={(msg) => showToast(msg, 'error')}
+        onOpenStudentsPage={() => {
+          setEditingStudentModal(null);
+          router.push('/dashboard/students');
+        }}
+        onClose={() => setEditingStudentModal(null)}
       />
     </div>
   );
