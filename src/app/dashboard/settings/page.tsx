@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { settingsService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
 import { useConfirm } from '@/components/ConfirmDialog';
+import SchoolInfoSettingsPanel, {
+  DEFAULT_SCHOOL_PROFILE,
+  SchoolProfileInfo,
+} from '@/components/settings/SchoolInfoSettingsPanel';
 
 type SettingsTab = 'school' | 'users' | 'studentOptions' | 'tags';
 type OptionCategoryKey = 'gender' | 'level' | 'shift' | 'status' | 'address' | 'transport';
@@ -147,7 +151,8 @@ export default function SettingsPage() {
   const [showModalPassword, setShowModalPassword] = useState(false);
 
   // School Info States
-  const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
+  const [schoolProfile, setSchoolProfile] = useState<SchoolProfileInfo>(DEFAULT_SCHOOL_PROFILE);
+  const [isSavingSchoolInfo, setIsSavingSchoolInfo] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -188,7 +193,27 @@ export default function SettingsPage() {
           { id: 3, name: 'ថ្នាក់ទី១២', color: '#10b981', groupId: 1 }
         ]);
         setUsers(data.appUsers || []);
-        setSchoolName(data.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម');
+        setSchoolProfile({
+          schoolName: data.schoolName || DEFAULT_SCHOOL_PROFILE.schoolName,
+          schoolFullNameKh: data.schoolFullNameKh ?? DEFAULT_SCHOOL_PROFILE.schoolFullNameKh,
+          schoolFullNameEn: data.schoolFullNameEn ?? DEFAULT_SCHOOL_PROFILE.schoolFullNameEn,
+          schoolShortName: data.schoolShortName ?? DEFAULT_SCHOOL_PROFILE.schoolShortName,
+          schoolSlogan: data.schoolSlogan || '',
+          schoolLogoUrl: data.schoolLogoUrl || '',
+          schoolWebsite: data.schoolWebsite || '',
+          schoolQrUrl: data.schoolQrUrl || '',
+          schoolPaymentQrUrl: data.schoolPaymentQrUrl || '',
+          schoolPhone: data.schoolPhone ?? DEFAULT_SCHOOL_PROFILE.schoolPhone,
+          schoolPhoneSecondary:
+            data.schoolPhoneSecondary ?? DEFAULT_SCHOOL_PROFILE.schoolPhoneSecondary,
+          schoolTelegram: data.schoolTelegram || '',
+          schoolEmail: data.schoolEmail || '',
+          schoolEmailSecondary: data.schoolEmailSecondary || '',
+          schoolFacebook: data.schoolFacebook || '',
+          schoolAddress: data.schoolAddress ?? DEFAULT_SCHOOL_PROFILE.schoolAddress,
+          schoolMapUrl: data.schoolMapUrl || '',
+          schoolExtraLinks: Array.isArray(data.schoolExtraLinks) ? data.schoolExtraLinks : [],
+        });
         setLevels(normalizeOptions(data.appStudentLevels || ['កម្រិតបឋមសិក្សា', 'កម្រិតមធ្យមសិក្សា', 'កម្រិតវិទ្យាល័យ']));
         setShifts(normalizeOptions(data.appStudentShifts || ['វេនព្រឹក', 'វេនរសៀល', 'វេនល្ងាច', 'សៅរ៍-អាទិត្យ']));
         setAddresses(normalizeOptions(data.appStudentAddresses || ['ភ្នំពេញ', 'កណ្ដាល', 'តាកែវ', 'កំពង់ចាម']));
@@ -452,13 +477,44 @@ export default function SettingsPage() {
 
   // School Info Functions
   const handleSaveSchoolInfo = async () => {
-    if (!schoolName.trim()) {
+    if (!schoolProfile.schoolName.trim()) {
       alert('សូមបំពេញឈ្មោះសាលារៀន!');
       return;
     }
-    await updateSettings({ schoolName: schoolName.trim() });
-    localStorage.setItem('schoolName', schoolName.trim());
-    showToast('រក្សាទុកព័ត៌មានសាលារៀនដោយជោគជ័យ!');
+    setIsSavingSchoolInfo(true);
+    try {
+      const cleaned: SchoolProfileInfo = {
+        schoolName: schoolProfile.schoolName.trim(),
+        schoolFullNameKh: schoolProfile.schoolFullNameKh.trim(),
+        schoolFullNameEn: schoolProfile.schoolFullNameEn.trim(),
+        schoolShortName: schoolProfile.schoolShortName.trim(),
+        schoolSlogan: schoolProfile.schoolSlogan.trim(),
+        schoolLogoUrl: schoolProfile.schoolLogoUrl.trim(),
+        schoolWebsite: schoolProfile.schoolWebsite.trim(),
+        schoolQrUrl: schoolProfile.schoolQrUrl.trim(),
+        schoolPaymentQrUrl: schoolProfile.schoolPaymentQrUrl.trim(),
+        schoolPhone: schoolProfile.schoolPhone.trim(),
+        schoolPhoneSecondary: schoolProfile.schoolPhoneSecondary.trim(),
+        schoolTelegram: schoolProfile.schoolTelegram.trim(),
+        schoolEmail: schoolProfile.schoolEmail.trim(),
+        schoolEmailSecondary: schoolProfile.schoolEmailSecondary.trim(),
+        schoolFacebook: schoolProfile.schoolFacebook.trim(),
+        schoolAddress: schoolProfile.schoolAddress.trim(),
+        schoolMapUrl: schoolProfile.schoolMapUrl.trim(),
+        schoolExtraLinks: (schoolProfile.schoolExtraLinks || []).map((item) => ({
+          id: item.id,
+          label: item.label.trim(),
+          value: item.value.trim(),
+        })),
+      };
+      setSchoolProfile(cleaned);
+      await updateSettings(cleaned);
+      localStorage.setItem('schoolName', cleaned.schoolName);
+      localStorage.setItem('schoolProfile', JSON.stringify(cleaned));
+      showToast('រក្សាទុកព័ត៌មានសាលារៀនទាំងអស់ដោយជោគជ័យ!');
+    } finally {
+      setIsSavingSchoolInfo(false);
+    }
   };
 
   if (role !== 'admin') return null;
@@ -1137,49 +1193,13 @@ export default function SettingsPage() {
 
       {/* TAB 4: SCHOOL INFO */}
       {activeTab === 'school' && (
-        <div className="glass-panel" style={{ padding: '2rem', maxWidth: '640px' }}>
-          <h2 style={{ fontSize: '1.2rem', marginTop: 0, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
-            កំណត់ព័ត៌មានសាលារៀន
-          </h2>
-
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>ឈ្មោះសាលារៀន (ភាសាខ្មែរ)</label>
-            <input
-              type="text"
-              className="input-field"
-              value={schoolName}
-              onChange={e => setSchoolName(e.target.value)}
-              placeholder="វាយបញ្ចូលឈ្មោះសាលារៀន..."
-              style={{ background: 'var(--main-bg)', padding: '0.85rem' }}
-            />
-          </div>
-
-          <div
-            style={{
-              padding: '1rem',
-              borderRadius: '10px',
-              background: 'var(--main-bg)',
-              border: '1px solid var(--border-color)',
-              marginBottom: '1.5rem'
-            }}
-          >
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>ការបង្ហាញជាក់ស្តែង (Preview)</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--primary-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '1rem' }}>{schoolName || 'ឈ្មោះសាលារៀន'}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ប្រព័ន្ធគ្រប់គ្រង</div>
-              </div>
-            </div>
-          </div>
-
-          <button className="btn btn-primary" onClick={handleSaveSchoolInfo} style={{ width: '100%', padding: '0.85rem' }}>
-            រក្សាទុកការផ្លាស់ប្តូរ
-          </button>
-        </div>
+        <SchoolInfoSettingsPanel
+          profile={schoolProfile}
+          onChange={setSchoolProfile}
+          onSave={handleSaveSchoolInfo}
+          isSaving={isSavingSchoolInfo}
+          onNotify={showToast}
+        />
       )}
 
       {/* EDIT STUDENT OPTION MODAL */}
