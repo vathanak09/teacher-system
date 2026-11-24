@@ -74,12 +74,12 @@ export default function DueNoticePrintModal({
   const [issueDateStr, setIssueDateStr] = useState<string>(() => getTodayYMD());
   const [previewScale, setPreviewScale] = useState<number>(1);
 
-  // Filters & Grouping
+  // Filters & Grouping (Default false = strictly preserve student table sort order in Z-pattern: 1→2, 3→4, 5→6)
   const [filterClass, setFilterClass] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterShift, setFilterShift] = useState<string>('all');
   const [filterPrintCount, setFilterPrintCount] = useState<'all' | 'unprinted' | 'printed'>('all');
-  const [sortByClass, setSortByClass] = useState<boolean>(true);
+  const [sortByClass, setSortByClass] = useState<boolean>(false);
 
   // Inline Cashier & Signature Editor
   const [isCashierEditorOpen, setIsCashierEditorOpen] = useState<boolean>(false);
@@ -1009,7 +1009,7 @@ export default function DueNoticePrintModal({
               checked={sortByClass}
               onChange={(e) => setSortByClass(e.target.checked)}
             />
-            <span>តម្រៀបជាក្រុមតាមថ្នាក់ (ងាយចែកសិស្ស)</span>
+            <span>តម្រៀបជាក្រុមតាមថ្នាក់ (មិនគ្រីស = តាមតារាងសិស្ស • លំនាំ Z)</span>
           </label>
 
           {hasActiveModalFilter && (

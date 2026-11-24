@@ -115,7 +115,20 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [sortRules, setSortRules] = useState<SortRule[]>([]);
-  const [dueSubFilter, setDueSubFilter] = useState<'all' | 'due_only' | 'overdue_only' | 'include_upcoming'>('all');
+  const [dueSubFilter, setDueSubFilter] = useState<
+    'all' | 'due_only' | 'overdue_only' | 'include_upcoming' | 'upcoming_only' | 'date_range' | 'select_days'
+  >('all');
+  const [dueDateFrom, setDueDateFrom] = useState<string>(() => toISODateString(new Date()));
+  const [dueDateTo, setDueDateTo] = useState<string>(() =>
+    toISODateString(new Date(Date.now() + 7 * 86400000))
+  );
+  const [selectedDueDates, setSelectedDueDates] = useState<string[]>([]);
+  const [customUpcomingDays, setCustomUpcomingDays] = useState<number>(5);
+  const [editingPrintCountId, setEditingPrintCountId] = useState<string | null>(null);
+  const [editingPrintCountVal, setEditingPrintCountVal] = useState<string>('0');
+  const [isBatchPrintCountOpen, setIsBatchPrintCountOpen] = useState<boolean>(false);
+  const [batchPrintCountInput, setBatchPrintCountInput] = useState<string>('0');
+  const [isUpdatingNoticeCounts, setIsUpdatingNoticeCounts] = useState<boolean>(false);
   const [paidViewMode, setPaidViewMode] = useState<'latest_per_student' | 'all_receipts'>('all_receipts');
   const [paidMonthFilter, setPaidMonthFilter] = useState('all'); // 'all' or 'YYYY-MM'
   const [queueDateFilter, setQueueDateFilter] = useState('all'); // 'all' or 'YYYY-MM-DD'
@@ -182,12 +195,14 @@ export default function PaymentsPage() {
     const unsubPayments = paymentService.subscribeAll(setPayments);
     const unsubPaymentSettings = settingsService.subscribeOne('paymentSyncSettings', (docData) => {
       if (docData) {
+        const savedUpcoming = Number(docData.upcomingDays ?? 5);
+        setCustomUpcomingDays(Math.max(1, savedUpcoming));
         setSyncSettings((prev) => ({
           ...prev,
           googleSheetUrl: docData.googleSheetUrl || '',
           dueSheetName: docData.dueSheetName || 'សិស្សដល់ថ្ងៃនិងលើសថ្ងៃ',
           paidSheetName: docData.paidSheetName || 'សិស្សបង់រួច',
-          upcomingDays: Number(docData.upcomingDays ?? 5),
+          upcomingDays: savedUpcoming,
           schoolPhone: docData.schoolPhone || DEFAULT_RECEIPT_PHONE,
           schoolAddress: docData.schoolAddress || DEFAULT_RECEIPT_ADDRESS,
           cashierName: docData.cashierName || DEFAULT_RECEIPT_CASHIER,
@@ -317,20 +332,49 @@ export default function PaymentsPage() {
     return fallback(a, b);
   };
 
-  // Due & Overdue List (គិតតាមថ្ងៃខួបចូលរៀន)
+  // Available distinct due dates for multi-day selection ("ជ្រើសរើសថ្ងៃជាក់លាក់")
+  const dueDateOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    billingList.forEach((b) => {
+      if (!b.dueDateStr) return;
+      counts.set(b.dueDateStr, (counts.get(b.dueDateStr) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateStr, count]) => ({
+        value: dateStr,
+        label: `${formatDMYSlash(dateStr) || dateStr} (${count} នាក់)`,
+      }));
+  }, [billingList]);
+
+  // Due & Overdue List (គិតតាមថ្ងៃខួបចូលរៀន + ចន្លោះថ្ងៃ + ជ្រើសថ្ងៃជាក់លាក់ + ជិតដល់ថ្ងៃ)
   const dueOverdueList = useMemo(() => {
-    const upcomingLimit = Math.max(1, Number(syncSettings.upcomingDays || 5));
+    const upcomingLimit = Math.max(1, Number(customUpcomingDays || syncSettings.upcomingDays || 5));
     return billingList
       .filter((b) => {
         if (!matchesSearchAndClass(b.student, b.classCode, b.roomAndTeacher)) return false;
         if (dueSubFilter === 'due_only') return b.statusKey === 'due';
         if (dueSubFilter === 'overdue_only') return b.statusKey === 'overdue';
+        if (dueSubFilter === 'upcoming_only') {
+          return b.statusKey === 'paid' && b.daysRemaining >= 1 && b.daysRemaining <= upcomingLimit;
+        }
         if (dueSubFilter === 'include_upcoming') {
           return (
             b.statusKey === 'due' ||
             b.statusKey === 'overdue' ||
             (b.statusKey === 'paid' && b.daysRemaining <= upcomingLimit)
           );
+        }
+        if (dueSubFilter === 'date_range') {
+          if (!b.dueDateStr) return false;
+          if (dueDateFrom && b.dueDateStr < dueDateFrom) return false;
+          if (dueDateTo && b.dueDateStr > dueDateTo) return false;
+          return true;
+        }
+        if (dueSubFilter === 'select_days') {
+          if (!b.dueDateStr) return false;
+          if (selectedDueDates.length === 0) return true;
+          return selectedDueDates.includes(b.dueDateStr);
         }
         return b.statusKey === 'due' || b.statusKey === 'overdue';
       })
@@ -340,7 +384,18 @@ export default function PaymentsPage() {
           return (x.student.studentId || '').localeCompare(y.student.studentId || '');
         })
       );
-  }, [billingList, dueSubFilter, searchQuery, selectedClasses, sortRules, syncSettings.upcomingDays]);
+  }, [
+    billingList,
+    dueSubFilter,
+    dueDateFrom,
+    dueDateTo,
+    selectedDueDates,
+    customUpcomingDays,
+    searchQuery,
+    selectedClasses,
+    sortRules,
+    syncSettings.upcomingDays,
+  ]);
 
   // All Due/Overdue rows for Sync (ignores temporary UI sub-filter except class/search if desired — let's sync full active due/overdue cleanly!)
   const dueRowsForSync = useMemo(() => {
@@ -641,6 +696,75 @@ export default function PaymentsPage() {
     } catch (error) {
       console.error('Failed recording due notice print counts:', error);
       showToast('មានបញ្ហាក្នុងការកត់ត្រាចំនួនព្រីនលិខិតជូនដំណឹង!', 'error');
+    }
+  };
+
+  const handleSetSingleNoticePrintCount = async (
+    item: StudentBillingInfo,
+    nextCount: number
+  ) => {
+    const safe = Math.max(0, Math.floor(Number(nextCount) || 0));
+    const nowIso = new Date().toISOString();
+    try {
+      await studentService.update(item.student.id, {
+        dueNoticePrintCount: safe,
+        dueNoticeCycleKey: item.dueDateStr || '',
+        lastDueNoticePrintedAt:
+          safe > 0 ? item.student.lastDueNoticePrintedAt || nowIso : '',
+      });
+    } catch (error) {
+      console.error('Failed updating single notice print count:', error);
+      showToast('មានបញ្ហាក្នុងការកែចំនួនព្រីន!', 'error');
+    }
+  };
+
+  const handleBatchSetNoticePrintCount = async (
+    mode: 'set' | 'increment' | 'reset',
+    explicitValue?: number
+  ) => {
+    const targets =
+      selectedDueIds.length > 0
+        ? dueOverdueList.filter((item) => selectedDueIds.includes(String(item.student.id)))
+        : dueOverdueList;
+    if (targets.length === 0) {
+      showToast('គ្មានសិស្សក្នុងបញ្ជីសម្រាប់កែចំនួនព្រីនទេ!', 'error');
+      return;
+    }
+
+    const fixedVal = Math.max(
+      0,
+      Math.floor(Number(explicitValue ?? batchPrintCountInput) || 0)
+    );
+    const nowIso = new Date().toISOString();
+
+    setIsUpdatingNoticeCounts(true);
+    try {
+      await Promise.all(
+        targets.map((item) => {
+          const prev = getEffectiveNoticePrintCount(item.student, item.dueDateStr);
+          const next =
+            mode === 'reset' ? 0 : mode === 'increment' ? prev + 1 : fixedVal;
+          return studentService.update(item.student.id, {
+            dueNoticePrintCount: next,
+            dueNoticeCycleKey: item.dueDateStr || '',
+            lastDueNoticePrintedAt:
+              next > 0 ? item.student.lastDueNoticePrintedAt || nowIso : '',
+          });
+        })
+      );
+      if (mode === 'reset') {
+        showToast(`បានសម្អាតចំនួនព្រីនទៅ 0 សម្រាប់សិស្ស ${targets.length} នាក់!`);
+      } else if (mode === 'increment') {
+        showToast(`បានបូក +1 ចំនួនព្រីនសម្រាប់សិស្ស ${targets.length} នាក់!`);
+      } else {
+        showToast(`បានកែចំនួនព្រីនជា ${fixedVal} ដង សម្រាប់សិស្ស ${targets.length} នាក់!`);
+      }
+      setIsBatchPrintCountOpen(false);
+    } catch (error) {
+      console.error('Failed batch updating notice print counts:', error);
+      showToast('មានបញ្ហាក្នុងការកែចំនួនព្រីនទាំងអស់!', 'error');
+    } finally {
+      setIsUpdatingNoticeCounts(false);
     }
   };
 
@@ -1510,23 +1634,149 @@ export default function PaymentsPage() {
           />
 
           {activeTab === 'due_overdue' && (
-            <div style={{ minWidth: '210px' }}>
-              <CustomSelectDropdown
-                value={dueSubFilter}
-                onChange={(v) => setDueSubFilter(v as any)}
-                searchable={false}
-                menuMinWidth={220}
-                options={[
-                  { value: 'all', label: 'ដល់ថ្ងៃ & លើសថ្ងៃ (ទាំងអស់)' },
-                  { value: 'due_only', label: 'តែសិស្សដល់ថ្ងៃថ្ងៃនេះ' },
-                  { value: 'overdue_only', label: 'តែសិស្សលើសថ្ងៃ' },
-                  {
-                    value: 'include_upcoming',
-                    label: `រួមទាំងជិតដល់ថ្ងៃ (${syncSettings.upcomingDays}ថ្ងៃ)`,
-                  },
-                ]}
-              />
-            </div>
+            <>
+              <div style={{ minWidth: '235px' }}>
+                <CustomSelectDropdown
+                  value={dueSubFilter}
+                  onChange={(v) => setDueSubFilter(v as any)}
+                  searchable={false}
+                  menuMinWidth={265}
+                  options={[
+                    { value: 'all', label: 'ដល់ថ្ងៃ & លើសថ្ងៃ (ទាំងអស់)' },
+                    { value: 'due_only', label: 'តែសិស្សដល់ថ្ងៃថ្ងៃនេះ' },
+                    { value: 'overdue_only', label: 'តែសិស្សលើសថ្ងៃ' },
+                    {
+                      value: 'upcoming_only',
+                      label: `តែសិស្សជិតដល់ថ្ងៃ (${customUpcomingDays} ថ្ងៃ)`,
+                    },
+                    {
+                      value: 'include_upcoming',
+                      label: `ដល់ថ្ងៃ, លើសថ្ងៃ & ជិតដល់ (${customUpcomingDays} ថ្ងៃ)`,
+                    },
+                    { value: 'date_range', label: 'ជ្រើសចន្លោះថ្ងៃ (ពីថ្ងៃ - ដល់ថ្ងៃ)' },
+                    { value: 'select_days', label: 'ជ្រើសថ្ងៃជាក់លាក់ (Tick ថ្ងៃចេញ)' },
+                  ]}
+                />
+              </div>
+
+              {(dueSubFilter === 'include_upcoming' || dueSubFilter === 'upcoming_only') && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                    ចំនួនថ្ងៃជិតដល់៖
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={customUpcomingDays}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(365, parseInt(e.target.value, 10) || 1));
+                      setCustomUpcomingDays(val);
+                    }}
+                    style={{
+                      width: '62px',
+                      padding: '0.22rem 0.4rem',
+                      borderRadius: '7px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontWeight: 700,
+                      textAlign: 'center',
+                      fontSize: '0.86rem',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    ថ្ងៃ
+                  </span>
+                </div>
+              )}
+
+              {dueSubFilter === 'date_range' && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    padding: '0.32rem 0.65rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    ពីថ្ងៃ៖
+                  </span>
+                  <input
+                    type="date"
+                    value={dueDateFrom}
+                    onChange={(e) => setDueDateFrom(e.target.value)}
+                    style={{
+                      padding: '0.24rem 0.45rem',
+                      borderRadius: '7px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    ដល់ថ្ងៃ៖
+                  </span>
+                  <input
+                    type="date"
+                    value={dueDateTo}
+                    onChange={(e) => setDueDateTo(e.target.value)}
+                    style={{
+                      padding: '0.24rem 0.45rem',
+                      borderRadius: '7px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                    }}
+                  />
+                  {(dueDateFrom || dueDateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDueDateFrom('');
+                        setDueDateTo('');
+                      }}
+                      className="btn btn-outline"
+                      style={{ padding: '0.22rem 0.5rem', fontSize: '0.76rem' }}
+                    >
+                      សម្អាត
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {dueSubFilter === 'select_days' && (
+                <MultiSelectDropdown
+                  options={dueDateOptions}
+                  selectedValues={selectedDueDates}
+                  onChange={setSelectedDueDates}
+                  allLabel="គ្រប់ថ្ងៃត្រូវបង់"
+                  title="ជ្រើសថ្ងៃដែលចង់ចេញ (អាច Tick ច្រើនថ្ងៃ)"
+                  multiLabel="ថ្ងៃ"
+                  searchable
+                  searchPlaceholder="ស្វែងរកថ្ងៃ (ឧ. 01/12)..."
+                />
+              )}
+            </>
           )}
 
           {activeTab === 'print_queue' && (
@@ -1643,6 +1893,28 @@ export default function PaymentsPage() {
               <button
                 type="button"
                 disabled={dueOverdueList.length === 0}
+                onClick={() => setIsBatchPrintCountOpen((v) => !v)}
+                className="btn btn-outline"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.48rem 0.85rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  borderColor: isBatchPrintCountOpen ? '#2563eb' : 'var(--border-color)',
+                  color: isBatchPrintCountOpen ? '#2563eb' : 'var(--text-primary)',
+                }}
+              >
+                <AppIcon name="edit" size={14} />
+                <span>
+                  កែចំនួនព្រីន (
+                  {selectedDueIds.length > 0 ? selectedDueIds.length : dueOverdueList.length})
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={dueOverdueList.length === 0}
                 onClick={handleBatchPrintDueNotices}
                 className="btn btn-primary"
                 style={{
@@ -1667,6 +1939,94 @@ export default function PaymentsPage() {
               </button>
             </div>
           </div>
+
+          {isBatchPrintCountOpen && (
+            <div
+              className="glass-panel"
+              style={{
+                padding: '0.75rem 1.05rem',
+                borderRadius: '12px',
+                border: '1px solid rgba(37, 99, 235, 0.35)',
+                background: 'rgba(37, 99, 235, 0.06)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.65rem',
+              }}
+            >
+              <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                កែប្រែចំនួនព្រីនសម្រាប់{' '}
+                <span style={{ color: '#2563eb' }}>
+                  {selectedDueIds.length > 0
+                    ? `សិស្សដែលបានជ្រើស (${selectedDueIds.length} នាក់)`
+                    : `សិស្សទាំងអស់ក្នុងបញ្ជី (${dueOverdueList.length} នាក់)`}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={batchPrintCountInput}
+                  onChange={(e) => setBatchPrintCountInput(e.target.value)}
+                  style={{
+                    width: '72px',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    fontSize: '0.86rem',
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={isUpdatingNoticeCounts}
+                  onClick={() => handleBatchSetNoticePrintCount('set')}
+                  className="btn btn-primary"
+                  style={{ padding: '0.38rem 0.8rem', fontSize: '0.82rem', fontWeight: 700 }}
+                >
+                  {isUpdatingNoticeCounts
+                    ? 'កំពុងកែ...'
+                    : `កំណត់ជា ${Math.max(0, Math.floor(Number(batchPrintCountInput) || 0))} ដង`}
+                </button>
+                <button
+                  type="button"
+                  disabled={isUpdatingNoticeCounts}
+                  onClick={() => handleBatchSetNoticePrintCount('increment')}
+                  className="btn btn-outline"
+                  style={{
+                    padding: '0.38rem 0.75rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    borderColor: '#2563eb',
+                    color: '#2563eb',
+                  }}
+                >
+                  +1 ទាំងអស់
+                </button>
+                <button
+                  type="button"
+                  disabled={isUpdatingNoticeCounts}
+                  onClick={() => handleBatchSetNoticePrintCount('reset')}
+                  className="btn btn-outline"
+                  style={{
+                    padding: '0.38rem 0.75rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    borderColor: '#ef4444',
+                    color: '#ef4444',
+                  }}
+                >
+                  Reset 0 ទាំងអស់
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
             <div className="table-responsive" style={{ overflowX: 'auto' }}>
@@ -1790,49 +2150,150 @@ export default function PaymentsPage() {
                       <td style={{ textAlign: 'center' }}>
                         {(() => {
                           const pCount = getEffectiveNoticePrintCount(item.student, item.dueDateStr);
+                          const isEditingThis = editingPrintCountId === idStr;
                           const lastPrinted = item.student?.lastDueNoticePrintedAt
                             ? formatDMYSlash(String(item.student.lastDueNoticePrintedAt).slice(0, 10))
                             : '';
-                          if (pCount <= 0) {
+                          const badgeBg =
+                            pCount <= 0
+                              ? 'rgba(148, 163, 184, 0.14)'
+                              : pCount >= 3
+                                ? 'rgba(239, 68, 68, 0.14)'
+                                : pCount === 2
+                                  ? 'rgba(245, 158, 11, 0.16)'
+                                  : 'rgba(37, 99, 235, 0.14)';
+                          const badgeColor =
+                            pCount <= 0
+                              ? 'var(--text-secondary)'
+                              : pCount >= 3
+                                ? '#dc2626'
+                                : pCount === 2
+                                  ? '#d97706'
+                                  : '#2563eb';
+
+                          if (isEditingThis) {
                             return (
-                              <span
-                                style={{
-                                  padding: '0.18rem 0.55rem',
-                                  borderRadius: '999px',
-                                  background: 'rgba(148, 163, 184, 0.14)',
-                                  color: 'var(--text-secondary)',
-                                  fontWeight: 600,
-                                  fontSize: '0.78rem',
-                                  whiteSpace: 'nowrap',
+                              <input
+                                type="number"
+                                min={0}
+                                max={999}
+                                autoFocus
+                                value={editingPrintCountVal}
+                                onChange={(e) => setEditingPrintCountVal(e.target.value)}
+                                onBlur={() => {
+                                  const nextVal = Math.max(
+                                    0,
+                                    Math.floor(Number(editingPrintCountVal) || 0)
+                                  );
+                                  setEditingPrintCountId(null);
+                                  if (nextVal !== pCount) {
+                                    void handleSetSingleNoticePrintCount(item, nextVal);
+                                  }
                                 }}
-                              >
-                                មិនទាន់ព្រីន (0)
-                              </span>
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    (e.currentTarget as HTMLInputElement).blur();
+                                  } else if (e.key === 'Escape') {
+                                    setEditingPrintCountId(null);
+                                  }
+                                }}
+                                style={{
+                                  width: '60px',
+                                  padding: '0.18rem 0.35rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid #2563eb',
+                                  background: 'var(--bg-secondary)',
+                                  color: 'var(--text-primary)',
+                                  fontWeight: 700,
+                                  fontSize: '0.82rem',
+                                  textAlign: 'center',
+                                }}
+                              />
                             );
                           }
-                          const badgeBg =
-                            pCount >= 3
-                              ? 'rgba(239, 68, 68, 0.14)'
-                              : pCount === 2
-                                ? 'rgba(245, 158, 11, 0.16)'
-                                : 'rgba(37, 99, 235, 0.14)';
-                          const badgeColor =
-                            pCount >= 3 ? '#dc2626' : pCount === 2 ? '#d97706' : '#2563eb';
+
                           return (
-                            <span
-                              title={lastPrinted ? `ព្រីនចុងក្រោយ៖ ${lastPrinted}` : undefined}
+                            <div
                               style={{
-                                padding: '0.18rem 0.58rem',
-                                borderRadius: '999px',
-                                background: badgeBg,
-                                color: badgeColor,
-                                fontWeight: 700,
-                                fontSize: '0.8rem',
-                                whiteSpace: 'nowrap',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
                               }}
                             >
-                              ព្រីន {pCount} ដង
-                            </span>
+                              <button
+                                type="button"
+                                disabled={pCount <= 0}
+                                onClick={() =>
+                                  void handleSetSingleNoticePrintCount(item, Math.max(0, pCount - 1))
+                                }
+                                title="ដក 1"
+                                style={{
+                                  width: '22px',
+                                  height: '22px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-secondary)',
+                                  color: 'var(--text-primary)',
+                                  fontWeight: 700,
+                                  fontSize: '0.82rem',
+                                  lineHeight: 1,
+                                  cursor: pCount <= 0 ? 'not-allowed' : 'pointer',
+                                  opacity: pCount <= 0 ? 0.4 : 1,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                -
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingPrintCountId(idStr);
+                                  setEditingPrintCountVal(String(pCount));
+                                }}
+                                title={
+                                  lastPrinted
+                                    ? `ចុចដើម្បីវាយលេខកែ • ព្រីនចុងក្រោយ៖ ${lastPrinted}`
+                                    : 'ចុចដើម្បីវាយលេខកែចំនួនព្រីន'
+                                }
+                                style={{
+                                  padding: '0.18rem 0.5rem',
+                                  borderRadius: '999px',
+                                  border: 'none',
+                                  background: badgeBg,
+                                  color: badgeColor,
+                                  fontWeight: 700,
+                                  fontSize: '0.78rem',
+                                  whiteSpace: 'nowrap',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {pCount <= 0 ? '0 ដង' : `ព្រីន ${pCount} ដង`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleSetSingleNoticePrintCount(item, pCount + 1)}
+                                title="បូក 1"
+                                style={{
+                                  width: '22px',
+                                  height: '22px',
+                                  borderRadius: '6px',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'var(--bg-secondary)',
+                                  color: 'var(--text-primary)',
+                                  fontWeight: 700,
+                                  fontSize: '0.82rem',
+                                  lineHeight: 1,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                +
+                              </button>
+                            </div>
                           );
                         })()}
                       </td>
