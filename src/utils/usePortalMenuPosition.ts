@@ -51,7 +51,7 @@ export function usePortalMenuPosition({
       ...(openUpward
         ? { bottom: `${window.innerHeight - rect.top + 6}px`, top: 'auto' }
         : { top: `${rect.bottom + 6}px`, bottom: 'auto' }),
-      zIndex: 20000,
+      zIndex: 999990,
     });
   }, [minWidth, maxPreferredHeight, preferAlignRight]);
 

@@ -190,7 +190,9 @@ export default function StudentQuickEditModal({
     setShowPart1(true);
     setShowPart2(true);
     setIsUploadSuccess(false);
-  }, [student, classesData]);
+    // Only reset draft fields when switching to a different student record so background class list updates don't wipe unsaved edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student?.id]);
 
   if (!student || typeof document === 'undefined') return null;
 
