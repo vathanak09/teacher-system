@@ -3,11 +3,16 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { classService, teacherService, studentService, attendanceService } from '@/services/db';
 import CustomSelectDropdown from '@/components/CustomSelectDropdown';
-import SortDropdown from '@/components/SortDropdown';
+import MultiSortDropdown, { SortRule } from '@/components/MultiSortDropdown';
 import { CLASS_COLORS, CLASS_ICONS } from '@/constants/classAppearance';
 import { convertDriveImageLink } from '@/utils/driveLink';
 import { AppIcon } from '@/components/AppIcons';
 import AttendancePrintModal from '@/components/attendance/AttendancePrintModal';
+
+const DEFAULT_ATTENDANCE_SORTS: SortRule[] = [
+  { field: 'level', order: 'asc' },
+  { field: 'fullName', order: 'asc' },
+];
 
 function getClassStudentIds(cls: any): string[] {
   if (!cls) return [];
@@ -36,7 +41,7 @@ export default function AttendancePage() {
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, Record<number, string>>>({});
   const [unlockedDay, setUnlockedDay] = useState(nowRef.getDate());
   const [unlockedDayInput, setUnlockedDayInput] = useState(String(nowRef.getDate()));
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortRules, setSortRules] = useState<SortRule[]>(DEFAULT_ATTENDANCE_SORTS);
   const [scrollNonce, setScrollNonce] = useState(0);
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const stickyNameThRef = useRef<HTMLTableCellElement>(null);
@@ -503,6 +508,8 @@ export default function AttendancePage() {
     const days = getDaysInMonth(selectedMonth, selectedYear);
     const daysArray = Array.from({ length: days }, (_, i) => i + 1);
 
+    const classShiftFallback = String(selectedClass.shift || '').trim();
+
     const studentsWithStats = baseStudents.map((student) => {
       let presentCount = 0;
       let absentCount = 0;
@@ -513,23 +520,56 @@ export default function AttendancePage() {
         else if (status === 'absent') absentCount++;
         else if (status === 'permission') permissionCount++;
       });
-      return { ...student, presentCount, absentCount, permissionCount };
+      const displayShift = String(student.shift || classShiftFallback).trim();
+      return {
+        ...student,
+        displayShift,
+        presentCount,
+        absentCount,
+        permissionCount,
+      };
     });
 
     const classStudents = [...studentsWithStats].sort((a, b) => {
-      if (!sortConfig) {
-        if (a.gender === 'ស្រី' && b.gender !== 'ស្រី') return -1;
-        if (a.gender !== 'ស្រី' && b.gender === 'ស្រី') return 1;
-        return (a.fullName || '').localeCompare(b.fullName || '', 'km');
+      const activeRules = sortRules.length > 0 ? sortRules : DEFAULT_ATTENDANCE_SORTS;
+      for (const { field, order } of activeRules) {
+        let comparison = 0;
+        if (field === 'absentCount' || field === 'presentCount' || field === 'permissionCount') {
+          comparison = (Number(a[field]) || 0) - (Number(b[field]) || 0);
+        } else if (field === 'level') {
+          const aLvl = String(a.level || '').trim();
+          const bLvl = String(b.level || '').trim();
+          if (!aLvl && bLvl) comparison = 1;
+          else if (aLvl && !bLvl) comparison = -1;
+          else comparison = aLvl.localeCompare(bLvl, 'en', { numeric: true });
+        } else if (field === 'shift') {
+          const aSh = String(a.displayShift || '').trim();
+          const bSh = String(b.displayShift || '').trim();
+          if (!aSh && bSh) comparison = 1;
+          else if (aSh && !bSh) comparison = -1;
+          else comparison = aSh.localeCompare(bSh, 'km', { numeric: true });
+        } else if (field === 'studentId') {
+          comparison = String(a.studentId || '').localeCompare(String(b.studentId || ''), 'en', {
+            numeric: true,
+          });
+        } else if (field === 'fullName') {
+          comparison = String(a.fullName || a.name || '').localeCompare(
+            String(b.fullName || b.name || ''),
+            'km'
+          );
+        } else {
+          comparison = String(a[field] || '').localeCompare(String(b[field] || ''), 'km', {
+            numeric: true,
+          });
+        }
+        if (comparison !== 0) {
+          return order === 'asc' ? comparison : -comparison;
+        }
       }
-      const { key, direction } = sortConfig;
-      let comparison = 0;
-      if (key === 'absentCount' || key === 'presentCount') {
-        comparison = (a[key] || 0) - (b[key] || 0);
-      } else {
-        comparison = String(a[key] || '').localeCompare(String(b[key] || ''), 'km');
-      }
-      return direction === 'asc' ? comparison : -comparison;
+      return String(a.fullName || a.name || '').localeCompare(
+        String(b.fullName || b.name || ''),
+        'km'
+      );
     });
 
     // Count absentees per day for day-column header badges
@@ -704,16 +744,19 @@ export default function AttendancePage() {
               />
             </div>
 
-            <SortDropdown
+            <MultiSortDropdown
               options={[
+                { value: 'level', label: 'វគ្គសិក្សា' },
                 { value: 'fullName', label: 'ឈ្មោះសិស្ស' },
+                { value: 'shift', label: 'វេនសិក្សា' },
                 { value: 'studentId', label: 'អត្តលេខ' },
                 { value: 'gender', label: 'ភេទ' },
                 { value: 'absentCount', label: 'អវត្តមាន' },
+                { value: 'presentCount', label: 'មករៀន' },
               ]}
-              sortBy={sortConfig?.key || 'fullName'}
-              sortOrder={sortConfig?.direction || 'asc'}
-              onSortChange={(by, order) => setSortConfig({ key: by, direction: order })}
+              rules={sortRules}
+              defaultRules={DEFAULT_ATTENDANCE_SORTS}
+              onChange={setSortRules}
             />
           </div>
         </div>
@@ -797,6 +840,12 @@ export default function AttendancePage() {
                 </th>
                 <th style={{ padding: '0.45rem 0.4rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
                   ភេទ
+                </th>
+                <th style={{ padding: '0.45rem 0.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                  វគ្គសិក្សា
+                </th>
+                <th style={{ padding: '0.45rem 0.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem', border: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>
+                  វេនសិក្សា
                 </th>
 
                 {daysArray.map((day) => {
@@ -919,6 +968,58 @@ export default function AttendancePage() {
                   >
                     {student.gender || '-'}
                   </td>
+                  <td
+                    style={{
+                      padding: '0.28rem 0.45rem',
+                      textAlign: 'center',
+                      fontSize: '0.78rem',
+                      border: '1px solid var(--border-color)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {student.level ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '0.12rem 0.48rem',
+                          borderRadius: '999px',
+                          background: 'rgba(59, 130, 246, 0.12)',
+                          color: '#2563eb',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {student.level}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      padding: '0.28rem 0.45rem',
+                      textAlign: 'center',
+                      fontSize: '0.78rem',
+                      border: '1px solid var(--border-color)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {student.displayShift ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '0.12rem 0.48rem',
+                          borderRadius: '999px',
+                          background: 'rgba(139, 92, 246, 0.12)',
+                          color: '#7c3aed',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {student.displayShift}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                    )}
+                  </td>
 
                   {daysArray.map((day) => {
                     const date = new Date(selectedYear, selectedMonth - 1, day);
@@ -1015,7 +1116,7 @@ export default function AttendancePage() {
               ))}
               {classStudents.length === 0 && (
                 <tr>
-                  <td colSpan={7 + days} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <td colSpan={9 + days} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                     មិនមានសិស្សនៅក្នុងថ្នាក់នេះទេ
                   </td>
                 </tr>
