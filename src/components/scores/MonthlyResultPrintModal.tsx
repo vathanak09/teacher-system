@@ -6,8 +6,6 @@ import { settingsService } from '@/services/db';
 import { SchoolProfileInfo, DEFAULT_SCHOOL_PROFILE } from '@/components/settings/SchoolInfoSettingsPanel';
 import MonthlyResultSheet, {
   A4_PORTRAIT_SPEC,
-  MAX_SINGLE_PAGE_RESULT_ROWS,
-  MULTI_PAGE_CHUNK_ROWS,
   MonthlyResultClassPacket,
   MonthlyResultStudentRow,
   RESULT_COLOR_THEMES,
@@ -15,6 +13,7 @@ import MonthlyResultSheet, {
   ResultSortMode,
   computeMonthlyResultPacket,
   formatDefaultKhmerDate,
+  paginateMonthlyResultRows,
 } from './MonthlyResultSheet';
 import { AppIcon } from '../AppIcons';
 
@@ -260,35 +259,22 @@ export default function MonthlyResultPrintModal({
     }[] = [];
 
     classPackets.forEach((packet) => {
-      const rows = packet.rows;
-      if (rows.length <= MAX_SINGLE_PAGE_RESULT_ROWS) {
+      const slices = paginateMonthlyResultRows(packet.rows);
+      slices.forEach((sl) => {
         pages.push({
-          key: `${packet.classId}-p0`,
-          label: `ថ្នាក់ ${packet.classCode || packet.className} (${rows.length} សិស្ស)`,
+          key: `${packet.classId}-p${sl.pageIndex}`,
+          label:
+            sl.totalPagesForClass > 1
+              ? `ថ្នាក់ ${packet.classCode || packet.className} (${packet.rows.length} សិស្ស • ទំព័រ ${sl.pageIndex + 1}/${sl.totalPagesForClass})`
+              : `ថ្នាក់ ${packet.classCode || packet.className} (${packet.rows.length} សិស្ស)`,
           packet,
-          rowsSlice: rows,
-          startIndex: 0,
-          pageIndex: 0,
-          totalPagesForClass: 1,
-          isLastPageForClass: true,
+          rowsSlice: sl.rowsSlice,
+          startIndex: sl.startIndex,
+          pageIndex: sl.pageIndex,
+          totalPagesForClass: sl.totalPagesForClass,
+          isLastPageForClass: sl.isLastPageForClass,
         });
-      } else {
-        const totalChunks = Math.ceil(rows.length / MULTI_PAGE_CHUNK_ROWS);
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * MULTI_PAGE_CHUNK_ROWS;
-          const slice = rows.slice(start, start + MULTI_PAGE_CHUNK_ROWS);
-          pages.push({
-            key: `${packet.classId}-p${i}`,
-            label: `ថ្នាក់ ${packet.classCode || packet.className} (${rows.length} សិស្ស • ទំព័រ ${i + 1}/${totalChunks})`,
-            packet,
-            rowsSlice: slice,
-            startIndex: start,
-            pageIndex: i,
-            totalPagesForClass: totalChunks,
-            isLastPageForClass: i === totalChunks - 1,
-          });
-        }
-      }
+      });
     });
 
     return pages;

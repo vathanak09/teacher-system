@@ -1430,7 +1430,7 @@ export default function MonthlyResultSheet({
         {isLastPageForClass && (
           <div
             style={{
-              marginTop: isVeryDense ? '2mm' : '3.2mm',
+              marginTop: '3mm',
               paddingLeft: '4mm',
               paddingRight: '4mm',
             }}
@@ -1446,7 +1446,7 @@ export default function MonthlyResultSheet({
             >
               <div
                 style={{
-                  fontSize: isVeryDense ? '8.5pt' : '9.2pt',
+                  fontSize: '9.2pt',
                   lineHeight: 1.5,
                   color: '#0f172a',
                 }}
@@ -1467,7 +1467,7 @@ export default function MonthlyResultSheet({
                   textAlign: 'center',
                   minWidth: '58mm',
                   paddingTop: '0.5mm',
-                  fontSize: isVeryDense ? '8.5pt' : '9.2pt',
+                  fontSize: '9.2pt',
                   color: '#0f172a',
                 }}
               >
@@ -1480,7 +1480,7 @@ export default function MonthlyResultSheet({
             {showStampAndSignature && (
               <div
                 style={{
-                  marginTop: isVeryDense ? '0.5mm' : '1.2mm',
+                  marginTop: '1.2mm',
                   marginLeft: '-2mm',
                   width: '54mm',
                   textAlign: 'center',
@@ -1500,11 +1500,11 @@ export default function MonthlyResultSheet({
                   {approvalLabel}
                 </div>
 
-                <div style={{ position: 'relative', height: isVeryDense ? '24mm' : '27mm' }}>
+                <div style={{ position: 'relative', height: '27mm' }}>
                   <OfficialSchoolStamp
                     stampUrl={stampUrl}
                     schoolProfile={schoolProfile}
-                    size={isVeryDense ? '24mm' : '27mm'}
+                    size="27mm"
                   />
 
                   {/* Signature layered gracefully across lower-right portion of stamp just like reference */}
@@ -1521,7 +1521,7 @@ export default function MonthlyResultSheet({
                   >
                     <ReceiptSignature
                       signatureUrl={signatureUrl}
-                      height={isVeryDense ? '8.5mm' : '9.5mm'}
+                      height="9.5mm"
                       color={theme.signatoryColor}
                     />
                   </div>
