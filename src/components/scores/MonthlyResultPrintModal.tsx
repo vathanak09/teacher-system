@@ -423,12 +423,13 @@ export default function MonthlyResultPrintModal({
                   height: '28px',
                   borderRadius: '8px',
                   background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
+                  color: '#ffffff',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <AppIcon name="award" size={16} strokeWidth={2.2} color="#ffffff" />
+                <AppIcon name="award" size={16} strokeWidth={2.2} />
               </span>
               <span>លទ្ធផលប្រចាំខែ (A4)</span>
             </div>
