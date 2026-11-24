@@ -2108,186 +2108,358 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         </div>
       </div>
 
-      <div style={{ background: 'var(--card-bg)', borderRadius: '16px', overflowX: 'auto', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
-              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ល.រ</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>អត្តលេខ</th>
-              <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 10, background: 'var(--bg-secondary)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>ឈ្មោះសិស្ស</th>
-              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ភេទ</th>
-              
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Quiz</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Exercise</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Speaking</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Homework</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Test</div>
-              </th>
+      {(() => {
+        const sortGroupRows = (groupRows: any[]) =>
+          [...groupRows].sort((a: any, b: any) => {
+            if (!scoreSortConfig) {
+              if (a.displayGender === 'ស្រី' && b.displayGender !== 'ស្រី') return -1;
+              if (a.displayGender !== 'ស្រី' && b.displayGender === 'ស្រី') return 1;
+              return (a.displayFullName || '').localeCompare(b.displayFullName || '', 'km');
+            }
+            const { key, direction } = scoreSortConfig;
+            const resolveSortVal = (row: any) => {
+              if (key === 'average') return row.dynAverage ?? row.average ?? '';
+              if (key === 'rank') return row.dynRank ?? row.rank ?? '';
+              if (key === 'fullName') return row.displayFullName ?? row.fullName ?? '';
+              if (key === 'gender') return row.displayGender ?? row.gender ?? '';
+              if (key === 'studentIdCode') return row.displayStudentCode ?? row.studentIdCode ?? '';
+              return row[key] ?? '';
+            };
+            const aVal = resolveSortVal(a).toString();
+            const bVal = resolveSortVal(b).toString();
 
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>មធ្យមភាគ</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>ចំណាត់ថ្នាក់</div>
-              </th>
-              <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '80px', border: '1px solid var(--border-color)' }}>
-                <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>មូលវិចារណ៍</div>
-              </th>
-              <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ផ្សេងៗ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(() => {
-              const sortedScores = [...computedScores.rows].sort((a: any, b: any) => {
-                if (!scoreSortConfig) {
-                  // Default: Female first, then Name
-                  if (a.gender === 'ស្រី' && b.gender !== 'ស្រី') return -1;
-                  if (a.gender !== 'ស្រី' && b.gender === 'ស្រី') return 1;
-                  return (a.fullName || '').localeCompare(b.fullName || '', 'km');
-                }
-                const { key, direction } = scoreSortConfig;
-                const aVal = (a[key] || '').toString();
-                const bVal = (b[key] || '').toString();
-                
-                let comparison = 0;
-                if (!isNaN(Number(aVal)) && !isNaN(Number(bVal)) && aVal !== '' && bVal !== '') {
-                  comparison = Number(aVal) - Number(bVal);
-                } else {
-                  comparison = aVal.localeCompare(bVal, 'km');
-                }
-                return direction === 'asc' ? comparison : -comparison;
-              });
+            let comparison = 0;
+            if (!isNaN(Number(aVal)) && !isNaN(Number(bVal)) && aVal !== '' && bVal !== '') {
+              comparison = Number(aVal) - Number(bVal);
+            } else {
+              comparison = aVal.localeCompare(bVal, 'km', { numeric: true });
+            }
+            return direction === 'asc' ? comparison : -comparison;
+          });
 
-              return sortedScores.map((scoreRec, index) => {
-                const studentMaster = allStudents.find(s => s.studentIdCode === scoreRec.studentIdCode);
-                const displayFullName = studentMaster ? studentMaster.fullName : scoreRec.fullName;
-                const displayGender = studentMaster ? studentMaster.gender : scoreRec.gender;
-                return (
-                  <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
-                    <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{scoreRec.studentIdCode || 'N/A'}</td>
-                    <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 9, background: 'var(--main-bg)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>{displayFullName}</td>
-                    <td style={{ padding: '0.5rem', textAlign: 'center', color: displayGender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayGender}</td>
-                    
-                    {/* New Subject Columns */}
-                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                      <input 
-                        type="number" step="any" value={scoreRec.quiz || ""}
-                        onChange={(e) => handleScoreChange(scoreRec, 'quiz', e.target.value)}
-                        onPaste={(e) => handlePaste(e, index, 'quiz')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                        placeholder=""
-                      />
-                    </td>
-                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                      <input 
-                        type="number" step="any" value={scoreRec.exercise || ""}
-                        onChange={(e) => handleScoreChange(scoreRec, 'exercise', e.target.value)}
-                        onPaste={(e) => handlePaste(e, index, 'exercise')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                        placeholder=""
-                      />
-                    </td>
-                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                      <input 
-                        type="number" step="any" value={scoreRec.speaking || ""}
-                        onChange={(e) => handleScoreChange(scoreRec, 'speaking', e.target.value)}
-                        onPaste={(e) => handlePaste(e, index, 'speaking')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                        placeholder=""
-                      />
-                    </td>
-                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                      <input 
-                        type="number" step="any" value={scoreRec.homework || ""}
-                        onChange={(e) => handleScoreChange(scoreRec, 'homework', e.target.value)}
-                        onPaste={(e) => handlePaste(e, index, 'homework')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                        placeholder=""
-                      />
-                    </td>
-                    <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                      <input 
-                        type="number" step="any" value={scoreRec.test || ""}
-                        onChange={(e) => handleScoreChange(scoreRec, 'test', e.target.value)}
-                        onPaste={(e) => handlePaste(e, index, 'test')}
-                        style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                        placeholder=""
-                      />
-                    </td>
+        const renderScoreTable = (group: {
+          levelKey: string;
+          levelLabel: string;
+          currentCoeff: number;
+          maxTotalScore: number;
+          isCustomCoeff: boolean;
+          rows: any[];
+        }) => {
+          const sortedScores = sortGroupRows(group.rows);
+          const groupTotal = sortedScores.length;
+          const groupFemale = sortedScores.filter((r: any) => (r.displayGender || r.gender) === 'ស្រី').length;
+          const groupMale = groupTotal - groupFemale;
+          const groupScored = sortedScores.filter((r: any) => r.totalScore !== '' && r.totalScore !== undefined && r.totalScore !== null);
+          const groupPass = groupScored.filter((r: any) => r.dynGrade && r.dynGrade !== 'F').length;
+          const groupFail = groupScored.length - groupPass;
 
-                    {/* Total Score */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', border: '1px solid var(--border-color)', width: '70px', minWidth: '70px' }}>
-                      {scoreRec.totalScore || '-'}
-                    </td>
-                    
-                    {/* Average */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-primary)', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.dynAverage || '-'}
-                    </td>
+          return (
+            <div
+              key={group.levelKey}
+              style={{
+                background: 'var(--card-bg)',
+                borderRadius: '16px',
+                border: computedScores.isSplitByLevel
+                  ? '1.5px solid rgba(99, 102, 241, 0.35)'
+                  : '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-sm)',
+                overflow: 'hidden',
+                marginBottom: computedScores.isSplitByLevel ? '1.35rem' : 0,
+              }}
+            >
+              {computedScores.isSplitByLevel && (
+                <div
+                  style={{
+                    padding: '0.8rem 1.1rem',
+                    background: 'linear-gradient(90deg, rgba(79, 70, 229, 0.1), rgba(59, 130, 246, 0.05))',
+                    borderBottom: '1px solid var(--border-color)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.55rem' }}>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '999px',
+                        background: group.levelKey === UNASSIGNED_LEVEL_LABEL ? '#64748b' : '#4f46e5',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                      }}
+                    >
+                      វគ្គ៖ {group.levelLabel}
+                    </span>
+                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      សរុប {groupTotal} នាក់
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#ec4899', fontWeight: 600 }}>
+                      ស្រី {groupFemale}
+                    </span>
+                    <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 600 }}>
+                      ប្រុស {groupMale}
+                    </span>
+                    {groupScored.length > 0 && (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        • លើមធ្យមភាគ {groupPass} | ក្រោម {groupFail}
+                      </span>
+                    )}
+                  </div>
 
-                    {/* Grade */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#10b981', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.dynGrade || "-"}
-                    </td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => openCoeffModal(group.levelKey)}
+                      style={{
+                        padding: '0.35rem 0.72rem',
+                        borderRadius: '8px',
+                        border: group.isCustomCoeff
+                          ? '1px solid rgba(139, 92, 246, 0.45)'
+                          : '1px solid var(--border-color)',
+                        background: group.isCustomCoeff ? 'rgba(139, 92, 246, 0.14)' : 'var(--card-bg)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                      title={`កំណត់មេគុណដាច់ដោយឡែកសម្រាប់វគ្គ ${group.levelLabel}`}
+                    >
+                      <AppIcon name="hash" size={14} style={{ color: '#7c3aed' }} />
+                      <span>មេគុណវគ្គនេះ: {Number(group.currentCoeff.toFixed(2))}</span>
+                    </button>
 
-                    {/* Rank */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
-                      {scoreRec.dynRank || "-"}
-                    </td>
+                    <button
+                      type="button"
+                      onClick={() => openAssignLevelModal(group.levelKey, [])}
+                      style={{
+                        padding: '0.35rem 0.72rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(14, 165, 233, 0.35)',
+                        background: 'rgba(14, 165, 233, 0.1)',
+                        color: '#0284c7',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <AppIcon name="users" size={14} />
+                      <span>បញ្ចូលសិស្សមកវគ្គនេះ</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                    {/* Remarks */}
-                    <td style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '80px' }}>
-                      {scoreRec.dynRemarks || '-'}
-                    </td>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '860px' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ល.រ</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>អត្តលេខ</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 10, background: 'var(--bg-secondary)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>ឈ្មោះសិស្ស</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ភេទ</th>
+                      <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '72px' }}>វគ្គ</th>
+                      
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Quiz</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Exercise</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Speaking</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Homework</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Test</div>
+                      </th>
 
-                    <td style={{ padding: '0.2rem', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                      <button 
-                        onClick={() => removeScoreRecord(scoreRec.id)}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', transition: 'transform 0.2s', opacity: 0.8 }}
-                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.opacity = '1'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '0.8'; }}
-                        title="លុបចេញពីខែនេះ"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 6h18"/>
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                          <line x1="10" x2="10" y1="11" y2="17"/>
-                          <line x1="14" x2="14" y1="11" y2="17"/>
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              });
-            })()}
-            {scores.length === 0 && (
-              <tr>
-                <td colSpan={15} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                  មិនមានសិស្សក្នុងខែនេះទេ។ <br/><br/>
-                  សូមចុចប៊ូតុង <b>"+"</b> នៅខាងលើដើម្បីទាញយកបញ្ជីឈ្មោះពីថ្នាក់រៀន។
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>មធ្យមភាគ</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>និទ្ទេស</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>ចំណាត់ថ្នាក់</div>
+                      </th>
+                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '80px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>មូលវិចារណ៍</div>
+                      </th>
+                      <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ផ្សេងៗ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedScores.map((scoreRec, index) => {
+                      const displayFullName = scoreRec.displayFullName || scoreRec.fullName;
+                      const displayGender = scoreRec.displayGender || scoreRec.gender;
+                      const displayCode = scoreRec.displayStudentCode || scoreRec.studentIdCode || 'N/A';
+                      const effectiveLevel = scoreRec.effectiveLevel || '';
+                      return (
+                        <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
+                          <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayCode}</td>
+                          <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 9, background: 'var(--main-bg)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>{displayFullName}</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center', color: displayGender === 'ស្រី' ? '#ec4899' : 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayGender}</td>
+                          <td style={{ padding: '0.35rem 0.45rem', textAlign: 'center', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>
+                            <button
+                              type="button"
+                              onClick={() => openAssignLevelModal(effectiveLevel, [scoreRec.id])}
+                              title={
+                                scoreRec.isLevelOverridden
+                                  ? `វគ្គបណ្តោះអាសន្នខែនេះ (វគ្គដើម៖ ${scoreRec.masterLevel || 'គ្មាន'}) — ចុចដើម្បីប្តូរ`
+                                  : 'ចុចដើម្បីកំណត់ ឬប្តូរវគ្គបណ្តោះអាសន្នសម្រាប់ខែនេះ'
+                              }
+                              style={{
+                                padding: '0.16rem 0.52rem',
+                                borderRadius: '999px',
+                                border: scoreRec.isLevelOverridden
+                                  ? '1px solid rgba(124, 58, 237, 0.45)'
+                                  : '1px solid rgba(59, 130, 246, 0.28)',
+                                background: scoreRec.isLevelOverridden
+                                  ? 'rgba(139, 92, 246, 0.14)'
+                                  : effectiveLevel
+                                    ? 'rgba(59, 130, 246, 0.1)'
+                                    : 'rgba(148, 163, 184, 0.14)',
+                                color: scoreRec.isLevelOverridden
+                                  ? '#7c3aed'
+                                  : effectiveLevel
+                                    ? '#2563eb'
+                                    : 'var(--text-secondary)',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {effectiveLevel || '-'}
+                            </button>
+                          </td>
+                          
+                          {/* Subject Columns */}
+                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                            <input 
+                              type="number" step="any" value={scoreRec.quiz || ""}
+                              onChange={(e) => handleScoreChange(scoreRec, 'quiz', e.target.value)}
+                              onPaste={(e) => handlePaste(e, index, 'quiz', sortedScores)}
+                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                              placeholder=""
+                            />
+                          </td>
+                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                            <input 
+                              type="number" step="any" value={scoreRec.exercise || ""}
+                              onChange={(e) => handleScoreChange(scoreRec, 'exercise', e.target.value)}
+                              onPaste={(e) => handlePaste(e, index, 'exercise', sortedScores)}
+                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                              placeholder=""
+                            />
+                          </td>
+                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                            <input 
+                              type="number" step="any" value={scoreRec.speaking || ""}
+                              onChange={(e) => handleScoreChange(scoreRec, 'speaking', e.target.value)}
+                              onPaste={(e) => handlePaste(e, index, 'speaking', sortedScores)}
+                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                              placeholder=""
+                            />
+                          </td>
+                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                            <input 
+                              type="number" step="any" value={scoreRec.homework || ""}
+                              onChange={(e) => handleScoreChange(scoreRec, 'homework', e.target.value)}
+                              onPaste={(e) => handlePaste(e, index, 'homework', sortedScores)}
+                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                              placeholder=""
+                            />
+                          </td>
+                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                            <input 
+                              type="number" step="any" value={scoreRec.test || ""}
+                              onChange={(e) => handleScoreChange(scoreRec, 'test', e.target.value)}
+                              onPaste={(e) => handlePaste(e, index, 'test', sortedScores)}
+                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
+                              placeholder=""
+                            />
+                          </td>
+
+                          {/* Total Score */}
+                          <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', border: '1px solid var(--border-color)', width: '70px', minWidth: '70px' }}>
+                            {scoreRec.totalScore || '-'}
+                          </td>
+                          
+                          {/* Average */}
+                          <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-primary)', border: '1px solid var(--border-color)' }}>
+                            {scoreRec.dynAverage || '-'}
+                          </td>
+
+                          {/* Grade */}
+                          <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#10b981', border: '1px solid var(--border-color)' }}>
+                            {scoreRec.dynGrade || "-"}
+                          </td>
+
+                          {/* Rank */}
+                          <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: '#f59e0b', border: '1px solid var(--border-color)' }}>
+                            {scoreRec.dynRank || "-"}
+                          </td>
+
+                          {/* Remarks */}
+                          <td style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '80px' }}>
+                            {scoreRec.dynRemarks || '-'}
+                          </td>
+
+                          <td style={{ padding: '0.2rem', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                            <button 
+                              onClick={() => removeScoreRecord(scoreRec.id)}
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', transition: 'transform 0.2s', opacity: 0.8 }}
+                              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.opacity = '1'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '0.8'; }}
+                              title="លុបចេញពីខែនេះ"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 6h18"/>
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                <line x1="10" x2="10" y1="11" y2="17"/>
+                                <line x1="14" x2="14" y1="11" y2="17"/>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {sortedScores.length === 0 && (
+                      <tr>
+                        <td colSpan={16} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                          មិនមានសិស្សក្នុងខែនេះទេ។ <br/><br/>
+                          សូមចុចប៊ូតុង <b>"+"</b> នៅខាងលើដើម្បីទាញយកបញ្ជីឈ្មោះពីថ្នាក់រៀន។
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        };
+
+        if (computedScores.isSplitByLevel && computedScores.groups.length > 0) {
+          return <div>{computedScores.groups.map((grp) => renderScoreTable(grp))}</div>;
+        }
+        return renderScoreTable(computedScores.groups[0]);
+      })()}
 
       {scores.length > 0 && (
         <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
@@ -2346,7 +2518,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         * គន្លឹះ៖ លោកអ្នកអាច Copy (Ctrl+C) ទិន្នន័យពី Excel រួច Paste (Ctrl+V) ចូលក្នុងប្រអប់ណាមួយ វាអានជាជួរស្វ័យប្រវត្តិ។ រាល់ការវាយបញ្ចូលនឹង Save ចូលប្រព័ន្ធដោយស្វ័យប្រវត្តិ។
       </p>
       {isCoeffModalOpen && typeof document !== 'undefined' && createPortal(
-          <div onClick={() => setIsCoeffModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)' }}>
+          <div onClick={() => { setIsCoeffModalOpen(false); setCoeffTargetLevel(null); }} style={{ position: 'fixed', inset: 0, zIndex: 20030, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(15,23,42,0.58)', backdropFilter: 'blur(5px)' }}>
             <form onSubmit={handleSaveClassMonthCoeff} onClick={(e) => e.stopPropagation()} className="glass-panel animate-scale-in" style={{ padding: '1.5rem', background: 'var(--modal-bg)', width: '100%', maxWidth: '450px', maxHeight: '90dvh', overflowY: 'auto', borderRadius: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 <div>
@@ -2355,17 +2527,24 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(59, 130, 246, 0.14)', color: '#2563eb', fontSize: '0.76rem', fontWeight: 700 }}>
                       ថ្នាក់៖ {selectedClass?.className || 'N/A'}
                     </span>
+                    {coeffTargetLevel && (
+                      <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(79, 70, 229, 0.16)', color: '#4f46e5', fontSize: '0.76rem', fontWeight: 700 }}>
+                        វគ្គ៖ {coeffTargetLevel}
+                      </span>
+                    )}
                     <span style={{ padding: '0.18rem 0.55rem', borderRadius: '999px', background: 'rgba(139, 92, 246, 0.14)', color: '#7c3aed', fontSize: '0.76rem', fontWeight: 700 }}>
                       ខែ៖ {selectedMonth}
                     </span>
                   </div>
                 </div>
-                <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
+                <button type="button" onClick={() => { setIsCoeffModalOpen(false); setCoeffTargetLevel(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
                   <AppIcon name="x" size={18} />
                 </button>
               </div>
               <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-                មេគុណនេះត្រូវបានរក្សាទុកដាច់ដោយឡែកសម្រាប់ <b>ថ្នាក់ និងខែនេះ</b> ប៉ុណ្ណោះ ដោយមិនប៉ះពាល់ដល់ថ្នាក់ផ្សេង ឬខែផ្សេងឡើយ។
+                {coeffTargetLevel
+                  ? <>មេគុណនេះត្រូវបានរក្សាទុកដាច់ដោយឡែកសម្រាប់ <b>វគ្គ {coeffTargetLevel}</b> ក្នុងថ្នាក់ និងខែនេះប៉ុណ្ណោះ។</>
+                  : <>មេគុណនេះត្រូវបានរក្សាទុកដាច់ដោយឡែកសម្រាប់ <b>ថ្នាក់ និងខែនេះ</b> ប៉ុណ្ណោះ ដោយមិនប៉ះពាល់ដល់ថ្នាក់ផ្សេង ឬខែផ្សេងឡើយ។</>}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
                 
@@ -2380,7 +2559,12 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem' }}>1. ផ្អែកតាមពិន្ទុអតិបរមាក្នុងបញ្ជី (ស្វ័យប្រវត្តិ)</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                      មេគុណ = (ពិន្ទុសរុបអតិបរមា + 5) ចែកនឹង ៥០ → <b>{Number(computeClassCoeffValue(scores, { coefficientType: 'auto', customMaxScore: 250 }).currentCoeff.toFixed(2))}</b>
+                      មេគុណ = (ពិន្ទុសរុបអតិបរមា + 5) ចែកនឹង ៥០ → <b>{Number(computeClassCoeffValue(
+                        coeffTargetLevel
+                          ? computedScores.groups.find((g) => g.levelKey === coeffTargetLevel)?.rows || scores
+                          : scores,
+                        { coefficientType: 'auto', customMaxScore: 250 }
+                      ).currentCoeff.toFixed(2))}</b>
                     </div>
                   </div>
                 </label>
@@ -2394,7 +2578,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     onChange={() => setCoeffTypeDraft('custom')} 
                   />
                   <div style={{ width: '100%' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem' }}>2. កំណត់ពិន្ទុអតិបរមាផ្ទាល់សម្រាប់ថ្នាក់/ខែនេះ</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.92rem' }}>2. កំណត់ពិន្ទុអតិបរមាផ្ទាល់សម្រាប់{coeffTargetLevel ? `វគ្គ ${coeffTargetLevel}` : 'ថ្នាក់/ខែនេះ'}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
                       មេគុណ = ពិន្ទុអតិបរមា ÷ ៥០ →{' '}
                       <b>{Number(((parseFloat(customMaxDraft) > 0 ? parseFloat(customMaxDraft) : 250) / 50).toFixed(2))}</b>
@@ -2414,7 +2598,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 </label>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.5rem' }}>
-                  <button type="button" onClick={() => setIsCoeffModalOpen(false)} style={{ padding: '0.6rem 1.1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>បោះបង់</button>
+                  <button type="button" onClick={() => { setIsCoeffModalOpen(false); setCoeffTargetLevel(null); }} style={{ padding: '0.6rem 1.1rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>បោះបង់</button>
                   <button type="submit" disabled={isSavingCoeff} style={{ padding: '0.6rem 1.25rem', background: 'var(--primary-color, #3b82f6)', color: 'white', border: 'none', borderRadius: '10px', cursor: isSavingCoeff ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
                     {isSavingCoeff ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក'}
                   </button>
@@ -2424,6 +2608,17 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           </div>,
           document.body
         )}
+      <AssignScoreLevelModal
+        isOpen={isAssignLevelOpen}
+        onClose={() => setIsAssignLevelOpen(false)}
+        classNameLabel={selectedClass?.className || selectedClass?.classCode || ''}
+        selectedMonth={selectedMonth}
+        students={assignableStudents}
+        suggestedLevels={suggestedLevelsForModal}
+        initialTargetLevel={assignInitialLevel}
+        initialSelectedScoreIds={assignInitialScoreIds}
+        onAssignLevel={handleAssignStudentsToLevel}
+      />
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {monthlyResultModal}
     </div>

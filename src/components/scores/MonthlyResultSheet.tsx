@@ -209,9 +209,11 @@ export interface MonthlyResultStudentRow {
 }
 
 export interface MonthlyResultClassPacket {
+  packetKey: string;
   classId: string;
   className: string;
   classCode: string;
+  splitLevelLabel?: string;
   shiftLabel: string;
   teacherName: string;
   courseLabel: string;
@@ -401,6 +403,8 @@ function computeRemarksFromGrade(grade: string): string {
   }
 }
 
+export const UNASSIGNED_RESULT_LEVEL = 'មិនទាន់កំណត់វគ្គ';
+
 export interface ComputePacketParams {
   classObj: any;
   allStudents: any[];
@@ -411,6 +415,7 @@ export interface ComputePacketParams {
   scoreSettings: any;
   sortMode: ResultSortMode;
   includeUnscored: boolean;
+  levelFilter?: string;
 }
 
 export function computeMonthlyResultPacket({
@@ -423,43 +428,11 @@ export function computeMonthlyResultPacket({
   scoreSettings,
   sortMode,
   includeUnscored,
+  levelFilter,
 }: ComputePacketParams): MonthlyResultClassPacket {
   const classId = cleanStr(classObj?.id);
   const className = cleanStr(classObj?.className || classObj?.classCode);
   const classCode = cleanStr(classObj?.classCode || classObj?.className);
-
-  // Coeff resolution matching scores/page.tsx (including (maxTotalScore + 5) / 50 in auto mode!)
-  const savedCoeffCfg = classId ? monthCoeffMap?.[classId] : null;
-  const hasSavedMonthCoeff =
-    savedCoeffCfg && (savedCoeffCfg.coefficientType === 'custom' || savedCoeffCfg.coefficientType === 'auto');
-  const coeffType = hasSavedMonthCoeff
-    ? savedCoeffCfg.coefficientType
-    : scoreSettings?.coefficientType === 'custom'
-      ? 'custom'
-      : 'auto';
-  const customMaxScore = hasSavedMonthCoeff
-    ? Number(savedCoeffCfg.customMaxScore) > 0
-      ? Number(savedCoeffCfg.customMaxScore)
-      : 250
-    : Number(scoreSettings?.customMaxScore) > 0
-      ? Number(scoreSettings.customMaxScore)
-      : 250;
-
-  let currentCoeff = 1;
-  let maxTotalScore = 50;
-  if (coeffType === 'custom') {
-    const c = customMaxScore / 50;
-    currentCoeff = c > 0 ? c : 1;
-    maxTotalScore = customMaxScore;
-  } else {
-    const validTotals = classScoreRows
-      .map((s) => parseFloat(s?.totalScore))
-      .filter((n) => !isNaN(n) && isFinite(n));
-    maxTotalScore = validTotals.length > 0 ? Math.max(...validTotals) : 0;
-    if (maxTotalScore <= 0) maxTotalScore = 50;
-    const c = (maxTotalScore + 5) / 50;
-    currentCoeff = c > 0 ? c : 1;
-  }
 
   // Merge active class students + any score rows for this class
   const studentByKey = new Map<string, any>();
@@ -486,7 +459,7 @@ export function computeMonthlyResultPacket({
   const looksLikeFirestoreDocId = (val: string) => /^[A-Za-z0-9]{18,}$/.test(val);
 
   const seenStudentIdentity = new Set<string>();
-  const rawEntries: {
+  const allRawEntries: {
     rowKey: string;
     student: any | null;
     scoreRow: any | null;
@@ -532,14 +505,17 @@ export function computeMonthlyResultPacket({
       cleanStr(sr.fullName) ||
       cleanStr(sr.studentName);
 
-    rawEntries.push({
+    // Prioritize temporary per-month score-row level override over master student level
+    const resolvedLevel = cleanStr(sr.level) || cleanStr(matchedStudent?.level);
+
+    allRawEntries.push({
       rowKey: cleanStr(sr.id) || identity,
       student: matchedStudent,
       scoreRow: sr,
       studentId: resolvedStudentCode,
       fullName: resolvedFullName,
       gender: cleanStr(matchedStudent?.gender || sr.gender),
-      level: cleanStr(matchedStudent?.level || sr.level),
+      level: resolvedLevel,
     });
   });
 
@@ -565,16 +541,61 @@ export function computeMonthlyResultPacket({
         (stDocId && scoreByStudentKey.get(`id:${stDocId}`)) ||
         (stCode && scoreByStudentKey.get(`sid:${stCode}`)) ||
         null;
-      rawEntries.push({
+      allRawEntries.push({
         rowKey: stDocId || stCode,
         student: st,
         scoreRow: sr,
         studentId: stCode,
         fullName: cleanStr(st.fullName),
         gender: cleanStr(st.gender),
-        level: cleanStr(st.level),
+        level: cleanStr(sr?.level) || cleanStr(st.level),
       });
     });
+  }
+
+  // Optional level filter for split-by-level calculation
+  const rawEntries =
+    levelFilter !== undefined
+      ? allRawEntries.filter((entry) => (entry.level || UNASSIGNED_RESULT_LEVEL) === levelFilter)
+      : allRawEntries;
+
+  // Coeff resolution matching scores/page.tsx (supports per-level coeff when split-by-level is active!)
+  const savedClassCfg = classId ? monthCoeffMap?.[classId] : null;
+  const savedLevelCfg =
+    levelFilter !== undefined ? savedClassCfg?.levelCoefficients?.[levelFilter] : null;
+  const activeCfg =
+    savedLevelCfg && (savedLevelCfg.coefficientType === 'custom' || savedLevelCfg.coefficientType === 'auto')
+      ? savedLevelCfg
+      : savedClassCfg;
+  const hasSavedMonthCoeff =
+    activeCfg && (activeCfg.coefficientType === 'custom' || activeCfg.coefficientType === 'auto');
+  const coeffType = hasSavedMonthCoeff
+    ? activeCfg.coefficientType
+    : scoreSettings?.coefficientType === 'custom'
+      ? 'custom'
+      : 'auto';
+  const customMaxScore = hasSavedMonthCoeff
+    ? Number(activeCfg.customMaxScore) > 0
+      ? Number(activeCfg.customMaxScore)
+      : 250
+    : Number(scoreSettings?.customMaxScore) > 0
+      ? Number(scoreSettings.customMaxScore)
+      : 250;
+
+  let currentCoeff = 1;
+  let maxTotalScore = 50;
+  if (coeffType === 'custom') {
+    const c = customMaxScore / 50;
+    currentCoeff = c > 0 ? c : 1;
+    maxTotalScore = customMaxScore;
+  } else {
+    const validTotals = rawEntries
+      .map((entry) => parseFloat(entry.scoreRow?.totalScore))
+      .filter((n) => !isNaN(n) && isFinite(n));
+    maxTotalScore = validTotals.length > 0 ? Math.max(...validTotals) : 0;
+    if (maxTotalScore <= 0) maxTotalScore = 50;
+    const c = (maxTotalScore + 5) / 50;
+    currentCoeff = c > 0 ? c : 1;
   }
 
   const gradeA = Number(scoreSettings?.gradeA) || 90;
@@ -756,9 +777,11 @@ export function computeMonthlyResultPacket({
   const failRate = scoredCount > 0 ? ((failCount / scoredCount) * 100).toFixed(2) : '0.00';
 
   return {
+    packetKey: levelFilter ? `${classId}__${levelFilter}` : `${classId}__ALL`,
     classId,
     className,
     classCode,
+    splitLevelLabel: levelFilter,
     shiftLabel: shiftLabel || 'ពេញម៉ោង',
     teacherName,
     courseLabel,
@@ -774,6 +797,45 @@ export function computeMonthlyResultPacket({
     passRate,
     failRate,
   };
+}
+
+/**
+ * Produces either 1 packet for the whole class or 1 independent packet per level
+ * when split-by-level is active for this class (or explicitly forced in the print modal).
+ */
+export function computeMonthlyResultPacketsForClass(
+  params: Omit<ComputePacketParams, 'levelFilter'>,
+  splitBehavior: 'auto' | 'always' | 'never' = 'auto'
+): MonthlyResultClassPacket[] {
+  const classId = cleanStr(params.classObj?.id);
+  const classHasSplitEnabled = Boolean(params.monthCoeffMap?.[classId]?.splitByLevel);
+  const shouldSplit =
+    splitBehavior === 'always' || (splitBehavior === 'auto' && classHasSplitEnabled);
+
+  if (!shouldSplit) {
+    return [computeMonthlyResultPacket(params)];
+  }
+
+  // Probe the class once to discover distinct effective levels (including score-row overrides)
+  const fullPacket = computeMonthlyResultPacket(params);
+  const distinctLevels = Array.from(
+    new Set(fullPacket.rows.map((r) => r.level || UNASSIGNED_RESULT_LEVEL))
+  ).sort((a, b) => {
+    if (a === UNASSIGNED_RESULT_LEVEL) return 1;
+    if (b === UNASSIGNED_RESULT_LEVEL) return -1;
+    return a.localeCompare(b, 'en', { numeric: true });
+  });
+
+  if (distinctLevels.length <= 1) {
+    return [fullPacket];
+  }
+
+  return distinctLevels.map((lvl) =>
+    computeMonthlyResultPacket({
+      ...params,
+      levelFilter: lvl,
+    })
+  );
 }
 
 /**

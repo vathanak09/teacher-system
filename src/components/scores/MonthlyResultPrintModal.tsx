@@ -11,7 +11,7 @@ import MonthlyResultSheet, {
   RESULT_COLOR_THEMES,
   ResultColorTheme,
   ResultSortMode,
-  computeMonthlyResultPacket,
+  computeMonthlyResultPacketsForClass,
   formatDefaultKhmerDate,
   paginateMonthlyResultRows,
 } from './MonthlyResultSheet';
@@ -65,6 +65,7 @@ export default function MonthlyResultPrintModal({
   const classMenuRef = useRef<HTMLDivElement>(null);
 
   const [sortMode, setSortMode] = useState<ResultSortMode>('rank_asc');
+  const [splitBehavior, setSplitBehavior] = useState<'auto' | 'always' | 'never'>('auto');
   const [includeUnscored, setIncludeUnscored] = useState<boolean>(true);
   const [showStampAndSignature, setShowStampAndSignature] = useState<boolean>(true);
 
@@ -210,26 +211,29 @@ export default function MonthlyResultPrintModal({
     [themeId]
   );
 
-  // Build packets for every selected class
+  // Build packets for every selected class (splitting into separate per-level sheets when enabled)
   const classPackets: MonthlyResultClassPacket[] = useMemo(() => {
     const selectedSet = new Set(selectedClassIds);
     return sortedClasses
       .filter((c) => selectedSet.has(c.id))
-      .map((classObj) => {
+      .flatMap((classObj) => {
         const classScoreRows = allScores.filter(
           (s: any) => s?.classId === classObj.id && s?.month === selectedMonth
         );
-        return computeMonthlyResultPacket({
-          classObj,
-          allStudents,
-          allTeachers,
-          allClasses: classes,
-          classScoreRows,
-          monthCoeffMap,
-          scoreSettings,
-          sortMode,
-          includeUnscored,
-        });
+        return computeMonthlyResultPacketsForClass(
+          {
+            classObj,
+            allStudents,
+            allTeachers,
+            allClasses: classes,
+            classScoreRows,
+            monthCoeffMap,
+            scoreSettings,
+            sortMode,
+            includeUnscored,
+          },
+          splitBehavior
+        );
       });
   }, [
     sortedClasses,
@@ -243,9 +247,10 @@ export default function MonthlyResultPrintModal({
     scoreSettings,
     sortMode,
     includeUnscored,
+    splitBehavior,
   ]);
 
-  // Slice packets into exact A4 Portrait pages (1 sheet per class for <= 36 students, clean split above)
+  // Slice packets into exact A4 Portrait pages
   const renderedPages = useMemo(() => {
     const pages: {
       key: string;
@@ -260,13 +265,14 @@ export default function MonthlyResultPrintModal({
 
     classPackets.forEach((packet) => {
       const slices = paginateMonthlyResultRows(packet.rows);
+      const levelSuffix = packet.splitLevelLabel ? ` • វគ្គ ${packet.splitLevelLabel}` : '';
       slices.forEach((sl) => {
         pages.push({
-          key: `${packet.classId}-p${sl.pageIndex}`,
+          key: `${packet.packetKey}-p${sl.pageIndex}`,
           label:
             sl.totalPagesForClass > 1
-              ? `ថ្នាក់ ${packet.classCode || packet.className} (${packet.rows.length} សិស្ស • ទំព័រ ${sl.pageIndex + 1}/${sl.totalPagesForClass})`
-              : `ថ្នាក់ ${packet.classCode || packet.className} (${packet.rows.length} សិស្ស)`,
+              ? `ថ្នាក់ ${packet.classCode || packet.className}${levelSuffix} (${packet.rows.length} សិស្ស • ទំព័រ ${sl.pageIndex + 1}/${sl.totalPagesForClass})`
+              : `ថ្នាក់ ${packet.classCode || packet.className}${levelSuffix} (${packet.rows.length} សិស្ស)`,
           packet,
           rowsSlice: sl.rowsSlice,
           startIndex: sl.startIndex,
@@ -629,6 +635,28 @@ export default function MonthlyResultPrintModal({
               <option value="level_name">តម្រៀប៖ កម្រិត &amp; ឈ្មោះ</option>
               <option value="name_asc">តម្រៀប៖ ឈ្មោះ (ក→អ)</option>
               <option value="student_id">តម្រៀប៖ អត្តលេខ (ID)</option>
+            </select>
+
+            {/* Split-by-Level Print Mode */}
+            <select
+              value={splitBehavior}
+              onChange={(e) => setSplitBehavior(e.target.value as 'auto' | 'always' | 'never')}
+              style={{
+                padding: '0.41rem 0.6rem',
+                borderRadius: '8px',
+                background: splitBehavior === 'always' ? 'rgba(79, 70, 229, 0.25)' : '#1e293b',
+                border: splitBehavior === 'always' ? '1px solid #818cf8' : '1px solid rgba(148, 163, 184, 0.35)',
+                color: '#f8fafc',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+              title="របៀបបំបែកទំព័រលទ្ធផលតាមវគ្គសម្រាប់ថ្នាក់មានច្រើនវគ្គ"
+            >
+              <option value="auto">វគ្គ៖ តាមការកំណត់ថ្នាក់</option>
+              <option value="always">វគ្គ៖ បំបែកគ្រប់វគ្គដាច់ដោយឡែក</option>
+              <option value="never">វគ្គ៖ រួមជាតារាងថ្នាក់តែមួយ</option>
             </select>
 
             {/* 5 Beautiful Table Color Themes */}
