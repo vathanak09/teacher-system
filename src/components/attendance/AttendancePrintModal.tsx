@@ -7,6 +7,7 @@ import {
   KHMER_MONTH_NAMES,
 } from '@/utils/cambodiaHolidays';
 import PrintableAttendanceSheet, {
+  AUTO_COMBINED_MAX_STUDENTS,
   AttendancePrintLayoutMode,
   PrintableClassPacket,
   getAttendanceSheetSpec,
@@ -97,13 +98,14 @@ export default function AttendancePrintModal({
 
   const [month, setMonth] = useState<number>(initialMonth);
   const [year, setYear] = useState<number>(initialYear);
-  const [layoutMode, setLayoutMode] = useState<AttendancePrintLayoutMode>('split_a4_portrait');
+  const [layoutMode, setLayoutMode] = useState<AttendancePrintLayoutMode>('auto_a4_portrait');
   const [sortMode, setSortMode] = useState<StudentSortMode>('level_name');
   const [showPart1, setShowPart1] = useState<boolean>(true);
   const [showPart2, setShowPart2] = useState<boolean>(true);
   const [highlightWeekends, setHighlightWeekends] = useState<boolean>(true);
   const [highlightHolidays, setHighlightHolidays] = useState<boolean>(true);
   const [zebraRows, setZebraRows] = useState<boolean>(true);
+  const [fillPageWithBlankRows, setFillPageWithBlankRows] = useState<boolean>(true);
   const [extraHolidayInput, setExtraHolidayInput] = useState<string>('');
   const [extraBlankRows, setExtraBlankRows] = useState<number>(2);
   const [previewScale, setPreviewScale] = useState<number>(1);
@@ -209,10 +211,17 @@ export default function AttendancePrintModal({
         packet.classObj?.classCode || packet.classObj?.className || 'Class'
       ).trim();
 
-      if (layoutMode === 'combined_a4_portrait' && showPart1 && showPart2) {
+      const shouldCombine =
+        showPart1 &&
+        showPart2 &&
+        (layoutMode === 'combined_a4_portrait' ||
+          (layoutMode === 'auto_a4_portrait' &&
+            packet.students.length <= AUTO_COMBINED_MAX_STUDENTS));
+
+      if (shouldCombine) {
         list.push({
           key: `${packet.classObj.id}-combined`,
-          label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • ផ្នែកទី១ វត្តមាន + ផ្នែកទី២ ពិន្ទុ)`,
+          label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • រួមគ្នា ១ ទំព័រ៖ វត្តមាន + ពិន្ទុ)`,
           packet,
           renderPart: 'combined',
         });
@@ -220,7 +229,7 @@ export default function AttendancePrintModal({
         if (showPart1) {
           list.push({
             key: `${packet.classObj.id}-p1`,
-            label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • ផ្នែកទី១ បញ្ជីវត្តមាន)`,
+            label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • ទំព័រទី១៖ បញ្ជីវត្តមាន)`,
             packet,
             renderPart: 'part1_only',
           });
@@ -228,7 +237,7 @@ export default function AttendancePrintModal({
         if (showPart2) {
           list.push({
             key: `${packet.classObj.id}-p2`,
-            label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • ផ្នែកទី២ បញ្ជីពិន្ទុ)`,
+            label: `ថ្នាក់ ${roomCode} (${packet.students.length} នាក់ • ទំព័រទី២៖ បញ្ជីពិន្ទុ)`,
             packet,
             renderPart: 'part2_only',
           });
@@ -650,8 +659,11 @@ export default function AttendancePrintModal({
               fontWeight: 700,
             }}
           >
-            <option value="split_a4_portrait">A4 បញ្ឈរ (ញែកទំព័រ៖ ទី១ វត្តមាន / ទី២ ពិន្ទុ)</option>
-            <option value="combined_a4_portrait">A4 បញ្ឈរ (រួម Part 1 + Part 2 ក្នុង ១ ទំព័រ)</option>
+            <option value="auto_a4_portrait">
+              A4 បញ្ឈរ (ស្វ័យប្រវត្តិ៖ ≤{AUTO_COMBINED_MAX_STUDENTS}នាក់ រួម ១ ទំព័រ / &gt;{AUTO_COMBINED_MAX_STUDENTS}នាក់ ញែក ២ ទំព័រ)
+            </option>
+            <option value="combined_a4_portrait">A4 បញ្ឈរ (បង្ខំរួម Part 1 + Part 2 ក្នុង ១ ទំព័រ)</option>
+            <option value="split_a4_portrait">A4 បញ្ឈរ (ញែក ២ ទំព័រ៖ ទី១ វត្តមាន / ទី២ ពិន្ទុ)</option>
             <option value="split_a4_landscape">A4 ផ្ដេក (ធំទូលាយ៖ ទី១ វត្តមាន / ទី២ ពិន្ទុ)</option>
           </select>
 
@@ -777,7 +789,26 @@ export default function AttendancePrintModal({
               checked={zebraRows}
               onChange={(e) => setZebraRows(e.target.checked)}
             />
-            <span>ឆ្នូតជួរដេក (ស/ប្រផេះស្រទន់)</span>
+            <span>ឆ្នូតជួរដេក</span>
+          </label>
+
+          <label
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.32rem',
+              color: '#93c5fd',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={fillPageWithBlankRows}
+              onChange={(e) => setFillPageWithBlankRows(e.target.checked)}
+              style={{ accentColor: '#3b82f6' }}
+            />
+            <span>បំពេញជួរទទេពេញទំព័រ</span>
           </label>
 
           <div
@@ -788,7 +819,7 @@ export default function AttendancePrintModal({
               color: '#cbd5e1',
             }}
           >
-            <span>ជួរទទេបន្ថែម:</span>
+            <span>ជួរទទេអប្បបរមា:</span>
             <input
               type="number"
               min={0}
@@ -924,6 +955,7 @@ export default function AttendancePrintModal({
                     highlightWeekends={highlightWeekends}
                     highlightHolidays={highlightHolidays}
                     zebraRows={zebraRows}
+                    fillPageWithBlankRows={fillPageWithBlankRows}
                     extraHolidayDays={extraHolidayDays}
                     extraBlankRows={extraBlankRows}
                   />
