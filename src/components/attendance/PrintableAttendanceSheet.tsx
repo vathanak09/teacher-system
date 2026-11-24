@@ -1,0 +1,1194 @@
+"use client";
+
+import React from 'react';
+import {
+  AttendanceCalendarDay,
+  ENGLISH_MONTH_NAMES,
+  KHMER_MONTH_NAMES,
+  computeClassLevelCounts,
+  extractEnrollDayNumber,
+  getMonthCalendarDays,
+} from '@/utils/cambodiaHolidays';
+
+export type AttendancePrintLayoutMode =
+  | 'split_a4_portrait'
+  | 'combined_a4_portrait'
+  | 'split_a4_landscape';
+
+export interface PrintableClassPacket {
+  classObj: any;
+  students: any[];
+  classIndex: number;
+}
+
+export interface PrintableAttendanceSheetProps {
+  packet: PrintableClassPacket;
+  month: number; // 1..12
+  year: number;
+  layoutMode: AttendancePrintLayoutMode;
+  renderPart?: 'combined' | 'part1_only' | 'part2_only';
+  showPart1: boolean;
+  showPart2: boolean;
+  highlightWeekends: boolean;
+  highlightHolidays: boolean;
+  extraHolidayDays: number[];
+  extraBlankRows: number;
+}
+
+const WEEKEND_HEADER_BG = '#6aa84f';
+const WEEKEND_CELL_BG = '#c5e0b4';
+const HOLIDAY_HEADER_BG = '#ea9999';
+const HOLIDAY_CELL_BG = '#f4cccc';
+const DAY_ORANGE_BG = '#e69138';
+const MONTH_SAGE_BG = '#d9ead3';
+const SCORE_PEACH_BG = '#f9cb9c';
+
+function groupHolidayLegend(days: AttendanceCalendarDay[]): string[] {
+  const holidays = days.filter((d) => d.isHoliday && d.holidayName);
+  if (holidays.length === 0) return [];
+
+  const grouped: { start: number; end: number; name: string }[] = [];
+  holidays.forEach((h) => {
+    const last = grouped[grouped.length - 1];
+    if (last && last.name === h.holidayName && h.day === last.end + 1) {
+      last.end = h.day;
+    } else {
+      grouped.push({ start: h.day, end: h.day, name: h.holidayName || '' });
+    }
+  });
+
+  return grouped.map((g) =>
+    g.start === g.end
+      ? `ថ្ងៃទី ${g.start} (${g.name})`
+      : `ថ្ងៃទី ${g.start}-${g.end} (${g.name})`
+  );
+}
+
+function getDayHeaderBg(
+  d: AttendanceCalendarDay,
+  highlightWeekends: boolean,
+  highlightHolidays: boolean
+): string {
+  if (highlightHolidays && d.isHoliday) return HOLIDAY_HEADER_BG;
+  if (highlightWeekends && d.isWeekend) return WEEKEND_HEADER_BG;
+  return '#ffffff';
+}
+
+function getDayCellBg(
+  d: AttendanceCalendarDay,
+  highlightWeekends: boolean,
+  highlightHolidays: boolean
+): string {
+  if (highlightHolidays && d.isHoliday) return HOLIDAY_CELL_BG;
+  if (highlightWeekends && d.isWeekend) return WEEKEND_CELL_BG;
+  return '#ffffff';
+}
+
+export function getAttendanceSheetSpec(layoutMode: AttendancePrintLayoutMode) {
+  const isLandscape = layoutMode === 'split_a4_landscape';
+  return {
+    isLandscape,
+    sheetW: isLandscape ? '296.6mm' : '210mm',
+    sheetH: isLandscape ? '209.6mm' : '296.6mm',
+    sheetWPx: isLandscape ? 1121 : 793.7,
+    sheetHPx: isLandscape ? 792 : 1121,
+    pageCss: isLandscape
+      ? '@page { size: A4 landscape; margin: 0; }'
+      : '@page { size: A4 portrait; margin: 0; }',
+  };
+}
+
+export default function PrintableAttendanceSheet({
+  packet,
+  month,
+  year,
+  layoutMode,
+  renderPart,
+  showPart1,
+  showPart2,
+  highlightWeekends,
+  highlightHolidays,
+  extraHolidayDays,
+  extraBlankRows,
+}: PrintableAttendanceSheetProps) {
+  const { classObj, students, classIndex } = packet;
+  const spec = getAttendanceSheetSpec(layoutMode);
+  const isLandscape = spec.isLandscape;
+  const effectiveRenderPart =
+    renderPart ||
+    (layoutMode === 'combined_a4_portrait' && showPart1 && showPart2
+      ? 'combined'
+      : showPart1
+        ? 'part1_only'
+        : 'part2_only');
+  const isCombined = effectiveRenderPart === 'combined';
+
+  const calendarDays = getMonthCalendarDays(year, month, extraHolidayDays);
+  const monthNameEn = ENGLISH_MONTH_NAMES[month - 1] || '';
+  const monthNameKh = KHMER_MONTH_NAMES[month - 1] || '';
+  const roomCode = String(classObj?.classCode || classObj?.className || '').trim() || '-';
+  const className = String(classObj?.className || '').trim();
+  const shiftLabel = String(classObj?.shift || '').trim();
+  const teacherName = String(classObj?.teacherName || '').trim();
+
+  const totalStudents = students.length;
+  const femaleCount = students.filter((s) => s?.gender === 'ស្រី').length;
+  const levelCounts = computeClassLevelCounts(students);
+  const holidayLegendItems = highlightHolidays ? groupHolidayLegend(calendarDays) : [];
+
+  const blankCount = Math.max(0, Math.min(15, Number(extraBlankRows || 0)));
+  const totalRowSlots = totalStudents + blankCount;
+  const rowSlots: (any | null)[] = [
+    ...students,
+    ...Array.from({ length: blankCount }, () => null),
+  ];
+
+  // Dynamic row height so every sheet fits cleanly inside 1 A4 page without clipping/overflow
+  const computeRowHeightMm = (singleTableOnPage: boolean): number => {
+    const availHeightMm = isLandscape
+      ? 162
+      : singleTableOnPage
+        ? 246
+        : 112;
+    const raw = availHeightMm / Math.max(1, totalRowSlots);
+    const maxCap = singleTableOnPage ? (isLandscape ? 6.4 : 6.8) : 5.4;
+    const minFloor = 3.8;
+    return Number(Math.max(minFloor, Math.min(maxCap, raw)).toFixed(2));
+  };
+
+  const part1RowH = computeRowHeightMm(!isCombined);
+  const part2RowH = computeRowHeightMm(!isCombined);
+
+  const cellFontPt = isLandscape
+    ? part1RowH >= 5.6
+      ? '8pt'
+      : '7.2pt'
+    : part1RowH >= 5.2
+      ? '7.4pt'
+      : part1RowH >= 4.4
+        ? '6.8pt'
+        : '6.2pt';
+
+  const nameFontPt = isLandscape
+    ? part1RowH >= 5.6
+      ? '8.8pt'
+      : '8pt'
+    : part1RowH >= 5.2
+      ? '8.2pt'
+      : part1RowH >= 4.4
+        ? '7.5pt'
+        : '6.8pt';
+
+  // Exact column widths for Part 1 (Portrait = 200mm, Landscape = 285mm)
+  const p1Cols = isLandscape
+    ? {
+        no: '6.2mm',
+        shift: '7.5mm',
+        level: '8.5mm',
+        id: '14mm',
+        name: '39mm',
+        gender: '8mm',
+        enroll: '7mm',
+        totalPX: '7.4mm',
+      }
+    : {
+        no: '5mm',
+        shift: '5.8mm',
+        level: '6.8mm',
+        id: '11.4mm',
+        name: '26.5mm',
+        gender: '6.2mm',
+        enroll: '5.5mm',
+        totalPX: '5.8mm',
+      };
+
+  const renderHeaderBanner = (subtitleLabel?: string) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '2.5mm',
+        marginBottom: '1.4mm',
+        color: '#000000',
+      }}
+    >
+      {/* Far Left: Logo + School Name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2mm', flexShrink: 0 }}>
+        <img
+          src="/logo.png"
+          alt="BSIS"
+          style={{
+            width: isLandscape ? '14.5mm' : '13mm',
+            height: isLandscape ? '14.5mm' : '13mm',
+            objectFit: 'contain',
+            display: 'block',
+          }}
+        />
+        <div
+          style={{
+            fontFamily: "'Inter', 'Kantumruy Pro', sans-serif",
+            fontWeight: 900,
+            fontSize: isLandscape ? '8.6pt' : '7.4pt',
+            lineHeight: 1.15,
+            color: '#000000',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div>BRAINSTORM</div>
+          <div>INTERNATIONAL</div>
+          <div>SCHOOL</div>
+        </div>
+      </div>
+
+      {/* Room Code + Per-Level Counts (K0: 27, K1: 13...) */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '3mm',
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+          <div
+            style={{
+              fontSize: isLandscape ? '12.5pt' : '11pt',
+              fontWeight: 900,
+              color: '#000000',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {roomCode}
+          </div>
+          {className && className !== roomCode && (
+            <div style={{ fontSize: '6.8pt', color: '#000000', whiteSpace: 'nowrap' }}>
+              {className}
+            </div>
+          )}
+        </div>
+
+        {/* Exact vertical level-count breakdown matching reference image */}
+        {levelCounts.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: '1.2mm',
+              borderLeft: '0.6pt solid #000000',
+              paddingLeft: '2mm',
+            }}
+          >
+            {levelCounts.map((lc) => (
+              <div
+                key={lc.level}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  minWidth: '4.6mm',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: isLandscape ? '8pt' : '7.2pt',
+                    fontWeight: 800,
+                    color: '#000000',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {lc.count}
+                </span>
+                <span
+                  style={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                    fontSize: isLandscape ? '7.8pt' : '7pt',
+                    fontWeight: 800,
+                    color: '#000000',
+                    lineHeight: 1.05,
+                    maxHeight: '10mm',
+                    overflow: 'hidden',
+                    marginTop: '0.5mm',
+                  }}
+                >
+                  {lc.level}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Center Official Title */}
+      <div style={{ textAlign: 'center', flex: 1, minWidth: 0, lineHeight: 1.12 }}>
+        <div
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 900,
+            fontSize: isLandscape ? '13.5pt' : '12pt',
+            color: '#000000',
+            letterSpacing: '0.02em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {subtitleLabel ? 'Score List' : 'Attendance List'}
+        </div>
+        <div
+          style={{
+            fontFamily: "'Moul', 'Kantumruy Pro', serif",
+            fontWeight: 400,
+            fontSize: isLandscape ? '12.5pt' : '11.2pt',
+            color: '#000000',
+            whiteSpace: 'nowrap',
+            marginTop: '0.3mm',
+          }}
+        >
+          {subtitleLabel || 'បញ្ជីវត្តមាន'}
+        </div>
+      </div>
+
+      {/* Shift & Teacher Info */}
+      <div
+        style={{
+          textAlign: 'center',
+          flexShrink: 0,
+          lineHeight: 1.2,
+          padding: '0 1.5mm',
+        }}
+      >
+        <div
+          style={{
+            fontSize: isLandscape ? '9.5pt' : '8.5pt',
+            fontWeight: 800,
+            color: '#000000',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {shiftLabel || 'Fulltime'}
+        </div>
+        {teacherName && (
+          <div
+            style={{
+              fontSize: isLandscape ? '7.8pt' : '7pt',
+              fontWeight: 600,
+              color: '#000000',
+              whiteSpace: 'nowrap',
+              marginTop: '0.4mm',
+            }}
+          >
+            គ្រូ៖ {teacherName}
+          </div>
+        )}
+      </div>
+
+      {/* Right Month Highlight Box */}
+      <div
+        style={{
+          background: MONTH_SAGE_BG,
+          border: '0.75pt solid #000000',
+          padding: isLandscape ? '2.2mm 5mm' : '1.8mm 3.6mm',
+          textAlign: 'center',
+          flexShrink: 0,
+          minWidth: isLandscape ? '34mm' : '27mm',
+          lineHeight: 1.15,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: isLandscape ? '11.5pt' : '10.2pt',
+            fontWeight: 900,
+            color: '#000000',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {monthNameEn}
+        </div>
+        <div
+          style={{
+            fontSize: isLandscape ? '7.6pt' : '6.8pt',
+            fontWeight: 700,
+            color: '#000000',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {monthNameKh} {year}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPart1Table = () => (
+    <div>
+      <table
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          tableLayout: 'fixed',
+          border: '1.1pt solid #000000',
+          color: '#000000',
+          fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
+        }}
+      >
+        <colgroup>
+          <col style={{ width: p1Cols.no }} />
+          <col style={{ width: p1Cols.shift }} />
+          <col style={{ width: p1Cols.level }} />
+          <col style={{ width: p1Cols.id }} />
+          <col style={{ width: p1Cols.name }} />
+          <col style={{ width: p1Cols.gender }} />
+          <col style={{ width: p1Cols.enroll }} />
+          {calendarDays.map((d) => (
+            <col key={`p1-col-${d.day}`} />
+          ))}
+          <col style={{ width: p1Cols.totalPX }} />
+          <col style={{ width: p1Cols.totalPX }} />
+        </colgroup>
+
+        <thead>
+          {/* Header Row 1: Class No | Total:Total/Female | Orange Day | Sun..Mon | Total */}
+          <tr style={{ height: isLandscape ? '8.5mm' : '7.4mm' }}>
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: '7.5pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: 0,
+              }}
+            >
+              {classIndex + 1}
+            </th>
+            <th
+              colSpan={5}
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: isLandscape ? '8.8pt' : '7.8pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: '0 1mm',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Total:{totalStudents}/{femaleCount}
+            </th>
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                background: DAY_ORANGE_BG,
+                padding: 0,
+                textAlign: 'center',
+                verticalAlign: 'middle',
+              }}
+            >
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '7.4pt',
+                  fontWeight: 800,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                Day
+              </div>
+            </th>
+            {calendarDays.map((d) => (
+              <th
+                key={`wd-${d.day}`}
+                style={{
+                  border: '0.55pt solid #000000',
+                  background: getDayHeaderBg(d, highlightWeekends, highlightHolidays),
+                  padding: 0,
+                  textAlign: 'center',
+                  verticalAlign: 'middle',
+                }}
+                title={d.holidayName || d.weekdayShort}
+              >
+                <div
+                  style={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                    fontSize: isLandscape ? '7.2pt' : '6.3pt',
+                    fontWeight: d.isWeekend || d.isHoliday ? 800 : 600,
+                    margin: '0 auto',
+                    lineHeight: 1,
+                    color: '#000000',
+                  }}
+                >
+                  {d.weekdayShort}
+                </div>
+              </th>
+            ))}
+            <th
+              colSpan={2}
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: isLandscape ? '8pt' : '7.2pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: 0,
+              }}
+            >
+              Total
+            </th>
+          </tr>
+
+          {/* Header Row 2: ល.រ | Shift | Level | ID | RoomCode | ភេទ | ថ្ងៃចូល | 1..31 | P | X */}
+          <tr style={{ height: isLandscape ? '8.5mm' : '7.5mm' }}>
+            <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '6.8pt',
+                  fontWeight: 800,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                ល.រ
+              </div>
+            </th>
+            <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '6.8pt',
+                  fontWeight: 700,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                Shift
+              </div>
+            </th>
+            <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '6.8pt',
+                  fontWeight: 700,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                Level
+              </div>
+            </th>
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: '7.4pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: 0,
+              }}
+            >
+              ID
+            </th>
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: isLandscape ? '10.2pt' : '9.2pt',
+                fontWeight: 900,
+                textAlign: 'center',
+                padding: '0 1mm',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {roomCode}
+            </th>
+            <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '6.8pt',
+                  fontWeight: 800,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                ភេទ
+              </div>
+            </th>
+            <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
+              <div
+                style={{
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  fontSize: '6.6pt',
+                  fontWeight: 800,
+                  margin: '0 auto',
+                  lineHeight: 1,
+                }}
+              >
+                ថ្ងៃចូល
+              </div>
+            </th>
+            {calendarDays.map((d) => (
+              <th
+                key={`dn-${d.day}`}
+                style={{
+                  border: '0.55pt solid #000000',
+                  background: getDayCellBg(d, highlightWeekends, highlightHolidays),
+                  padding: 0,
+                  textAlign: 'center',
+                  verticalAlign: 'middle',
+                }}
+              >
+                <div
+                  style={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                    fontSize: isLandscape ? '7.2pt' : '6.3pt',
+                    fontWeight: 800,
+                    margin: '0 auto',
+                    lineHeight: 1,
+                    color: '#000000',
+                  }}
+                >
+                  {d.day}
+                </div>
+              </th>
+            ))}
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: '7.5pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: 0,
+              }}
+            >
+              P
+            </th>
+            <th
+              style={{
+                border: '0.6pt solid #000000',
+                fontSize: '7.5pt',
+                fontWeight: 800,
+                textAlign: 'center',
+                padding: 0,
+              }}
+            >
+              X
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rowSlots.map((st, idx) => (
+            <tr key={`att-row-${idx}`} style={{ height: `${part1RowH}mm` }}>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: cellFontPt,
+                  fontWeight: 600,
+                  padding: 0,
+                }}
+              >
+                {idx + 1}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: cellFontPt,
+                  padding: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+              >
+                {st?.shift || ''}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: cellFontPt,
+                  padding: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+              >
+                {st?.level || ''}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: isLandscape ? '7.4pt' : '6.4pt',
+                  padding: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+              >
+                {st?.studentId || ''}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'left',
+                  fontSize: nameFontPt,
+                  fontWeight: 600,
+                  padding: '0 1mm',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {st?.fullName || ''}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: cellFontPt,
+                  padding: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {st?.gender || ''}
+              </td>
+              <td
+                style={{
+                  border: '0.5pt solid #000000',
+                  textAlign: 'center',
+                  fontSize: cellFontPt,
+                  padding: 0,
+                }}
+              >
+                {st ? extractEnrollDayNumber(st.enrollDate) : ''}
+              </td>
+              {calendarDays.map((d) => (
+                <td
+                  key={`c-${idx}-${d.day}`}
+                  style={{
+                    border: '0.5pt solid #000000',
+                    background: getDayCellBg(d, highlightWeekends, highlightHolidays),
+                    padding: 0,
+                  }}
+                />
+              ))}
+              <td style={{ border: '0.5pt solid #000000', padding: 0 }} />
+              <td style={{ border: '0.5pt solid #000000', padding: 0 }} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Legend Strip: Weekend + Cambodia Public Holidays for this Month */}
+      <div
+        style={{
+          marginTop: '1mm',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '2.5mm',
+          fontSize: isLandscape ? '7.2pt' : '6.4pt',
+          color: '#000000',
+          lineHeight: 1.3,
+        }}
+      >
+        {highlightWeekends && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '1mm', whiteSpace: 'nowrap' }}>
+            <span
+              style={{
+                width: '3mm',
+                height: '2.5mm',
+                background: WEEKEND_HEADER_BG,
+                border: '0.4pt solid #000000',
+                display: 'inline-block',
+              }}
+            />
+            <span>សៅរ៍-អាទិត្យ (Sat-Sun)</span>
+          </span>
+        )}
+        {highlightHolidays && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '1mm' }}>
+            <span
+              style={{
+                width: '3mm',
+                height: '2.5mm',
+                background: HOLIDAY_HEADER_BG,
+                border: '0.4pt solid #000000',
+                display: 'inline-block',
+                flexShrink: 0,
+              }}
+            />
+            <span>
+              ថ្ងៃបុណ្យជាតិកម្ពុជា៖{' '}
+              {holidayLegendItems.length > 0
+                ? holidayLegendItems.join(' • ')
+                : 'គ្មានថ្ងៃបុណ្យជាតិក្នុងខែនេះ'}
+            </span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPart2ScoreTable = () => {
+    // Score sub-column counts matching screenshot identically:
+    // 2 narrow blank cols + 1 Attendance + 5 Homework & Exercise + 6 Quizzes/Dictation/Speaking + 3 Test + 1 Total
+    const blankSubCols = [0, 1];
+    const hwCols = [0, 1, 2, 3, 4];
+    const quizCols = [0, 1, 2, 3, 4, 5];
+    const testCols = [0, 1, 2];
+
+    const thickDivider = '1.1pt solid #000000';
+    const thinCell = '0.5pt solid #000000';
+
+    return (
+      <div>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            tableLayout: 'fixed',
+            border: '1.1pt solid #000000',
+            color: '#000000',
+            fontFamily: "'Kantumruy Pro', 'Battambang', sans-serif",
+          }}
+        >
+          <colgroup>
+            <col style={{ width: p1Cols.no }} />
+            <col style={{ width: p1Cols.shift }} />
+            <col style={{ width: p1Cols.level }} />
+            <col style={{ width: p1Cols.id }} />
+            <col style={{ width: p1Cols.name }} />
+            <col style={{ width: p1Cols.gender }} />
+            <col style={{ width: p1Cols.enroll }} />
+            {/* 2 narrow spacer columns */}
+            <col style={{ width: isLandscape ? '6.5mm' : '4.5mm' }} />
+            <col style={{ width: isLandscape ? '6.5mm' : '4.5mm' }} />
+            {/* Attendance (1 col) */}
+            <col style={{ width: isLandscape ? '18mm' : '14.5mm' }} />
+            {/* Homework & Exercise (5 cols) */}
+            {hwCols.map((i) => (
+              <col key={`hw-c-${i}`} />
+            ))}
+            {/* Quizzes, Dictation, Speaking (6 cols) */}
+            {quizCols.map((i) => (
+              <col key={`qz-c-${i}`} />
+            ))}
+            {/* Test (3 cols) */}
+            {testCols.map((i) => (
+              <col key={`ts-c-${i}`} />
+            ))}
+            {/* Total (1 wide col) */}
+            <col style={{ width: isLandscape ? '24mm' : '18mm' }} />
+          </colgroup>
+
+          <thead>
+            <tr style={{ height: isLandscape ? '8.2mm' : '7.4mm' }}>
+              <th
+                colSpan={6}
+                style={{
+                  border: '0.6pt solid #000000',
+                  background: SCORE_PEACH_BG,
+                  fontSize: isLandscape ? '10.5pt' : '9.2pt',
+                  fontWeight: 900,
+                  textAlign: 'center',
+                  padding: '0 1.2mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                SCORE LIST{' '}
+                <span style={{ fontFamily: "'Moul', 'Kantumruy Pro', serif", fontWeight: 400 }}>
+                  បញ្ជីពិន្ទុ
+                </span>
+              </th>
+              <th
+                style={{
+                  border: '0.6pt solid #000000',
+                  background: SCORE_PEACH_BG,
+                  padding: 0,
+                }}
+              />
+              <th style={{ border: '0.6pt solid #000000', padding: 0 }} />
+              <th
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderRight: thickDivider,
+                  padding: 0,
+                }}
+              />
+              <th
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderLeft: thickDivider,
+                  borderRight: thickDivider,
+                  fontSize: isLandscape ? '8.5pt' : '7.4pt',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  padding: '0 0.5mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Attendance
+              </th>
+              <th
+                colSpan={hwCols.length}
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderLeft: thickDivider,
+                  borderRight: thickDivider,
+                  fontSize: isLandscape ? '8.5pt' : '7.3pt',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  padding: '0 0.5mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Homework &amp; Exercise
+              </th>
+              <th
+                colSpan={quizCols.length}
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderLeft: thickDivider,
+                  borderRight: thickDivider,
+                  fontSize: isLandscape ? '8.4pt' : '7pt',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  padding: '0 0.5mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Quizzes, Dictation , Speaking
+              </th>
+              <th
+                colSpan={testCols.length}
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderLeft: thickDivider,
+                  borderRight: thickDivider,
+                  fontSize: isLandscape ? '8.5pt' : '7.4pt',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  padding: '0 0.5mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Test
+              </th>
+              <th
+                style={{
+                  border: '0.6pt solid #000000',
+                  borderLeft: thickDivider,
+                  fontSize: isLandscape ? '8.5pt' : '7.5pt',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                  padding: '0 0.5mm',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Total
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rowSlots.map((st, idx) => (
+              <tr key={`score-row-${idx}`} style={{ height: `${part2RowH}mm` }}>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'center',
+                    fontSize: cellFontPt,
+                    fontWeight: 600,
+                    padding: 0,
+                  }}
+                >
+                  {idx + 1}
+                </td>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'center',
+                    fontSize: cellFontPt,
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.shift || ''}
+                </td>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'center',
+                    fontSize: cellFontPt,
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.level || ''}
+                </td>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'center',
+                    fontSize: isLandscape ? '7.4pt' : '6.4pt',
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {st?.studentId || ''}
+                </td>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'left',
+                    fontSize: nameFontPt,
+                    fontWeight: 600,
+                    padding: '0 1mm',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {st?.fullName || ''}
+                </td>
+                <td
+                  style={{
+                    border: thinCell,
+                    textAlign: 'center',
+                    fontSize: cellFontPt,
+                    padding: 0,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {st?.gender || ''}
+                </td>
+                {/* Blank enroll/spacer cell matching Part 1 */}
+                <td style={{ border: thinCell, padding: 0 }} />
+                {/* 2 narrow spacer columns */}
+                {blankSubCols.map((bIdx) => (
+                  <td
+                    key={`sp-${idx}-${bIdx}`}
+                    style={{
+                      border: thinCell,
+                      borderRight: bIdx === 1 ? thickDivider : thinCell,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                {/* Attendance */}
+                <td
+                  style={{
+                    border: thinCell,
+                    borderLeft: thickDivider,
+                    borderRight: thickDivider,
+                    padding: 0,
+                  }}
+                />
+                {/* Homework & Exercise (5 cols) */}
+                {hwCols.map((hIdx) => (
+                  <td
+                    key={`hw-${idx}-${hIdx}`}
+                    style={{
+                      border: thinCell,
+                      borderLeft: hIdx === 0 ? thickDivider : thinCell,
+                      borderRight: hIdx === hwCols.length - 1 ? thickDivider : thinCell,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                {/* Quizzes, Dictation, Speaking (6 cols) */}
+                {quizCols.map((qIdx) => (
+                  <td
+                    key={`qz-${idx}-${qIdx}`}
+                    style={{
+                      border: thinCell,
+                      borderLeft: qIdx === 0 ? thickDivider : thinCell,
+                      borderRight: qIdx === quizCols.length - 1 ? thickDivider : thinCell,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                {/* Test (3 cols) */}
+                {testCols.map((tIdx) => (
+                  <td
+                    key={`ts-${idx}-${tIdx}`}
+                    style={{
+                      border: thinCell,
+                      borderLeft: tIdx === 0 ? thickDivider : thinCell,
+                      borderRight: tIdx === testCols.length - 1 ? thickDivider : thinCell,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                {/* Total */}
+                <td
+                  style={{
+                    border: thinCell,
+                    borderLeft: thickDivider,
+                    padding: 0,
+                  }}
+                />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const sheetBaseStyle: React.CSSProperties = {
+    width: spec.sheetW,
+    height: spec.sheetH,
+    boxSizing: 'border-box',
+    padding: isLandscape ? '5mm 5.5mm' : '4.5mm 4.8mm',
+    background: '#ffffff',
+    color: '#000000',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2.2mm',
+    WebkitPrintColorAdjust: 'exact',
+    printColorAdjust: 'exact',
+  };
+
+  // Mode 1: Combined Part 1 + Part 2 on ONE A4 Portrait sheet
+  if (effectiveRenderPart === 'combined') {
+    return (
+      <div className="receipt-a4-sheet" style={sheetBaseStyle}>
+        {renderHeaderBanner()}
+        {renderPart1Table()}
+        <div style={{ marginTop: '0.8mm' }}>{renderPart2ScoreTable()}</div>
+      </div>
+    );
+  }
+
+  // Mode 2: Single Part per A4 Sheet
+  if (effectiveRenderPart === 'part1_only') {
+    return (
+      <div className="receipt-a4-sheet" style={sheetBaseStyle}>
+        {renderHeaderBanner()}
+        {renderPart1Table()}
+      </div>
+    );
+  }
+
+  return (
+    <div className="receipt-a4-sheet" style={sheetBaseStyle}>
+      {renderHeaderBanner('បញ្ជីពិន្ទុ')}
+      {renderPart2ScoreTable()}
+    </div>
+  );
+}

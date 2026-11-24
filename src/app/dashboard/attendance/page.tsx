@@ -7,6 +7,7 @@ import SortDropdown from '@/components/SortDropdown';
 import { CLASS_COLORS, CLASS_ICONS } from '@/constants/classAppearance';
 import { convertDriveImageLink } from '@/utils/driveLink';
 import { AppIcon } from '@/components/AppIcons';
+import AttendancePrintModal from '@/components/attendance/AttendancePrintModal';
 
 function getClassStudentIds(cls: any): string[] {
   if (!cls) return [];
@@ -24,6 +25,7 @@ export default function AttendancePage() {
   const [students, setStudents] = useState<any[]>([]);
 
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Date selection
   const nowRef = useMemo(() => new Date(), []);
@@ -1099,51 +1101,85 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {!selectedClassId && (
-          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center', flex: '1 1 280px', justifyContent: 'flex-end' }}>
-            <input
-              type="text"
-              placeholder="ស្វែងរកឈ្មោះថ្នាក់ កូដ ឬគ្រូ..."
-              value={classSearchFilterInput}
-              onChange={(e) => setClassSearchFilterInput(e.target.value)}
-              style={{
-                width: '100%',
-                maxWidth: '280px',
-                padding: '0.55rem 0.9rem',
-                borderRadius: '10px',
-                border: '1px solid var(--border-color)',
-                background: 'var(--card-bg)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-              }}
-            />
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', alignItems: 'center', flex: '1 1 280px', justifyContent: 'flex-end' }}>
+          {!selectedClassId && (
+            <>
+              <input
+                type="text"
+                placeholder="ស្វែងរកឈ្មោះថ្នាក់ កូដ ឬគ្រូ..."
+                value={classSearchFilterInput}
+                onChange={(e) => setClassSearchFilterInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  maxWidth: '260px',
+                  padding: '0.52rem 0.9rem',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--card-bg)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
 
-            {availableShifts.length > 1 && (
-              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setShiftFilter('all')}
-                  style={shiftChipStyle(shiftFilter === 'all')}
-                >
-                  ទាំងអស់
-                </button>
-                {availableShifts.map((shift) => (
+              {availableShifts.length > 1 && (
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <button
-                    key={shift}
                     type="button"
-                    onClick={() => setShiftFilter(shift)}
-                    style={shiftChipStyle(shiftFilter === shift)}
+                    onClick={() => setShiftFilter('all')}
+                    style={shiftChipStyle(shiftFilter === 'all')}
                   >
-                    {shift}
+                    ទាំងអស់
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  {availableShifts.map((shift) => (
+                    <button
+                      key={shift}
+                      type="button"
+                      onClick={() => setShiftFilter(shift)}
+                      style={shiftChipStyle(shiftFilter === shift)}
+                    >
+                      {shift}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          <button
+            type="button"
+            disabled={classes.length === 0}
+            onClick={() => setIsPrintModalOpen(true)}
+            className="btn btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.52rem 1rem',
+              borderRadius: '10px',
+              fontSize: '0.86rem',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+            title="រៀបចំបញ្ជីវត្តមាន និងបញ្ជីពិន្ទុព្រីនលើក្រដាស A4 តាមថ្នាក់រៀន"
+          >
+            <AppIcon name="printer" size={16} style={{ color: '#ffffff' }} />
+            <span>Print បញ្ជីវត្តមាន &amp; ពិន្ទុ (A4)</span>
+          </button>
+        </div>
       </div>
 
       {selectedClassId ? renderAttendanceTable() : renderClassList()}
+
+      {/* Printable A4 Attendance List & Score List Modal */}
+      <AttendancePrintModal
+        isOpen={isPrintModalOpen}
+        classes={classes}
+        students={students}
+        initialClassId={selectedClassId}
+        initialMonth={selectedMonth}
+        initialYear={selectedYear}
+        onClose={() => setIsPrintModalOpen(false)}
+      />
     </div>
   );
 }
