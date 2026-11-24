@@ -122,10 +122,8 @@ export default function DueNoticePrintModal({
 
   useEffect(() => {
     if (typeof initialPenaltyPercent === 'number' && !Number.isNaN(initialPenaltyPercent)) {
-      if (typeof window !== 'undefined' && localStorage.getItem('bsis_due_penalty_pct') === null) {
-        setPenaltyPercent(initialPenaltyPercent);
-        setPenaltyInputStr(String(initialPenaltyPercent));
-      }
+      setPenaltyPercent(initialPenaltyPercent);
+      setPenaltyInputStr(String(initialPenaltyPercent));
     }
   }, [initialPenaltyPercent]);
 
