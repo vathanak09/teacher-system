@@ -1176,6 +1176,7 @@ export default function DueNoticePrintModal({
 
               {/* Scaled Wrapper (Screen scales smoothly; Print removes transform via globals.css) */}
               <div
+                className="receipt-a4-page-wrapper"
                 style={{
                   width: `${A4_PORTRAIT_W_PX * previewScale}px`,
                   height: `${A4_PORTRAIT_H_PX * previewScale}px`,
@@ -1188,19 +1189,19 @@ export default function DueNoticePrintModal({
                     transform: `scale(${previewScale})`,
                     transformOrigin: 'top left',
                     width: '21cm',
-                    height: '29.7cm',
+                    height: '296.6mm',
                   }}
                 >
                   <div
                     className="receipt-a4-sheet"
                     style={{
                       width: '21cm',
-                      height: '29.7cm',
+                      height: '296.6mm',
                       background: '#ffffff',
                       boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
                       display: 'grid',
                       gridTemplateColumns: '10.5cm 10.5cm',
-                      gridTemplateRows: '9.9cm 9.9cm 9.9cm',
+                      gridTemplateRows: '98.85mm 98.85mm 98.85mm',
                       overflow: 'hidden',
                       boxSizing: 'border-box',
                     }}
@@ -1216,7 +1217,7 @@ export default function DueNoticePrintModal({
                             key={`empty-${pageIdx}-${slotIdx}`}
                             style={{
                               width: '10.5cm',
-                              height: '9.9cm',
+                              height: '98.85mm',
                               boxSizing: 'border-box',
                               background: '#ffffff',
                               borderRight: showCutLines && isLeftCol ? '0.5pt dashed #cbd5e1' : 'none',

@@ -166,14 +166,14 @@ export default function DueNoticeCard({
   const issueDateText = formatEngShortDate(issueDate);
 
   const nameFontSize =
-    studentName.length > 20 ? '10.2pt' : studentName.length > 15 ? '11.4pt' : '12.6pt';
+    studentName.length > 22 ? '11.6pt' : studentName.length > 16 ? '13.2pt' : '14.6pt';
 
   return (
     <div
       className="due-notice-slot"
       style={{
         width: '10.5cm',
-        height: '9.9cm',
+        height: '98.85mm',
         boxSizing: 'border-box',
         padding: '3.4mm 4.6mm 3.2mm',
         background: '#ffffff',
@@ -355,7 +355,7 @@ export default function DueNoticeCard({
             style={{
               flex: 1,
               minWidth: 0,
-              height: '8.4mm',
+              height: '9.4mm',
               border: '0.9pt dashed #000000',
               display: 'flex',
               alignItems: 'center',
@@ -368,6 +368,7 @@ export default function DueNoticeCard({
                 fontSize: nameFontSize,
                 fontWeight: 800,
                 color: '#b91c1c',
+                lineHeight: 1.15,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
