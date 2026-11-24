@@ -236,8 +236,76 @@ export const A4_PORTRAIT_SPEC = {
   pageCss: '@page { size: A4 portrait; margin: 0; }',
 };
 
-export const MAX_SINGLE_PAGE_RESULT_ROWS = 36;
-export const MULTI_PAGE_CHUNK_ROWS = 32;
+export const MAX_SINGLE_PAGE_RESULT_ROWS = 28;
+export const FIRST_PAGE_NO_FOOTER_MAX = 34;
+export const CONT_PAGE_NO_FOOTER_MAX = 38;
+export const CONT_PAGE_WITH_FOOTER_MAX = 31;
+
+export interface PaginatedResultSlice {
+  rowsSlice: MonthlyResultStudentRow[];
+  startIndex: number;
+  pageIndex: number;
+  totalPagesForClass: number;
+  isLastPageForClass: boolean;
+}
+
+/**
+ * Splits class rows across A4 Portrait pages while preserving comfortable readable row height
+ * (>= 6.2mm) and font size (>= 9.5pt) and never leaving an orphaned footer-only last page.
+ */
+export function paginateMonthlyResultRows(rows: MonthlyResultStudentRow[]): PaginatedResultSlice[] {
+  if (rows.length <= MAX_SINGLE_PAGE_RESULT_ROWS) {
+    return [
+      {
+        rowsSlice: rows,
+        startIndex: 0,
+        pageIndex: 0,
+        totalPagesForClass: 1,
+        isLastPageForClass: true,
+      },
+    ];
+  }
+
+  const slices: { rowsSlice: MonthlyResultStudentRow[]; startIndex: number }[] = [];
+  let cursor = 0;
+
+  // Page 1 (full header + table, no footer)
+  const firstTake =
+    rows.length <= FIRST_PAGE_NO_FOOTER_MAX
+      ? Math.max(1, rows.length - 5)
+      : FIRST_PAGE_NO_FOOTER_MAX;
+  slices.push({ rowsSlice: rows.slice(0, firstTake), startIndex: 0 });
+  cursor = firstTake;
+
+  // Continuation pages
+  while (cursor < rows.length) {
+    const remaining = rows.length - cursor;
+    if (remaining <= CONT_PAGE_WITH_FOOTER_MAX) {
+      slices.push({ rowsSlice: rows.slice(cursor), startIndex: cursor });
+      cursor = rows.length;
+    } else if (remaining <= CONT_PAGE_NO_FOOTER_MAX) {
+      // Reserve 5 rows so the final footer page is never empty or awkward
+      const take = Math.max(1, remaining - 5);
+      slices.push({ rowsSlice: rows.slice(cursor, cursor + take), startIndex: cursor });
+      cursor += take;
+    } else {
+      slices.push({
+        rowsSlice: rows.slice(cursor, cursor + CONT_PAGE_NO_FOOTER_MAX),
+        startIndex: cursor,
+      });
+      cursor += CONT_PAGE_NO_FOOTER_MAX;
+    }
+  }
+
+  const total = slices.length;
+  return slices.map((s, idx) => ({
+    rowsSlice: s.rowsSlice,
+    startIndex: s.startIndex,
+    pageIndex: idx,
+    totalPagesForClass: total,
+    isLastPageForClass: idx === total - 1,
+  }));
+}
 
 const PROXY_ALLOWED_HOSTS = new Set([
   'drive.google.com',
@@ -969,14 +1037,13 @@ export default function MonthlyResultSheet({
   schoolProfile,
 }: MonthlyResultSheetProps) {
   const rowCountOnPage = rowsSlice.length;
-  // Dynamic compact sizing ("ហាប់ណែន ហ្វុងសមល្មម") tuned for A4 Portrait
-  const isVeryDense = rowCountOnPage > 29;
-  const isMediumDense = rowCountOnPage > 21 && rowCountOnPage <= 29;
+  // Maintain comfortable, clearly legible row spacing & font size even for large classes
+  const isCompact = rowCountOnPage > 24;
 
-  const rowHeightMm = isVeryDense ? 4.85 : isMediumDense ? 5.65 : 6.45;
-  const headerHeightMm = isVeryDense ? 8.2 : 9.2;
-  const bodyFontPt = isVeryDense ? 8.3 : isMediumDense ? 9.1 : 9.8;
-  const headerFontPt = isVeryDense ? 8.8 : 9.6;
+  const rowHeightMm = isCompact ? 6.2 : 6.6;
+  const headerHeightMm = 9.2;
+  const bodyFontPt = isCompact ? 9.5 : 9.8;
+  const headerFontPt = 9.6;
 
   const titleText = formatKhmerMonthTitle(monthStr, customMonthName);
 
@@ -1001,113 +1068,147 @@ export default function MonthlyResultSheet({
         style={{
           width: '100%',
           height: '100%',
-          padding: '6.5mm 9mm 6mm 9mm',
+          padding: '6mm 9mm 6mm 9mm',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
         }}
       >
-        {/* Top Row: Vertical Logo (Left) + National Motto (Right) */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            minHeight: '22mm',
-          }}
-        >
-          <VerticalSchoolLogo
-            verticalLogoUrl={verticalLogoUrl}
-            schoolProfile={schoolProfile}
-            accentColor={theme.titleColor}
-          />
+        {pageIndex === 0 ? (
+          <>
+            {/* Top Row: Vertical Logo (Left, shifted slightly right & 1 line lower than motto) + National Motto (Top-Right) */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                minHeight: '26mm',
+              }}
+            >
+              <div style={{ marginLeft: '7mm', marginTop: '4.8mm' }}>
+                <VerticalSchoolLogo
+                  verticalLogoUrl={verticalLogoUrl}
+                  schoolProfile={schoolProfile}
+                  accentColor={theme.titleColor}
+                />
+              </div>
 
+              <div
+                style={{
+                  textAlign: 'center',
+                  color: theme.mottoColor,
+                  lineHeight: 1.5,
+                  paddingTop: '0mm',
+                  paddingRight: '2mm',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '10.2pt',
+                    fontWeight: 400,
+                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                  }}
+                >
+                  ព្រះរាជាណាចក្រកម្ពុជា
+                </div>
+                <div
+                  style={{
+                    fontSize: '9.8pt',
+                    fontWeight: 400,
+                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                  }}
+                >
+                  ជាតិ សាសនា ព្រះមហាក្សត្រ
+                </div>
+              </div>
+            </div>
+
+            {/* Center Main Title: tucked cleanly alongside lower part of vertical logo (not dropped below) */}
+            <div
+              style={{
+                textAlign: 'center',
+                marginTop: '-10.5mm',
+                marginBottom: '2.6mm',
+                position: 'relative',
+                zIndex: 2,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '15.5pt',
+                  fontWeight: 400,
+                  color: theme.titleColor,
+                  fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                  letterSpacing: '0.2px',
+                }}
+              >
+                {titleText}
+                {totalPagesForClass > 1 && (
+                  <span style={{ fontSize: '9.5pt', fontWeight: 400, marginLeft: '2mm', color: theme.metaLabelColor }}>
+                    ({pageIndex + 1}/{totalPagesForClass})
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* 2x2 Metadata Block matching reference layout */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                rowGap: '0.9mm',
+                columnGap: '8mm',
+                padding: '0 6mm 2mm 6mm',
+                fontSize: '9.4pt',
+                color: theme.metaValueColor,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '22mm' }}>វេនសិក្សា :</span>
+                <span style={{ fontWeight: 600 }}>{packet.shiftLabel || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', justifyContent: 'flex-start', paddingLeft: '14mm' }}>
+                <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '17mm' }}>វគ្គសិក្សា :</span>
+                <span style={{ fontWeight: 700 }}>{packet.courseLabel || packet.classCode || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '22mm' }}>គ្រូបន្ទុកថ្នាក់ :</span>
+                <span style={{ fontWeight: 600 }}>{packet.teacherName || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', justifyContent: 'flex-start', paddingLeft: '14mm' }}>
+                <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '17mm' }}>សៀវភៅ</span>
+                <span style={{ fontWeight: 600 }}>{packet.bookName || '-'}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Compact continuation header for Page 2+ so the list continues cleanly without wasted header height */
           <div
             style={{
-              textAlign: 'center',
-              color: theme.mottoColor,
-              lineHeight: 1.5,
-              paddingTop: '0.8mm',
-              paddingRight: '2mm',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'baseline',
+              marginBottom: '2.5mm',
+              paddingBottom: '1.2mm',
+              borderBottom: `1px solid ${theme.cellBorderColor}`,
             }}
           >
             <div
               style={{
-                fontSize: '10.2pt',
+                fontSize: '12pt',
                 fontWeight: 400,
+                color: theme.titleColor,
                 fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
               }}
             >
-              ព្រះរាជាណាចក្រកម្ពុជា
+              {titleText} (ទំព័រ {pageIndex + 1}/{totalPagesForClass})
             </div>
-            <div
-              style={{
-                fontSize: '9.8pt',
-                fontWeight: 400,
-                fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-              }}
-            >
-              ជាតិ សាសនា ព្រះមហាក្សត្រ
+            <div style={{ fontSize: '9pt', color: theme.metaLabelColor, fontWeight: 600 }}>
+              វគ្គសិក្សា៖ {packet.courseLabel || packet.classCode || '-'} • គ្រូបន្ទុកថ្នាក់៖ {packet.teacherName || '-'}
             </div>
           </div>
-        </div>
-
-        {/* Center Main Title */}
-        <div
-          style={{
-            textAlign: 'center',
-            marginTop: '-2.5mm',
-            marginBottom: '2.2mm',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '15.5pt',
-              fontWeight: 400,
-              color: theme.titleColor,
-              fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-              letterSpacing: '0.2px',
-            }}
-          >
-            {titleText}
-            {totalPagesForClass > 1 && (
-              <span style={{ fontSize: '9.5pt', fontWeight: 400, marginLeft: '2mm', color: theme.metaLabelColor }}>
-                ({pageIndex + 1}/{totalPagesForClass})
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* 2x2 Metadata Block matching reference layout */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            rowGap: '1mm',
-            columnGap: '8mm',
-            padding: '0 6mm 2mm 6mm',
-            fontSize: '9.4pt',
-            color: theme.metaValueColor,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
-            <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '22mm' }}>វេនសិក្សា :</span>
-            <span style={{ fontWeight: 600 }}>{packet.shiftLabel || '-'}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', justifyContent: 'flex-start', paddingLeft: '14mm' }}>
-            <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '17mm' }}>វគ្គសិក្សា :</span>
-            <span style={{ fontWeight: 700 }}>{packet.courseLabel || packet.classCode || '-'}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
-            <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '22mm' }}>គ្រូបន្ទុកថ្នាក់ :</span>
-            <span style={{ fontWeight: 600 }}>{packet.teacherName || '-'}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', justifyContent: 'flex-start', paddingLeft: '14mm' }}>
-            <span style={{ fontWeight: 700, color: theme.metaLabelColor, minWidth: '17mm' }}>សៀវភៅ</span>
-            <span style={{ fontWeight: 600 }}>{packet.bookName || '-'}</span>
-          </div>
-        </div>
+        )}
 
         {/* Ranking Table: exact rows matching students in class */}
         <table
