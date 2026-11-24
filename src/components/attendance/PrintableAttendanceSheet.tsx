@@ -11,9 +11,13 @@ import {
 } from '@/utils/cambodiaHolidays';
 
 export type AttendancePrintLayoutMode =
+  | 'auto_a4_portrait'
   | 'split_a4_portrait'
   | 'combined_a4_portrait'
   | 'split_a4_landscape';
+
+/** Classes with <= 22 active students fit Part 1 + Part 2 cleanly on 1 compact A4 Portrait page. */
+export const AUTO_COMBINED_MAX_STUDENTS = 22;
 
 export interface PrintableClassPacket {
   classObj: any;
@@ -32,6 +36,7 @@ export interface PrintableAttendanceSheetProps {
   highlightWeekends: boolean;
   highlightHolidays: boolean;
   zebraRows?: boolean;
+  fillPageWithBlankRows?: boolean;
   extraHolidayDays: number[];
   extraBlankRows: number;
 }
@@ -118,6 +123,7 @@ export default function PrintableAttendanceSheet({
   highlightWeekends,
   highlightHolidays,
   zebraRows = true,
+  fillPageWithBlankRows = true,
   extraHolidayDays,
   extraBlankRows,
 }: PrintableAttendanceSheetProps) {
@@ -126,7 +132,10 @@ export default function PrintableAttendanceSheet({
   const isLandscape = spec.isLandscape;
   const effectiveRenderPart =
     renderPart ||
-    (layoutMode === 'combined_a4_portrait' && showPart1 && showPart2
+    ((layoutMode === 'combined_a4_portrait' ||
+      (layoutMode === 'auto_a4_portrait' && students.length <= AUTO_COMBINED_MAX_STUDENTS)) &&
+    showPart1 &&
+    showPart2
       ? 'combined'
       : showPart1
         ? 'part1_only'
@@ -146,27 +155,40 @@ export default function PrintableAttendanceSheet({
   const levelCounts = computeClassLevelCounts(students);
   const holidayLegendItems = highlightHolidays ? groupHolidayLegend(calendarDays) : [];
 
-  const blankCount = Math.max(0, Math.min(15, Number(extraBlankRows || 0)));
-  const totalRowSlots = totalStudents + blankCount;
+  const minBlankCount = Math.max(0, Math.min(20, Number(extraBlankRows || 0)));
+  // Full-page blank row fill targets:
+  // - Combined A4 Portrait (Part 1 + Part 2 on 1 page): 24 rows per table (48 total)
+  // - Split A4 Portrait (single table per page): 48 rows filling page to bottom
+  // - Split A4 Landscape (single table per page): 32 rows filling page to bottom
+  const fullPageTargetRows = isLandscape ? 32 : isCombined ? 24 : 48;
+  const desiredRows = fillPageWithBlankRows
+    ? Math.max(totalStudents + minBlankCount, fullPageTargetRows)
+    : Math.max(1, totalStudents + minBlankCount);
+  const actualBlankCount = Math.max(0, desiredRows - totalStudents);
+  const totalRowSlots = totalStudents + actualBlankCount;
   const rowSlots: (any | null)[] = [
     ...students,
-    ...Array.from({ length: blankCount }, () => null),
+    ...Array.from({ length: actualBlankCount }, () => null),
   ];
 
-  // Dynamic row height so every sheet fits cleanly inside 1 A4 page with safe print margins
-  const computeRowHeightMm = (singleTableOnPage: boolean): number => {
+  // Compact ("ហាប់ណែន") row heights engineered to fill A4 cleanly with zero overflow
+  const computeRowHeightMm = (isPart2OnSplit = false): number => {
     const availHeightMm = isLandscape
-      ? 156
-      : singleTableOnPage
-        ? 238
-        : 107;
+      ? isPart2OnSplit
+        ? 166
+        : 160
+      : isCombined
+        ? 119
+        : isPart2OnSplit
+          ? 250
+          : 244;
     const raw = availHeightMm / Math.max(1, totalRowSlots);
-    const maxCap = singleTableOnPage ? (isLandscape ? 6.2 : 6.6) : 5.2;
-    const minFloor = 3.7;
+    const maxCap = isCombined ? 4.95 : isLandscape ? 5.2 : 5.2;
+    const minFloor = 3.55;
     return Number(Math.max(minFloor, Math.min(maxCap, raw)).toFixed(2));
   };
 
-  const part1RowH = computeRowHeightMm(!isCombined);
+  const part1RowH = computeRowHeightMm(false);
   const part2RowH = computeRowHeightMm(!isCombined);
 
   const metaFontPt = isLandscape
@@ -224,19 +246,19 @@ export default function PrintableAttendanceSheet({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '2.5mm',
-        marginBottom: '1.4mm',
+        gap: '2.2mm',
+        marginBottom: '0.8mm',
         color: '#000000',
       }}
     >
       {/* Far Left: Logo + School Name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2mm', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm', flexShrink: 0 }}>
         <img
           src="/logo.png"
           alt="BSIS"
           style={{
-            width: isLandscape ? '14.5mm' : '13mm',
-            height: isLandscape ? '14.5mm' : '13mm',
+            width: isLandscape ? '13mm' : '11.5mm',
+            height: isLandscape ? '13mm' : '11.5mm',
             objectFit: 'contain',
             display: 'block',
           }}
@@ -465,7 +487,7 @@ export default function PrintableAttendanceSheet({
 
         <thead>
           {/* Header Row 1: Class No | Total:Total/Female | Orange Day | Sun..Mon | Total */}
-          <tr style={{ height: isLandscape ? '8.5mm' : '7.4mm' }}>
+          <tr style={{ height: isLandscape ? '7.2mm' : '6.4mm' }}>
             <th
               style={{
                 border: '0.6pt solid #000000',
@@ -554,7 +576,7 @@ export default function PrintableAttendanceSheet({
           </tr>
 
           {/* Header Row 2: ល.រ | Shift | Level | ID | RoomCode | ភេទ | ថ្ងៃចូល | 1..31 | P | X */}
-          <tr style={{ height: isLandscape ? '8.5mm' : '7.5mm' }}>
+          <tr style={{ height: isLandscape ? '7.4mm' : '6.6mm' }}>
             <th style={{ border: '0.6pt solid #000000', padding: 0, textAlign: 'center' }}>
               <div
                 style={{
@@ -927,7 +949,7 @@ export default function PrintableAttendanceSheet({
           </colgroup>
 
           <thead>
-            <tr style={{ height: isLandscape ? '8.2mm' : '7.4mm' }}>
+            <tr style={{ height: isLandscape ? '7.2mm' : '6.5mm' }}>
               <th
                 colSpan={6}
                 style={{
@@ -1227,10 +1249,10 @@ export default function PrintableAttendanceSheet({
     width: '100%',
     height: '100%',
     boxSizing: 'border-box',
-    padding: isLandscape ? '6mm 7mm' : '6mm 6.5mm',
+    padding: isLandscape ? '5mm 6mm' : '4.8mm 5.8mm',
     display: 'flex',
     flexDirection: 'column',
-    gap: '2mm',
+    gap: '1.2mm',
   };
 
   // Mode 1: Combined Part 1 + Part 2 on ONE A4 Portrait sheet
@@ -1240,7 +1262,7 @@ export default function PrintableAttendanceSheet({
         <div style={innerPageStyle}>
           {renderHeaderBanner()}
           {renderPart1Table()}
-          <div style={{ marginTop: '0.8mm' }}>{renderPart2ScoreTable()}</div>
+          <div style={{ marginTop: '0.4mm' }}>{renderPart2ScoreTable()}</div>
         </div>
       </div>
     );
