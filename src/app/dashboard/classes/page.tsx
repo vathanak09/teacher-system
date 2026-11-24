@@ -137,6 +137,29 @@ export default function ClassesPage() {
   const [classVisibleColumns, setClassVisibleColumns] = useState<string[]>(['photo', 'studentId', 'fullName', 'gender', 'level', 'shift']);
   const [isClassColumnDropdownOpen, setIsClassColumnDropdownOpen] = useState(false);
   const classColumnDropdownRef = useRef<HTMLDivElement>(null);
+  const classStripRef = useRef<HTMLDivElement>(null);
+  const classCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const scrollClassStrip = (dir: 'left' | 'right') => {
+    if (!classStripRef.current) return;
+    classStripRef.current.scrollBy({
+      left: dir === 'left' ? -520 : 520,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleSelectClassFromDropdown = (classId: string) => {
+    const found = classes.find((c) => c.id === classId);
+    if (!found) return;
+    setViewingClass(found);
+    setTimeout(() => {
+      classCardRefs.current[classId]?.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }, 40);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -538,215 +561,528 @@ export default function ClassesPage() {
       alert('អ្នកមិនមានសិទ្ធិកែប្រែព័ត៌មានសិស្សទេ!');
     };
   
-    if (!role) return null;
+  const filteredClassesList = useMemo(() => {
+    const q = classSearch.trim().toLowerCase();
+    if (!q) return classes;
+    return classes.filter(
+      (c) =>
+        (c.className || '').toLowerCase().includes(q) ||
+        (c.classCode || '').toLowerCase().includes(q) ||
+        (c.teacherName || '').toLowerCase().includes(q)
+    );
+  }, [classes, classSearch]);
+
+  const classSelectOptions = useMemo(() => {
+    return classes.map((c) => {
+      const count =
+        c.studentsData && c.studentsData.length > 0
+          ? c.studentsData.length
+          : c.studentIds?.length || 0;
+      const codePart = c.classCode ? ` (${c.classCode})` : '';
+      const teacherPart = c.teacherName ? ` • ${c.teacherName}` : '';
+      return {
+        value: c.id,
+        label: `${c.className || 'គ្មានឈ្មោះ'}${codePart}${teacherPart} — ${count} នាក់`,
+      };
+    });
+  }, [classes]);
+
+  if (!role) return null;
 
   return (
     <>
-      <div className="page-container animate-fade-in" style={{ display: 'flex', gap: '2rem', flexDirection: 'row', flexWrap: 'wrap' }}>
+      <div className="page-container animate-fade-in" style={{ display: 'flex', gap: '1.25rem', flexDirection: 'column' }}>
         
-        {/* Left Side: Class List */}
-        <div style={{ flex: '1 1 350px', minWidth: '350px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>ថ្នាក់រៀន</h1>
-            
-            <div style={{ flex: 1, maxWidth: '300px', marginLeft: '1rem', marginRight: '1rem' }}>
-              <input 
-                type="text" 
-                placeholder="ស្វែងរកឈ្មោះថ្នាក់រៀន..." 
-                value={classSearch}
-                onChange={e => setClassSearch(e.target.value)}
-                style={{ width: '100%', padding: '0.45rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
-              />
+        {/* Top Section: Header + Class Selector Dropdown + Horizontal Scrollable Compact Cards */}
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>
+                ថ្នាក់រៀន
+              </h1>
+              <span
+                style={{
+                  padding: '0.18rem 0.6rem',
+                  borderRadius: '999px',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  color: '#3b82f6',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                }}
+              >
+                {filteredClassesList.length} / {classes.length} ថ្នាក់
+              </span>
             </div>
-            <button 
-              onClick={handleOpenAddClass}
-              style={{ padding: '0.5rem 1rem', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              បង្កើតថ្នាក់
-            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', flex: '1 1 auto', justifyContent: 'flex-end' }}>
+              {/* Dropdown List to Quickly Select a Class */}
+              <div style={{ minWidth: '250px', maxWidth: '340px', flex: '1 1 250px' }}>
+                <CustomSelectDropdown
+                  value={viewingClass?.id || ''}
+                  onChange={handleSelectClassFromDropdown}
+                  placeholder="ជ្រើសរើសថ្នាក់រៀន..."
+                  searchable
+                  searchPlaceholder="ស្វែងរកថ្នាក់ ឬគ្រូ..."
+                  menuMinWidth={310}
+                  options={classSelectOptions}
+                />
+              </div>
+
+              {/* Quick Filter Input for Horizontal Strip */}
+              <div style={{ minWidth: '180px', maxWidth: '230px', flex: '0 1 210px' }}>
+                <input
+                  type="text"
+                  placeholder="ច្រោះកាតថ្នាក់..."
+                  value={classSearch}
+                  onChange={(e) => setClassSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.48rem 0.85rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Left / Right Scroll Controls for Horizontal Strip */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                <button
+                  type="button"
+                  onClick={() => scrollClassStrip('left')}
+                  title="រំកិលទៅឆ្វេង"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <AppIcon name="chevron-left" size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollClassStrip('right')}
+                  title="រំកិលទៅស្តាំ"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <AppIcon name="chevron-right" size={16} />
+                </button>
+              </div>
+
+              <button
+                onClick={handleOpenAddClass}
+                style={{
+                  padding: '0.48rem 0.95rem',
+                  background: 'var(--primary-color)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                បង្កើតថ្នាក់
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {classes.filter(c => (c.className || '').toLowerCase().includes(classSearch.toLowerCase()) || (c.classCode || '').toLowerCase().includes(classSearch.toLowerCase())).map(c => {
-              const IconComp = ICONS.find(i => i.id === c.icon)?.icon || ICONS[0].icon;
-              const colorHex = COLORS.find(co => co.id === c.color)?.value || COLORS[0].value;
+          {/* Horizontal Scrollable Compact Class Cards */}
+          <div
+            ref={classStripRef}
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              gap: '0.75rem',
+              overflowX: 'auto',
+              padding: '0.2rem 0.15rem 0.65rem',
+              scrollBehavior: 'smooth',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {filteredClassesList.map((c) => {
+              const IconComp = ICONS.find((i) => i.id === c.icon)?.icon || ICONS[0].icon;
+              const colorHex = COLORS.find((co) => co.id === c.color)?.value || COLORS[0].value;
+              const isActive = viewingClass?.id === c.id;
+              const studentCount =
+                c.studentsData && c.studentsData.length > 0
+                  ? c.studentsData.length
+                  : c.studentIds?.length || 0;
+
               return (
-                <div 
-                  key={c.id} 
-                  className={`glass-panel ${viewingClass?.id === c.id ? 'active-class' : ''}`}
-                  style={{ 
-                    padding: '1.25rem', 
-                    cursor: 'pointer', 
+                <div
+                  key={c.id}
+                  ref={(el) => {
+                    classCardRefs.current[c.id] = el;
+                  }}
+                  className={`glass-panel ${isActive ? 'active-class' : ''}`}
+                  style={{
+                    flex: '0 0 248px',
+                    width: '248px',
+                    padding: '0.75rem 0.85rem',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
                     borderStyle: 'solid',
-                    borderWidth: '2px 2px 2px 6px',
-                    borderColor: viewingClass?.id === c.id ? `${colorHex} ${colorHex} ${colorHex} ${colorHex}` : `transparent transparent transparent ${colorHex}`,
-                    transition: 'all 0.2s ease', 
-                    position: 'relative', 
-                    overflow: 'hidden' 
+                    borderWidth: isActive ? '2px 2px 2px 5px' : '1px 1px 1px 4px',
+                    borderColor: isActive
+                      ? colorHex
+                      : `var(--border-color) var(--border-color) var(--border-color) ${colorHex}`,
+                    boxShadow: isActive ? `0 6px 18px ${colorHex}28` : undefined,
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '0.45rem',
                   }}
                   onClick={() => setViewingClass(c)}
                 >
                   {/* Subtle Background Icon */}
-                  <div style={{ position: 'absolute', right: '-10px', top: '-10px', opacity: 0.05, transform: 'scale(4)' }}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: '-8px',
+                      bottom: '-8px',
+                      opacity: 0.05,
+                      transform: 'scale(2.4)',
+                      pointerEvents: 'none',
+                    }}
+                  >
                     {IconComp}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: `${colorHex}15`, color: colorHex, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Card Top: Icon + Class Name/Code + Edit/Delete */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: '0.45rem',
+                      position: 'relative',
+                      zIndex: 1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '9px',
+                          background: `${colorHex}18`,
+                          color: colorHex,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transform: 'scale(0.88)',
+                        }}
+                      >
                         {IconComp}
                       </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: 0 }}>{c.className}</h3>
-                          {c.classCode && <span style={{ padding: '0.15rem 0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{c.classCode}</span>}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <h3
+                            style={{
+                              fontSize: '0.96rem',
+                              fontWeight: 700,
+                              color: 'var(--text-primary)',
+                              margin: 0,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                            title={c.className}
+                          >
+                            {c.className}
+                          </h3>
+                          {c.classCode && (
+                            <span
+                              style={{
+                                padding: '0.08rem 0.35rem',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '4px',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: 'var(--text-secondary)',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {c.classCode}
+                            </span>
+                          )}
                         </div>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{c.academicYear} • {c.shift}</p>
-                        {c.time && <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>ម៉ោង៖ {c.time}</p>}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
-                           <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                           </div>
-                           <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{c.teacherName || 'មិនទាន់កំណត់'}</span>
-                           <span style={{ margin: '0 0.25rem', color: 'var(--text-secondary)' }}>•</span>
-                           <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>សិស្ស {c.studentsData && c.studentsData.length > 0 ? c.studentsData.length : (c.studentIds?.length || 0)} នាក់</span>
-                        </div>
-                        {/* Deleted / Dropped Out / Multi-Class Student Alerts */}
-                        {(() => {
-                          const memberIds = Array.from(new Set(getClassMemberIds(c).filter(Boolean)));
-                          let deletedFromMainCount = 0;
-                          let droppedOutCount = 0;
-                          let multiClassCount = 0;
-                          memberIds.forEach((sid) => {
-                            const st = studentMap.get(sid);
-                            if (studentsLoaded) {
-                              if (!st) deletedFromMainCount++;
-                              else if (st.status === 'ឈប់រៀន') droppedOutCount++;
-                            }
-                            if ((studentClassesMap.get(sid)?.length || 0) > 1) {
-                              multiClassCount++;
-                            }
-                          });
-                          if (deletedFromMainCount === 0 && droppedOutCount === 0 && multiClassCount === 0) {
-                            return null;
-                          }
-                          return (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
-                              {deletedFromMainCount > 0 && (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.18rem 0.55rem',
-                                    borderRadius: '999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    background: 'rgba(239, 68, 68, 0.12)',
-                                    color: '#ef4444',
-                                    border: '1px solid rgba(239, 68, 68, 0.28)'
-                                  }}
-                                  title="សិស្សដែលត្រូវបានលុបចេញពីបញ្ជីធំ ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
-                                >
-                                  លុបពីបញ្ជីធំ៖ {deletedFromMainCount} នាក់
-                                </span>
-                              )}
-                              {droppedOutCount > 0 && (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.18rem 0.55rem',
-                                    borderRadius: '999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    background: 'rgba(245, 158, 11, 0.12)',
-                                    color: '#d97706',
-                                    border: '1px solid rgba(245, 158, 11, 0.28)'
-                                  }}
-                                  title="សិស្សមានស្ថានភាពឈប់រៀន ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
-                                >
-                                  ឈប់រៀន៖ {droppedOutCount} នាក់
-                                </span>
-                              )}
-                              {multiClassCount > 0 && (
-                                <span
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.18rem 0.55rem',
-                                    borderRadius: '999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    background: 'rgba(139, 92, 246, 0.12)',
-                                    color: '#7c3aed',
-                                    border: '1px solid rgba(139, 92, 246, 0.28)'
-                                  }}
-                                  title="សិស្សដែលមានឈ្មោះនៅក្នុងថ្នាក់លើសពីមួយថ្នាក់"
-                                >
-                                  លើសពី ១ ថ្នាក់៖ {multiClassCount} នាក់
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
-                        {/* Book Progress */}
-                        {(() => {
-                          if (!c.books || c.books.length === 0) return null;
-                          const classRecords = teachingRecords.filter((r: any) => r.classId === c.id);
-                          let totalBookPages = 0;
-                          let totalTaughtPages = 0;
-                          c.books.forEach((b: any) => {
-                            if (b.totalPages > 0) {
-                              totalBookPages += b.totalPages;
-                              const bookRecords = classRecords.filter((r: any) => r.bookId === b.id);
-                              if (bookRecords.length > 0) {
-                                const maxPages = Math.max(...bookRecords.map((r: any) => Number(r.pages) || 0));
-                                totalTaughtPages += maxPages;
-                              }
-                            }
-                          });
-                          if (totalBookPages === 0) return null;
-                          const percent = Math.min(100, Math.round((totalTaughtPages / totalBookPages) * 100));
-                          return (
-                            <div style={{ marginTop: '0.75rem' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
-                                <span>វឌ្ឍនភាពបង្រៀន</span>
-                                <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{percent}%</span>
-                              </div>
-                              <div style={{ width: '100%', height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${percent}%`, background: 'var(--primary-color)', borderRadius: '3px', transition: 'width 0.5s ease' }}></div>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                        <p
+                          style={{
+                            fontSize: '0.74rem',
+                            color: 'var(--text-secondary)',
+                            margin: '0.1rem 0 0',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {c.shift || c.academicYear}
+                          {c.time ? ` • ${c.time}` : ''}
+                        </p>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button onClick={(e) => { e.stopPropagation(); handleOpenEditClass(c); }} style={{ padding: '0.4rem', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="កែប្រែ">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+
+                    <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditClass(c);
+                        }}
+                        style={{
+                          width: '25px',
+                          height: '25px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          color: '#3b82f6',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                        title="កែប្រែ"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteClass(c.id); }} style={{ padding: '0.4rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer' }} title="លុប">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClass(c.id);
+                        }}
+                        style={{
+                          width: '25px',
+                          height: '25px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                        title="លុប"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
                       </button>
                     </div>
                   </div>
+
+                  {/* Card Middle: Teacher + Student Count */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.4rem',
+                      fontSize: '0.78rem',
+                      position: 'relative',
+                      zIndex: 1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          background: 'var(--bg-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      </div>
+                      <span
+                        style={{
+                          color: 'var(--text-primary)',
+                          fontWeight: 500,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {c.teacherName || 'មិនទាន់កំណត់'}
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        padding: '0.1rem 0.45rem',
+                        borderRadius: '999px',
+                        background: `${colorHex}15`,
+                        color: colorHex,
+                        fontWeight: 700,
+                        fontSize: '0.73rem',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {studentCount} នាក់
+                    </span>
+                  </div>
+
+                  {/* Deleted / Dropped Out / Multi-Class Student Alerts (Compact) */}
+                  {(() => {
+                    const memberIds = Array.from(new Set(getClassMemberIds(c).filter(Boolean)));
+                    let deletedFromMainCount = 0;
+                    let droppedOutCount = 0;
+                    let multiClassCount = 0;
+                    memberIds.forEach((sid) => {
+                      const st = studentMap.get(sid);
+                      if (studentsLoaded) {
+                        if (!st) deletedFromMainCount++;
+                        else if (st.status === 'ឈប់រៀន') droppedOutCount++;
+                      }
+                      if ((studentClassesMap.get(sid)?.length || 0) > 1) {
+                        multiClassCount++;
+                      }
+                    });
+                    if (deletedFromMainCount === 0 && droppedOutCount === 0 && multiClassCount === 0) {
+                      return null;
+                    }
+                    return (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.28rem', position: 'relative', zIndex: 1 }}>
+                        {deletedFromMainCount > 0 && (
+                          <span
+                            style={{
+                              padding: '0.08rem 0.4rem',
+                              borderRadius: '999px',
+                              fontSize: '0.66rem',
+                              fontWeight: 600,
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                            }}
+                            title="សិស្សដែលត្រូវបានលុបចេញពីបញ្ជីធំ ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
+                          >
+                            លុប៖ {deletedFromMainCount}
+                          </span>
+                        )}
+                        {droppedOutCount > 0 && (
+                          <span
+                            style={{
+                              padding: '0.08rem 0.4rem',
+                              borderRadius: '999px',
+                              fontSize: '0.66rem',
+                              fontWeight: 600,
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              color: '#d97706',
+                              border: '1px solid rgba(245, 158, 11, 0.25)',
+                            }}
+                            title="សិស្សមានស្ថានភាពឈប់រៀន ប៉ុន្តែនៅក្នុងថ្នាក់មិនទាន់បានលុប"
+                          >
+                            ឈប់៖ {droppedOutCount}
+                          </span>
+                        )}
+                        {multiClassCount > 0 && (
+                          <span
+                            style={{
+                              padding: '0.08rem 0.4rem',
+                              borderRadius: '999px',
+                              fontSize: '0.66rem',
+                              fontWeight: 600,
+                              background: 'rgba(139, 92, 246, 0.12)',
+                              color: '#7c3aed',
+                              border: '1px solid rgba(139, 92, 246, 0.25)',
+                            }}
+                            title="សិស្សដែលមានឈ្មោះនៅក្នុងថ្នាក់លើសពីមួយថ្នាក់"
+                          >
+                            លើស១ថ្នាក់៖ {multiClassCount}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Book Progress (Compact) */}
+                  {(() => {
+                    if (!c.books || c.books.length === 0) return null;
+                    const classRecords = teachingRecords.filter((r: any) => r.classId === c.id);
+                    let totalBookPages = 0;
+                    let totalTaughtPages = 0;
+                    c.books.forEach((b: any) => {
+                      if (b.totalPages > 0) {
+                        totalBookPages += b.totalPages;
+                        const bookRecords = classRecords.filter((r: any) => r.bookId === b.id);
+                        if (bookRecords.length > 0) {
+                          const maxPages = Math.max(...bookRecords.map((r: any) => Number(r.pages) || 0));
+                          totalTaughtPages += maxPages;
+                        }
+                      }
+                    });
+                    if (totalBookPages === 0) return null;
+                    const percent = Math.min(100, Math.round((totalTaughtPages / totalBookPages) * 100));
+                    return (
+                      <div style={{ position: 'relative', zIndex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-secondary)', marginBottom: '0.18rem' }}>
+                          <span>វឌ្ឍនភាព</span>
+                          <span style={{ fontWeight: 700, color: colorHex }}>{percent}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${percent}%`, background: colorHex, borderRadius: '3px', transition: 'width 0.5s ease' }}></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
-            {classes.length === 0 && (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+            {filteredClassesList.length === 0 && (
+              <div style={{ width: '100%', padding: '1.25rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '12px', fontSize: '0.9rem' }}>
                 មិនទាន់មានថ្នាក់រៀនទេ
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Class Details & Student Management */}
-        <div style={{ flex: '2 1 500px', minWidth: '300px' }}>
+        {/* Bottom Full-Width Section: Class Details & Student Management */}
+        <div style={{ width: '100%', minWidth: 0 }}>
           {viewingClass ? (
             <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '600px' }}>
               <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', background: `${COLORS.find(c => c.id === viewingClass.color)?.value || COLORS[0].value}15`, borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
