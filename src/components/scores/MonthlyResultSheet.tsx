@@ -195,6 +195,8 @@ export interface MonthlyResultStudentRow {
   rowKey: string;
   studentId: string;
   fullName: string;
+  englishName?: string;
+  photo?: string;
   gender: string;
   level: string;
   totalScore: number | null;
@@ -470,6 +472,8 @@ export function computeMonthlyResultPacket({
     scoreRow: any | null;
     studentId: string;
     fullName: string;
+    englishName: string;
+    photo: string;
     gender: string;
     level: string;
   }[] = [];
@@ -519,6 +523,8 @@ export function computeMonthlyResultPacket({
       scoreRow: sr,
       studentId: resolvedStudentCode,
       fullName: resolvedFullName,
+      englishName: cleanStr(matchedStudent?.englishName || sr.englishName),
+      photo: cleanStr(matchedStudent?.photo || sr.photo),
       gender: cleanStr(matchedStudent?.gender || sr.gender),
       level: resolvedLevel,
     });
@@ -552,6 +558,8 @@ export function computeMonthlyResultPacket({
         scoreRow: sr,
         studentId: stCode,
         fullName: cleanStr(st.fullName),
+        englishName: cleanStr(st.englishName),
+        photo: cleanStr(st.photo),
         gender: cleanStr(st.gender),
         level: cleanStr(sr?.level) || cleanStr(st.level),
       });
@@ -693,6 +701,8 @@ export function computeMonthlyResultPacket({
     rowKey: r.rowKey,
     studentId: r.studentId,
     fullName: r.fullName,
+    englishName: r.englishName,
+    photo: r.photo,
     gender: r.gender,
     level: r.level,
     totalScore: r.totalNum,
@@ -846,7 +856,7 @@ export function computeMonthlyResultPacketsForClass(
 /**
  * Built-in red vector official BSIS seal (matches reference stamp cleanly at any DPI)
  */
-function OfficialSchoolStamp({
+export function OfficialSchoolStamp({
   stampUrl,
   schoolProfile,
   size = '27mm',

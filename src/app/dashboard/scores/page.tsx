@@ -7,6 +7,7 @@ import { usePortalMenuPosition } from '@/utils/usePortalMenuPosition';
 import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
 import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/components/scores/MonthlyResultPrintModal';
+import CertificatePrintModal, { CertificateBrandingConfig } from '@/components/scores/CertificatePrintModal';
 import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
 import { AppIcon } from '@/components/AppIcons';
 
@@ -206,8 +207,11 @@ export default function ScoresPage() {
   const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isMonthlyResultOpen, setIsMonthlyResultOpen] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
 
-  const handleSaveMonthlyResultBranding = async (patch: MonthlyResultBrandingConfig) => {
+  const handleSaveScorePrintSettings = async (
+    patch: MonthlyResultBrandingConfig | CertificateBrandingConfig
+  ) => {
     const nextSettings = { ...settings, ...patch };
     setSettings(nextSettings);
     await settingsService.add(nextSettings, 'scoreSettings');
@@ -234,6 +238,30 @@ export default function ScoresPage() {
     >
       <AppIcon name="printer" size={16} strokeWidth={2.2} />
       <span>លទ្ធផលប្រចាំខែ</span>
+    </button>
+  );
+
+  const certificateButton = (
+    <button
+      type="button"
+      onClick={() => setIsCertificateModalOpen(true)}
+      style={{
+        padding: '0.5rem 0.95rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        background: 'linear-gradient(135deg, #d97706, #b45309)',
+        border: 'none',
+        borderRadius: '8px',
+        color: '#ffffff',
+        cursor: 'pointer',
+        fontWeight: 600,
+        boxShadow: '0 2px 8px rgba(217, 119, 6, 0.28)',
+      }}
+      title="ព្រីនប័ណ្ណសរសើរ និងវិញ្ញាបនបត្រ (ខ្នាត A5 ក្នុង A4 បញ្ឈរ)"
+    >
+      <AppIcon name="award" size={16} strokeWidth={2.2} />
+      <span>ប័ណ្ណសរសើរ &amp; វិញ្ញាបនបត្រ</span>
     </button>
   );
 
@@ -1186,7 +1214,25 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       onMonthChange={setSelectedMonth}
       monthExtraData={monthExtraData}
       initialClassId={selectedClassId}
-      onSaveBrandingSettings={handleSaveMonthlyResultBranding}
+      onSaveBrandingSettings={handleSaveScorePrintSettings}
+    />
+  ) : null;
+
+  const certificateModal = isCertificateModalOpen ? (
+    <CertificatePrintModal
+      isOpen={isCertificateModalOpen}
+      onClose={() => setIsCertificateModalOpen(false)}
+      classes={displayClasses}
+      allStudents={allStudents}
+      allTeachers={allTeachers}
+      allScores={allScores}
+      monthCoeffMap={monthCoeffMap}
+      scoreSettings={settings}
+      selectedMonth={selectedMonth}
+      onMonthChange={setSelectedMonth}
+      monthExtraData={monthExtraData}
+      initialClassId={selectedClassId}
+      onSaveSettings={handleSaveScorePrintSettings}
     />
   ) : null;
 
@@ -1608,6 +1654,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             </div>
 
             {monthlyResultButton}
+            {certificateButton}
             {guideButton}
           </div>
         </div>
@@ -1877,6 +1924,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         )}
         <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
         {monthlyResultModal}
+        {certificateModal}
       </div>
     );
   }
@@ -1906,6 +1954,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             />
           </div>
           {monthlyResultButton}
+          {certificateButton}
           {guideButton}
         </div>
       </div>
@@ -2635,6 +2684,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       />
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {monthlyResultModal}
+      {certificateModal}
     </div>
   );
 }
