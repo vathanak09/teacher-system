@@ -21,9 +21,12 @@ import {
 } from './receipts/ModernReceiptCards';
 import { AppIcon } from './AppIcons';
 import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintInteractiveSheet, {
+  PrintTableOverrideStyles,
+} from '@/components/print/PrintInteractiveSheet';
 import {
-  buildPrintScopeProps,
   usePrintDocumentStyle,
+  useTableSelection,
 } from '@/components/print/printStylePresets';
 
 export type ReceiptPrintLayout =
@@ -204,10 +207,7 @@ export default function PaymentPrintModal({
   const [isSavingSignature, setIsSavingSignature] = useState(false);
 
   const printStyle = usePrintDocumentStyle('receipt', Boolean(doc));
-  const printScopeProps = useMemo(
-    () => buildPrintScopeProps(printStyle.styleConfig),
-    [printStyle.styleConfig]
-  );
+  const tableSelection = useTableSelection(Boolean(doc));
 
   useEffect(() => {
     setDraftSignatureUrl(cashierSignatureUrl || '');
@@ -272,11 +272,17 @@ export default function PaymentPrintModal({
   useEffect(() => {
     if (!doc) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (tableSelection.selectedCoords.length > 0) {
+          tableSelection.clearSelection();
+          return;
+        }
+        onClose();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [doc, onClose]);
+  }, [doc, onClose, tableSelection]);
 
   const activeSpec = LAYOUT_SPECS[printLayout];
 
@@ -524,10 +530,14 @@ export default function PaymentPrintModal({
                 overflow: 'visible',
               }}
             >
-              <div
-                className={`receipt-a4-sheet ${printScopeProps.className}`}
+              <PrintInteractiveSheet
+                scopeId="receipt-print"
+                pageIdx={pageIdx}
+                styleConfig={printStyle.styleConfig}
+                tableSelection={tableSelection}
+                onCellSelected={() => setIsSidebarOpen(true)}
+                className="receipt-a4-sheet"
                 style={{
-                  ...printScopeProps.style,
                   width: activeSpec.sheetW,
                   height: activeSpec.sheetH,
                   background: '#ffffff',
@@ -602,7 +612,7 @@ export default function PaymentPrintModal({
                         showCutBottom: false,
                       })
                     : null}
-              </div>
+              </PrintInteractiveSheet>
             </div>
           </div>
         ))}
@@ -625,11 +635,14 @@ export default function PaymentPrintModal({
     } = billing;
 
     return (
-      <div
+      <PrintInteractiveSheet
         id="printable-payment-doc"
-        className={printScopeProps.className}
+        scopeId="receipt-print"
+        pageIdx={0}
+        styleConfig={printStyle.styleConfig}
+        tableSelection={tableSelection}
+        onCellSelected={() => setIsSidebarOpen(true)}
         style={{
-          ...printScopeProps.style,
           background: '#ffffff',
           color: '#111827',
           borderRadius: '14px',
@@ -809,7 +822,7 @@ export default function PaymentPrintModal({
             </div>
           </div>
         </div>
-      </div>
+      </PrintInteractiveSheet>
     );
   };
 
@@ -998,6 +1011,11 @@ export default function PaymentPrintModal({
       </div>
 
       {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live Preview */}
+      <PrintTableOverrideStyles
+        scopeId="receipt-print"
+        styleConfig={printStyle.styleConfig}
+        tableSelection={tableSelection}
+      />
       <div className="print-workspace-body">
         {isSidebarOpen && (
           <PrintStyleSidebar
@@ -1005,6 +1023,7 @@ export default function PaymentPrintModal({
             styleConfig={printStyle.styleConfig}
             onChangeStyle={printStyle.setStyleConfig}
             onResetStyle={printStyle.resetStyleConfig}
+            tableSelection={tableSelection}
             showTableSettings={true}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}

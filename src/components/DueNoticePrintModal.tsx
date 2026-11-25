@@ -11,9 +11,12 @@ import DueNoticeCard, {
 } from './receipts/DueNoticeCard';
 import { AppIcon } from './AppIcons';
 import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintInteractiveSheet, {
+  PrintTableOverrideStyles,
+} from '@/components/print/PrintInteractiveSheet';
 import {
-  buildPrintScopeProps,
   usePrintDocumentStyle,
+  useTableSelection,
 } from '@/components/print/printStylePresets';
 
 const A4_PORTRAIT_W_PX = 793.7;
@@ -95,10 +98,7 @@ export default function DueNoticePrintModal({
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
 
   const printStyle = usePrintDocumentStyle('due_notice', isOpen);
-  const printScopeProps = useMemo(
-    () => buildPrintScopeProps(printStyle.styleConfig),
-    [printStyle.styleConfig]
-  );
+  const tableSelection = useTableSelection(isOpen);
 
   // Restore saved preferences from localStorage
   useEffect(() => {
@@ -669,6 +669,11 @@ export default function DueNoticePrintModal({
       </div>
 
       {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <PrintTableOverrideStyles
+        scopeId="due-notice-print"
+        styleConfig={printStyle.styleConfig}
+        tableSelection={tableSelection}
+      />
       <div className="print-workspace-body">
         {isSidebarOpen && (
           <PrintStyleSidebar
@@ -676,6 +681,7 @@ export default function DueNoticePrintModal({
             styleConfig={printStyle.styleConfig}
             onChangeStyle={printStyle.setStyleConfig}
             onResetStyle={printStyle.resetStyleConfig}
+            tableSelection={tableSelection}
             showTableSettings={true}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
@@ -1121,10 +1127,14 @@ export default function DueNoticePrintModal({
                     height: '296.6mm',
                   }}
                 >
-                  <div
-                    className={`receipt-a4-sheet ${printScopeProps.className}`}
+                  <PrintInteractiveSheet
+                    scopeId="due-notice-print"
+                    pageIdx={pageIdx}
+                    styleConfig={printStyle.styleConfig}
+                    tableSelection={tableSelection}
+                    onCellSelected={() => setIsSidebarOpen(true)}
+                    className="receipt-a4-sheet"
                     style={{
-                      ...printScopeProps.style,
                       width: '21cm',
                       height: '296.6mm',
                       background: '#ffffff',
@@ -1189,7 +1199,7 @@ export default function DueNoticePrintModal({
                         />
                       );
                     })}
-                  </div>
+                  </PrintInteractiveSheet>
                 </div>
               </div>
             </div>

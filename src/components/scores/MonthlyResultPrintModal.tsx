@@ -18,9 +18,12 @@ import MonthlyResultSheet, {
 } from './MonthlyResultSheet';
 import { AppIcon } from '../AppIcons';
 import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintInteractiveSheet, {
+  PrintTableOverrideStyles,
+} from '@/components/print/PrintInteractiveSheet';
 import {
-  buildPrintScopeProps,
   usePrintDocumentStyle,
+  useTableSelection,
 } from '@/components/print/printStylePresets';
 
 export interface MonthlyResultBrandingConfig {
@@ -95,10 +98,7 @@ export default function MonthlyResultPrintModal({
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileInfo>(DEFAULT_SCHOOL_PROFILE);
 
   const printStyle = usePrintDocumentStyle('monthly_result', isOpen);
-  const printScopeProps = useMemo(
-    () => buildPrintScopeProps(printStyle.styleConfig),
-    [printStyle.styleConfig]
-  );
+  const tableSelection = useTableSelection(isOpen);
 
   const getDocOptions = () => ({
     themeId,
@@ -720,6 +720,11 @@ export default function MonthlyResultPrintModal({
       </div>
 
       {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <PrintTableOverrideStyles
+        scopeId="monthly-result-print"
+        styleConfig={printStyle.styleConfig}
+        tableSelection={tableSelection}
+      />
       <div className="print-workspace-body">
         {isLinkPanelOpen && (
           <PrintStyleSidebar
@@ -727,6 +732,7 @@ export default function MonthlyResultPrintModal({
             styleConfig={printStyle.styleConfig}
             onChangeStyle={printStyle.setStyleConfig}
             onResetStyle={printStyle.resetStyleConfig}
+            tableSelection={tableSelection}
             showTableSettings={true}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
@@ -1235,9 +1241,13 @@ export default function MonthlyResultPrintModal({
                     height: A4_PORTRAIT_SPEC.sheetH,
                   }}
                 >
-                  <div
-                    className={printScopeProps.className}
-                    style={{ ...printScopeProps.style, width: '100%', height: '100%' }}
+                  <PrintInteractiveSheet
+                    scopeId="monthly-result-print"
+                    pageIdx={idx}
+                    styleConfig={printStyle.styleConfig}
+                    tableSelection={tableSelection}
+                    onCellSelected={() => setIsLinkPanelOpen(true)}
+                    style={{ width: '100%', height: '100%' }}
                   >
                     <MonthlyResultSheet
                       packet={pg.packet}
@@ -1258,7 +1268,7 @@ export default function MonthlyResultPrintModal({
                       schoolProfile={schoolProfile}
                       layoutMode={pageLayoutMode}
                     />
-                  </div>
+                  </PrintInteractiveSheet>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AppIcon } from '@/components/AppIcons';
 import {
   BUILTIN_RICH_FONT_CHOICES,
@@ -9,6 +9,9 @@ import {
 import {
   PrintDocumentStyleConfig,
   SavedPrintDocumentPreset,
+  TableCellStyleOverride,
+  TableSelectionController,
+  TableSelectionMode,
   hasCustomPrintStyle,
 } from './printStylePresets';
 
@@ -25,6 +28,9 @@ export interface PrintStyleSidebarProps {
       | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
   ) => void;
   onResetStyle: () => void;
+
+  /** Optional interactive table cell/row/col selection controller */
+  tableSelection?: TableSelectionController;
 
   /** Whether to show the Table Settings tab */
   showTableSettings?: boolean;
@@ -52,6 +58,16 @@ const TEXT_COLOR_PRESETS = [
   { label: 'ខៀវចាស់', value: '#1e3a8a' },
   { label: 'បៃតងចាស់', value: '#065f46' },
   { label: 'ក្រហមចាស់', value: '#991b1b' },
+];
+
+const CELL_BG_PRESETS = [
+  { label: 'ដើម', value: '' },
+  { label: 'ស', value: '#ffffff' },
+  { label: 'លឿងខ្ចី', value: '#fef9c3' },
+  { label: 'ខៀវខ្ចី', value: '#dbeafe' },
+  { label: 'បៃតងខ្ចី', value: '#dcfce7' },
+  { label: 'ក្រហមខ្ចី', value: '#fee2e2' },
+  { label: 'ប្រផេះ', value: '#e2e8f0' },
 ];
 
 const HEADER_BG_PRESETS = [
@@ -88,6 +104,7 @@ export default function PrintStyleSidebar({
   styleConfig,
   onChangeStyle,
   onResetStyle,
+  tableSelection,
   showTableSettings = true,
   presets,
   activePresetId,
@@ -106,11 +123,37 @@ export default function PrintStyleSidebar({
   const [isLoadingPcFonts, setIsLoadingPcFonts] = useState(false);
   const [pcFontStatus, setPcFontStatus] = useState('');
   const [customFontInput, setCustomFontInput] = useState('');
+  const [customCellFontInput, setCustomCellFontInput] = useState('');
+
+  const prevSelectedCountRef = useRef<number>(0);
+
+  // Auto-switch to the Table tab as soon as the user clicks a cell/row on the live preview
+  useEffect(() => {
+    const count = tableSelection?.selectedCoords.length || 0;
+    if (showTableSettings && count > 0 && prevSelectedCountRef.current === 0) {
+      setActiveTab('table');
+    }
+    prevSelectedCountRef.current = count;
+  }, [tableSelection?.selectedCoords.length, showTableSettings]);
 
   const isCustomized = useMemo(() => hasCustomPrintStyle(styleConfig), [styleConfig]);
+  const cellOverridesCount = useMemo(
+    () => Object.keys(styleConfig.cellOverrides || {}).length,
+    [styleConfig.cellOverrides]
+  );
+
+  const selectedCellOverride: TableCellStyleOverride = useMemo(() => {
+    if (!tableSelection || tableSelection.selectedCoords.length === 0) return {};
+    return tableSelection.getSelectedMergedOverride(styleConfig.cellOverrides || {});
+  }, [tableSelection, styleConfig.cellOverrides]);
 
   const patchStyle = (partial: Partial<PrintDocumentStyleConfig>) => {
     onChangeStyle((prev) => ({ ...prev, ...partial }));
+  };
+
+  const patchSelectedCell = (partial: Partial<TableCellStyleOverride>) => {
+    if (!tableSelection) return;
+    tableSelection.patchSelectedStyle(partial, onChangeStyle);
   };
 
   const handleLoadLocalPcFonts = async () => {
@@ -140,11 +183,13 @@ export default function PrintStyleSidebar({
     }
   };
 
-  const handleApplyCustomPcFont = (target: 'body' | 'heading') => {
-    const clean = customFontInput.trim();
-    if (!clean) return;
-    const css = formatLocalFontFamilyCss(clean);
-    if (target === 'heading') {
+  const handleApplyCustomPcFont = (target: 'body' | 'heading' | 'cell') => {
+    const raw = target === 'cell' ? customCellFontInput.trim() : customFontInput.trim();
+    if (!raw) return;
+    const css = formatLocalFontFamilyCss(raw);
+    if (target === 'cell') {
+      patchSelectedCell({ fontFamily: css });
+    } else if (target === 'heading') {
       patchStyle({ headingFontFamily: css });
     } else {
       patchStyle({ fontFamily: css });
@@ -236,6 +281,40 @@ export default function PrintStyleSidebar({
       )}
     </>
   );
+
+  const selectedSummaryText = useMemo(() => {
+    if (!tableSelection || tableSelection.selectedCoords.length === 0) return '';
+    const coords = tableSelection.selectedCoords;
+    const mode = tableSelection.selectionMode;
+    const first = coords[0];
+    const secLabel =
+      first.section === 'thead'
+        ? 'ក្បាលតារាង'
+        : first.section === 'tfoot'
+          ? 'ជើងតារាង'
+          : 'ជួរទិន្នន័យ';
+
+    if (mode === 'row') {
+      const uniqueRows = new Set(coords.map((c) => `${c.pageIdx}:${c.tableIdx}:${c.section}:${c.rowIdx}`));
+      if (uniqueRows.size === 1) {
+        return `${secLabel} • ជួរដេកទី ${first.rowIdx + 1}`;
+      }
+      return `បានជ្រើស ${uniqueRows.size} ជួរដេក`;
+    }
+    if (mode === 'col') {
+      const uniqueCols = new Set(coords.map((c) => `${c.tableIdx}:${c.section}:${c.colIdx}`));
+      if (uniqueCols.size === 1) {
+        return `${secLabel} • ជួរឈរទី ${first.colIdx + 1}`;
+      }
+      return `បានជ្រើស ${uniqueCols.size} ជួរឈរ`;
+    }
+    if (coords.length === 1) {
+      return `${secLabel} • ជួរ ${first.rowIdx + 1} × ប្រអប់ ${first.colIdx + 1}`;
+    }
+    return `បានជ្រើស ${coords.length} ប្រអប់ (Cells)`;
+  }, [tableSelection]);
+
+  const selectedCount = tableSelection?.selectedCoords.length || 0;
 
   return (
     <aside
@@ -476,13 +555,13 @@ export default function PrintStyleSidebar({
               borderRadius: '7px',
               border: 'none',
               background: activeTab === 'table' ? '#059669' : 'transparent',
-              color: activeTab === 'table' ? '#ffffff' : '#cbd5e1',
+              color: activeTab === 'table' ? '#ffffff' : selectedCount > 0 ? '#7dd3fc' : '#cbd5e1',
               fontSize: '0.74rem',
               fontWeight: 700,
               cursor: 'pointer',
             }}
           >
-            តារាង (Table)
+            {selectedCount > 0 ? `តារាង (${selectedCount})` : 'តារាង / Cell'}
           </button>
         )}
       </div>
@@ -1015,13 +1094,713 @@ export default function PrintStyleSidebar({
         </div>
       )}
 
-      {/* Tab 3: Table Settings */}
+      {/* Tab 3: Interactive Cell / Row / Column Editor + Global Table Settings */}
       {showTableSettings && activeTab === 'table' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.62rem' }}>
-          {/* Table Font Sizes & Row Geometry */}
+          {/* Interactive Cell / Row / Column Direct Selection Editor */}
+          {tableSelection && (
+            <div
+              style={{
+                ...sectionCardStyle,
+                border:
+                  selectedCount > 0
+                    ? '1.5px solid rgba(56, 189, 248, 0.7)'
+                    : '1px solid rgba(56, 189, 248, 0.32)',
+                background:
+                  selectedCount > 0
+                    ? 'rgba(14, 116, 144, 0.22)'
+                    : 'rgba(30, 41, 59, 0.82)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.4rem',
+                }}
+              >
+                <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#38bdf8' }}>
+                  កែតាមប្រអប់ / ជួរលើតារាង
+                </span>
+                {cellOverridesCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => tableSelection.clearAllCellOverrides(onChangeStyle)}
+                    title="សម្អាតការកែ Cell/ជួរទាំងអស់"
+                    style={{
+                      padding: '0.14rem 0.42rem',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(248, 113, 113, 0.4)',
+                      background: 'rgba(239, 68, 68, 0.14)',
+                      color: '#fca5a5',
+                      fontSize: '0.67rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    សម្អាតទាំងអស់ ({cellOverridesCount})
+                  </button>
+                )}
+              </div>
+
+              {/* 3-Way Selection Mode Toggle: Cell | Row | Column */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '0.24rem',
+                  background: '#0f172a',
+                  padding: '0.18rem',
+                  borderRadius: '7px',
+                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                }}
+              >
+                {(
+                  [
+                    { id: 'cell' as TableSelectionMode, label: 'ប្រអប់ (Cell)' },
+                    { id: 'row' as TableSelectionMode, label: 'ជួរដេក (Row)' },
+                    { id: 'col' as TableSelectionMode, label: 'ជួរឈរ (Col)' },
+                  ] as const
+                ).map((m) => {
+                  const active = tableSelection.selectionMode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => tableSelection.setSelectionMode(m.id)}
+                      style={{
+                        padding: '0.28rem 0.2rem',
+                        borderRadius: '5px',
+                        border: 'none',
+                        background: active ? '#0284c7' : 'transparent',
+                        color: active ? '#ffffff' : '#cbd5e1',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.38rem',
+                  fontSize: '0.72rem',
+                  color: '#cbd5e1',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={tableSelection.applyAllPages}
+                  onChange={(e) => tableSelection.setApplyAllPages(e.target.checked)}
+                />
+                <span>អនុវត្តលើគ្រប់ទំព័រ (All Pages)</span>
+              </label>
+
+              {selectedCount === 0 ? (
+                <div
+                  style={{
+                    fontSize: '0.72rem',
+                    color: '#bae6fd',
+                    background: 'rgba(15, 23, 42, 0.72)',
+                    border: '1px dashed rgba(56, 189, 248, 0.4)',
+                    borderRadius: '7px',
+                    padding: '0.52rem 0.6rem',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  ចុច ឬអូសលើតារាងខាងស្ដាំ ដើម្បីជ្រើសប្រអប់ (Cell) ជួរដេក (Row) ឬជួរឈរ (Col) រួចកែ Font, ទំហំ, ពណ៌ និងគម្លាតផ្ទាល់។
+                  <div style={{ color: '#94a3b8', marginTop: '0.2rem', fontSize: '0.68rem' }}>
+                    គន្លឹះ៖ កាន់ Shift ឬ Ctrl + ចុច ដើម្បីជ្រើសប្រអប់/ជួរច្រើនព្រមគ្នា។
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.48rem' }}>
+                  {/* Active Selection Info Strip */}
+                  <div
+                    style={{
+                      background: '#0f172a',
+                      border: '1px solid rgba(56, 189, 248, 0.45)',
+                      borderRadius: '7px',
+                      padding: '0.42rem 0.52rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.32rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.73rem', fontWeight: 800, color: '#7dd3fc' }}>
+                        {selectedSummaryText}
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => tableSelection.clearSelectedStyle(onChangeStyle)}
+                          title="សម្អាតស្ទាយ៍ប្រអប់/ជួរដែលកំពុងជ្រើស"
+                          style={{
+                            padding: '0.14rem 0.4rem',
+                            borderRadius: '5px',
+                            border: '1px solid rgba(251, 191, 36, 0.45)',
+                            background: 'rgba(251, 191, 36, 0.14)',
+                            color: '#fde68a',
+                            fontSize: '0.67rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ដើមវិញ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => tableSelection.clearSelection()}
+                          title="ដកការជ្រើស"
+                          style={{
+                            padding: '0.14rem 0.36rem',
+                            borderRadius: '5px',
+                            border: '1px solid #475569',
+                            background: '#1e293b',
+                            color: '#cbd5e1',
+                            fontSize: '0.67rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    {tableSelection.selectedCoords[0]?.textPreview && (
+                      <div
+                        style={{
+                          fontSize: '0.7rem',
+                          color: '#94a3b8',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        អក្សរ៖ &ldquo;{tableSelection.selectedCoords[0].textPreview}&rdquo;
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Per-Cell / Row / Col Font Family */}
+                  <div>
+                    <label style={labelStyle}>
+                      <span>ពុម្ពអក្សរ (Font)</span>
+                      {selectedCellOverride.fontFamily && (
+                        <button
+                          type="button"
+                          onClick={() => patchSelectedCell({ fontFamily: '' })}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#fca5a5',
+                            fontSize: '0.67rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Auto
+                        </button>
+                      )}
+                    </label>
+                    <select
+                      value={selectedCellOverride.fontFamily || ''}
+                      onChange={(e) => patchSelectedCell({ fontFamily: e.target.value })}
+                      style={inputStyle}
+                    >
+                      {selectedCellOverride.fontFamily &&
+                        !BUILTIN_RICH_FONT_CHOICES.some(
+                          (f) => f.value === selectedCellOverride.fontFamily
+                        ) &&
+                        !localPcFonts.some(
+                          (fam) =>
+                            formatLocalFontFamilyCss(fam) === selectedCellOverride.fontFamily
+                        ) && (
+                          <option value={selectedCellOverride.fontFamily}>
+                            ផ្ទាល់ខ្លួន៖ {selectedCellOverride.fontFamily}
+                          </option>
+                        )}
+                      {renderFontOptions()}
+                    </select>
+                    <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.28rem' }}>
+                      <input
+                        type="text"
+                        value={customCellFontInput}
+                        onChange={(e) => setCustomCellFontInput(e.target.value)}
+                        placeholder="វាយឈ្មោះ Font PC..."
+                        style={{ ...inputStyle, flex: 1, minWidth: 0, fontSize: '0.71rem', padding: '0.26rem 0.42rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleApplyCustomPcFont('cell')}
+                        disabled={!customCellFontInput.trim()}
+                        style={{
+                          padding: '0.22rem 0.46rem',
+                          borderRadius: '6px',
+                          border: '1px solid #38bdf8',
+                          background: 'rgba(56, 189, 248, 0.16)',
+                          color: '#bae6fd',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          cursor: customCellFontInput.trim() ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        ប្រើ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleLoadLocalPcFonts}
+                        disabled={isLoadingPcFonts}
+                        title="ទាញ Font ក្នុងកុំព្យូទ័រ"
+                        style={{
+                          padding: '0.22rem 0.42rem',
+                          borderRadius: '6px',
+                          border: '1px solid #475569',
+                          background: '#0f172a',
+                          color: '#cbd5e1',
+                          fontSize: '0.67rem',
+                          fontWeight: 700,
+                          cursor: isLoadingPcFonts ? 'wait' : 'pointer',
+                        }}
+                      >
+                        PC
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Per-Cell Font Size (pt) */}
+                  <div>
+                    <label style={labelStyle}>
+                      <span>ទំហំអក្សរ (Font Size)</span>
+                      <span style={{ color: '#fbbf24' }}>
+                        {selectedCellOverride.fontSizePt !== undefined &&
+                        selectedCellOverride.fontSizePt !== null
+                          ? `${selectedCellOverride.fontSizePt} pt`
+                          : 'លំនាំដើម'}
+                      </span>
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <input
+                        type="range"
+                        min={5}
+                        max={22}
+                        step={0.25}
+                        value={selectedCellOverride.fontSizePt ?? 9}
+                        onChange={(e) =>
+                          patchSelectedCell({ fontSizePt: Number(e.target.value) })
+                        }
+                        style={{ flex: 1 }}
+                      />
+                      <input
+                        type="number"
+                        min={4.5}
+                        max={32}
+                        step={0.5}
+                        value={selectedCellOverride.fontSizePt ?? ''}
+                        placeholder="pt"
+                        onChange={(e) =>
+                          patchSelectedCell({
+                            fontSizePt:
+                              e.target.value.trim() === '' ? null : Number(e.target.value),
+                          })
+                        }
+                        style={{
+                          width: '50px',
+                          padding: '0.18rem 0.28rem',
+                          borderRadius: '5px',
+                          border: '1px solid #475569',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.72rem',
+                          textAlign: 'center',
+                        }}
+                      />
+                      {selectedCellOverride.fontSizePt !== undefined &&
+                        selectedCellOverride.fontSizePt !== null && (
+                          <button
+                            type="button"
+                            onClick={() => patchSelectedCell({ fontSizePt: null })}
+                            style={{
+                              padding: '0.14rem 0.35rem',
+                              borderRadius: '5px',
+                              border: '1px solid #475569',
+                              background: '#0f172a',
+                              color: '#cbd5e1',
+                              fontSize: '0.67rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Auto
+                          </button>
+                        )}
+                    </div>
+                  </div>
+
+                  {/* Bold / Italic / Underline + Text Alignment */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.28rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSelectedCell({
+                          fontWeight:
+                            selectedCellOverride.fontWeight === '700' ||
+                            selectedCellOverride.fontWeight === '800'
+                              ? '400'
+                              : '700',
+                        })
+                      }
+                      style={{
+                        padding: '0.24rem 0.52rem',
+                        borderRadius: '6px',
+                        border:
+                          selectedCellOverride.fontWeight === '700' ||
+                          selectedCellOverride.fontWeight === '800'
+                            ? '1.5px solid #38bdf8'
+                            : '1px solid #475569',
+                        background:
+                          selectedCellOverride.fontWeight === '700' ||
+                          selectedCellOverride.fontWeight === '800'
+                            ? 'rgba(56, 189, 248, 0.22)'
+                            : '#0f172a',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSelectedCell({
+                          fontStyle:
+                            selectedCellOverride.fontStyle === 'italic' ? 'normal' : 'italic',
+                        })
+                      }
+                      style={{
+                        padding: '0.24rem 0.52rem',
+                        borderRadius: '6px',
+                        border:
+                          selectedCellOverride.fontStyle === 'italic'
+                            ? '1.5px solid #38bdf8'
+                            : '1px solid #475569',
+                        background:
+                          selectedCellOverride.fontStyle === 'italic'
+                            ? 'rgba(56, 189, 248, 0.22)'
+                            : '#0f172a',
+                        color: '#ffffff',
+                        fontStyle: 'italic',
+                        fontWeight: 700,
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      I
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        patchSelectedCell({
+                          textDecoration:
+                            selectedCellOverride.textDecoration === 'underline'
+                              ? 'none'
+                              : 'underline',
+                        })
+                      }
+                      style={{
+                        padding: '0.24rem 0.52rem',
+                        borderRadius: '6px',
+                        border:
+                          selectedCellOverride.textDecoration === 'underline'
+                            ? '1.5px solid #38bdf8'
+                            : '1px solid #475569',
+                        background:
+                          selectedCellOverride.textDecoration === 'underline'
+                            ? 'rgba(56, 189, 248, 0.22)'
+                            : '#0f172a',
+                        color: '#ffffff',
+                        textDecoration: 'underline',
+                        fontWeight: 700,
+                        fontSize: '0.74rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      U
+                    </button>
+
+                    <div
+                      style={{
+                        marginLeft: 'auto',
+                        display: 'inline-flex',
+                        background: '#0f172a',
+                        border: '1px solid #475569',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {(
+                        [
+                          { val: 'left', label: 'ឆ្វេង' },
+                          { val: 'center', label: 'កណ្ដាល' },
+                          { val: 'right', label: 'ស្ដាំ' },
+                        ] as const
+                      ).map((al) => {
+                        const act = selectedCellOverride.textAlign === al.val;
+                        return (
+                          <button
+                            key={al.val}
+                            type="button"
+                            onClick={() =>
+                              patchSelectedCell({
+                                textAlign: act ? 'default' : al.val,
+                              })
+                            }
+                            style={{
+                              padding: '0.22rem 0.42rem',
+                              border: 'none',
+                              background: act ? '#0284c7' : 'transparent',
+                              color: act ? '#ffffff' : '#cbd5e1',
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {al.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Per-Cell Text Color & Background Color */}
+                  <div>
+                    <label style={labelStyle}>
+                      <span>ពណ៌អក្សរ (Color)</span>
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.24rem', alignItems: 'center' }}>
+                      {TEXT_COLOR_PRESETS.map((c) => {
+                        const active = (selectedCellOverride.color || '') === c.value;
+                        return (
+                          <button
+                            key={c.label}
+                            type="button"
+                            onClick={() => patchSelectedCell({ color: c.value })}
+                            style={{
+                              padding: '0.15rem 0.38rem',
+                              borderRadius: '5px',
+                              border: active ? '1.5px solid #38bdf8' : '1px solid #475569',
+                              background: active ? 'rgba(56, 189, 248, 0.2)' : '#0f172a',
+                              color: '#e2e8f0',
+                              fontSize: '0.67rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                            }}
+                          >
+                            {c.value && (
+                              <span
+                                style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '2px',
+                                  background: c.value,
+                                  border: '1px solid rgba(255,255,255,0.4)',
+                                }}
+                              />
+                            )}
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                      <input
+                        type="color"
+                        value={selectedCellOverride.color || '#000000'}
+                        onChange={(e) => patchSelectedCell({ color: e.target.value })}
+                        style={{
+                          width: '22px',
+                          height: '20px',
+                          padding: 0,
+                          border: '1px solid #475569',
+                          borderRadius: '4px',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>
+                      <span>ពណ៌ផ្ទៃប្រអប់ (Background)</span>
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.24rem', alignItems: 'center' }}>
+                      {CELL_BG_PRESETS.map((c) => {
+                        const active = (selectedCellOverride.backgroundColor || '') === c.value;
+                        return (
+                          <button
+                            key={c.label}
+                            type="button"
+                            onClick={() => patchSelectedCell({ backgroundColor: c.value })}
+                            style={{
+                              padding: '0.15rem 0.36rem',
+                              borderRadius: '5px',
+                              border: active ? '1.5px solid #38bdf8' : '1px solid #475569',
+                              background: active ? 'rgba(56, 189, 248, 0.2)' : '#0f172a',
+                              color: '#e2e8f0',
+                              fontSize: '0.67rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                            }}
+                          >
+                            {c.value && (
+                              <span
+                                style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  borderRadius: '2px',
+                                  background: c.value,
+                                  border: '1px solid rgba(148,163,184,0.6)',
+                                }}
+                              />
+                            )}
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                      <input
+                        type="color"
+                        value={selectedCellOverride.backgroundColor || '#fef9c3'}
+                        onChange={(e) =>
+                          patchSelectedCell({ backgroundColor: e.target.value })
+                        }
+                        style={{
+                          width: '22px',
+                          height: '20px',
+                          padding: 0,
+                          border: '1px solid #475569',
+                          borderRadius: '4px',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Per-Cell Spacing & Padding */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                    <div>
+                      <label style={labelStyle}>
+                        <span>គម្លាតជួរ</span>
+                        <span style={{ color: '#6ee7b7' }}>
+                          {selectedCellOverride.lineHeight ?? 'Auto'}
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={0.85}
+                        max={2.2}
+                        step={0.05}
+                        value={selectedCellOverride.lineHeight ?? 1.2}
+                        onChange={(e) =>
+                          patchSelectedCell({ lineHeight: Number(e.target.value) })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>
+                        <span>គម្លាតអក្សរ</span>
+                        <span style={{ color: '#6ee7b7' }}>
+                          {selectedCellOverride.letterSpacingPx !== undefined &&
+                          selectedCellOverride.letterSpacingPx !== null
+                            ? `${selectedCellOverride.letterSpacingPx}px`
+                            : 'Auto'}
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={-0.5}
+                        max={4}
+                        step={0.1}
+                        value={selectedCellOverride.letterSpacingPx ?? 0}
+                        onChange={(e) =>
+                          patchSelectedCell({ letterSpacingPx: Number(e.target.value) })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>
+                        <span>Padding លើ-ក្រោម</span>
+                        <span style={{ color: '#93c5fd' }}>
+                          {selectedCellOverride.paddingYPx !== undefined &&
+                          selectedCellOverride.paddingYPx !== null
+                            ? `${selectedCellOverride.paddingYPx}px`
+                            : 'Auto'}
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={16}
+                        step={0.5}
+                        value={selectedCellOverride.paddingYPx ?? 2}
+                        onChange={(e) =>
+                          patchSelectedCell({ paddingYPx: Number(e.target.value) })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>
+                        <span>Padding ឆ្វេង-ស្ដាំ</span>
+                        <span style={{ color: '#93c5fd' }}>
+                          {selectedCellOverride.paddingXPx !== undefined &&
+                          selectedCellOverride.paddingXPx !== null
+                            ? `${selectedCellOverride.paddingXPx}px`
+                            : 'Auto'}
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={18}
+                        step={0.5}
+                        value={selectedCellOverride.paddingXPx ?? 4}
+                        onChange={(e) =>
+                          patchSelectedCell({ paddingXPx: Number(e.target.value) })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Global Table Font Sizes & Row Geometry */}
           <div style={sectionCardStyle}>
             <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#6ee7b7' }}>
-              ទំហំអក្សរ &amp; កម្ពស់ជួរតារាង
+              ការកំណត់តារាងទាំងមូល (ទំហំ &amp; កម្ពស់ជួរ)
             </div>
 
             <div>
@@ -1229,7 +2008,7 @@ export default function PrintStyleSidebar({
           {/* Table Borders & Colors */}
           <div style={sectionCardStyle}>
             <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#93c5fd' }}>
-              បន្ទាត់ស៊ុម &amp; ពណ៌តារាង
+              បន្ទាត់ស៊ុម &amp; ពណ៌តារាងទាំងមូល
             </div>
 
             <div>

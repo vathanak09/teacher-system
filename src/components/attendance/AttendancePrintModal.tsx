@@ -14,9 +14,12 @@ import PrintableAttendanceSheet, {
 } from './PrintableAttendanceSheet';
 import { AppIcon } from '../AppIcons';
 import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintInteractiveSheet, {
+  PrintTableOverrideStyles,
+} from '@/components/print/PrintInteractiveSheet';
 import {
-  buildPrintScopeProps,
   usePrintDocumentStyle,
+  useTableSelection,
 } from '@/components/print/printStylePresets';
 
 export interface AttendancePrintModalProps {
@@ -117,10 +120,7 @@ export default function AttendancePrintModal({
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
   const printStyle = usePrintDocumentStyle('attendance', isOpen);
-  const printScopeProps = useMemo(
-    () => buildPrintScopeProps(printStyle.styleConfig),
-    [printStyle.styleConfig]
-  );
+  const tableSelection = useTableSelection(isOpen);
 
   const getDocOptions = () => ({
     layoutMode,
@@ -696,6 +696,11 @@ export default function AttendancePrintModal({
       </div>
 
       {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <PrintTableOverrideStyles
+        scopeId="attendance-print"
+        styleConfig={printStyle.styleConfig}
+        tableSelection={tableSelection}
+      />
       <div className="print-workspace-body">
         {isSidebarOpen && (
           <PrintStyleSidebar
@@ -703,6 +708,7 @@ export default function AttendancePrintModal({
             styleConfig={printStyle.styleConfig}
             onChangeStyle={printStyle.setStyleConfig}
             onResetStyle={printStyle.resetStyleConfig}
+            tableSelection={tableSelection}
             showTableSettings={true}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
@@ -962,9 +968,13 @@ export default function AttendancePrintModal({
                     height: sheetSpec.sheetH,
                   }}
                 >
-                  <div
-                    className={printScopeProps.className}
-                    style={{ ...printScopeProps.style, width: '100%', height: '100%' }}
+                  <PrintInteractiveSheet
+                    scopeId="attendance-print"
+                    pageIdx={pageIdx}
+                    styleConfig={printStyle.styleConfig}
+                    tableSelection={tableSelection}
+                    onCellSelected={() => setIsSidebarOpen(true)}
+                    style={{ width: '100%', height: '100%' }}
                   >
                     <PrintableAttendanceSheet
                       packet={pg.packet}
@@ -981,7 +991,7 @@ export default function AttendancePrintModal({
                       extraHolidayDays={extraHolidayDays}
                       extraBlankRows={extraBlankRows}
                     />
-                  </div>
+                  </PrintInteractiveSheet>
                 </div>
               </div>
             </div>

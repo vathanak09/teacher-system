@@ -2001,3 +2001,16 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 .print-custom-scope.print-ov-title-size [style*="Muol"] {
   font-size: var(--pr-title-size) !important;
 }
+
+/* Interactive Table Cell / Row / Column Selection Hover Cue (Screen Only) */
+@media screen {
+  .print-table-selectable table th,
+  .print-table-selectable table td {
+    cursor: cell;
+  }
+  .print-table-selectable table th:hover,
+  .print-table-selectable table td:hover {
+    outline: 1.5px dashed rgba(2, 132, 199, 0.85) !important;
+    outline-offset: -1.5px !important;
+  }
+}

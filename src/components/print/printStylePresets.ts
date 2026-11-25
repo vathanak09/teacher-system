@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { settingsService } from '@/services/db';
 
 export type PrintDocCategory =
@@ -8,6 +8,34 @@ export type PrintDocCategory =
   | 'monthly_result'
   | 'receipt'
   | 'due_notice';
+
+export type TableSelectionMode = 'cell' | 'row' | 'col';
+export type TableSectionName = 'thead' | 'tbody' | 'tfoot';
+
+export interface TableCellCoord {
+  pageIdx: number;
+  tableIdx: number;
+  section: TableSectionName;
+  rowIdx: number;
+  colIdx: number;
+  textPreview?: string;
+}
+
+export interface TableCellStyleOverride {
+  fontFamily?: string;
+  fontSizePt?: number | null;
+  fontWeight?: 'default' | '400' | '500' | '600' | '700' | '800';
+  fontStyle?: 'default' | 'normal' | 'italic';
+  textDecoration?: 'default' | 'none' | 'underline';
+  color?: string;
+  backgroundColor?: string;
+  textAlign?: 'default' | 'left' | 'center' | 'right';
+  letterSpacingPx?: number | null;
+  wordSpacingPx?: number | null;
+  lineHeight?: number | null;
+  paddingYPx?: number | null;
+  paddingXPx?: number | null;
+}
 
 export interface PrintDocumentStyleConfig {
   /** Body / general font family CSS value (empty = keep template default) */
@@ -33,7 +61,7 @@ export interface PrintDocumentStyleConfig {
   /** Monochrome / Black & White print mode for laser printers */
   grayscalePrint: boolean;
 
-  // Table-specific settings (Attendance, Monthly Result, Receipt/Due tables)
+  // Global Table-specific settings (Attendance, Monthly Result, Receipt/Due tables)
   /** Table body text size in pt (null = default) */
   tableFontSizePt: number | null;
   /** Table header text size in pt (null = default) */
@@ -56,6 +84,9 @@ export interface PrintDocumentStyleConfig {
   tableStripeBg: string;
   /** Table body cell text alignment override */
   tableCellAlign: 'default' | 'left' | 'center' | 'right';
+
+  /** Per-cell, per-row, and per-column style overrides on printable tables */
+  cellOverrides: Record<string, TableCellStyleOverride>;
 }
 
 export interface SavedPrintDocumentPreset {
@@ -91,6 +122,7 @@ export const DEFAULT_PRINT_STYLE_CONFIG: PrintDocumentStyleConfig = {
   tableHeaderColor: '',
   tableStripeBg: '',
   tableCellAlign: 'default',
+  cellOverrides: {},
 };
 
 function clampOptNum(
@@ -102,6 +134,73 @@ function clampOptNum(
   const n = Number(val);
   if (!Number.isFinite(n)) return null;
   return Math.max(min, Math.min(max, n));
+}
+
+function sanitizeCssVal(raw: string): string {
+  return String(raw || '').replace(/[{};<>]/g, '').trim();
+}
+
+export function normalizeCellOverride(
+  raw?: Partial<TableCellStyleOverride> | null
+): TableCellStyleOverride {
+  const src = raw || {};
+  const out: TableCellStyleOverride = {};
+
+  if (typeof src.fontFamily === 'string' && src.fontFamily.trim()) {
+    out.fontFamily = sanitizeCssVal(src.fontFamily);
+  }
+  const fSize = clampOptNum(src.fontSizePt, 4.5, 32);
+  if (fSize !== null) out.fontSizePt = fSize;
+
+  if (
+    src.fontWeight === '400' ||
+    src.fontWeight === '500' ||
+    src.fontWeight === '600' ||
+    src.fontWeight === '700' ||
+    src.fontWeight === '800'
+  ) {
+    out.fontWeight = src.fontWeight;
+  }
+  if (src.fontStyle === 'normal' || src.fontStyle === 'italic') {
+    out.fontStyle = src.fontStyle;
+  }
+  if (src.textDecoration === 'none' || src.textDecoration === 'underline') {
+    out.textDecoration = src.textDecoration;
+  }
+  if (typeof src.color === 'string' && src.color.trim()) {
+    out.color = sanitizeCssVal(src.color);
+  }
+  if (typeof src.backgroundColor === 'string' && src.backgroundColor.trim()) {
+    out.backgroundColor = sanitizeCssVal(src.backgroundColor);
+  }
+  if (
+    src.textAlign === 'left' ||
+    src.textAlign === 'center' ||
+    src.textAlign === 'right'
+  ) {
+    out.textAlign = src.textAlign;
+  }
+  const ls = clampOptNum(src.letterSpacingPx, -1.5, 8);
+  if (ls !== null) out.letterSpacingPx = ls;
+
+  const ws = clampOptNum(src.wordSpacingPx, -4, 24);
+  if (ws !== null) out.wordSpacingPx = ws;
+
+  const lh = clampOptNum(src.lineHeight, 0.8, 2.6);
+  if (lh !== null) out.lineHeight = lh;
+
+  const py = clampOptNum(src.paddingYPx, 0, 24);
+  if (py !== null) out.paddingYPx = py;
+
+  const px = clampOptNum(src.paddingXPx, 0, 28);
+  if (px !== null) out.paddingXPx = px;
+
+  return out;
+}
+
+export function isCellOverrideEmpty(ov?: TableCellStyleOverride | null): boolean {
+  if (!ov) return true;
+  return Object.keys(normalizeCellOverride(ov)).length === 0;
 }
 
 export function normalizePrintStyleConfig(
@@ -121,6 +220,17 @@ export function normalizePrintStyleConfig(
     src.tableCellAlign === 'right'
       ? src.tableCellAlign
       : 'default';
+
+  const cleanOverrides: Record<string, TableCellStyleOverride> = {};
+  if (src.cellOverrides && typeof src.cellOverrides === 'object') {
+    for (const [k, v] of Object.entries(src.cellOverrides)) {
+      if (!k || typeof v !== 'object' || !v) continue;
+      const norm = normalizeCellOverride(v);
+      if (Object.keys(norm).length > 0) {
+        cleanOverrides[k] = norm;
+      }
+    }
+  }
 
   return {
     fontFamily: typeof src.fontFamily === 'string' ? src.fontFamily.trim() : '',
@@ -151,6 +261,7 @@ export function normalizePrintStyleConfig(
     tableStripeBg:
       typeof src.tableStripeBg === 'string' ? src.tableStripeBg.trim() : '',
     tableCellAlign: align,
+    cellOverrides: cleanOverrides,
   };
 }
 
@@ -177,8 +288,398 @@ export function hasCustomPrintStyle(cfg: PrintDocumentStyleConfig): boolean {
     Boolean(cfg.tableHeaderBg) ||
     Boolean(cfg.tableHeaderColor) ||
     Boolean(cfg.tableStripeBg) ||
-    cfg.tableCellAlign !== 'default'
+    cfg.tableCellAlign !== 'default' ||
+    Object.keys(cfg.cellOverrides || {}).length > 0
   );
+}
+
+/**
+ * Deterministic key builder for per-cell / per-row / per-column table overrides.
+ * Format:
+ *  - cell:p{page|*}:t{t}:{sec}:r{r}:c{c}
+ *  - row:p{page|*}:t{t}:{sec}:r{r}
+ *  - col:p{page|*}:t{t}:{sec}:c{c}
+ */
+export function makeTableOverrideKey(
+  mode: TableSelectionMode,
+  coord: TableCellCoord,
+  applyAllPages: boolean
+): string {
+  const pPart = applyAllPages ? 'p*' : `p${coord.pageIdx}`;
+  if (mode === 'row') {
+    return `row:${pPart}:t${coord.tableIdx}:${coord.section}:r${coord.rowIdx}`;
+  }
+  if (mode === 'col') {
+    return `col:${pPart}:t${coord.tableIdx}:${coord.section}:c${coord.colIdx}`;
+  }
+  return `cell:${pPart}:t${coord.tableIdx}:${coord.section}:r${coord.rowIdx}:c${coord.colIdx}`;
+}
+
+interface ParsedOverrideKey {
+  kind: TableSelectionMode;
+  pageSpec: string; // '*' or number string
+  tableIdx: number;
+  section: TableSectionName;
+  rowIdx?: number;
+  colIdx?: number;
+}
+
+function parseTableOverrideKey(key: string): ParsedOverrideKey | null {
+  const mCell = /^cell:p(\*|\d+):t(\d+):(thead|tbody|tfoot):r(\d+):c(\d+)$/.exec(key);
+  if (mCell) {
+    return {
+      kind: 'cell',
+      pageSpec: mCell[1],
+      tableIdx: Number(mCell[2]),
+      section: mCell[3] as TableSectionName,
+      rowIdx: Number(mCell[4]),
+      colIdx: Number(mCell[5]),
+    };
+  }
+  const mRow = /^row:p(\*|\d+):t(\d+):(thead|tbody|tfoot):r(\d+)$/.exec(key);
+  if (mRow) {
+    return {
+      kind: 'row',
+      pageSpec: mRow[1],
+      tableIdx: Number(mRow[2]),
+      section: mRow[3] as TableSectionName,
+      rowIdx: Number(mRow[4]),
+    };
+  }
+  const mCol = /^col:p(\*|\d+):t(\d+):(thead|tbody|tfoot):c(\d+)$/.exec(key);
+  if (mCol) {
+    return {
+      kind: 'col',
+      pageSpec: mCol[1],
+      tableIdx: Number(mCol[2]),
+      section: mCol[3] as TableSectionName,
+      colIdx: Number(mCol[4]),
+    };
+  }
+  return null;
+}
+
+function overridePriority(parsed: ParsedOverrideKey): number {
+  const kindWeight = parsed.kind === 'col' ? 0 : parsed.kind === 'row' ? 10 : 20;
+  const pageWeight = parsed.pageSpec === '*' ? 0 : 1;
+  return kindWeight + pageWeight;
+}
+
+function buildCellSelectorForKey(scopeId: string, parsed: ParsedOverrideKey): string {
+  const scopePrefix =
+    parsed.pageSpec === '*'
+      ? `[data-print-scope="${scopeId}"]`
+      : `[data-print-scope="${scopeId}"][data-pt-p="${parsed.pageSpec}"]`;
+
+  if (parsed.kind === 'col') {
+    return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-c="${parsed.colIdx}"]`;
+  }
+  if (parsed.kind === 'row') {
+    return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"]`;
+  }
+  return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"][data-pt-c="${parsed.colIdx}"]`;
+}
+
+/**
+ * Compiles all per-column, per-row, and per-cell table overrides into deterministic CSS
+ * that works identically in live preview AND @media print.
+ */
+export function buildTableCellOverridesCss(
+  scopeId: string,
+  overrides: Record<string, TableCellStyleOverride>
+): string {
+  const entries = Object.entries(overrides || {})
+    .map(([key, ov]) => ({ key, parsed: parseTableOverrideKey(key), ov: normalizeCellOverride(ov) }))
+    .filter((item): item is { key: string; parsed: ParsedOverrideKey; ov: TableCellStyleOverride } =>
+      Boolean(item.parsed && Object.keys(item.ov).length > 0)
+    )
+    .sort((a, b) => overridePriority(a.parsed) - overridePriority(b.parsed));
+
+  if (entries.length === 0) return '';
+
+  const chunks: string[] = [];
+  for (const { parsed, ov } of entries) {
+    const cellSel = buildCellSelectorForKey(scopeId, parsed);
+    const cellRules: string[] = [];
+    const textRules: string[] = [];
+
+    if (ov.fontFamily) {
+      const f = sanitizeCssVal(ov.fontFamily);
+      cellRules.push(`font-family: ${f} !important;`);
+      textRules.push(`font-family: ${f} !important;`);
+    }
+    if (ov.fontSizePt !== undefined && ov.fontSizePt !== null) {
+      cellRules.push(`font-size: ${ov.fontSizePt}pt !important;`);
+      textRules.push(`font-size: ${ov.fontSizePt}pt !important;`);
+    }
+    if (ov.fontWeight && ov.fontWeight !== 'default') {
+      cellRules.push(`font-weight: ${ov.fontWeight} !important;`);
+      textRules.push(`font-weight: ${ov.fontWeight} !important;`);
+    }
+    if (ov.fontStyle && ov.fontStyle !== 'default') {
+      cellRules.push(`font-style: ${ov.fontStyle} !important;`);
+      textRules.push(`font-style: ${ov.fontStyle} !important;`);
+    }
+    if (ov.textDecoration && ov.textDecoration !== 'default') {
+      cellRules.push(`text-decoration: ${ov.textDecoration} !important;`);
+      textRules.push(`text-decoration: ${ov.textDecoration} !important;`);
+    }
+    if (ov.color) {
+      const c = sanitizeCssVal(ov.color);
+      cellRules.push(`color: ${c} !important;`);
+      textRules.push(`color: ${c} !important;`);
+    }
+    if (ov.backgroundColor) {
+      const bg = sanitizeCssVal(ov.backgroundColor);
+      cellRules.push(`background: ${bg} !important; background-color: ${bg} !important;`);
+    }
+    if (ov.textAlign && ov.textAlign !== 'default') {
+      cellRules.push(`text-align: ${ov.textAlign} !important;`);
+    }
+    if (ov.letterSpacingPx !== undefined && ov.letterSpacingPx !== null) {
+      cellRules.push(`letter-spacing: ${ov.letterSpacingPx}px !important;`);
+      textRules.push(`letter-spacing: ${ov.letterSpacingPx}px !important;`);
+    }
+    if (ov.wordSpacingPx !== undefined && ov.wordSpacingPx !== null) {
+      cellRules.push(`word-spacing: ${ov.wordSpacingPx}px !important;`);
+      textRules.push(`word-spacing: ${ov.wordSpacingPx}px !important;`);
+    }
+    if (ov.lineHeight !== undefined && ov.lineHeight !== null) {
+      cellRules.push(`line-height: ${ov.lineHeight} !important;`);
+      textRules.push(`line-height: ${ov.lineHeight} !important;`);
+    }
+    if (ov.paddingYPx !== undefined && ov.paddingYPx !== null) {
+      cellRules.push(`padding-top: ${ov.paddingYPx}px !important; padding-bottom: ${ov.paddingYPx}px !important;`);
+    }
+    if (ov.paddingXPx !== undefined && ov.paddingXPx !== null) {
+      cellRules.push(`padding-left: ${ov.paddingXPx}px !important; padding-right: ${ov.paddingXPx}px !important;`);
+    }
+
+    if (cellRules.length > 0) {
+      chunks.push(`${cellSel} { ${cellRules.join(' ')} }`);
+    }
+    if (textRules.length > 0) {
+      chunks.push(`${cellSel} *:not(svg):not(path):not(circle):not(rect):not(line) { ${textRules.join(' ')} }`);
+    }
+  }
+
+  return chunks.join('\n');
+}
+
+/**
+ * Generates @media screen-only highlight CSS for currently selected table cells/rows/columns.
+ * Guaranteed invisible during actual printing.
+ */
+export function buildActiveSelectionCss(
+  scopeId: string,
+  mode: TableSelectionMode,
+  selectedCoords: TableCellCoord[],
+  applyAllPages: boolean
+): string {
+  if (!selectedCoords || selectedCoords.length === 0) return '';
+  const selectorSet = new Set<string>();
+  for (const coord of selectedCoords) {
+    const key = makeTableOverrideKey(mode, coord, applyAllPages);
+    const parsed = parseTableOverrideKey(key);
+    if (parsed) {
+      selectorSet.add(buildCellSelectorForKey(scopeId, parsed));
+    }
+  }
+  const selectors = Array.from(selectorSet);
+  if (selectors.length === 0) return '';
+
+  return `@media screen {
+${selectors.join(',\n')} {
+  box-shadow: inset 0 0 0 2px #0284c7 !important;
+  outline: 1.5px solid #38bdf8 !important;
+  outline-offset: -1px !important;
+  background-image: linear-gradient(rgba(56, 189, 248, 0.22), rgba(56, 189, 248, 0.22)) !important;
+}
+}`;
+}
+
+export interface TableSelectionController {
+  selectionMode: TableSelectionMode;
+  setSelectionMode: (mode: TableSelectionMode) => void;
+  applyAllPages: boolean;
+  setApplyAllPages: (val: boolean) => void;
+  selectedCoords: TableCellCoord[];
+  anchorCoord: TableCellCoord | null;
+  setSelection: (coords: TableCellCoord[], anchor?: TableCellCoord | null) => void;
+  clearSelection: () => void;
+  activeKeys: string[];
+  getSelectedMergedOverride: (
+    overrides: Record<string, TableCellStyleOverride>
+  ) => TableCellStyleOverride;
+  patchSelectedStyle: (
+    patch: Partial<TableCellStyleOverride>,
+    setStyleConfig: (
+      updater:
+        | PrintDocumentStyleConfig
+        | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+    ) => void
+  ) => void;
+  clearSelectedStyle: (
+    setStyleConfig: (
+      updater:
+        | PrintDocumentStyleConfig
+        | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+    ) => void
+  ) => void;
+  clearAllCellOverrides: (
+    setStyleConfig: (
+      updater:
+        | PrintDocumentStyleConfig
+        | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+    ) => void
+  ) => void;
+}
+
+export function useTableSelection(isOpen: boolean): TableSelectionController {
+  const [selectionMode, setSelectionModeState] = useState<TableSelectionMode>('cell');
+  const [applyAllPages, setApplyAllPages] = useState<boolean>(false);
+  const [selectedCoords, setSelectedCoords] = useState<TableCellCoord[]>([]);
+  const [anchorCoord, setAnchorCoord] = useState<TableCellCoord | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedCoords([]);
+      setAnchorCoord(null);
+    }
+  }, [isOpen]);
+
+  const setSelectionMode = useCallback((nextMode: TableSelectionMode) => {
+    setSelectionModeState(nextMode);
+    if (nextMode === 'col') {
+      setApplyAllPages(true);
+    } else if (nextMode === 'cell') {
+      setApplyAllPages(false);
+    }
+  }, []);
+
+  const setSelection = useCallback(
+    (coords: TableCellCoord[], anchor?: TableCellCoord | null) => {
+      setSelectedCoords(coords);
+      if (anchor !== undefined) {
+        setAnchorCoord(anchor);
+      } else if (coords.length > 0) {
+        setAnchorCoord(coords[0]);
+      } else {
+        setAnchorCoord(null);
+      }
+    },
+    []
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedCoords([]);
+    setAnchorCoord(null);
+  }, []);
+
+  const activeKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of selectedCoords) {
+      set.add(makeTableOverrideKey(selectionMode, c, applyAllPages));
+    }
+    return Array.from(set);
+  }, [selectedCoords, selectionMode, applyAllPages]);
+
+  const getSelectedMergedOverride = useCallback(
+    (overrides: Record<string, TableCellStyleOverride>): TableCellStyleOverride => {
+      if (activeKeys.length === 0) return {};
+      const first = overrides[activeKeys[0]];
+      if (first) return normalizeCellOverride(first);
+      // Fallback: if viewing a cell, show row/col override if present so UI feels helpful
+      if (selectionMode === 'cell' && selectedCoords.length > 0) {
+        const c = selectedCoords[0];
+        const rowKey = makeTableOverrideKey('row', c, applyAllPages);
+        if (overrides[rowKey]) return normalizeCellOverride(overrides[rowKey]);
+        const colKey = makeTableOverrideKey('col', c, true);
+        if (overrides[colKey]) return normalizeCellOverride(overrides[colKey]);
+      }
+      return {};
+    },
+    [activeKeys, selectionMode, selectedCoords, applyAllPages]
+  );
+
+  const patchSelectedStyle = useCallback(
+    (
+      patch: Partial<TableCellStyleOverride>,
+      setStyleConfig: (
+        updater:
+          | PrintDocumentStyleConfig
+          | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+      ) => void
+    ) => {
+      if (activeKeys.length === 0) return;
+      setStyleConfig((prev) => {
+        const nextMap = { ...(prev.cellOverrides || {}) };
+        for (const key of activeKeys) {
+          const merged: TableCellStyleOverride = {
+            ...(nextMap[key] || {}),
+            ...patch,
+          };
+          const clean = normalizeCellOverride(merged);
+          if (Object.keys(clean).length === 0) {
+            delete nextMap[key];
+          } else {
+            nextMap[key] = clean;
+          }
+        }
+        return { ...prev, cellOverrides: nextMap };
+      });
+    },
+    [activeKeys]
+  );
+
+  const clearSelectedStyle = useCallback(
+    (
+      setStyleConfig: (
+        updater:
+          | PrintDocumentStyleConfig
+          | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+      ) => void
+    ) => {
+      if (activeKeys.length === 0) return;
+      setStyleConfig((prev) => {
+        const nextMap = { ...(prev.cellOverrides || {}) };
+        for (const key of activeKeys) {
+          delete nextMap[key];
+        }
+        return { ...prev, cellOverrides: nextMap };
+      });
+    },
+    [activeKeys]
+  );
+
+  const clearAllCellOverrides = useCallback(
+    (
+      setStyleConfig: (
+        updater:
+          | PrintDocumentStyleConfig
+          | ((prev: PrintDocumentStyleConfig) => PrintDocumentStyleConfig)
+      ) => void
+    ) => {
+      setStyleConfig((prev) => ({ ...prev, cellOverrides: {} }));
+    },
+    []
+  );
+
+  return {
+    selectionMode,
+    setSelectionMode,
+    applyAllPages,
+    setApplyAllPages,
+    selectedCoords,
+    anchorCoord,
+    setSelection,
+    clearSelection,
+    activeKeys,
+    getSelectedMergedOverride,
+    patchSelectedStyle,
+    clearSelectedStyle,
+    clearAllCellOverrides,
+  };
 }
 
 /**
@@ -423,7 +924,7 @@ export function usePrintDocumentStyle(docCategory: PrintDocCategory, isOpen: boo
   );
 
   const resetStyleConfig = useCallback(() => {
-    const clean = { ...DEFAULT_PRINT_STYLE_CONFIG };
+    const clean = { ...DEFAULT_PRINT_STYLE_CONFIG, cellOverrides: {} };
     setStyleConfigState(clean);
     setActivePresetId('');
     writeLocalActiveStyle(docCategory, clean);
