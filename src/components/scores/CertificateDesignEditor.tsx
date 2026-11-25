@@ -24,6 +24,15 @@ import {
   normalizeCertificateDesign,
 } from './CertificateSheet';
 import { AppIcon } from '../AppIcons';
+import CertificateRichTextPanel from './CertificateRichTextPanel';
+import {
+  CertTextBoxKey,
+  CertTextBoxStyleConfig,
+  CustomCertTextBox,
+  formatLocalFontFamilyCss,
+  getDefaultTextBoxRichHtml,
+  isCertTextBoxKey,
+} from './certificateRichText';
 
 export interface SavedCertificateDesignTemplate {
   id: string;
@@ -116,6 +125,52 @@ export default function CertificateDesignEditor({
   const [editorScale, setEditorScale] = useState<number>(0.9);
   const stageWrapperRef = useRef<HTMLDivElement>(null);
 
+  const [selectedCustomTextId, setSelectedCustomTextId] = useState<string | null>(null);
+  const [draggingCustomTextId, setDraggingCustomTextId] = useState<string | null>(null);
+  const [localFonts, setLocalFonts] = useState<string[]>([]);
+  const [isLoadingLocalFonts, setIsLoadingLocalFonts] = useState<boolean>(false);
+  const [localFontsStatus, setLocalFontsStatus] = useState<string>('');
+
+  const handleLoadLocalFonts = async () => {
+    if (typeof window === 'undefined') return;
+    const winAny = window as any;
+    if (typeof winAny.queryLocalFonts !== 'function') {
+      setLocalFontsStatus(
+        'Browser នេះមិនគាំទ្រការទាញស្វ័យប្រវត្តិទេ — សូមវាយឈ្មោះ Font ក្នុងកុំព្យូទ័រផ្ទាល់នៅប្រអប់ខាងក្រោម (ឧ. Khmer OS Muol Light, Limon S1)។'
+      );
+      return;
+    }
+    setIsLoadingLocalFonts(true);
+    setLocalFontsStatus('');
+    try {
+      const fonts: Array<{ family?: string }> = await winAny.queryLocalFonts();
+      const famSet = new Set<string>();
+      (fonts || []).forEach((f) => {
+        const fam = String(f?.family || '').trim();
+        if (fam) famSet.add(fam);
+      });
+      const sorted = Array.from(famSet).sort((a, b) => {
+        const aKh = /khmer|limon|akbalthom|moul|tacteing|ni?da|kantumruy|battambang|siemreap/i.test(a) ? 0 : 1;
+        const bKh = /khmer|limon|akbalthom|moul|tacteing|ni?da|kantumruy|battambang|siemreap/i.test(b) ? 0 : 1;
+        if (aKh !== bKh) return aKh - bKh;
+        return a.localeCompare(b, 'en');
+      });
+      setLocalFonts(sorted);
+      setLocalFontsStatus(
+        sorted.length > 0
+          ? `បានទាញ Font ពីកុំព្យូទ័រចំនួន ${sorted.length} ពុម្ពអក្សរដោយជោគជ័យ!`
+          : 'រកមិនឃើញ Font បន្ថែមក្នុងកុំព្យូទ័រទេ។'
+      );
+    } catch (err: any) {
+      console.error('Local fonts access failed:', err);
+      setLocalFontsStatus(
+        'មិនអាចទាញ Font ស្វ័យប្រវត្តិបានទេ (សូម Allow ការអនុញ្ញាតក្នុង Chrome/Edge ឬវាយឈ្មោះ Font ផ្ទាល់)។'
+      );
+    } finally {
+      setIsLoadingLocalFonts(false);
+    }
+  };
+
   type DragInteraction =
     | {
         kind: 'move';
@@ -157,6 +212,23 @@ export default function CertificateDesignEditor({
         startClientY: number;
         startScaleX: number;
         startScaleY: number;
+      }
+    | {
+        kind: 'customTextMove';
+        id: string;
+        startClientX: number;
+        startClientY: number;
+        startDxMm: number;
+        startDyMm: number;
+      }
+    | {
+        kind: 'customTextResize';
+        id: string;
+        mode: 'width' | 'scale';
+        startClientX: number;
+        startClientY: number;
+        startWidthMm: number;
+        startScale: number;
       };
 
   const dragStateRef = useRef<DragInteraction | null>(null);
@@ -170,6 +242,7 @@ export default function CertificateDesignEditor({
   );
 
   useEffect(() => {
+    setSelectedCustomTextId(null);
     setSelectedKey((prev) => {
       if (docType === 'certificate' && (prev === 'rankBadge' || prev === 'classMeta')) return 'titleBlock';
       if (docType !== 'certificate' && prev === 'ministryLogo') return 'titleBlock';
@@ -192,6 +265,8 @@ export default function CertificateDesignEditor({
   onChangeDesignRef.current = onChangeDesign;
   const selectedKeyRef = useRef(selectedKey);
   selectedKeyRef.current = selectedKey;
+  const selectedCustomTextIdRef = useRef(selectedCustomTextId);
+  selectedCustomTextIdRef.current = selectedCustomTextId;
   const isA4LandscapeRef = useRef(isA4Landscape);
   isA4LandscapeRef.current = isA4Landscape;
   const denomRef = useRef(1);
@@ -255,6 +330,30 @@ export default function CertificateDesignEditor({
       const denom = denomRef.current;
       const deltaXMm = (e.clientX - st.startClientX) / denom;
       const deltaYMm = (e.clientY - st.startClientY) / denom;
+
+      if (st.kind === 'customTextMove') {
+        const dxMm = clampVal(Number((st.startDxMm + deltaXMm).toFixed(2)), -180, 180);
+        const dyMm = clampVal(Number((st.startDyMm + deltaYMm).toFixed(2)), -120, 120);
+        const nextBoxes = (curDesign.customTextBoxes || []).map((b) =>
+          b.id === st.id ? { ...b, dxMm, dyMm } : b
+        );
+        onChangeDesignRef.current({ ...curDesign, customTextBoxes: nextBoxes });
+        return;
+      }
+
+      if (st.kind === 'customTextResize') {
+        const nextBoxes = (curDesign.customTextBoxes || []).map((b) => {
+          if (b.id !== st.id) return b;
+          if (st.mode === 'width') {
+            const widthMm = clampVal(roundStep(st.startWidthMm + deltaXMm / Math.max(0.45, st.startScale || 1), 1), 22, 205);
+            return { ...b, widthMm };
+          }
+          const scale = clampVal(roundStep(st.startScale + (deltaXMm + deltaYMm) * 0.014, 0.02), 0.55, 2.0);
+          return { ...b, scale };
+        });
+        onChangeDesignRef.current({ ...curDesign, customTextBoxes: nextBoxes });
+        return;
+      }
 
       if (st.kind === 'move') {
         const dxMm = clampVal(Number((st.startDxMm + deltaXMm).toFixed(2)), -180, 180);
@@ -342,17 +441,41 @@ export default function CertificateDesignEditor({
       if (!dragStateRef.current) return;
       dragStateRef.current = null;
       setDraggingKey(null);
+      setDraggingCustomTextId(null);
       setDraggingFrame(false);
       document.body.style.cursor = '';
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return;
+      }
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
       e.preventDefault();
       const step = e.shiftKey ? 2 : 0.5;
       const curDesign = latestDesignRef.current;
+      const activeCustomId = selectedCustomTextIdRef.current;
+      if (activeCustomId) {
+        const nextBoxes = (curDesign.customTextBoxes || []).map((b) => {
+          if (b.id !== activeCustomId) return b;
+          const dxMm =
+            e.key === 'ArrowLeft'
+              ? Number((b.dxMm - step).toFixed(2))
+              : e.key === 'ArrowRight'
+                ? Number((b.dxMm + step).toFixed(2))
+                : b.dxMm;
+          const dyMm =
+            e.key === 'ArrowUp'
+              ? Number((b.dyMm - step).toFixed(2))
+              : e.key === 'ArrowDown'
+                ? Number((b.dyMm + step).toFixed(2))
+                : b.dyMm;
+          return { ...b, dxMm, dyMm };
+        });
+        onChangeDesignRef.current({ ...curDesign, customTextBoxes: nextBoxes });
+        return;
+      }
       const key = selectedKeyRef.current;
       const curEl = curDesign.elements[key];
       const dxMm =
@@ -395,8 +518,12 @@ export default function CertificateDesignEditor({
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     e.stopPropagation();
+    setSelectedCustomTextId(null);
     setSelectedKey(key);
     setDraggingKey(key);
+    if (isCertTextBoxKey(key)) {
+      setInspectorTab('element');
+    }
     document.body.style.cursor = 'grabbing';
     const el = latestDesignRef.current.elements[key];
     dragStateRef.current = {
@@ -406,6 +533,50 @@ export default function CertificateDesignEditor({
       startClientY: e.clientY,
       startDxMm: el.dxMm,
       startDyMm: el.dyMm,
+    };
+  };
+
+  const handleCustomTextPointerDown = (id: string, e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedCustomTextId(id);
+    setDraggingCustomTextId(id);
+    setInspectorTab('element');
+    document.body.style.cursor = 'grabbing';
+    const box = (latestDesignRef.current.customTextBoxes || []).find((b) => b.id === id);
+    if (!box) return;
+    dragStateRef.current = {
+      kind: 'customTextMove',
+      id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startDxMm: box.dxMm,
+      startDyMm: box.dyMm,
+    };
+  };
+
+  const handleCustomTextResizePointerDown = (
+    id: string,
+    mode: 'width' | 'scale',
+    e: React.PointerEvent
+  ) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedCustomTextId(id);
+    setDraggingCustomTextId(id);
+    document.body.style.cursor = mode === 'width' ? 'ew-resize' : 'nwse-resize';
+    const box = (latestDesignRef.current.customTextBoxes || []).find((b) => b.id === id);
+    if (!box) return;
+    dragStateRef.current = {
+      kind: 'customTextResize',
+      id,
+      mode,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startWidthMm: box.widthMm,
+      startScale: box.scale,
     };
   };
 
@@ -507,6 +678,170 @@ export default function CertificateDesignEditor({
     });
   };
 
+  const updateBuiltInTextBoxOverride = (
+    boxKey: CertTextBoxKey,
+    patch: Partial<CertTextBoxStyleConfig>
+  ) => {
+    const prevOverrides = normalizedDesign.textBoxOverrides || {};
+    const prevBox = prevOverrides[boxKey] || {};
+    const nextBox: CertTextBoxStyleConfig = { ...prevBox, ...patch };
+    if (patch.widthMm === undefined && 'widthMm' in patch) {
+      delete nextBox.widthMm;
+    }
+    onChangeDesign({
+      ...normalizedDesign,
+      textBoxOverrides: {
+        ...prevOverrides,
+        [boxKey]: nextBox,
+      },
+    });
+  };
+
+  const resetBuiltInTextBoxOverride = (boxKey: CertTextBoxKey) => {
+    const prevOverrides = { ...(normalizedDesign.textBoxOverrides || {}) };
+    delete prevOverrides[boxKey];
+    onChangeDesign({
+      ...normalizedDesign,
+      textBoxOverrides: prevOverrides,
+    });
+  };
+
+  const handleAddCustomTextBox = () => {
+    const list = normalizedDesign.customTextBoxes || [];
+    const nextBox: CustomCertTextBox = {
+      id: `tb_${Date.now()}`,
+      label: `ប្រអប់អក្សរ ${list.length + 1}`,
+      dxMm: 0,
+      dyMm: 10,
+      scale: 1,
+      visible: true,
+      richHtml: '<div>អក្សរថ្មី — ឈ្មោះសិស្ស៖ <span data-token="studentNameKh" style="color: #1d4ed8; font-weight: 700;">{{studentNameKh}}</span></div>',
+      lineHeight: 1.35,
+      paragraphGapMm: 1.2,
+      fontFamily: normalizedDesign.khmerBodyFont,
+      fontSizePt: 10,
+      color: normalizedDesign.bodyColor,
+      textAlign: 'center',
+      letterSpacingPx: 0,
+      widthMm: 85,
+    };
+    onChangeDesign({
+      ...normalizedDesign,
+      customTextBoxes: [...list, nextBox],
+    });
+    setSelectedCustomTextId(nextBox.id);
+    setInspectorTab('element');
+  };
+
+  const updateSelectedCustomTextBox = (patch: Partial<CustomCertTextBox>) => {
+    if (!selectedCustomTextId) return;
+    const nextBoxes = (normalizedDesign.customTextBoxes || []).map((b) =>
+      b.id === selectedCustomTextId ? { ...b, ...patch } : b
+    );
+    onChangeDesign({
+      ...normalizedDesign,
+      customTextBoxes: nextBoxes,
+    });
+  };
+
+  const deleteSelectedCustomTextBox = () => {
+    if (!selectedCustomTextId) return;
+    const nextBoxes = (normalizedDesign.customTextBoxes || []).filter(
+      (b) => b.id !== selectedCustomTextId
+    );
+    onChangeDesign({
+      ...normalizedDesign,
+      customTextBoxes: nextBoxes,
+    });
+    setSelectedCustomTextId(null);
+  };
+
+  const selectedCustomBox = useMemo(
+    () => (normalizedDesign.customTextBoxes || []).find((b) => b.id === selectedCustomTextId) || null,
+    [normalizedDesign.customTextBoxes, selectedCustomTextId]
+  );
+
+  const getBuiltInTextBoxDefaults = (boxKey: CertTextBoxKey) => {
+    const ov = normalizedDesign.textBoxOverrides?.[boxKey];
+    const isCert = docType === 'certificate';
+    const hints = {
+      khmerTitleFont: normalizedDesign.khmerTitleFont,
+      khmerBodyFont: normalizedDesign.khmerBodyFont,
+      studentNameKhFont: normalizedDesign.studentNameKhFont,
+      englishFont: normalizedDesign.englishFont,
+      mottoColor: normalizedDesign.mottoColor,
+      mottoKhFontPt: normalizedDesign.mottoKhFontPt,
+      mottoEnFontPt: normalizedDesign.mottoEnFontPt,
+      titleFontPt: normalizedDesign.titleFontPt,
+      subtitleFontPt: normalizedDesign.subtitleFontPt,
+      certTitleColor: normalizedDesign.certTitleColor,
+      frameTitleColor: framePreset.titleColor,
+      frameInnerColor: framePreset.innerColor,
+      studentNameKhPt: normalizedDesign.studentNameKhPt,
+      studentNameEnPt: normalizedDesign.studentNameEnPt,
+      khmerBodyFontPt: normalizedDesign.khmerBodyFontPt,
+      englishBodyFontPt: normalizedDesign.englishBodyFontPt,
+      valueColor: normalizedDesign.valueColor,
+      accentColor: normalizedDesign.accentColor,
+      bodyColor: normalizedDesign.bodyColor,
+      dottedLineColor: normalizedDesign.dottedLineColor,
+    };
+
+    const baseLineHeight =
+      boxKey === 'nationalMotto'
+        ? normalizedDesign.mottoLineHeight
+        : boxKey === 'titleBlock'
+          ? 1.14
+          : normalizedDesign.bodyLineHeight;
+    const baseGap =
+      boxKey === 'khmerBody' || boxKey === 'englishBody' ? normalizedDesign.rowGapMm : 0.35;
+    const baseFontFamily =
+      boxKey === 'nationalMotto' || boxKey === 'titleBlock'
+        ? normalizedDesign.khmerTitleFont
+        : boxKey === 'englishBody'
+          ? normalizedDesign.englishFont
+          : normalizedDesign.khmerBodyFont;
+    const baseFontSizePt =
+      boxKey === 'nationalMotto'
+        ? normalizedDesign.mottoKhFontPt
+        : boxKey === 'titleBlock'
+          ? normalizedDesign.titleFontPt
+          : boxKey === 'englishBody'
+            ? normalizedDesign.englishBodyFontPt
+            : boxKey === 'classMeta'
+              ? 7.5
+              : normalizedDesign.khmerBodyFontPt;
+    const baseColor =
+      boxKey === 'nationalMotto'
+        ? normalizedDesign.mottoColor
+        : boxKey === 'titleBlock'
+          ? isCert
+            ? normalizedDesign.certTitleColor || '#dc2626'
+            : framePreset.titleColor
+          : boxKey === 'classMeta'
+            ? '#64748b'
+            : normalizedDesign.bodyColor;
+    const baseAlign: 'left' | 'center' | 'right' | 'justify' =
+      boxKey === 'nationalMotto' || boxKey === 'titleBlock' ? 'center' : 'left';
+
+    return {
+      hasRichOverride: Boolean(ov?.richHtml && ov.richHtml.trim()),
+      initialRichHtml:
+        ov?.richHtml && ov.richHtml.trim()
+          ? ov.richHtml
+          : getDefaultTextBoxRichHtml(boxKey, docType, hints),
+      lineHeight: ov?.lineHeight ?? baseLineHeight,
+      paragraphGapMm: ov?.paragraphGapMm ?? baseGap,
+      letterSpacingPx: ov?.letterSpacingPx ?? normalizedDesign.letterSpacingPx,
+      wordSpacingPx: ov?.wordSpacingPx ?? 0,
+      fontFamily: ov?.fontFamily || baseFontFamily,
+      fontSizePt: ov?.fontSizePt ?? baseFontSizePt,
+      color: ov?.color || baseColor,
+      textAlign: ov?.textAlign || baseAlign,
+      widthMm: ov?.widthMm,
+    };
+  };
+
   const selectedEl = normalizedDesign.elements[selectedKey];
   const activeSavedTemplate = savedDesignTemplates.find((t) => t.id === activeDesignTemplateId) || null;
 
@@ -515,7 +850,7 @@ export default function CertificateDesignEditor({
       className="no-print"
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 365px',
+        gridTemplateColumns: 'minmax(0, 1fr) 405px',
         gap: '1rem',
         width: '100%',
         maxWidth: '1320px',
@@ -555,7 +890,9 @@ export default function CertificateDesignEditor({
             ) : (
               <>
                 អូសប្រអប់ដោយ Mouse ដើម្បីរំកិល • អូសចំណុចការ៉េជ្រុងដើម្បីប្តូរទំហំ —{' '}
-                <span style={{ color: '#60a5fa', fontWeight: 700 }}>{CERT_ELEMENT_LABELS[selectedKey]}</span>
+                <span style={{ color: '#60a5fa', fontWeight: 700 }}>
+                  {selectedCustomBox ? selectedCustomBox.label : CERT_ELEMENT_LABELS[selectedKey]}
+                </span>
               </>
             )}
           </div>
@@ -661,13 +998,17 @@ export default function CertificateDesignEditor({
               signatoryName={signatoryName}
               principalTitle={principalTitle}
               schoolProfile={schoolProfile}
-              editorSelectedKey={selectedKey}
+              editorSelectedKey={selectedCustomTextId ? null : selectedKey}
               editorDraggingKey={draggingKey}
+              editorSelectedCustomTextId={selectedCustomTextId}
+              editorDraggingCustomTextId={draggingCustomTextId}
               frameDragEnabled={frameDragEnabled}
               editorDraggingFrame={draggingFrame}
               showMarginGuide={showMarginGuide}
               onElementPointerDown={handleElementPointerDown}
               onResizeHandlePointerDown={handleResizeHandlePointerDown}
+              onCustomTextPointerDown={handleCustomTextPointerDown}
+              onCustomTextResizePointerDown={handleCustomTextResizePointerDown}
               onFramePointerDown={handleFramePointerDown}
               onFrameResizePointerDown={handleFrameResizePointerDown}
             />
@@ -880,8 +1221,27 @@ export default function CertificateDesignEditor({
         {inspectorTab === 'element' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <div>
-              <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#93c5fd', marginBottom: '0.35rem' }}>
-                ជ្រើសធាតុដើម្បីកែប្រែ៖
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#93c5fd' }}>
+                  ជ្រើសធាតុ / TextBox ដើម្បីកែប្រែ៖
+                </span>
+                <button
+                  type="button"
+                  onClick={handleAddCustomTextBox}
+                  style={{
+                    padding: '0.18rem 0.48rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(56, 189, 248, 0.5)',
+                    background: 'rgba(14, 165, 233, 0.18)',
+                    color: '#7dd3fc',
+                    fontSize: '0.69rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  + បន្ថែម TextBox
+                </button>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {(Object.keys(CERT_ELEMENT_LABELS) as CertElementKey[])
@@ -891,13 +1251,16 @@ export default function CertificateDesignEditor({
                       : key !== 'ministryLogo'
                   )
                   .map((key) => {
-                  const active = key === selectedKey;
+                  const active = !selectedCustomTextId && key === selectedKey;
                   const visible = normalizedDesign.elements[key].visible !== false;
                   return (
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setSelectedKey(key)}
+                      onClick={() => {
+                        setSelectedCustomTextId(null);
+                        setSelectedKey(key);
+                      }}
                       style={{
                         padding: '0.22rem 0.48rem',
                         borderRadius: '6px',
@@ -914,9 +1277,85 @@ export default function CertificateDesignEditor({
                     </button>
                   );
                 })}
+                {(normalizedDesign.customTextBoxes || []).map((tb) => {
+                  const active = selectedCustomTextId === tb.id;
+                  return (
+                    <button
+                      key={tb.id}
+                      type="button"
+                      onClick={() => setSelectedCustomTextId(tb.id)}
+                      style={{
+                        padding: '0.22rem 0.48rem',
+                        borderRadius: '6px',
+                        border: active ? '1.5px solid #38bdf8' : '1px solid rgba(56, 189, 248, 0.35)',
+                        background: active ? 'rgba(14, 165, 233, 0.28)' : '#0f172a',
+                        color: tb.visible === false ? '#64748b' : active ? '#ffffff' : '#bae6fd',
+                        fontSize: '0.72rem',
+                        fontWeight: active ? 700 : 500,
+                        cursor: 'pointer',
+                        textDecoration: tb.visible === false ? 'line-through' : 'none',
+                      }}
+                    >
+                      {tb.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
+            {/* Word-Style Rich Text & Line Spacing Editor (Automatically Loaded When Any TextBox Is Selected!) */}
+            {selectedCustomBox ? (
+              <CertificateRichTextPanel
+                boxId={`custom::${docType}::${selectedCustomBox.id}`}
+                boxTitle={selectedCustomBox.label}
+                isCustomTextBox
+                hasRichOverride
+                initialRichHtml={selectedCustomBox.richHtml}
+                lineHeight={selectedCustomBox.lineHeight}
+                paragraphGapMm={selectedCustomBox.paragraphGapMm}
+                letterSpacingPx={selectedCustomBox.letterSpacingPx}
+                wordSpacingPx={selectedCustomBox.wordSpacingPx ?? 0}
+                fontFamily={selectedCustomBox.fontFamily}
+                fontSizePt={selectedCustomBox.fontSizePt}
+                color={selectedCustomBox.color}
+                textAlign={selectedCustomBox.textAlign}
+                widthMm={selectedCustomBox.widthMm}
+                localFonts={localFonts}
+                isLoadingLocalFonts={isLoadingLocalFonts}
+                localFontsStatus={localFontsStatus}
+                onLoadLocalFonts={handleLoadLocalFonts}
+                onChangeStyle={(patch) => updateSelectedCustomTextBox(patch)}
+                onRenameCustomBox={(label) => updateSelectedCustomTextBox({ label })}
+                onDeleteCustomBox={deleteSelectedCustomTextBox}
+              />
+            ) : isCertTextBoxKey(selectedKey) ? (() => {
+              const tbCfg = getBuiltInTextBoxDefaults(selectedKey);
+              return (
+                <CertificateRichTextPanel
+                  boxId={`builtin::${docType}::${selectedKey}`}
+                  boxTitle={CERT_ELEMENT_LABELS[selectedKey]}
+                  hasRichOverride={tbCfg.hasRichOverride}
+                  initialRichHtml={tbCfg.initialRichHtml}
+                  lineHeight={tbCfg.lineHeight}
+                  paragraphGapMm={tbCfg.paragraphGapMm}
+                  letterSpacingPx={tbCfg.letterSpacingPx}
+                  wordSpacingPx={tbCfg.wordSpacingPx}
+                  fontFamily={tbCfg.fontFamily}
+                  fontSizePt={tbCfg.fontSizePt}
+                  color={tbCfg.color}
+                  textAlign={tbCfg.textAlign}
+                  widthMm={tbCfg.widthMm}
+                  localFonts={localFonts}
+                  isLoadingLocalFonts={isLoadingLocalFonts}
+                  localFontsStatus={localFontsStatus}
+                  onLoadLocalFonts={handleLoadLocalFonts}
+                  onChangeStyle={(patch) => updateBuiltInTextBoxOverride(selectedKey, patch)}
+                  onResetContent={() => resetBuiltInTextBoxOverride(selectedKey)}
+                />
+              );
+            })() : null}
+
+            {/* Position X/Y & Scale Card (works for both Built-in Elements & Custom TextBoxes) */}
             <div
               style={{
                 padding: '0.65rem',
@@ -930,19 +1369,23 @@ export default function CertificateDesignEditor({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e2e8f0' }}>
-                  {CERT_ELEMENT_LABELS[selectedKey]}
+                  {selectedCustomBox ? selectedCustomBox.label : CERT_ELEMENT_LABELS[selectedKey]}
                 </span>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.74rem', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    checked={selectedEl.visible !== false}
-                    onChange={(e) => updateSelectedElement({ visible: e.target.checked })}
+                    checked={selectedCustomBox ? selectedCustomBox.visible !== false : selectedEl.visible !== false}
+                    onChange={(e) =>
+                      selectedCustomBox
+                        ? updateSelectedCustomTextBox({ visible: e.target.checked })
+                        : updateSelectedElement({ visible: e.target.checked })
+                    }
                   />
                   <span>បង្ហាញ</span>
                 </label>
               </div>
 
-              {selectedKey === 'studentPhoto' && !showStudentPhoto && (
+              {!selectedCustomBox && selectedKey === 'studentPhoto' && !showStudentPhoto && (
                 <div
                   style={{
                     padding: '0.45rem 0.55rem',
@@ -981,30 +1424,38 @@ export default function CertificateDesignEditor({
                 <div>
                   <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>
                     <span>រំកិល X (ឆ្វេង/ស្តាំ mm)</span>
-                    <strong style={{ color: '#e2e8f0' }}>{selectedEl.dxMm}</strong>
+                    <strong style={{ color: '#e2e8f0' }}>{selectedCustomBox ? selectedCustomBox.dxMm : selectedEl.dxMm}</strong>
                   </label>
                   <input
                     type="range"
                     min="-180"
                     max="180"
                     step="0.5"
-                    value={selectedEl.dxMm}
-                    onChange={(e) => updateSelectedElement({ dxMm: parseFloat(e.target.value) })}
+                    value={selectedCustomBox ? selectedCustomBox.dxMm : selectedEl.dxMm}
+                    onChange={(e) =>
+                      selectedCustomBox
+                        ? updateSelectedCustomTextBox({ dxMm: parseFloat(e.target.value) })
+                        : updateSelectedElement({ dxMm: parseFloat(e.target.value) })
+                    }
                     style={{ width: '100%' }}
                   />
                 </div>
                 <div>
                   <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>
                     <span>រំកិល Y (លើ/ក្រោម mm)</span>
-                    <strong style={{ color: '#e2e8f0' }}>{selectedEl.dyMm}</strong>
+                    <strong style={{ color: '#e2e8f0' }}>{selectedCustomBox ? selectedCustomBox.dyMm : selectedEl.dyMm}</strong>
                   </label>
                   <input
                     type="range"
                     min="-120"
                     max="120"
                     step="0.5"
-                    value={selectedEl.dyMm}
-                    onChange={(e) => updateSelectedElement({ dyMm: parseFloat(e.target.value) })}
+                    value={selectedCustomBox ? selectedCustomBox.dyMm : selectedEl.dyMm}
+                    onChange={(e) =>
+                      selectedCustomBox
+                        ? updateSelectedCustomTextBox({ dyMm: parseFloat(e.target.value) })
+                        : updateSelectedElement({ dyMm: parseFloat(e.target.value) })
+                    }
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -1013,15 +1464,19 @@ export default function CertificateDesignEditor({
               <div>
                 <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>
                   <span>ពង្រីក / បង្រួមធាតុនេះ (Scale)</span>
-                  <strong style={{ color: '#60a5fa' }}>{Math.round(selectedEl.scale * 100)}%</strong>
+                  <strong style={{ color: '#60a5fa' }}>{Math.round((selectedCustomBox ? selectedCustomBox.scale : selectedEl.scale) * 100)}%</strong>
                 </label>
                 <input
                   type="range"
                   min="0.55"
                   max="1.85"
                   step="0.02"
-                  value={selectedEl.scale}
-                  onChange={(e) => updateSelectedElement({ scale: parseFloat(e.target.value) })}
+                  value={selectedCustomBox ? selectedCustomBox.scale : selectedEl.scale}
+                  onChange={(e) =>
+                    selectedCustomBox
+                      ? updateSelectedCustomTextBox({ scale: parseFloat(e.target.value) })
+                      : updateSelectedElement({ scale: parseFloat(e.target.value) })
+                  }
                   style={{ width: '100%' }}
                 />
               </div>
@@ -1029,7 +1484,11 @@ export default function CertificateDesignEditor({
               <div style={{ display: 'flex', gap: '0.4rem' }}>
                 <button
                   type="button"
-                  onClick={() => updateSelectedElement({ dxMm: 0 })}
+                  onClick={() =>
+                    selectedCustomBox
+                      ? updateSelectedCustomTextBox({ dxMm: 0 })
+                      : updateSelectedElement({ dxMm: 0 })
+                  }
                   style={{
                     flex: 1,
                     padding: '0.28rem',
@@ -1045,7 +1504,11 @@ export default function CertificateDesignEditor({
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateSelectedElement({ dxMm: 0, dyMm: 0, scale: 1 })}
+                  onClick={() =>
+                    selectedCustomBox
+                      ? updateSelectedCustomTextBox({ dxMm: 0, dyMm: 0, scale: 1 })
+                      : updateSelectedElement({ dxMm: 0, dyMm: 0, scale: 1 })
+                  }
                   style={{
                     flex: 1,
                     padding: '0.28rem',
@@ -1067,10 +1530,34 @@ export default function CertificateDesignEditor({
         {/* Tab 2: Font Families, Sizes, Line Height & Colors */}
         {inspectorTab === 'typography' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-            {/* Font Family Selectors */}
+            {/* Font Family Selectors (Web + Local PC Fonts) */}
             <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a5b4fc' }}>
-                ជ្រើសរើសពុម្ពអក្សរ (Font Family)
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a5b4fc' }}>
+                  ជ្រើសរើសពុម្ពអក្សរ (Web &amp; កុំព្យូទ័រ)
+                </span>
+                <button
+                  type="button"
+                  disabled={isLoadingLocalFonts}
+                  onClick={handleLoadLocalFonts}
+                  style={{
+                    padding: '0.16rem 0.48rem',
+                    borderRadius: '5px',
+                    border: '1px solid rgba(129, 140, 248, 0.5)',
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    color: '#c7d2fe',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: isLoadingLocalFonts ? 'wait' : 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isLoadingLocalFonts
+                    ? 'កំពុងទាញ...'
+                    : localFonts.length > 0
+                      ? `PC Fonts (${localFonts.length})`
+                      : 'ទាញ Font កុំព្យូទ័រ'}
+                </button>
               </div>
 
               {[
@@ -1115,6 +1602,22 @@ export default function CertificateDesignEditor({
                       cursor: 'pointer',
                     }}
                   >
+                    {localFonts.length > 0 && (
+                      <optgroup label={`Font ក្នុងកុំព្យូទ័រ (${localFonts.length})`} style={{ background: '#0f172a', color: '#7dd3fc' }}>
+                        {localFonts.map((fam) => {
+                          const cssVal = formatLocalFontFamilyCss(fam);
+                          return (
+                            <option
+                              key={`gpc-${fam}`}
+                              value={cssVal}
+                              style={{ fontFamily: cssVal, background: '#1e293b', color: '#f8fafc' }}
+                            >
+                              {fam}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    )}
                     {fontItem.options.map((opt) => (
                       <option
                         key={opt.value}

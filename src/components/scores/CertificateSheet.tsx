@@ -10,6 +10,13 @@ import {
   resolveSheetAssetSrc,
   toKhmerDigits,
 } from './MonthlyResultSheet';
+import {
+  CertTextBoxKey,
+  CertTextBoxStyleConfig,
+  CustomCertTextBox,
+  interpolateCertRichHtml,
+} from './certificateRichText';
+export type { CertTextBoxKey, CertTextBoxStyleConfig, CustomCertTextBox } from './certificateRichText';
 
 export type CertificateDocType = 'praise' | 'certificate';
 export type CertificatePrintPaperMode = 'a4_two_up' | 'a5_single' | 'a4_landscape';
@@ -734,6 +741,8 @@ export interface CertificateDesignConfig {
   showHeaderDivider: boolean;
   showCenterDivider: boolean;
   elements: Record<CertElementKey, CertElementLayout>;
+  textBoxOverrides?: Partial<Record<CertTextBoxKey, CertTextBoxStyleConfig>>;
+  customTextBoxes?: CustomCertTextBox[];
 }
 
 export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
@@ -866,10 +875,38 @@ export function normalizeCertificateDesign(
     };
   });
 
+  const rawOverrides = raw?.textBoxOverrides;
+  const textBoxOverrides: Partial<Record<CertTextBoxKey, CertTextBoxStyleConfig>> =
+    rawOverrides && typeof rawOverrides === 'object' ? { ...rawOverrides } : {};
+  const customTextBoxes: CustomCertTextBox[] = Array.isArray(raw?.customTextBoxes)
+    ? raw.customTextBoxes
+        .filter((b): b is CustomCertTextBox => Boolean(b && typeof b === 'object' && b.id))
+        .map((b) => ({
+          id: String(b.id),
+          label: String(b.label || 'ប្រអប់អក្សរ'),
+          dxMm: typeof b.dxMm === 'number' && Number.isFinite(b.dxMm) ? b.dxMm : 0,
+          dyMm: typeof b.dyMm === 'number' && Number.isFinite(b.dyMm) ? b.dyMm : 0,
+          scale: typeof b.scale === 'number' && Number.isFinite(b.scale) && b.scale > 0 ? b.scale : 1,
+          visible: b.visible !== false,
+          richHtml: typeof b.richHtml === 'string' ? b.richHtml : '<div>អក្សរថ្មី</div>',
+          lineHeight: typeof b.lineHeight === 'number' && Number.isFinite(b.lineHeight) ? b.lineHeight : 1.35,
+          paragraphGapMm: typeof b.paragraphGapMm === 'number' && Number.isFinite(b.paragraphGapMm) ? b.paragraphGapMm : 1.2,
+          fontFamily: typeof b.fontFamily === 'string' && b.fontFamily ? b.fontFamily : baseDefaults.khmerBodyFont,
+          fontSizePt: typeof b.fontSizePt === 'number' && Number.isFinite(b.fontSizePt) ? b.fontSizePt : 10,
+          color: typeof b.color === 'string' && b.color ? b.color : baseDefaults.bodyColor,
+          textAlign: b.textAlign === 'center' || b.textAlign === 'right' || b.textAlign === 'justify' ? b.textAlign : 'left',
+          letterSpacingPx: typeof b.letterSpacingPx === 'number' && Number.isFinite(b.letterSpacingPx) ? b.letterSpacingPx : 0,
+          wordSpacingPx: typeof b.wordSpacingPx === 'number' && Number.isFinite(b.wordSpacingPx) ? b.wordSpacingPx : 0,
+          widthMm: typeof b.widthMm === 'number' && Number.isFinite(b.widthMm) && b.widthMm >= 16 ? b.widthMm : 75,
+        }))
+    : [];
+
   return {
     ...baseDefaults,
     ...(raw || {}),
     elements: mergedElements,
+    textBoxOverrides,
+    customTextBoxes,
   };
 }
 
@@ -929,6 +966,8 @@ export interface CertificateCardProps {
   schoolProfile?: SchoolProfileInfo;
   editorSelectedKey?: CertElementKey | null;
   editorDraggingKey?: CertElementKey | null;
+  editorSelectedCustomTextId?: string | null;
+  editorDraggingCustomTextId?: string | null;
   frameDragEnabled?: boolean;
   editorDraggingFrame?: boolean;
   showMarginGuide?: boolean;
@@ -936,6 +975,12 @@ export interface CertificateCardProps {
   onResizeHandlePointerDown?: (
     key: CertElementKey,
     mode: CertResizeHandleMode,
+    e: React.PointerEvent
+  ) => void;
+  onCustomTextPointerDown?: (id: string, e: React.PointerEvent) => void;
+  onCustomTextResizePointerDown?: (
+    id: string,
+    mode: 'width' | 'scale',
     e: React.PointerEvent
   ) => void;
   onFramePointerDown?: (e: React.PointerEvent) => void;
@@ -972,11 +1017,15 @@ export function CertificateCardA5({
   schoolProfile,
   editorSelectedKey = null,
   editorDraggingKey = null,
+  editorSelectedCustomTextId = null,
+  editorDraggingCustomTextId = null,
   frameDragEnabled = false,
   editorDraggingFrame = false,
   showMarginGuide = false,
   onElementPointerDown,
   onResizeHandlePointerDown,
+  onCustomTextPointerDown,
+  onCustomTextResizePointerDown,
   onFramePointerDown,
   onFrameResizePointerDown,
 }: CertificateCardProps) {
@@ -1041,6 +1090,101 @@ export function CertificateCardA5({
   const resolvedProvinceKh = String(provinceKh || design.certProvinceKh || 'ខេត្តកណ្តាល').trim();
   const resolvedDeptKh = String(deptKh || design.certDeptKh || 'មន្ទីរអប់រំ យុវជន និងកីឡា').trim();
   const resolvedCertPlaceDate = String(certPlaceDateText || '').trim() || formatCertPlaceDateDefault('Kandal');
+
+  const richTokenMap: Record<string, string> = React.useMemo(
+    () => ({
+      studentNameKh: recipient.fullName || '-',
+      studentNameEn: recipient.englishName || recipient.fullName || '-',
+      studentNameEnUpper: (recipient.englishName || recipient.fullName || '-').toUpperCase(),
+      genderKh: recipient.gender || '-',
+      genderEn: engGender,
+      dobKh,
+      dobEn,
+      studentId: recipient.studentId || '-',
+      classCode: recipient.classCode || recipient.className || '-',
+      className: recipient.className || recipient.classCode || '-',
+      teacherName: recipient.teacherName || '-',
+      rankKh: khRank,
+      rankEn: enRank,
+      grade: recipient.grade || '-',
+      gradeKh: certGrade.kh,
+      gradeEn: certGrade.en,
+      average: recipient.averageDisplay || '-',
+      courseKh: resolvedCourseKh,
+      courseEn: resolvedCourseEn,
+      level: bookOrLevelLabel,
+      examKh: examKhmer || '-',
+      examEn: examEnglish || '-',
+      conductedDate: conductedDate || '-',
+      issuedDate: issuedDate || '-',
+      certPlaceDate: resolvedCertPlaceDate,
+      certNo: recipient.certNumber || '-',
+      schoolNameKh: schoolProfile?.schoolName || schoolKhName,
+      schoolNameEn: schoolEnName,
+      provinceKh: resolvedProvinceKh,
+      deptKh: resolvedDeptKh,
+      principalTitle: principalTitle || 'The Principal of BSIS',
+      signatoryName: signatoryName || '',
+    }),
+    [
+      recipient,
+      engGender,
+      dobKh,
+      dobEn,
+      khRank,
+      enRank,
+      certGrade.kh,
+      certGrade.en,
+      resolvedCourseKh,
+      resolvedCourseEn,
+      bookOrLevelLabel,
+      examKhmer,
+      examEnglish,
+      conductedDate,
+      issuedDate,
+      resolvedCertPlaceDate,
+      schoolProfile?.schoolName,
+      schoolKhName,
+      schoolEnName,
+      resolvedProvinceKh,
+      resolvedDeptKh,
+      principalTitle,
+      signatoryName,
+    ]
+  );
+
+  const getTextBoxOverride = (key: CertTextBoxKey): CertTextBoxStyleConfig | undefined =>
+    design.textBoxOverrides?.[key];
+
+  const renderRichOverrideBody = (
+    override: CertTextBoxStyleConfig | undefined,
+    fallbackGapMm: number
+  ) => {
+    if (!override?.richHtml || !override.richHtml.trim()) return null;
+    const pGap =
+      typeof override.paragraphGapMm === 'number' && Number.isFinite(override.paragraphGapMm)
+        ? override.paragraphGapMm
+        : fallbackGapMm;
+    const wordSpace =
+      typeof override.wordSpacingPx === 'number' && Number.isFinite(override.wordSpacingPx) && override.wordSpacingPx !== 0
+        ? `${override.wordSpacingPx}px`
+        : undefined;
+    return (
+      <div
+        className="cert-richtext-box"
+        style={
+          {
+            '--cert-p-gap': `${pGap}mm`,
+            whiteSpace: 'pre-wrap',
+            wordSpacing: wordSpace,
+          } as React.CSSProperties
+        }
+        dangerouslySetInnerHTML={{
+          __html: interpolateCertRichHtml(override.richHtml, richTokenMap),
+        }}
+      />
+    );
+  };
 
   const renderDottedVal = (val: React.ReactNode, extraStyle?: React.CSSProperties) => (
     <span
@@ -1583,112 +1727,147 @@ export function CertificateCardA5({
                     minWidth: 0,
                   }}
                 >
-                  {design.elements.nationalMotto.visible !== false && (
+                  {design.elements.nationalMotto.visible !== false && (() => {
+                    const ov = getTextBoxOverride('nationalMotto');
+                    const richNode = renderRichOverrideBody(ov, 0.35);
+                    return (
                     <div
+                      className="cert-inherit-font"
                       onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('nationalMotto', e) : undefined}
                       style={getInteractiveProps('nationalMotto', {
-                        textAlign: 'center',
-                        lineHeight: design.mottoLineHeight,
-                        color: design.mottoColor,
+                        textAlign: ov?.textAlign || 'center',
+                        lineHeight: ov?.lineHeight ?? design.mottoLineHeight,
+                        color: ov?.color || design.mottoColor,
+                        fontFamily: ov?.fontFamily || design.khmerTitleFont,
+                        fontSize: ov?.fontSizePt ? `${ov.fontSizePt}pt` : undefined,
+                        letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                        width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
                       })}
                     >
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${design.mottoKhFontPt}pt`,
-                          fontWeight: 400,
-                          fontFamily: design.khmerTitleFont,
-                          color: design.mottoColor,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        ព្រះរាជាណាចក្រកម្ពុជា
-                      </div>
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${design.mottoEnFontPt}pt`,
-                          fontWeight: 700,
-                          fontFamily: design.englishFont,
-                          letterSpacing: '0.5px',
-                          color: design.mottoColor,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        KINGDOM OF CAMBODIA
-                      </div>
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${Math.max(5.5, design.mottoKhFontPt - 0.5)}pt`,
-                          fontWeight: 400,
-                          fontFamily: design.khmerTitleFont,
-                          color: design.mottoColor,
-                          whiteSpace: 'nowrap',
-                          marginTop: '0.15mm',
-                        }}
-                      >
-                        ជាតិ{'\u00A0\u00A0'}សាសនា{'\u00A0\u00A0'}ព្រះមហាក្សត្រ
-                      </div>
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${Math.max(4.5, design.mottoEnFontPt - 0.3)}pt`,
-                          fontWeight: 700,
-                          fontFamily: design.englishFont,
-                          letterSpacing: '0.55px',
-                          color: design.mottoColor,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        NATION{'\u00A0\u00A0\u00A0'}RELIGION{'\u00A0\u00A0\u00A0'}KING
-                      </div>
+                      {richNode ? (
+                        richNode
+                      ) : (
+                        <>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${ov?.fontSizePt || design.mottoKhFontPt}pt`,
+                              fontWeight: 400,
+                              fontFamily: ov?.fontFamily || design.khmerTitleFont,
+                              color: ov?.color || design.mottoColor,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            ព្រះរាជាណាចក្រកម្ពុជា
+                          </div>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${design.mottoEnFontPt}pt`,
+                              fontWeight: 700,
+                              fontFamily: design.englishFont,
+                              letterSpacing: '0.5px',
+                              color: ov?.color || design.mottoColor,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            KINGDOM OF CAMBODIA
+                          </div>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${Math.max(5.5, (ov?.fontSizePt || design.mottoKhFontPt) - 0.5)}pt`,
+                              fontWeight: 400,
+                              fontFamily: ov?.fontFamily || design.khmerTitleFont,
+                              color: ov?.color || design.mottoColor,
+                              whiteSpace: 'nowrap',
+                              marginTop: `${ov?.paragraphGapMm ?? 0.15}mm`,
+                            }}
+                          >
+                            ជាតិ{'\u00A0\u00A0'}សាសនា{'\u00A0\u00A0'}ព្រះមហាក្សត្រ
+                          </div>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${Math.max(4.5, design.mottoEnFontPt - 0.3)}pt`,
+                              fontWeight: 700,
+                              fontFamily: design.englishFont,
+                              letterSpacing: '0.55px',
+                              color: ov?.color || design.mottoColor,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            NATION{'\u00A0\u00A0\u00A0'}RELIGION{'\u00A0\u00A0\u00A0'}KING
+                          </div>
+                        </>
+                      )}
                       {!isCertDoc && (
                         <div style={{ pointerEvents: 'none' }}>
-                          <KhmerMottoOrnamentSVG color={design.mottoColor} />
+                          <KhmerMottoOrnamentSVG color={ov?.color || design.mottoColor} />
                         </div>
                       )}
                       {renderResizeHandle('nationalMotto', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមបាវចនា', '#1d4ed8')}
                     </div>
-                  )}
+                    );
+                  })()}
 
-                  {design.elements.titleBlock.visible !== false && (
+                  {design.elements.titleBlock.visible !== false && (() => {
+                    const ov = getTextBoxOverride('titleBlock');
+                    const richNode = renderRichOverrideBody(ov, 0.35);
+                    return (
                     <div
+                      className="cert-inherit-font"
                       onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
-                      style={getInteractiveProps('titleBlock', { textAlign: 'center', marginTop: isCertDoc ? '0.4mm' : 0 })}
+                      style={getInteractiveProps('titleBlock', {
+                        textAlign: ov?.textAlign || 'center',
+                        marginTop: isCertDoc ? '0.4mm' : 0,
+                        lineHeight: ov?.lineHeight ?? 1.14,
+                        fontFamily: ov?.fontFamily || design.khmerTitleFont,
+                        fontSize: ov?.fontSizePt ? `${ov.fontSizePt}pt` : undefined,
+                        color: ov?.color || (isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.titleColor),
+                        letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                        width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
+                      })}
                     >
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${design.titleFontPt}pt`,
-                          fontWeight: 400,
-                          color: isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.titleColor,
-                          fontFamily: design.khmerTitleFont,
-                          lineHeight: 1.14,
-                          whiteSpace: 'nowrap',
-                          textShadow: isCertDoc
-                            ? '0.6px 0.6px 0 #ffffff, -0.6px -0.6px 0 #ffffff, 0 1px 2px rgba(185, 28, 28, 0.25)'
-                            : undefined,
-                        }}
-                      >
-                        {khHeading}
-                      </div>
-                      <div
-                        className="cert-inherit-font"
-                        style={{
-                          fontSize: `${design.subtitleFontPt}pt`,
-                          fontWeight: 700,
-                          letterSpacing: isCertDoc ? '1.6px' : '1.2px',
-                          color: isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.innerColor,
-                          fontFamily: design.englishFont,
-                          marginTop: '0.25mm',
-                        }}
-                      >
-                        {enHeading}
-                      </div>
+                      {richNode ? (
+                        richNode
+                      ) : (
+                        <>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${ov?.fontSizePt || design.titleFontPt}pt`,
+                              fontWeight: 400,
+                              color: ov?.color || (isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.titleColor),
+                              fontFamily: ov?.fontFamily || design.khmerTitleFont,
+                              lineHeight: ov?.lineHeight ?? 1.14,
+                              whiteSpace: 'nowrap',
+                              textShadow: isCertDoc
+                                ? '0.6px 0.6px 0 #ffffff, -0.6px -0.6px 0 #ffffff, 0 1px 2px rgba(185, 28, 28, 0.25)'
+                                : undefined,
+                            }}
+                          >
+                            {khHeading}
+                          </div>
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              fontSize: `${design.subtitleFontPt}pt`,
+                              fontWeight: 700,
+                              letterSpacing: isCertDoc ? '1.6px' : '1.2px',
+                              color: ov?.color || (isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.innerColor),
+                              fontFamily: design.englishFont,
+                              marginTop: `${ov?.paragraphGapMm ?? 0.25}mm`,
+                            }}
+                          >
+                            {enHeading}
+                          </div>
+                        </>
+                      )}
                       {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Right Slot: School Logo for Course Certificate, OR Rank Ribbon Rosette for Praise Letter */}
@@ -1758,24 +1937,31 @@ export function CertificateCardA5({
                 }}
               >
                 {/* Left Column: Khmer */}
-                {design.elements.khmerBody.visible !== false ? (
+                {design.elements.khmerBody.visible !== false ? (() => {
+                  const ov = getTextBoxOverride('khmerBody');
+                  const richNode = renderRichOverrideBody(ov, design.rowGapMm);
+                  return (
                   <div
                     className="cert-inherit-font"
                     onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('khmerBody', e) : undefined}
                     style={getInteractiveProps('khmerBody', {
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: `${design.rowGapMm}mm`,
-                      fontSize: `${design.khmerBodyFontPt}pt`,
-                      fontFamily: design.khmerBodyFont,
-                      lineHeight: design.bodyLineHeight,
-                      letterSpacing: `${design.letterSpacingPx}px`,
-                      color: design.bodyColor,
+                      gap: `${ov?.paragraphGapMm ?? design.rowGapMm}mm`,
+                      fontSize: `${ov?.fontSizePt ?? design.khmerBodyFontPt}pt`,
+                      fontFamily: ov?.fontFamily || design.khmerBodyFont,
+                      lineHeight: ov?.lineHeight ?? design.bodyLineHeight,
+                      letterSpacing: `${ov?.letterSpacingPx ?? design.letterSpacingPx}px`,
+                      color: ov?.color || design.bodyColor,
+                      textAlign: ov?.textAlign || 'left',
+                      width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
                       borderRight: design.showCenterDivider ? '1px dashed rgba(148, 163, 184, 0.45)' : 'none',
                       paddingRight: design.showCenterDivider ? '4mm' : '1mm',
                     })}
                   >
-                    {isCertDoc ? (
+                    {richNode ? (
+                      richNode
+                    ) : isCertDoc ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.8mm' }}>
                           <span style={{ whiteSpace: 'nowrap' }}>សូមបញ្ជាក់ថា</span>
@@ -1917,27 +2103,35 @@ export function CertificateCardA5({
                     )}
                     {renderResizeHandle('khmerBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារខ្មែរ')}
                   </div>
-                ) : (
+                  );
+                })() : (
                   <div />
                 )}
 
                 {/* Right Column: English */}
-                {design.elements.englishBody.visible !== false ? (
+                {design.elements.englishBody.visible !== false ? (() => {
+                  const ov = getTextBoxOverride('englishBody');
+                  const richNode = renderRichOverrideBody(ov, design.rowGapMm);
+                  return (
                   <div
                     className="cert-inherit-font"
                     onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('englishBody', e) : undefined}
                     style={getInteractiveProps('englishBody', {
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: `${design.rowGapMm}mm`,
-                      fontSize: `${design.englishBodyFontPt}pt`,
-                      lineHeight: design.bodyLineHeight,
-                      letterSpacing: `${design.letterSpacingPx}px`,
-                      color: design.bodyColor,
-                      fontFamily: design.englishFont,
+                      gap: `${ov?.paragraphGapMm ?? design.rowGapMm}mm`,
+                      fontSize: `${ov?.fontSizePt ?? design.englishBodyFontPt}pt`,
+                      lineHeight: ov?.lineHeight ?? design.bodyLineHeight,
+                      letterSpacing: `${ov?.letterSpacingPx ?? design.letterSpacingPx}px`,
+                      color: ov?.color || design.bodyColor,
+                      fontFamily: ov?.fontFamily || design.englishFont,
+                      textAlign: ov?.textAlign || 'left',
+                      width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
                     })}
                   >
-                    {isCertDoc ? (
+                    {richNode ? (
+                      richNode
+                    ) : isCertDoc ? (
                       <>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.8mm' }}>
                           <span style={{ whiteSpace: 'nowrap' }}>This is to certify that</span>
@@ -2068,7 +2262,8 @@ export function CertificateCardA5({
                     )}
                     {renderResizeHandle('englishBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារអង់គ្លេស')}
                   </div>
-                ) : (
+                  );
+                })() : (
                   <div />
                 )}
               </div>
@@ -2165,27 +2360,40 @@ export function CertificateCardA5({
                     </div>
                   )}
 
-                  {design.elements.classMeta.visible !== false && (
+                  {design.elements.classMeta.visible !== false && (() => {
+                    const ov = getTextBoxOverride('classMeta');
+                    const richNode = renderRichOverrideBody(ov, 0.35);
+                    return (
                     <div
                       className="cert-inherit-font"
                       onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('classMeta', e) : undefined}
                       style={getInteractiveProps('classMeta', {
-                        fontSize: '7.5pt',
-                        color: '#64748b',
-                        fontFamily: design.khmerBodyFont,
-                        lineHeight: design.bodyLineHeight,
+                        fontSize: `${ov?.fontSizePt ?? 7.5}pt`,
+                        color: ov?.color || '#64748b',
+                        fontFamily: ov?.fontFamily || design.khmerBodyFont,
+                        lineHeight: ov?.lineHeight ?? design.bodyLineHeight,
+                        letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                        textAlign: ov?.textAlign || 'left',
+                        width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
                         paddingBottom: '0.5mm',
                       })}
                     >
-                      <div style={{ fontWeight: 700, color: '#475569' }}>
-                        ថ្នាក់ {recipient.classCode || recipient.className}
-                        {recipient.level ? ` (${recipient.level})` : ''}
-                      </div>
-                      {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
-                      {recipient.studentId && <div>ID: {recipient.studentId}</div>}
+                      {richNode ? (
+                        richNode
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 700, color: '#475569' }}>
+                            ថ្នាក់ {recipient.classCode || recipient.className}
+                            {recipient.level ? ` (${recipient.level})` : ''}
+                          </div>
+                          {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
+                          {recipient.studentId && <div>ID: {recipient.studentId}</div>}
+                        </>
+                      )}
                       {renderResizeHandle('classMeta', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមព័ត៌មានថ្នាក់')}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
@@ -2312,6 +2520,107 @@ export function CertificateCardA5({
                   </div>
                 )}
               </div>
+              {/* Optional User-Added Extra Word TextBoxes */}
+              {(design.customTextBoxes || [])
+                .filter((tb) => tb.visible !== false)
+                .map((tb) => {
+                  const isSel = isEditing && editorSelectedCustomTextId === tb.id;
+                  const isDrag = isEditing && editorDraggingCustomTextId === tb.id;
+                  return (
+                    <div
+                      key={tb.id}
+                      className="cert-inherit-font"
+                      onPointerDown={
+                        onCustomTextPointerDown ? (e) => onCustomTextPointerDown(tb.id, e) : undefined
+                      }
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        top: '50%',
+                        width: `${tb.widthMm}mm`,
+                        transform: `translate(-50%, -50%) translate(${tb.dxMm}mm, ${tb.dyMm}mm) scale(${tb.scale})`,
+                        transformOrigin: 'center center',
+                        fontFamily: tb.fontFamily,
+                        fontSize: `${tb.fontSizePt}pt`,
+                        lineHeight: tb.lineHeight,
+                        letterSpacing: `${tb.letterSpacingPx}px`,
+                        wordSpacing: tb.wordSpacingPx ? `${tb.wordSpacingPx}px` : undefined,
+                        color: tb.color,
+                        textAlign: tb.textAlign,
+                        zIndex: isEditing ? (isSel ? 55 : 22) : 14,
+                        ...(isEditing
+                          ? {
+                              cursor: isDrag ? 'grabbing' : 'grab',
+                              outline: isSel ? '2px solid #0ea5e9' : '1px dashed rgba(14, 165, 233, 0.55)',
+                              outlineOffset: '1.5mm',
+                              borderRadius: '2px',
+                              userSelect: 'none',
+                              WebkitUserSelect: 'none',
+                              touchAction: 'none',
+                              backgroundColor: isSel ? 'rgba(14, 165, 233, 0.08)' : undefined,
+                            }
+                          : {}),
+                      }}
+                    >
+                      <div
+                        className="cert-richtext-box"
+                        style={{ '--cert-p-gap': `${tb.paragraphGapMm}mm` } as React.CSSProperties}
+                        dangerouslySetInnerHTML={{
+                          __html: interpolateCertRichHtml(tb.richHtml, richTokenMap),
+                        }}
+                      />
+                      {isSel && onCustomTextResizePointerDown && (
+                        <>
+                          <div
+                            role="button"
+                            title="ទាញផ្លាស់ប្តូរទទឹងប្រអប់អក្សរ"
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onCustomTextResizePointerDown(tb.id, 'width', e);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              right: '-2.2mm',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              width: '2.6mm',
+                              height: '5.5mm',
+                              borderRadius: '999px',
+                              background: '#ffffff',
+                              border: '1.5px solid #0284c7',
+                              boxShadow: '0 1px 4px rgba(15, 23, 42, 0.45)',
+                              cursor: 'ew-resize',
+                              zIndex: 62,
+                            }}
+                          />
+                          <div
+                            role="button"
+                            title="ទាញពង្រីក/បង្រួមប្រអប់អក្សរ"
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onCustomTextResizePointerDown(tb.id, 'scale', e);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              right: '-2.8mm',
+                              bottom: '-2.8mm',
+                              width: '4mm',
+                              height: '4mm',
+                              borderRadius: '1px',
+                              background: '#ffffff',
+                              border: '1.5px solid #0284c7',
+                              boxShadow: '0 1px 4px rgba(15, 23, 42, 0.45)',
+                              cursor: 'nwse-resize',
+                              zIndex: 62,
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
             </>
           );
         })()}

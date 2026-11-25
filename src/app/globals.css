@@ -233,12 +233,79 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   font-family: 'Kantumruy Pro', 'Inter', sans-serif;
 }
 
-/* Allow explicit font selectors inside Certificate cards to cascade cleanly to child spans */
+/* Allow explicit font selectors inside Certificate cards & Word-style rich textboxes to cascade cleanly */
 .cert-inherit-font,
 .cert-inherit-font span,
 .cert-inherit-font div,
-.cert-inherit-font strong {
+.cert-inherit-font p,
+.cert-inherit-font strong,
+.cert-inherit-font b,
+.cert-inherit-font em,
+.cert-inherit-font i,
+.cert-inherit-font u,
+.cert-inherit-font s,
+.cert-richtext-box,
+.cert-richtext-box div,
+.cert-richtext-box p,
+.cert-richtext-box span,
+.cert-richtext-box strong,
+.cert-richtext-box b,
+.cert-richtext-box em,
+.cert-richtext-box i,
+.cert-richtext-box u,
+.cert-richtext-box s {
   font-family: inherit;
+}
+
+.cert-richtext-box {
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+.cert-richtext-box > div,
+.cert-richtext-box > p {
+  min-height: 1em;
+}
+
+.cert-richtext-box > div + div,
+.cert-richtext-box > p + p,
+.cert-richtext-box > div + p,
+.cert-richtext-box > p + div {
+  margin-top: var(--cert-p-gap, 0mm);
+}
+
+.cert-word-editor {
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+.cert-word-editor > div,
+.cert-word-editor > p {
+  min-height: 1em;
+}
+
+.cert-word-editor,
+.cert-word-editor div,
+.cert-word-editor p,
+.cert-word-editor span,
+.cert-word-editor strong,
+.cert-word-editor b,
+.cert-word-editor em,
+.cert-word-editor i,
+.cert-word-editor u,
+.cert-word-editor s {
+  font-family: inherit;
+}
+
+.cert-word-editor > div + div,
+.cert-word-editor > p + p,
+.cert-word-editor > div + p,
+.cert-word-editor > p + div {
+  margin-top: var(--cert-p-gap, 2px);
 }
 
 .glass-panel {
