@@ -255,6 +255,177 @@ function OrnateVectorCertificateFrame({ preset }: { preset: CertificateFramePres
   );
 }
 
+/**
+ * Cambodian Tacteng open-book & twin-scroll flourish placed under the National Motto
+ */
+function KhmerMottoOrnamentSVG({ color }: { color: string }) {
+  return (
+    <svg
+      viewBox="0 0 180 22"
+      aria-hidden="true"
+      style={{
+        width: '28mm',
+        height: '3.2mm',
+        display: 'block',
+        margin: '0.35mm auto 0 auto',
+      }}
+    >
+      {/* Left double Khmer scrolls */}
+      <path
+        d="M 10 14 C 17 8, 26 9, 32 13 C 36 16, 42 15, 44 12 C 42 10, 38 11, 39 14 C 31 19, 19 17, 10 14 Z"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M 46 13 C 53 7, 62 9, 67 13 C 71 16, 76 15, 78 12 C 76 10, 72 11, 73 14 C 66 19, 54 17, 46 13 Z"
+        fill="none"
+        stroke={color}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      {/* Mirrored right double scrolls */}
+      <g transform="translate(180, 0) scale(-1, 1)">
+        <path
+          d="M 10 14 C 17 8, 26 9, 32 13 C 36 16, 42 15, 44 12 C 42 10, 38 11, 39 14 C 31 19, 19 17, 10 14 Z"
+          fill="none"
+          stroke={color}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 46 13 C 53 7, 62 9, 67 13 C 71 16, 76 15, 78 12 C 76 10, 72 11, 73 14 C 66 19, 54 17, 46 13 Z"
+          fill="none"
+          stroke={color}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </g>
+      {/* Center open book / sacred manuscript emblem */}
+      <g transform="translate(82, 2)">
+        <path
+          d="M 1 3 C 4 1, 7 2, 8 4 C 9 2, 12 1, 15 3 L 15 16 C 12 14, 9 15, 8 17 C 7 15, 4 14, 1 16 Z"
+          fill="#ffffff"
+          stroke={color}
+          strokeWidth="1.25"
+          strokeLinejoin="round"
+        />
+        <line x1="8" y1="4" x2="8" y2="17" stroke={color} strokeWidth="1.15" />
+        <line x1="3" y1="6.5" x2="6.4" y2="7" stroke={color} strokeWidth="0.9" />
+        <line x1="3" y1="9.5" x2="6.4" y2="10" stroke={color} strokeWidth="0.9" />
+        <line x1="3" y1="12.5" x2="6.4" y2="13" stroke={color} strokeWidth="0.9" />
+        <line x1="9.6" y1="7" x2="13" y2="6.5" stroke={color} strokeWidth="0.9" />
+        <line x1="9.6" y1="10" x2="13" y2="9.5" stroke={color} strokeWidth="0.9" />
+        <line x1="9.6" y1="13" x2="13" y2="12.5" stroke={color} strokeWidth="0.9" />
+      </g>
+    </svg>
+  );
+}
+
+function buildScallopedSealPath(cx: number, cy: number, lobes: number, rAvg: number, amp: number): string {
+  const steps = lobes * 6;
+  const pts: string[] = [];
+  for (let i = 0; i < steps; i++) {
+    const theta = (i / steps) * Math.PI * 2;
+    const r = rAvg + amp * Math.cos(lobes * theta);
+    const x = cx + r * Math.cos(theta);
+    const y = cy + r * Math.sin(theta);
+    pts.push(`${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`);
+  }
+  return `${pts.join(' ')} Z`;
+}
+
+/**
+ * Ornate scalloped rank rosette medal with crown, flanking stars, and twin ribbons
+ */
+function RankRibbonBadgeSVG({
+  khRank,
+  enRank,
+  color,
+  sizeMm,
+  khFont,
+  enFont,
+}: {
+  khRank: string;
+  enRank: string;
+  color: string;
+  sizeMm: number;
+  khFont: string;
+  enFont: string;
+}) {
+  const sealPath = React.useMemo(() => buildScallopedSealPath(60, 52, 20, 44.5, 3.1), []);
+  const heightMm = Number((sizeMm * 1.18).toFixed(2));
+  const darkEdge = '#991b1b';
+
+  return (
+    <svg
+      viewBox="0 0 120 142"
+      aria-label={`Rank ${enRank}`}
+      style={{
+        width: `${sizeMm}mm`,
+        height: `${heightMm}mm`,
+        display: 'block',
+        overflow: 'visible',
+        pointerEvents: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        filter: 'drop-shadow(0 1.5px 2px rgba(15, 23, 42, 0.16))',
+      }}
+    >
+      {/* Left Ribbon Tail (Dark crimson backing + vivid inner fill) */}
+      <polygon points="36,84 59,92 43,139 30,122 14,132" fill={darkEdge} />
+      <polygon points="41,85 55,90 40,134 30,121 19,129" fill={color} fillOpacity="0.88" />
+
+      {/* Right Ribbon Tail (Slightly shorter matching reference badge) */}
+      <polygon points="62,92 85,84 104,126 88,118 75,133" fill={darkEdge} />
+      <polygon points="66,90 80,85 98,123 87,117 77,128" fill={color} fillOpacity="0.88" />
+
+      {/* Scalloped Outer Rosette */}
+      <path d={sealPath} fill={color} />
+      {/* Double Inner White Rings */}
+      <circle cx="60" cy="52" r="39" fill="none" stroke="#ffffff" strokeWidth="1.9" />
+      <circle cx="60" cy="52" r="34.5" fill="#ffffff" />
+
+      {/* Crown + Flanking Stars at Top of White Disc */}
+      <g fill={color}>
+        <polygon points="48,35 46,26.5 53,31 60,21.5 67,31 74,26.5 72,35" />
+        <rect x="48.5" y="36.2" width="23" height="1.5" rx="0.7" />
+        <circle cx="46" cy="25.5" r="1.4" />
+        <circle cx="60" cy="20.5" r="1.6" />
+        <circle cx="74" cy="25.5" r="1.4" />
+        {/* Left & Right 5-point stars */}
+        <polygon points="38,27 39.2,30 42.4,30.2 39.9,32.1 40.7,35.2 38,33.5 35.3,35.2 36.1,32.1 33.6,30.2 36.8,30" />
+        <polygon points="82,27 83.2,30 86.4,30.2 83.9,32.1 84.7,35.2 82,33.5 79.3,35.2 80.1,32.1 77.6,30.2 80.8,30" />
+      </g>
+
+      {/* Center Rank Text inside White Rosette */}
+      <text
+        x="60"
+        y="59"
+        textAnchor="middle"
+        fill={darkEdge}
+        fontSize="16"
+        fontWeight="700"
+        style={{ fontFamily: khFont }}
+      >
+        លេខ {khRank}
+      </text>
+      <text
+        x="60"
+        y="74.5"
+        textAnchor="middle"
+        fill={color}
+        fontSize="9.6"
+        fontWeight="700"
+        style={{ fontFamily: enFont }}
+      >
+        Rank {enRank}
+      </text>
+    </svg>
+  );
+}
+
 export interface FrameMarginsCm {
   top: number;
   right: number;
@@ -270,6 +441,7 @@ export const DEFAULT_CERTIFICATE_MARGINS_CM: FrameMarginsCm = {
 };
 
 export type CertElementKey =
+  | 'nationalMotto'
   | 'schoolLogo'
   | 'titleBlock'
   | 'rankBadge'
@@ -285,18 +457,71 @@ export type CertResizeHandleMode =
   | 'photoWidth'
   | 'photoHeight'
   | 'logoSize'
-  | 'stampSize';
+  | 'logoWidth'
+  | 'logoHeight'
+  | 'stampSize'
+  | 'ribbonSize'
+  | 'frameSize'
+  | 'frameWidth'
+  | 'frameHeight';
 
 export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
+  nationalMotto: 'បាវចនា (ព្រះរាជាណាចក្រកម្ពុជា)',
   schoolLogo: 'ឡូហ្គោ & ឈ្មោះសាលា',
   titleBlock: 'ចំណងជើងប័ណ្ណ',
-  rankBadge: 'ផ្លាកលេខចំណាត់ថ្នាក់',
+  rankBadge: 'រូបបូរ / ចំណាត់ថ្នាក់',
   khmerBody: 'ខ្លឹមសារខ្មែរ (ឆ្វេង)',
   englishBody: 'ខ្លឹមសារអង់គ្លេស (ស្តាំ)',
   studentPhoto: 'ប្រអប់រូបថតសិស្ស',
   classMeta: 'ព័ត៌មានថ្នាក់ & គ្រូ',
   stampBlock: 'ថ្ងៃចុះហត្ថលេខា, ត្រា & ហត្ថលេខា',
 };
+
+export interface CertFontOption {
+  label: string;
+  value: string;
+}
+
+export const KHMER_DISPLAY_FONT_OPTIONS: CertFontOption[] = [
+  { label: 'អក្សរមូល (Moul / Khmer OS Muol Light)', value: "'Moul', 'Khmer OS Muol Light', serif" },
+  { label: 'គូលែន (Koulen)', value: "'Koulen', 'Khmer OS Muol', sans-serif" },
+  { label: 'មេតាល់ (Metal)', value: "'Metal', 'Khmer OS Bokor', serif" },
+  { label: 'កន្ទ្រុយ ប្រូ (Kantumruy Pro)', value: "'Kantumruy Pro', sans-serif" },
+  { label: 'បាត់ដំបង (Battambang)', value: "'Battambang', 'Khmer OS Battambang', serif" },
+  { label: 'សៀមរាប (Siemreap)', value: "'Siemreap', 'Khmer OS Siemreap', serif" },
+  { label: 'សុវណ្ណភូមិ (Suwannaphum)', value: "'Suwannaphum', serif" },
+  { label: 'ហនុមាន (Hanuman)', value: "'Hanuman', serif" },
+  { label: 'អក្សរដៃ (Fasthand)', value: "'Fasthand', cursive" },
+];
+
+export const KHMER_BODY_FONT_OPTIONS: CertFontOption[] = [
+  { label: 'សៀមរាប (Khmer OS Siemreap / Siemreap)', value: "'Siemreap', 'Khmer OS Siemreap', 'Kantumruy Pro', serif" },
+  { label: 'កន្ទ្រុយ ប្រូ (Kantumruy Pro - ទំនើប)', value: "'Kantumruy Pro', sans-serif" },
+  { label: 'បាត់ដំបង (Battambang)', value: "'Battambang', 'Khmer OS Battambang', serif" },
+  { label: 'ហនុមាន (Hanuman)', value: "'Hanuman', serif" },
+  { label: 'សុវណ្ណភូមិ (Suwannaphum)', value: "'Suwannaphum', serif" },
+  { label: 'ចេនឡា (Chenla)', value: "'Chenla', serif" },
+  { label: 'អក្សរមូល (Moul)', value: "'Moul', 'Khmer OS Muol Light', serif" },
+];
+
+export const ENGLISH_FONT_OPTIONS: CertFontOption[] = [
+  { label: 'Georgia Classic (ផ្លូវការ)', value: "'Georgia', 'Times New Roman', serif" },
+  { label: 'Times New Roman', value: "'Times New Roman', Georgia, serif" },
+  { label: 'Playfair Display (ប្រណីត)', value: "'Playfair Display', Georgia, serif" },
+  { label: 'Cinzel (វិញ្ញាបនបត្រ/ឆ្លាក់)', value: "'Cinzel', Georgia, serif" },
+  { label: 'Inter (ទំនើបស្អាត)', value: "'Inter', sans-serif" },
+  { label: 'Roboto', value: "'Roboto', sans-serif" },
+  { label: 'Open Sans', value: "'Open Sans', sans-serif" },
+  { label: 'Arial / Helvetica', value: "Arial, Helvetica, sans-serif" },
+];
+
+export const RIBBON_COLOR_SWATCHES = [
+  { label: 'ទឹកក្រូច-ក្រហម (លំនាំដើម)', color: '#ea580c' },
+  { label: 'មាសក្បាច់', color: '#d97706' },
+  { label: 'ក្រហម', color: '#dc2626' },
+  { label: 'ខៀវរាជ', color: '#1d4ed8' },
+  { label: 'បៃតងមរកត', color: '#059669' },
+];
 
 export interface CertElementLayout {
   dxMm: number;
@@ -308,18 +533,44 @@ export interface CertElementLayout {
 export interface CertificateDesignConfig {
   titleFontPt: number;
   subtitleFontPt: number;
+  mottoKhFontPt: number;
+  mottoEnFontPt: number;
+  mottoColor: string;
+  mottoLineHeight: number;
   studentNameKhPt: number;
   studentNameEnPt: number;
   khmerBodyFontPt: number;
   englishBodyFontPt: number;
+  bodyLineHeight: number;
+  letterSpacingPx: number;
   rowGapMm: number;
   signatoryFontPt: number;
+  khmerTitleFont: string;
+  khmerBodyFont: string;
+  studentNameKhFont: string;
+  englishFont: string;
+  topLogoUrl: string;
+  logoLayoutMode: 'vertical' | 'horizontal';
+  logoWidthMm: number;
+  logoHeightMm: number;
+  showLogoSchoolText: boolean;
   schoolLogoSizeMm: number;
   photoWidthMm: number;
   photoHeightMm: number;
   photoRadiusMm: number;
   stampSizeMm: number;
   signatureHeightMm: number;
+  showWatermark: boolean;
+  watermarkOpacity: number;
+  watermarkSizeMm: number;
+  rankBadgeStyle: 'ribbon' | 'pill';
+  rankRibbonSizeMm: number;
+  rankRibbonColor: string;
+  frameScaleX: number;
+  frameScaleY: number;
+  frameOffsetXMm: number;
+  frameOffsetYMm: number;
+  frameInsetMm: number;
   valueColor: string;
   accentColor: string;
   bodyColor: string;
@@ -329,26 +580,53 @@ export interface CertificateDesignConfig {
 }
 
 export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
-  titleFontPt: 16.5,
-  subtitleFontPt: 8,
-  studentNameKhPt: 13.5,
-  studentNameEnPt: 11.8,
-  khmerBodyFontPt: 9.5,
-  englishBodyFontPt: 9.3,
-  rowGapMm: 2.1,
+  titleFontPt: 15,
+  subtitleFontPt: 7.5,
+  mottoKhFontPt: 8,
+  mottoEnFontPt: 5.5,
+  mottoColor: '#0b3be0',
+  mottoLineHeight: 1.18,
+  studentNameKhPt: 13.2,
+  studentNameEnPt: 11.5,
+  khmerBodyFontPt: 9.2,
+  englishBodyFontPt: 9.1,
+  bodyLineHeight: 1.32,
+  letterSpacingPx: 0,
+  rowGapMm: 1.75,
   signatoryFontPt: 9.8,
+  khmerTitleFont: "'Moul', 'Khmer OS Muol Light', serif",
+  khmerBodyFont: "'Siemreap', 'Khmer OS Siemreap', 'Kantumruy Pro', serif",
+  studentNameKhFont: "'Moul', 'Khmer OS Muol Light', serif",
+  englishFont: "'Georgia', 'Times New Roman', serif",
+  topLogoUrl: '',
+  logoLayoutMode: 'vertical',
+  logoWidthMm: 16,
+  logoHeightMm: 22,
+  showLogoSchoolText: true,
   schoolLogoSizeMm: 12.5,
-  photoWidthMm: 23,
-  photoHeightMm: 29,
+  photoWidthMm: 22,
+  photoHeightMm: 27.5,
   photoRadiusMm: 2.2,
-  stampSizeMm: 22.5,
+  stampSizeMm: 22,
   signatureHeightMm: 8.5,
+  showWatermark: true,
+  watermarkOpacity: 0.08,
+  watermarkSizeMm: 54,
+  rankBadgeStyle: 'ribbon',
+  rankRibbonSizeMm: 22,
+  rankRibbonColor: '#ea580c',
+  frameScaleX: 1,
+  frameScaleY: 1,
+  frameOffsetXMm: 0,
+  frameOffsetYMm: 0,
+  frameInsetMm: 0,
   valueColor: '#1d4ed8',
   accentColor: '#dc2626',
   bodyColor: '#111827',
   showHeaderDivider: true,
   showCenterDivider: true,
   elements: {
+    nationalMotto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     schoolLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     titleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     rankBadge: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
@@ -431,11 +709,18 @@ export interface CertificateCardProps {
   schoolProfile?: SchoolProfileInfo;
   editorSelectedKey?: CertElementKey | null;
   editorDraggingKey?: CertElementKey | null;
+  frameDragEnabled?: boolean;
+  editorDraggingFrame?: boolean;
   showMarginGuide?: boolean;
   onElementPointerDown?: (key: CertElementKey, e: React.PointerEvent) => void;
   onResizeHandlePointerDown?: (
     key: CertElementKey,
     mode: CertResizeHandleMode,
+    e: React.PointerEvent
+  ) => void;
+  onFramePointerDown?: (e: React.PointerEvent) => void;
+  onFrameResizePointerDown?: (
+    mode: 'frameSize' | 'frameWidth' | 'frameHeight',
     e: React.PointerEvent
   ) => void;
 }
@@ -462,18 +747,24 @@ export function CertificateCardA5({
   schoolProfile,
   editorSelectedKey = null,
   editorDraggingKey = null,
+  frameDragEnabled = false,
+  editorDraggingFrame = false,
   showMarginGuide = false,
   onElementPointerDown,
   onResizeHandlePointerDown,
+  onFramePointerDown,
+  onFrameResizePointerDown,
 }: CertificateCardProps) {
   const [customFrameFailed, setCustomFrameFailed] = React.useState(false);
   const [photoFailed, setPhotoFailed] = React.useState(false);
+  const [topLogoFailed, setTopLogoFailed] = React.useState(false);
 
   const design = React.useMemo(() => normalizeCertificateDesign(designConfig), [designConfig]);
   const isEditing = Boolean(onElementPointerDown);
 
   const frameImgSrc = resolveSheetAssetSrc(customFrameUrl);
   const photoImgSrc = resolveSheetAssetSrc(recipient.photo);
+  const customTopLogoSrc = resolveSheetAssetSrc(design.topLogoUrl);
 
   React.useEffect(() => {
     setCustomFrameFailed(false);
@@ -483,7 +774,13 @@ export function CertificateCardA5({
     setPhotoFailed(false);
   }, [recipient.photo]);
 
-  const logoSrc = resolveSheetAssetSrc(schoolProfile?.schoolLogoUrl) || '/logo.png';
+  React.useEffect(() => {
+    setTopLogoFailed(false);
+  }, [design.topLogoUrl]);
+
+  const watermarkLogoSrc = resolveSheetAssetSrc(schoolProfile?.schoolLogoUrl) || '/logo.png';
+  const hasCustomTopLogo = Boolean(customTopLogoSrc && !topLogoFailed);
+  const topLogoSrc = hasCustomTopLogo ? customTopLogoSrc : watermarkLogoSrc;
   const schoolKhName = schoolProfile?.schoolFullNameKh || schoolProfile?.schoolName || DEFAULT_SCHOOL_PROFILE.schoolFullNameKh;
   const schoolEnName = (schoolProfile?.schoolFullNameEn || DEFAULT_SCHOOL_PROFILE.schoolFullNameEn).toUpperCase();
 
@@ -514,7 +811,7 @@ export function CertificateCardA5({
     return {
       ...baseStyle,
       position: baseStyle?.position || 'relative',
-      zIndex: isEditing ? (isSel ? 30 : 12) : baseStyle?.zIndex,
+      zIndex: isEditing ? (isSel ? 50 : 12) : baseStyle?.zIndex,
       transform: `translate(${el.dxMm}mm, ${el.dyMm}mm) scale(${el.scale})`,
       transformOrigin: 'center center',
       ...(isEditing
@@ -593,24 +890,118 @@ export function CertificateCardA5({
       }}
     >
       {/* Ornate Background Border Frame (Uploaded / Linked Image or Built-in Vector Frame) */}
-      {frameImgSrc && !customFrameFailed ? (
-        <img
-          src={frameImgSrc}
-          alt="Certificate Frame"
-          onError={() => setCustomFrameFailed(true)}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'fill',
-            pointerEvents: 'none',
-            zIndex: 1,
-          }}
-        />
-      ) : (
-        <OrnateVectorCertificateFrame preset={framePreset} />
-      )}
+      <div
+        onPointerDown={
+          isEditing && frameDragEnabled && onFramePointerDown ? onFramePointerDown : undefined
+        }
+        style={{
+          position: 'absolute',
+          top: `${design.frameInsetMm}mm`,
+          right: `${design.frameInsetMm}mm`,
+          bottom: `${design.frameInsetMm}mm`,
+          left: `${design.frameInsetMm}mm`,
+          transform: `translate(${design.frameOffsetXMm}mm, ${design.frameOffsetYMm}mm) scale(${design.frameScaleX}, ${design.frameScaleY})`,
+          transformOrigin: 'center center',
+          pointerEvents: isEditing && frameDragEnabled ? 'auto' : 'none',
+          cursor: isEditing && frameDragEnabled ? (editorDraggingFrame ? 'grabbing' : 'move') : 'default',
+          outline: isEditing && frameDragEnabled ? '2px dashed #f59e0b' : 'none',
+          outlineOffset: '-2mm',
+          zIndex: isEditing && frameDragEnabled ? 45 : 1,
+          touchAction: 'none',
+        }}
+      >
+        {frameImgSrc && !customFrameFailed ? (
+          <img
+            src={frameImgSrc}
+            alt="Certificate Frame"
+            draggable={false}
+            onError={() => setCustomFrameFailed(true)}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'fill',
+              pointerEvents: 'none',
+            }}
+          />
+        ) : (
+          <OrnateVectorCertificateFrame preset={framePreset} />
+        )}
+
+        {isEditing && frameDragEnabled && onFrameResizePointerDown && (
+          <>
+            <div
+              role="button"
+              title="ទាញផ្លាស់ប្តូរទទឹងស៊ុម"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFrameResizePointerDown('frameWidth', e);
+              }}
+              style={{
+                position: 'absolute',
+                right: '1.5mm',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '3.2mm',
+                height: '9mm',
+                borderRadius: '999px',
+                background: '#f59e0b',
+                border: '1.5px solid #ffffff',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                cursor: 'ew-resize',
+                zIndex: 65,
+              }}
+            />
+            <div
+              role="button"
+              title="ទាញផ្លាស់ប្តូរកម្ពស់ស៊ុម"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFrameResizePointerDown('frameHeight', e);
+              }}
+              style={{
+                position: 'absolute',
+                bottom: '1.5mm',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '9mm',
+                height: '3.2mm',
+                borderRadius: '999px',
+                background: '#f59e0b',
+                border: '1.5px solid #ffffff',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                cursor: 'ns-resize',
+                zIndex: 65,
+              }}
+            />
+            <div
+              role="button"
+              title="ទាញពង្រីក/បង្រួមស៊ុមទាំងមូល"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFrameResizePointerDown('frameSize', e);
+              }}
+              style={{
+                position: 'absolute',
+                right: '1.8mm',
+                bottom: '1.8mm',
+                width: '4.6mm',
+                height: '4.6mm',
+                borderRadius: '2px',
+                background: '#f59e0b',
+                border: '1.5px solid #ffffff',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.45)',
+                cursor: 'nwse-resize',
+                zIndex: 65,
+              }}
+            />
+          </>
+        )}
+      </div>
 
       {/* Safe Content Area Respecting Top/Right/Bottom/Left Frame Margins */}
       <div
@@ -648,6 +1039,7 @@ export function CertificateCardA5({
             width: `${NATURAL_W}mm`,
             height: `${NATURAL_H}mm`,
             flexShrink: 0,
+            position: 'relative',
             transform: `scale(${contentScale})`,
             transformOrigin: 'center center',
             display: 'flex',
@@ -655,141 +1047,337 @@ export function CertificateCardA5({
             justifyContent: 'space-between',
           }}
         >
-        {/* Top Header: School Crest + Title Block + Rank Medal Badge */}
+        {/* Centered Background Watermark School Logo */}
+        {design.showWatermark && watermarkLogoSrc && (
+          <img
+            src={watermarkLogoSrc}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${design.watermarkSizeMm}mm`,
+              height: `${design.watermarkSizeMm}mm`,
+              objectFit: 'contain',
+              opacity: design.watermarkOpacity,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        {/* Top Header: School Crest / Vertical Logo (Left) + National Motto & Title (Center) + Rank Ribbon Medal (Right) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '2.5mm',
             borderBottom: design.showHeaderDivider ? `1px solid ${framePreset.innerColor}55` : 'none',
-            paddingBottom: '2.2mm',
+            paddingBottom: '1.4mm',
           }}
         >
           {design.elements.schoolLogo.visible !== false ? (
-            <div
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
-              style={getInteractiveProps('schoolLogo', {
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2.5mm',
-                minWidth: '52mm',
-              })}
-            >
-              <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
-                <img
-                  src={logoSrc}
-                  alt="BSIS Logo"
-                  draggable={false}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (!img.dataset.fallback) {
-                      img.dataset.fallback = '1';
-                      img.src = '/logo.png';
-                    }
-                  }}
-                  style={{
-                    width: `${design.schoolLogoSizeMm}mm`,
-                    height: `${design.schoolLogoSizeMm}mm`,
-                    objectFit: 'contain',
-                    flexShrink: 0,
-                  }}
-                />
-                {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំឡូហ្គោ', '#d97706')}
-              </div>
-              <div style={{ lineHeight: 1.2 }}>
+            design.logoLayoutMode !== 'horizontal' ? (
+              <div
+                className="cert-inherit-font"
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
+                style={getInteractiveProps('schoolLogo', {
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.7mm',
+                  minWidth: '28mm',
+                })}
+              >
                 <div
                   style={{
-                    fontSize: '8.8pt',
+                    position: 'relative',
+                    width: `${design.logoWidthMm}mm`,
+                    height: `${design.logoHeightMm}mm`,
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <img
+                    src={topLogoSrc}
+                    alt="School Vertical Logo"
+                    draggable={false}
+                    onError={() => {
+                      if (hasCustomTopLogo) setTopLogoFailed(true);
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      display: 'block',
+                    }}
+                  />
+                  {renderResizeHandle('schoolLogo', 'logoWidth', 'e', 'ទាញផ្លាស់ប្តូរទទឹង Logo', '#d97706')}
+                  {renderResizeHandle('schoolLogo', 'logoHeight', 's', 'ទាញផ្លាស់ប្តូរកម្ពស់ Logo', '#d97706')}
+                  {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំ Logo', '#d97706')}
+                </div>
+                {design.showLogoSchoolText && (
+                  <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                    <div
+                      style={{
+                        fontSize: '7.4pt',
+                        fontWeight: 400,
+                        color: framePreset.titleColor,
+                        fontFamily: design.khmerTitleFont,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {schoolKhName}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '4.9pt',
+                        fontWeight: 700,
+                        color: framePreset.outerColor,
+                        fontFamily: design.englishFont,
+                        letterSpacing: '0.25px',
+                        whiteSpace: 'nowrap',
+                        marginTop: '0.2mm',
+                      }}
+                    >
+                      {schoolEnName}
+                    </div>
+                  </div>
+                )}
+                {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
+              </div>
+            ) : (
+              <div
+                className="cert-inherit-font"
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
+                style={getInteractiveProps('schoolLogo', {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '2.2mm',
+                  minWidth: '48mm',
+                })}
+              >
+                <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+                  <img
+                    src={topLogoSrc}
+                    alt="BSIS Logo"
+                    draggable={false}
+                    onError={() => {
+                      if (hasCustomTopLogo) setTopLogoFailed(true);
+                    }}
+                    style={{
+                      width: `${design.schoolLogoSizeMm}mm`,
+                      height: `${design.schoolLogoSizeMm}mm`,
+                      objectFit: 'contain',
+                      flexShrink: 0,
+                    }}
+                  />
+                  {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំឡូហ្គោ', '#d97706')}
+                </div>
+                {design.showLogoSchoolText && (
+                  <div style={{ lineHeight: 1.2 }}>
+                    <div
+                      style={{
+                        fontSize: '8.4pt',
+                        fontWeight: 400,
+                        color: framePreset.titleColor,
+                        fontFamily: design.khmerTitleFont,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {schoolKhName}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '5.5pt',
+                        fontWeight: 700,
+                        color: framePreset.outerColor,
+                        fontFamily: design.englishFont,
+                        letterSpacing: '0.3px',
+                        whiteSpace: 'nowrap',
+                        marginTop: '0.25mm',
+                      }}
+                    >
+                      {schoolEnName}
+                    </div>
+                  </div>
+                )}
+                {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
+              </div>
+            )
+          ) : (
+            <div style={{ minWidth: '32mm' }} />
+          )}
+
+          {/* Center Stack: National Motto + Certificate Title */}
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5mm',
+              minWidth: 0,
+            }}
+          >
+            {design.elements.nationalMotto.visible !== false && (
+              <div
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('nationalMotto', e) : undefined}
+                style={getInteractiveProps('nationalMotto', {
+                  textAlign: 'center',
+                  lineHeight: design.mottoLineHeight,
+                  color: design.mottoColor,
+                })}
+              >
+                <div
+                  className="cert-inherit-font"
+                  style={{
+                    fontSize: `${design.mottoKhFontPt}pt`,
                     fontWeight: 400,
-                    color: framePreset.titleColor,
-                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                    fontFamily: design.khmerTitleFont,
+                    color: design.mottoColor,
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {schoolKhName}
+                  ព្រះរាជាណាចក្រកម្ពុជា
                 </div>
                 <div
+                  className="cert-inherit-font"
                   style={{
-                    fontSize: '5.8pt',
+                    fontSize: `${design.mottoEnFontPt}pt`,
                     fontWeight: 700,
-                    color: framePreset.outerColor,
-                    letterSpacing: '0.35px',
+                    fontFamily: design.englishFont,
+                    letterSpacing: '0.5px',
+                    color: design.mottoColor,
                     whiteSpace: 'nowrap',
+                  }}
+                >
+                  KINGDOM OF CAMBODIA
+                </div>
+                <div
+                  className="cert-inherit-font"
+                  style={{
+                    fontSize: `${Math.max(5.5, design.mottoKhFontPt - 0.5)}pt`,
+                    fontWeight: 400,
+                    fontFamily: design.khmerTitleFont,
+                    color: design.mottoColor,
+                    whiteSpace: 'nowrap',
+                    marginTop: '0.2mm',
+                  }}
+                >
+                  ជាតិ{'\u00A0\u00A0'}សាសនា{'\u00A0\u00A0'}ព្រះមហាក្សត្រ
+                </div>
+                <div
+                  className="cert-inherit-font"
+                  style={{
+                    fontSize: `${Math.max(4.5, design.mottoEnFontPt - 0.3)}pt`,
+                    fontWeight: 700,
+                    fontFamily: design.englishFont,
+                    letterSpacing: '0.55px',
+                    color: design.mottoColor,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  NATION{'\u00A0\u00A0\u00A0'}RELIGION{'\u00A0\u00A0\u00A0'}KING
+                </div>
+                <div style={{ pointerEvents: 'none' }}>
+                  <KhmerMottoOrnamentSVG color={design.mottoColor} />
+                </div>
+                {renderResizeHandle('nationalMotto', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមបាវចនា', '#1d4ed8')}
+              </div>
+            )}
+
+            {design.elements.titleBlock.visible !== false && (
+              <div
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
+                style={getInteractiveProps('titleBlock', { textAlign: 'center' })}
+              >
+                <div
+                  className="cert-inherit-font"
+                  style={{
+                    fontSize: `${design.titleFontPt}pt`,
+                    fontWeight: 400,
+                    color: framePreset.titleColor,
+                    fontFamily: design.khmerTitleFont,
+                    lineHeight: 1.14,
+                  }}
+                >
+                  {khHeading}
+                </div>
+                <div
+                  className="cert-inherit-font"
+                  style={{
+                    fontSize: `${design.subtitleFontPt}pt`,
+                    fontWeight: 700,
+                    letterSpacing: '1.2px',
+                    color: framePreset.innerColor,
+                    fontFamily: design.englishFont,
                     marginTop: '0.3mm',
                   }}
                 >
-                  {schoolEnName}
+                  {enHeading}
                 </div>
+                {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
               </div>
-              {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
-            </div>
-          ) : (
-            <div style={{ minWidth: '52mm' }} />
-          )}
+            )}
+          </div>
 
-          {design.elements.titleBlock.visible !== false ? (
-            <div
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
-              style={getInteractiveProps('titleBlock', { textAlign: 'center', flex: 1 })}
-            >
+          {/* Right corner Rank Ribbon Rosette or Pill Badge */}
+          <div style={{ minWidth: '34mm', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {design.elements.rankBadge.visible !== false && (
               <div
-                style={{
-                  fontSize: `${design.titleFontPt}pt`,
-                  fontWeight: 400,
-                  color: framePreset.titleColor,
-                  fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                  lineHeight: 1.15,
-                }}
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('rankBadge', e) : undefined}
+                style={getInteractiveProps('rankBadge', {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                })}
               >
-                {khHeading}
+                {design.rankBadgeStyle !== 'pill' ? (
+                  <RankRibbonBadgeSVG
+                    khRank={khRank}
+                    enRank={enRank}
+                    color={design.rankRibbonColor}
+                    sizeMm={design.rankRibbonSizeMm}
+                    khFont={design.khmerTitleFont}
+                    enFont={design.englishFont}
+                  />
+                ) : (
+                  <div
+                    className="cert-inherit-font"
+                    style={{
+                      padding: '1mm 2.8mm',
+                      borderRadius: '999px',
+                      border: `1.2px solid ${framePreset.innerColor}`,
+                      background: 'rgba(255, 255, 255, 0.85)',
+                      color: framePreset.titleColor,
+                      fontSize: '8pt',
+                      fontWeight: 700,
+                      fontFamily: design.khmerBodyFont,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    លេខ {khRank} • Rank {enRank}
+                  </div>
+                )}
+                {renderResizeHandle(
+                  'rankBadge',
+                  design.rankBadgeStyle !== 'pill' ? 'ribbonSize' : 'elementScale',
+                  'se',
+                  'ទាញពង្រីក/បង្រួមបូរចំណាត់ថ្នាក់',
+                  design.rankRibbonColor
+                )}
               </div>
-              <div
-                style={{
-                  fontSize: `${design.subtitleFontPt}pt`,
-                  fontWeight: 700,
-                  letterSpacing: '1.3px',
-                  color: framePreset.innerColor,
-                  fontFamily: "'Georgia', 'Times New Roman', serif",
-                  marginTop: '0.4mm',
-                }}
-              >
-                {enHeading}
-              </div>
-              {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
-            </div>
-          ) : (
-            <div style={{ flex: 1 }} />
-          )}
-
-          {/* Right corner Rank Medal Badge */}
-          {design.elements.rankBadge.visible !== false ? (
-            <div
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('rankBadge', e) : undefined}
-              style={getInteractiveProps('rankBadge', {
-                minWidth: '30mm',
-                display: 'flex',
-                justifyContent: 'flex-end',
-              })}
-            >
-              <div
-                style={{
-                  padding: '1mm 2.8mm',
-                  borderRadius: '999px',
-                  border: `1.2px solid ${framePreset.innerColor}`,
-                  background: 'rgba(255, 255, 255, 0.85)',
-                  color: framePreset.titleColor,
-                  fontSize: '8pt',
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                លេខ {khRank} • Rank {enRank}
-              </div>
-              {renderResizeHandle('rankBadge', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមផ្លាកលេខ')}
-            </div>
-          ) : (
-            <div style={{ minWidth: '30mm' }} />
-          )}
+            )}
+          </div>
         </div>
 
         {/* Bilingual 2-Column Body Matching Reference Image */}
@@ -798,8 +1386,8 @@ export function CertificateCardA5({
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             columnGap: '7mm',
-            paddingTop: '1.8mm',
-            paddingBottom: '1.2mm',
+            paddingTop: '1.2mm',
+            paddingBottom: '0.8mm',
             flex: 1,
             alignContent: 'center',
           }}
@@ -807,13 +1395,16 @@ export function CertificateCardA5({
           {/* Left Column: Khmer */}
           {design.elements.khmerBody.visible !== false ? (
             <div
+              className="cert-inherit-font"
               onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('khmerBody', e) : undefined}
               style={getInteractiveProps('khmerBody', {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: `${design.rowGapMm}mm`,
                 fontSize: `${design.khmerBodyFontPt}pt`,
-                lineHeight: 1.35,
+                fontFamily: design.khmerBodyFont,
+                lineHeight: design.bodyLineHeight,
+                letterSpacing: `${design.letterSpacingPx}px`,
                 color: design.bodyColor,
                 borderRight: design.showCenterDivider ? '1px dashed rgba(148, 163, 184, 0.45)' : 'none',
                 paddingRight: '4mm',
@@ -838,7 +1429,7 @@ export function CertificateCardA5({
                       fontSize: `${design.studentNameKhPt}pt`,
                       fontWeight: 400,
                       color: design.valueColor,
-                      fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                      fontFamily: design.studentNameKhFont,
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -906,15 +1497,17 @@ export function CertificateCardA5({
           {/* Right Column: English */}
           {design.elements.englishBody.visible !== false ? (
             <div
+              className="cert-inherit-font"
               onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('englishBody', e) : undefined}
               style={getInteractiveProps('englishBody', {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: `${design.rowGapMm}mm`,
                 fontSize: `${design.englishBodyFontPt}pt`,
-                lineHeight: 1.35,
+                lineHeight: design.bodyLineHeight,
+                letterSpacing: `${design.letterSpacingPx}px`,
                 color: design.bodyColor,
-                fontFamily: "'Georgia', 'Times New Roman', serif",
+                fontFamily: design.englishFont,
               })}
             >
               <div style={{ fontWeight: 500 }}>{enLeadText}</div>
@@ -1005,7 +1598,7 @@ export function CertificateCardA5({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-end',
-            paddingTop: '1mm',
+            paddingTop: '0.6mm',
           }}
         >
           {/* Left: Student Photo + Class/Teacher Meta */}
@@ -1071,10 +1664,12 @@ export function CertificateCardA5({
 
             {design.elements.classMeta.visible !== false && (
               <div
+                className="cert-inherit-font"
                 onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('classMeta', e) : undefined}
                 style={getInteractiveProps('classMeta', {
                   fontSize: '7.5pt',
                   color: '#64748b',
+                  fontFamily: design.khmerBodyFont,
                   lineHeight: 1.35,
                   paddingBottom: '0.5mm',
                 })}
@@ -1103,10 +1698,11 @@ export function CertificateCardA5({
               })}
             >
               <div
+                className="cert-inherit-font"
                 style={{
                   fontSize: '8.8pt',
                   color: design.bodyColor,
-                  fontFamily: "'Georgia', 'Times New Roman', serif",
+                  fontFamily: design.englishFont,
                   marginBottom: '0.4mm',
                 }}
               >
@@ -1115,11 +1711,12 @@ export function CertificateCardA5({
               </div>
 
               <div
+                className="cert-inherit-font"
                 style={{
                   fontSize: '8.8pt',
                   fontWeight: 700,
                   color: '#1e293b',
-                  fontFamily: "'Georgia', 'Times New Roman', serif",
+                  fontFamily: design.englishFont,
                   marginBottom: '-2.5mm',
                   position: 'relative',
                   zIndex: 2,
@@ -1164,7 +1761,7 @@ export function CertificateCardA5({
                     fontSize: `${design.signatoryFontPt}pt`,
                     fontWeight: 400,
                     color: framePreset.signatoryColor,
-                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                    fontFamily: design.studentNameKhFont,
                     whiteSpace: 'nowrap',
                     position: 'relative',
                     zIndex: 4,

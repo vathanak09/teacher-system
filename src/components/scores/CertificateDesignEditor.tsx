@@ -13,7 +13,11 @@ import {
   CertificateFramePreset,
   CertificateRecipient,
   DEFAULT_CERTIFICATE_DESIGN,
+  ENGLISH_FONT_OPTIONS,
   FrameMarginsCm,
+  KHMER_BODY_FONT_OPTIONS,
+  KHMER_DISPLAY_FONT_OPTIONS,
+  RIBBON_COLOR_SWATCHES,
   computeCertificateContentMetrics,
   normalizeCertificateDesign,
 } from './CertificateSheet';
@@ -92,6 +96,8 @@ export default function CertificateDesignEditor({
 }: CertificateDesignEditorProps) {
   const [selectedKey, setSelectedKey] = useState<CertElementKey>('titleBlock');
   const [draggingKey, setDraggingKey] = useState<CertElementKey | null>(null);
+  const [frameDragEnabled, setFrameDragEnabled] = useState<boolean>(false);
+  const [draggingFrame, setDraggingFrame] = useState<boolean>(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('element');
   const [showMarginGuide, setShowMarginGuide] = useState<boolean>(true);
   const [newTemplateName, setNewTemplateName] = useState<string>('');
@@ -117,8 +123,26 @@ export default function CertificateDesignEditor({
         startPhotoW: number;
         startPhotoH: number;
         startLogoSize: number;
+        startLogoW: number;
+        startLogoH: number;
         startStampSize: number;
         startSigHeight: number;
+        startRibbonSize: number;
+      }
+    | {
+        kind: 'frameMove';
+        startClientX: number;
+        startClientY: number;
+        startOffsetX: number;
+        startOffsetY: number;
+      }
+    | {
+        kind: 'frameResize';
+        mode: 'frameSize' | 'frameWidth' | 'frameHeight';
+        startClientX: number;
+        startClientY: number;
+        startScaleX: number;
+        startScaleY: number;
       };
 
   const dragStateRef = useRef<DragInteraction | null>(null);
@@ -142,6 +166,8 @@ export default function CertificateDesignEditor({
   selectedKeyRef.current = selectedKey;
   const denomRef = useRef(1);
   denomRef.current = Math.max(0.15, editorScale * metrics.contentScale * PX_PER_MM);
+  const frameDenomRef = useRef(1);
+  frameDenomRef.current = Math.max(0.15, editorScale * PX_PER_MM);
 
   // Measure available stage width to fit crisp interactive A5 card
   useEffect(() => {
@@ -163,14 +189,44 @@ export default function CertificateDesignEditor({
     const handlePointerMove = (e: PointerEvent) => {
       const st = dragStateRef.current;
       if (!st) return;
-      const denom = denomRef.current;
       const curDesign = latestDesignRef.current;
+
+      if (st.kind === 'frameMove') {
+        const fDenom = frameDenomRef.current;
+        const deltaXMm = (e.clientX - st.startClientX) / fDenom;
+        const deltaYMm = (e.clientY - st.startClientY) / fDenom;
+        const frameOffsetXMm = clampVal(Number((st.startOffsetX + deltaXMm).toFixed(2)), -35, 35);
+        const frameOffsetYMm = clampVal(Number((st.startOffsetY + deltaYMm).toFixed(2)), -35, 35);
+        onChangeDesignRef.current({ ...curDesign, frameOffsetXMm, frameOffsetYMm });
+        return;
+      }
+
+      if (st.kind === 'frameResize') {
+        const fDenom = frameDenomRef.current;
+        const deltaXMm = (e.clientX - st.startClientX) / fDenom;
+        const deltaYMm = (e.clientY - st.startClientY) / fDenom;
+        if (st.mode === 'frameWidth') {
+          const frameScaleX = clampVal(roundStep(st.startScaleX + deltaXMm / 104, 0.01), 0.65, 1.35);
+          onChangeDesignRef.current({ ...curDesign, frameScaleX });
+        } else if (st.mode === 'frameHeight') {
+          const frameScaleY = clampVal(roundStep(st.startScaleY + deltaYMm / 74, 0.01), 0.65, 1.35);
+          onChangeDesignRef.current({ ...curDesign, frameScaleY });
+        } else {
+          const deltaScale = ((deltaXMm / 104) + (deltaYMm / 74)) / 2;
+          const frameScaleX = clampVal(roundStep(st.startScaleX + deltaScale, 0.01), 0.65, 1.35);
+          const frameScaleY = clampVal(roundStep(st.startScaleY + deltaScale, 0.01), 0.65, 1.35);
+          onChangeDesignRef.current({ ...curDesign, frameScaleX, frameScaleY });
+        }
+        return;
+      }
+
+      const denom = denomRef.current;
       const deltaXMm = (e.clientX - st.startClientX) / denom;
       const deltaYMm = (e.clientY - st.startClientY) / denom;
 
       if (st.kind === 'move') {
-        const dxMm = clampVal(Number((st.startDxMm + deltaXMm).toFixed(2)), -120, 120);
-        const dyMm = clampVal(Number((st.startDyMm + deltaYMm).toFixed(2)), -80, 80);
+        const dxMm = clampVal(Number((st.startDxMm + deltaXMm).toFixed(2)), -180, 180);
+        const dyMm = clampVal(Number((st.startDyMm + deltaYMm).toFixed(2)), -120, 120);
         const prevEl = curDesign.elements[st.key];
         onChangeDesignRef.current({
           ...curDesign,
@@ -211,16 +267,32 @@ export default function CertificateDesignEditor({
         const photoWidthMm = clampVal(roundStep(st.startPhotoW + deltaXMm / elScale, 0.5), 10, 55);
         const photoHeightMm = clampVal(roundStep(st.startPhotoH + deltaYMm / elScale, 0.5), 12, 65);
         onChangeDesignRef.current({ ...curDesign, photoWidthMm, photoHeightMm });
+      } else if (st.mode === 'logoWidth') {
+        const logoWidthMm = clampVal(roundStep(st.startLogoW + deltaXMm / elScale, 0.5), 6, 55);
+        onChangeDesignRef.current({ ...curDesign, logoWidthMm });
+      } else if (st.mode === 'logoHeight') {
+        const logoHeightMm = clampVal(roundStep(st.startLogoH + deltaYMm / elScale, 0.5), 6, 55);
+        onChangeDesignRef.current({ ...curDesign, logoHeightMm });
       } else if (st.mode === 'logoSize') {
         const deltaAvg = (deltaXMm + deltaYMm) / 2;
-        const schoolLogoSizeMm = clampVal(roundStep(st.startLogoSize + deltaAvg / elScale, 0.5), 6, 32);
-        onChangeDesignRef.current({ ...curDesign, schoolLogoSizeMm });
+        if (curDesign.logoLayoutMode !== 'horizontal') {
+          const logoWidthMm = clampVal(roundStep(st.startLogoW + deltaXMm / elScale, 0.5), 6, 55);
+          const logoHeightMm = clampVal(roundStep(st.startLogoH + deltaYMm / elScale, 0.5), 6, 55);
+          onChangeDesignRef.current({ ...curDesign, logoWidthMm, logoHeightMm });
+        } else {
+          const schoolLogoSizeMm = clampVal(roundStep(st.startLogoSize + deltaAvg / elScale, 0.5), 6, 36);
+          onChangeDesignRef.current({ ...curDesign, schoolLogoSizeMm });
+        }
       } else if (st.mode === 'stampSize') {
         const deltaAvg = (deltaXMm + deltaYMm) / 2;
         const stampSizeMm = clampVal(roundStep(st.startStampSize + deltaAvg / elScale, 0.5), 12, 42);
         const ratio = st.startStampSize > 0 ? stampSizeMm / st.startStampSize : 1;
         const signatureHeightMm = clampVal(roundStep(st.startSigHeight * ratio, 0.5), 5, 20);
         onChangeDesignRef.current({ ...curDesign, stampSizeMm, signatureHeightMm });
+      } else if (st.mode === 'ribbonSize') {
+        const deltaAvg = (deltaXMm + deltaYMm) / 2;
+        const rankRibbonSizeMm = clampVal(roundStep(st.startRibbonSize + deltaAvg / elScale, 0.5), 14, 38);
+        onChangeDesignRef.current({ ...curDesign, rankRibbonSizeMm });
       }
     };
 
@@ -228,6 +300,7 @@ export default function CertificateDesignEditor({
       if (!dragStateRef.current) return;
       dragStateRef.current = null;
       setDraggingKey(null);
+      setDraggingFrame(false);
       document.body.style.cursor = '';
     };
 
@@ -305,7 +378,11 @@ export default function CertificateDesignEditor({
     setSelectedKey(key);
     setDraggingKey(key);
     document.body.style.cursor =
-      mode === 'photoWidth' ? 'ew-resize' : mode === 'photoHeight' ? 'ns-resize' : 'nwse-resize';
+      mode === 'photoWidth' || mode === 'logoWidth'
+        ? 'ew-resize'
+        : mode === 'photoHeight' || mode === 'logoHeight'
+          ? 'ns-resize'
+          : 'nwse-resize';
     const cur = latestDesignRef.current;
     dragStateRef.current = {
       kind: 'resize',
@@ -317,8 +394,48 @@ export default function CertificateDesignEditor({
       startPhotoW: cur.photoWidthMm,
       startPhotoH: cur.photoHeightMm,
       startLogoSize: cur.schoolLogoSizeMm,
+      startLogoW: cur.logoWidthMm,
+      startLogoH: cur.logoHeightMm,
       startStampSize: cur.stampSizeMm,
       startSigHeight: cur.signatureHeightMm,
+      startRibbonSize: cur.rankRibbonSizeMm,
+    };
+  };
+
+  const handleFramePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingFrame(true);
+    document.body.style.cursor = 'grabbing';
+    const cur = latestDesignRef.current;
+    dragStateRef.current = {
+      kind: 'frameMove',
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startOffsetX: cur.frameOffsetXMm,
+      startOffsetY: cur.frameOffsetYMm,
+    };
+  };
+
+  const handleFrameResizePointerDown = (
+    mode: 'frameSize' | 'frameWidth' | 'frameHeight',
+    e: React.PointerEvent
+  ) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingFrame(true);
+    document.body.style.cursor =
+      mode === 'frameWidth' ? 'ew-resize' : mode === 'frameHeight' ? 'ns-resize' : 'nwse-resize';
+    const cur = latestDesignRef.current;
+    dragStateRef.current = {
+      kind: 'frameResize',
+      mode,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startScaleX: cur.frameScaleX,
+      startScaleY: cur.frameScaleY,
     };
   };
 
@@ -387,11 +504,38 @@ export default function CertificateDesignEditor({
           }}
         >
           <div style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>
-            អូសប្រអប់ដោយ Mouse ដើម្បីរំកិល • អូសចំណុចការ៉េជ្រុងដើម្បីប្តូរទំហំ —{' '}
-            <span style={{ color: '#60a5fa', fontWeight: 700 }}>{CERT_ELEMENT_LABELS[selectedKey]}</span>
+            {frameDragEnabled ? (
+              <span style={{ color: '#fbbf24', fontWeight: 700 }}>
+                កំពុងបើកអូស &amp; ទាញទំហំស៊ុម (Frame Mode) — ដោះគ្រីសវិញដើម្បីអូសធាតុខាងក្នុង
+              </span>
+            ) : (
+              <>
+                អូសប្រអប់ដោយ Mouse ដើម្បីរំកិល • អូសចំណុចការ៉េជ្រុងដើម្បីប្តូរទំហំ —{' '}
+                <span style={{ color: '#60a5fa', fontWeight: 700 }}>{CERT_ELEMENT_LABELS[selectedKey]}</span>
+              </>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.32rem',
+                fontSize: '0.75rem',
+                color: frameDragEnabled ? '#fbbf24' : '#cbd5e1',
+                fontWeight: frameDragEnabled ? 700 : 500,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={frameDragEnabled}
+                onChange={(e) => setFrameDragEnabled(e.target.checked)}
+              />
+              <span>អូស/ប្តូរទំហំស៊ុម (Frame)</span>
+            </label>
+
             <label
               style={{
                 display: 'inline-flex',
@@ -470,9 +614,13 @@ export default function CertificateDesignEditor({
               schoolProfile={schoolProfile}
               editorSelectedKey={selectedKey}
               editorDraggingKey={draggingKey}
+              frameDragEnabled={frameDragEnabled}
+              editorDraggingFrame={draggingFrame}
               showMarginGuide={showMarginGuide}
               onElementPointerDown={handleElementPointerDown}
               onResizeHandlePointerDown={handleResizeHandlePointerDown}
+              onFramePointerDown={handleFramePointerDown}
+              onFrameResizePointerDown={handleFrameResizePointerDown}
             />
           </div>
         </div>
@@ -656,8 +804,8 @@ export default function CertificateDesignEditor({
         >
           {[
             { id: 'element' as InspectorTab, label: 'ទីតាំងធាតុ' },
-            { id: 'typography' as InspectorTab, label: 'ទំហំអក្សរ & ពណ៌' },
-            { id: 'images' as InspectorTab, label: 'ប្រអប់រូបភាព' },
+            { id: 'typography' as InspectorTab, label: 'ពុម្ពអក្សរ & ពណ៌' },
+            { id: 'images' as InspectorTab, label: 'រូបភាព, បូរ & ផ្ទៃ' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -782,8 +930,8 @@ export default function CertificateDesignEditor({
                   </label>
                   <input
                     type="range"
-                    min="-120"
-                    max="120"
+                    min="-180"
+                    max="180"
                     step="0.5"
                     value={selectedEl.dxMm}
                     onChange={(e) => updateSelectedElement({ dxMm: parseFloat(e.target.value) })}
@@ -797,8 +945,8 @@ export default function CertificateDesignEditor({
                   </label>
                   <input
                     type="range"
-                    min="-80"
-                    max="80"
+                    min="-120"
+                    max="120"
                     step="0.5"
                     value={selectedEl.dyMm}
                     onChange={(e) => updateSelectedElement({ dyMm: parseFloat(e.target.value) })}
@@ -861,17 +1009,84 @@ export default function CertificateDesignEditor({
           </div>
         )}
 
-        {/* Tab 2: Typography & Colors */}
+        {/* Tab 2: Font Families, Sizes, Line Height & Colors */}
         {inspectorTab === 'typography' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {/* Font Family Selectors */}
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a5b4fc' }}>
+                ជ្រើសរើសពុម្ពអក្សរ (Font Family)
+              </div>
+
+              {[
+                {
+                  key: 'khmerTitleFont' as const,
+                  label: 'ចំណងជើង, បាវចនា & ឈ្មោះសាលា (ខ្មែរ)',
+                  options: KHMER_DISPLAY_FONT_OPTIONS,
+                },
+                {
+                  key: 'studentNameKhFont' as const,
+                  label: 'ឈ្មោះសិស្ស & អ្នកចុះហត្ថលេខា (ខ្មែរ)',
+                  options: KHMER_DISPLAY_FONT_OPTIONS,
+                },
+                {
+                  key: 'khmerBodyFont' as const,
+                  label: 'អក្សរខ្លឹមសារខ្មែរ',
+                  options: KHMER_BODY_FONT_OPTIONS,
+                },
+                {
+                  key: 'englishFont' as const,
+                  label: 'ពុម្ពអក្សរអង់គ្លេស (English Text)',
+                  options: ENGLISH_FONT_OPTIONS,
+                },
+              ].map((fontItem) => (
+                <div key={fontItem.key}>
+                  <label style={{ display: 'block', fontSize: '0.71rem', color: '#94a3b8', marginBottom: '0.18rem' }}>
+                    {fontItem.label}
+                  </label>
+                  <select
+                    value={normalizedDesign[fontItem.key]}
+                    onChange={(e) => updateDesignField(fontItem.key, e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.32rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.32)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.74rem',
+                      fontFamily: normalizedDesign[fontItem.key],
+                      outline: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {fontItem.options.map((opt) => (
+                      <option
+                        key={opt.value}
+                        value={opt.value}
+                        style={{ fontFamily: opt.value, background: '#1e293b', color: '#f8fafc' }}
+                      >
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
             {[
-              { key: 'titleFontPt' as const, label: 'ចំណងជើងខ្មែរ (Title)', min: 11, max: 24, step: 0.5, unit: 'pt' },
-              { key: 'subtitleFontPt' as const, label: 'ចំណងជើងអង់គ្លេស (Sub)', min: 6, max: 13, step: 0.5, unit: 'pt' },
+              { key: 'titleFontPt' as const, label: 'ចំណងជើងខ្មែរ (Title)', min: 10, max: 24, step: 0.5, unit: 'pt' },
+              { key: 'subtitleFontPt' as const, label: 'ចំណងជើងអង់គ្លេស (Sub)', min: 5.5, max: 13, step: 0.5, unit: 'pt' },
+              { key: 'mottoKhFontPt' as const, label: 'បាវចនាជាតិ (ខ្មែរ)', min: 5.5, max: 12, step: 0.5, unit: 'pt' },
+              { key: 'mottoEnFontPt' as const, label: 'បាវចនាជាតិ (English)', min: 4.5, max: 9, step: 0.2, unit: 'pt' },
               { key: 'studentNameKhPt' as const, label: 'ឈ្មោះសិស្ស (ខ្មែរ)', min: 9, max: 20, step: 0.5, unit: 'pt' },
               { key: 'studentNameEnPt' as const, label: 'ឈ្មោះសិស្ស (English)', min: 8.5, max: 18, step: 0.5, unit: 'pt' },
               { key: 'khmerBodyFontPt' as const, label: 'អក្សរខ្លឹមសារខ្មែរ', min: 7, max: 13.5, step: 0.5, unit: 'pt' },
               { key: 'englishBodyFontPt' as const, label: 'អក្សរខ្លឹមសារអង់គ្លេស', min: 7, max: 13.5, step: 0.5, unit: 'pt' },
-              { key: 'rowGapMm' as const, label: 'គម្លាតបន្ទាត់', min: 0.6, max: 4.5, step: 0.1, unit: 'mm' },
+              { key: 'rowGapMm' as const, label: 'គម្លាតជួរដេក (Row Gap)', min: 0.4, max: 8.0, step: 0.1, unit: 'mm' },
+              { key: 'bodyLineHeight' as const, label: 'គម្លាតជួរអក្សរ (Line Height)', min: 0.95, max: 2.4, step: 0.05, unit: 'x' },
+              { key: 'mottoLineHeight' as const, label: 'គម្លាតជួរបាវចនា (Motto)', min: 0.9, max: 2.0, step: 0.05, unit: 'x' },
+              { key: 'letterSpacingPx' as const, label: 'គម្លាតតួអក្សរ (Letter Spacing)', min: -0.5, max: 4.0, step: 0.1, unit: 'px' },
               { key: 'signatoryFontPt' as const, label: 'ឈ្មោះអ្នកចុះហត្ថលេខា', min: 7, max: 15, step: 0.5, unit: 'pt' },
             ].map((slider) => (
               <div key={slider.key} style={{ background: '#0f172a', padding: '0.42rem 0.55rem', borderRadius: '8px' }}>
@@ -895,14 +1110,23 @@ export default function CertificateDesignEditor({
 
             {/* Colors & Dividers */}
             <div style={{ background: '#0f172a', padding: '0.5rem 0.6rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#cbd5e1', gap: '0.2rem' }}>
+                  <span>ពណ៌បាវចនា</span>
+                  <input
+                    type="color"
+                    value={normalizedDesign.mottoColor}
+                    onChange={(e) => updateDesignField('mottoColor', e.target.value)}
+                    style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                  />
+                </label>
                 <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#cbd5e1', gap: '0.2rem' }}>
                   <span>ពណ៌តម្លៃ (ឈ្មោះ)</span>
                   <input
                     type="color"
                     value={normalizedDesign.valueColor}
                     onChange={(e) => updateDesignField('valueColor', e.target.value)}
-                    style={{ width: '100%', height: '26px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                    style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                   />
                 </label>
                 <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#cbd5e1', gap: '0.2rem' }}>
@@ -911,7 +1135,7 @@ export default function CertificateDesignEditor({
                     type="color"
                     value={normalizedDesign.accentColor}
                     onChange={(e) => updateDesignField('accentColor', e.target.value)}
-                    style={{ width: '100%', height: '26px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                    style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                   />
                 </label>
                 <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#cbd5e1', gap: '0.2rem' }}>
@@ -920,7 +1144,7 @@ export default function CertificateDesignEditor({
                     type="color"
                     value={normalizedDesign.bodyColor}
                     onChange={(e) => updateDesignField('bodyColor', e.target.value)}
-                    style={{ width: '100%', height: '26px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                    style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                   />
                 </label>
               </div>
@@ -947,24 +1171,406 @@ export default function CertificateDesignEditor({
           </div>
         )}
 
-        {/* Tab 3: Image Box Sizes (School Logo, Student Photo, Stamp & Signature) */}
+        {/* Tab 3: Frame Size/Position, Rank Ribbon, Watermark & Image Boxes */}
         {inspectorTab === 'images' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-            {/* School Logo Box Size */}
-            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px' }}>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.2rem' }}>
-                <span>ទំហំឡូហ្គោសាលា</span>
-                <strong>{normalizedDesign.schoolLogoSizeMm} mm</strong>
+            {/* Border Frame Size & Position */}
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem', border: frameDragEnabled ? '1px solid rgba(251, 191, 36, 0.55)' : '1px solid transparent' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 700 }}>
+                  សារ៉េទំហំ និងទីតាំងស៊ុម (Frame)
+                </span>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.71rem', color: frameDragEnabled ? '#fde68a' : '#cbd5e1', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={frameDragEnabled}
+                    onChange={(e) => setFrameDragEnabled(e.target.checked)}
+                  />
+                  <span>អូសដោយ Mouse</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>ទទឹងស៊ុម X</span>
+                    <strong>{Math.round(normalizedDesign.frameScaleX * 100)}%</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="0.65"
+                    max="1.35"
+                    step="0.01"
+                    value={normalizedDesign.frameScaleX}
+                    onChange={(e) => updateDesignField('frameScaleX', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>កម្ពស់ស៊ុម Y</span>
+                    <strong>{Math.round(normalizedDesign.frameScaleY * 100)}%</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="0.65"
+                    max="1.35"
+                    step="0.01"
+                    value={normalizedDesign.frameScaleY}
+                    onChange={(e) => updateDesignField('frameScaleY', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                  <span>រួមគែមស៊ុមចូលក្នុង (Inset Margin)</span>
+                  <strong>{normalizedDesign.frameInsetMm} mm</strong>
+                </label>
+                <input
+                  type="range"
+                  min="-12"
+                  max="25"
+                  step="0.5"
+                  value={normalizedDesign.frameInsetMm}
+                  onChange={(e) => updateDesignField('frameInsetMm', parseFloat(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>ទីតាំង X</span>
+                    <strong>{normalizedDesign.frameOffsetXMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="-35"
+                    max="35"
+                    step="0.5"
+                    value={normalizedDesign.frameOffsetXMm}
+                    onChange={(e) => updateDesignField('frameOffsetXMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>ទីតាំង Y</span>
+                    <strong>{normalizedDesign.frameOffsetYMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="-35"
+                    max="35"
+                    step="0.5"
+                    value={normalizedDesign.frameOffsetYMm}
+                    onChange={(e) => updateDesignField('frameOffsetYMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  onChangeDesign({
+                    ...normalizedDesign,
+                    frameScaleX: 1,
+                    frameScaleY: 1,
+                    frameInsetMm: 0,
+                    frameOffsetXMm: 0,
+                    frameOffsetYMm: 0,
+                  })
+                }
+                style={{
+                  padding: '0.24rem',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(251, 191, 36, 0.35)',
+                  background: 'rgba(251, 191, 36, 0.1)',
+                  color: '#fde68a',
+                  fontSize: '0.71rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                កំណត់ទំហំ &amp; ទីតាំងស៊ុមដើម (100% / 0mm)
+              </button>
+            </div>
+
+            {/* Rank Ribbon Medal Card */}
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: '#fb923c', fontWeight: 700 }}>
+                  រូបបូរចំណាត់ថ្នាក់ (Rank Medal)
+                </span>
+                <div style={{ display: 'inline-flex', gap: '0.2rem', background: '#1e293b', padding: '0.12rem', borderRadius: '6px' }}>
+                  {[
+                    { id: 'ribbon' as const, label: 'រូបបូរ' },
+                    { id: 'pill' as const, label: 'ផ្លាក' },
+                  ].map((modeOpt) => (
+                    <button
+                      key={modeOpt.id}
+                      type="button"
+                      onClick={() => updateDesignField('rankBadgeStyle', modeOpt.id)}
+                      style={{
+                        padding: '0.16rem 0.45rem',
+                        borderRadius: '5px',
+                        border: 'none',
+                        background: normalizedDesign.rankBadgeStyle === modeOpt.id ? '#ea580c' : 'transparent',
+                        color: normalizedDesign.rankBadgeStyle === modeOpt.id ? '#ffffff' : '#94a3b8',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {modeOpt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {normalizedDesign.rankBadgeStyle !== 'pill' && (
+                <>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                      <span>ទំហំរូបបូរចំណាត់ថ្នាក់</span>
+                      <strong>{normalizedDesign.rankRibbonSizeMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="14"
+                      max="38"
+                      step="0.5"
+                      value={normalizedDesign.rankRibbonSizeMm}
+                      onChange={(e) => updateDesignField('rankRibbonSizeMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.71rem', color: '#94a3b8' }}>ពណ៌បូរ៖</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      {RIBBON_COLOR_SWATCHES.map((sw) => (
+                        <button
+                          key={sw.color}
+                          type="button"
+                          title={sw.label}
+                          onClick={() => updateDesignField('rankRibbonColor', sw.color)}
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            background: sw.color,
+                            border: normalizedDesign.rankRibbonColor.toLowerCase() === sw.color ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.25)',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={normalizedDesign.rankRibbonColor}
+                        onChange={(e) => updateDesignField('rankRibbonColor', e.target.value)}
+                        style={{ width: '24px', height: '20px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Background Watermark Logo */}
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: '#c4b5fd', fontWeight: 700 }}>
+                  Watermark ឡូហ្គោសាលា (ផ្ទៃក្រោយ)
+                </span>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.73rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={normalizedDesign.showWatermark}
+                    onChange={(e) => updateDesignField('showWatermark', e.target.checked)}
+                  />
+                  <span>បង្ហាញ</span>
+                </label>
+              </div>
+
+              {normalizedDesign.showWatermark && (
+                <>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                      <span>ទំហំ Watermark</span>
+                      <strong>{normalizedDesign.watermarkSizeMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="24"
+                      max="110"
+                      step="1"
+                      value={normalizedDesign.watermarkSizeMm}
+                      onChange={(e) => updateDesignField('watermarkSizeMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                      <span>កម្រិតស្រាល / ភាពថ្លា (Opacity)</span>
+                      <strong>{Math.round(normalizedDesign.watermarkOpacity * 100)}%</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.03"
+                      max="0.35"
+                      step="0.01"
+                      value={normalizedDesign.watermarkOpacity}
+                      onChange={(e) => updateDesignField('watermarkOpacity', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Top School Logo (Vertical / Horizontal, Custom URL Link & Box Sizes) */}
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', color: '#93c5fd', fontWeight: 700 }}>
+                  Logo សាលាផ្នែកខាងលើ (បញ្ឈរ)
+                </span>
+                <div style={{ display: 'inline-flex', gap: '0.2rem', background: '#1e293b', padding: '0.12rem', borderRadius: '6px' }}>
+                  {[
+                    { id: 'vertical' as const, label: 'បញ្ឈរ' },
+                    { id: 'horizontal' as const, label: 'ផ្តេក' },
+                  ].map((modeOpt) => (
+                    <button
+                      key={modeOpt.id}
+                      type="button"
+                      onClick={() => updateDesignField('logoLayoutMode', modeOpt.id)}
+                      style={{
+                        padding: '0.16rem 0.45rem',
+                        borderRadius: '5px',
+                        border: 'none',
+                        background: normalizedDesign.logoLayoutMode !== 'horizontal' && modeOpt.id === 'vertical'
+                          ? '#2563eb'
+                          : normalizedDesign.logoLayoutMode === 'horizontal' && modeOpt.id === 'horizontal'
+                            ? '#2563eb'
+                            : 'transparent',
+                        color: (normalizedDesign.logoLayoutMode === 'horizontal' ? modeOpt.id === 'horizontal' : modeOpt.id === 'vertical')
+                          ? '#ffffff'
+                          : '#94a3b8',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {modeOpt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.71rem', color: '#cbd5e1', marginBottom: '0.18rem' }}>
+                  Link Logo បញ្ឈរ (Google Drive / URL)
+                </label>
+                <div style={{ display: 'flex', gap: '0.28rem' }}>
+                  <input
+                    type="text"
+                    value={normalizedDesign.topLogoUrl || ''}
+                    onChange={(e) => updateDesignField('topLogoUrl', e.target.value)}
+                    placeholder="ទុកទំនេរ = ប្រើ Logo សាលាដើម..."
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '0.3rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.73rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {normalizedDesign.topLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => updateDesignField('topLogoUrl', '')}
+                      title="ប្រើ Logo សាលាដើមវិញ"
+                      style={{
+                        padding: '0 0.42rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(248, 113, 113, 0.35)',
+                        background: 'rgba(248, 113, 113, 0.14)',
+                        color: '#fca5a5',
+                        fontSize: '0.72rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={normalizedDesign.showLogoSchoolText}
+                  onChange={(e) => updateDesignField('showLogoSchoolText', e.target.checked)}
+                />
+                <span>បង្ហាញឈ្មោះសាលា (ខាងក្រោម Logo)</span>
               </label>
-              <input
-                type="range"
-                min="6"
-                max="28"
-                step="0.5"
-                value={normalizedDesign.schoolLogoSizeMm}
-                onChange={(e) => updateDesignField('schoolLogoSizeMm', parseFloat(e.target.value))}
-                style={{ width: '100%' }}
-              />
+
+              {normalizedDesign.logoLayoutMode !== 'horizontal' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>ទទឹង Logo</span>
+                      <strong>{normalizedDesign.logoWidthMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="6"
+                      max="55"
+                      step="0.5"
+                      value={normalizedDesign.logoWidthMm}
+                      onChange={(e) => updateDesignField('logoWidthMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>កម្ពស់ Logo</span>
+                      <strong>{normalizedDesign.logoHeightMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="6"
+                      max="55"
+                      step="0.5"
+                      value={normalizedDesign.logoHeightMm}
+                      onChange={(e) => updateDesignField('logoHeightMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1' }}>
+                    <span>ទំហំឡូហ្គោផ្តេក</span>
+                    <strong>{normalizedDesign.schoolLogoSizeMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="6"
+                    max="36"
+                    step="0.5"
+                    value={normalizedDesign.schoolLogoSizeMm}
+                    onChange={(e) => updateDesignField('schoolLogoSizeMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Student Photo Box Size & Toggle */}
@@ -990,8 +1596,8 @@ export default function CertificateDesignEditor({
                 </label>
                 <input
                   type="range"
-                  min="12"
-                  max="48"
+                  min="10"
+                  max="55"
                   step="0.5"
                   value={normalizedDesign.photoWidthMm}
                   onChange={(e) => updateDesignField('photoWidthMm', parseFloat(e.target.value))}
@@ -1006,8 +1612,8 @@ export default function CertificateDesignEditor({
                 </label>
                 <input
                   type="range"
-                  min="14"
-                  max="56"
+                  min="12"
+                  max="65"
                   step="0.5"
                   value={normalizedDesign.photoHeightMm}
                   onChange={(e) => updateDesignField('photoHeightMm', parseFloat(e.target.value))}
@@ -1045,7 +1651,7 @@ export default function CertificateDesignEditor({
                 <input
                   type="range"
                   min="12"
-                  max="38"
+                  max="42"
                   step="0.5"
                   value={normalizedDesign.stampSizeMm}
                   onChange={(e) => updateDesignField('stampSizeMm', parseFloat(e.target.value))}
@@ -1060,7 +1666,7 @@ export default function CertificateDesignEditor({
                 <input
                   type="range"
                   min="5"
-                  max="18"
+                  max="20"
                   step="0.5"
                   value={normalizedDesign.signatureHeightMm}
                   onChange={(e) => updateDesignField('signatureHeightMm', parseFloat(e.target.value))}

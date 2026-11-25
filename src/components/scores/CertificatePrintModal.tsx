@@ -45,6 +45,8 @@ export interface CertificateBrandingConfig {
   certFramePresetId?: string;
   certFrameUrl?: string;
   certCustomFrames?: SavedCustomFrameLink[];
+  certTopLogoUrl?: string;
+  certSavedTopLogos?: SavedCustomFrameLink[];
   certFrameMarginsCm?: FrameMarginsCm;
   certDesignConfig?: CertificateDesignConfig;
   certDesignTemplates?: SavedCertificateDesignTemplate[];
@@ -129,6 +131,10 @@ export default function CertificatePrintModal({
   const [customFrameUrl, setCustomFrameUrl] = useState<string>('');
   const [savedCustomFrames, setSavedCustomFrames] = useState<SavedCustomFrameLink[]>([]);
   const [newFrameLabel, setNewFrameLabel] = useState<string>('');
+  const [savedTopLogos, setSavedTopLogos] = useState<SavedCustomFrameLink[]>([]);
+  const [newTopLogoLabel, setNewTopLogoLabel] = useState<string>('');
+  const [isUploadingTopLogo, setIsUploadingTopLogo] = useState<boolean>(false);
+  const topLogoUploadInputRef = useRef<HTMLInputElement>(null);
   const [studioFrameTemplates, setStudioFrameTemplates] = useState<SavedCustomFrameLink[]>([]);
   const [frameMarginsCm, setFrameMarginsCm] = useState<FrameMarginsCm>(DEFAULT_CERTIFICATE_MARGINS_CM);
   const [uniformMargins, setUniformMargins] = useState<boolean>(true);
@@ -170,7 +176,12 @@ export default function CertificatePrintModal({
     setFramePresetId(scoreSettings?.certFramePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
     setCustomFrameUrl(scoreSettings?.certFrameUrl || '');
     setSavedCustomFrames(Array.isArray(scoreSettings?.certCustomFrames) ? scoreSettings.certCustomFrames : []);
-    setDesignConfig(normalizeCertificateDesign(scoreSettings?.certDesignConfig));
+    setSavedTopLogos(Array.isArray(scoreSettings?.certSavedTopLogos) ? scoreSettings.certSavedTopLogos : []);
+    const restoredDesign = normalizeCertificateDesign(scoreSettings?.certDesignConfig);
+    if (!restoredDesign.topLogoUrl && scoreSettings?.certTopLogoUrl) {
+      restoredDesign.topLogoUrl = String(scoreSettings.certTopLogoUrl);
+    }
+    setDesignConfig(restoredDesign);
     setSavedDesignTemplates(
       Array.isArray(scoreSettings?.certDesignTemplates) ? scoreSettings.certDesignTemplates : []
     );
@@ -555,6 +566,85 @@ export default function CertificatePrintModal({
     await persistSavedFramesImmediately(nextList, nextUrl);
   };
 
+  const handleUploadTopLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingTopLogo(true);
+    setUploadStatusText('កំពុង Upload Logo បញ្ឈរ...');
+    try {
+      const baseName = file.name.replace(/\.[^.]+$/, '');
+      const cleanId = `cert_top_logo_${Date.now()}`;
+      const url = await uploadCertificateFrame(file, cleanId);
+      const nextDesign = normalizeCertificateDesign({
+        ...designConfig,
+        topLogoUrl: url,
+        logoLayoutMode: 'vertical',
+      });
+      setDesignConfig(nextDesign);
+      const entry: SavedCustomFrameLink = {
+        id: String(Date.now()),
+        label: newTopLogoLabel.trim() || baseName.slice(0, 22) || `Logo ${savedTopLogos.length + 1}`,
+        url,
+      };
+      const nextLogos = [...savedTopLogos, entry];
+      setSavedTopLogos(nextLogos);
+      setNewTopLogoLabel('');
+      if (onSaveSettings) {
+        await onSaveSettings({
+          certTopLogoUrl: url,
+          certSavedTopLogos: nextLogos,
+          certDesignConfig: nextDesign,
+        });
+      }
+      setUploadStatusText('Upload Logo បញ្ឈរបានជោគជ័យ!');
+      setTimeout(() => setUploadStatusText(''), 3000);
+    } catch (err: any) {
+      console.error('Top logo upload failed:', err);
+      alert('មានបញ្ហាក្នុងការ Upload Logo៖ ' + (err?.message || 'Unknown error'));
+      setUploadStatusText('');
+    } finally {
+      setIsUploadingTopLogo(false);
+      if (topLogoUploadInputRef.current) topLogoUploadInputRef.current.value = '';
+    }
+  };
+
+  const handleAddTopLogoLink = async () => {
+    const cleanUrl = String(designConfig.topLogoUrl || '').trim();
+    if (!cleanUrl) return;
+    const exists = savedTopLogos.some((l) => l.url === cleanUrl);
+    const label = newTopLogoLabel.trim() || `Logo បញ្ឈរ ${savedTopLogos.length + 1}`;
+    const nextLogos = exists
+      ? savedTopLogos
+      : [...savedTopLogos, { id: String(Date.now()), label, url: cleanUrl }];
+    setSavedTopLogos(nextLogos);
+    setNewTopLogoLabel('');
+    if (onSaveSettings) {
+      await onSaveSettings({
+        certTopLogoUrl: cleanUrl,
+        certSavedTopLogos: nextLogos,
+        certDesignConfig: normalizeCertificateDesign(designConfig),
+      });
+    }
+  };
+
+  const handleRemoveSavedTopLogo = async (id: string) => {
+    const target = savedTopLogos.find((l) => l.id === id);
+    const nextLogos = savedTopLogos.filter((l) => l.id !== id);
+    setSavedTopLogos(nextLogos);
+    let nextDesign = designConfig;
+    if (target && String(designConfig.topLogoUrl || '').trim() === target.url) {
+      nextDesign = normalizeCertificateDesign({ ...designConfig, topLogoUrl: '' });
+      setDesignConfig(nextDesign);
+    }
+    if (onSaveSettings) {
+      await onSaveSettings({
+        certTopLogoUrl: nextDesign.topLogoUrl,
+        certSavedTopLogos: nextLogos,
+        certDesignConfig: nextDesign,
+      });
+    }
+  };
+
   const handleUpdateMarginCm = (side: keyof FrameMarginsCm, rawVal: string) => {
     const parsed = parseFloat(rawVal);
     if (isNaN(parsed)) return;
@@ -593,6 +683,7 @@ export default function CertificatePrintModal({
           certDocType: tpl.docType || 'praise',
           certFramePresetId: tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id,
           certFrameUrl: tpl.customFrameUrl || '',
+          certTopLogoUrl: norm.topLogoUrl || '',
           certFrameMarginsCm: tpl.frameMarginsCm,
           certShowStudentPhoto: Boolean(tpl.showStudentPhoto),
           certDesignConfig: norm,
@@ -626,6 +717,7 @@ export default function CertificatePrintModal({
         certDesignTemplates: nextTemplates,
         certActiveDesignId: nextTpl.id,
         certDesignConfig: nextTpl.designConfig,
+        certTopLogoUrl: nextTpl.designConfig.topLogoUrl || '',
         certDocType: docType,
         certFramePresetId: framePresetId,
         certFrameUrl: customFrameUrl.trim(),
@@ -661,6 +753,7 @@ export default function CertificatePrintModal({
         certDesignTemplates: nextTemplates,
         certActiveDesignId: activeDesignTemplateId,
         certDesignConfig: norm,
+        certTopLogoUrl: norm.topLogoUrl || '',
         certDocType: docType,
         certFramePresetId: framePresetId,
         certFrameUrl: customFrameUrl.trim(),
@@ -696,6 +789,8 @@ export default function CertificatePrintModal({
         certFramePresetId: framePresetId,
         certFrameUrl: customFrameUrl.trim(),
         certCustomFrames: savedCustomFrames,
+        certTopLogoUrl: String(normDesign.topLogoUrl || '').trim(),
+        certSavedTopLogos: savedTopLogos,
         certFrameMarginsCm: frameMarginsCm,
         certDesignConfig: normDesign,
         certDesignTemplates: savedDesignTemplates,
@@ -1925,6 +2020,221 @@ export default function CertificatePrintModal({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Vertical Top School Logo URL + Upload & Saved Presets */}
+            <div
+              style={{
+                background: '#0f172a',
+                border: '1px solid rgba(251, 191, 36, 0.25)',
+                borderRadius: '8px',
+                padding: '0.45rem 0.6rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.4rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#fde68a' }}>
+                  Logo សាលាផ្នែកខាងលើ (Logo បញ្ឈរ - Link ឬ Upload)
+                </span>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={designConfig.showLogoSchoolText}
+                    onChange={(e) =>
+                      setDesignConfig((prev) =>
+                        normalizeCertificateDesign({ ...prev, showLogoSchoolText: e.target.checked })
+                      )
+                    }
+                  />
+                  <span>បង្ហាញឈ្មោះសាលាខាងក្រោម Logo</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.32rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  value={designConfig.topLogoUrl || ''}
+                  onChange={(e) =>
+                    setDesignConfig((prev) =>
+                      normalizeCertificateDesign({
+                        ...prev,
+                        topLogoUrl: e.target.value,
+                        logoLayoutMode: 'vertical',
+                      })
+                    )
+                  }
+                  placeholder="បិទភ្ជាប់ Link Logo បញ្ឈរ (Google Drive / URL) ឬ Upload..."
+                  style={{
+                    flex: 1,
+                    minWidth: '180px',
+                    padding: '0.34rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    background: '#1e293b',
+                    color: '#f8fafc',
+                    fontSize: '0.75rem',
+                    outline: 'none',
+                  }}
+                />
+
+                {designConfig.topLogoUrl && (
+                  <>
+                    <input
+                      type="text"
+                      value={newTopLogoLabel}
+                      onChange={(e) => setNewTopLogoLabel(e.target.value)}
+                      placeholder="ឈ្មោះ Logo"
+                      style={{
+                        width: '82px',
+                        padding: '0.34rem 0.42rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(148, 163, 184, 0.3)',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.73rem',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTopLogoLink}
+                      style={{
+                        padding: '0.32rem 0.55rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(52, 211, 153, 0.45)',
+                        background: 'rgba(16, 185, 129, 0.16)',
+                        color: '#6ee7b7',
+                        fontSize: '0.73rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      + រក្សាទុក Logo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDesignConfig((prev) =>
+                          normalizeCertificateDesign({ ...prev, topLogoUrl: '' })
+                        )
+                      }
+                      title="ប្រើ Logo សាលាដើមវិញ"
+                      style={{
+                        padding: '0.32rem 0.45rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(248, 113, 113, 0.35)',
+                        background: 'rgba(248, 113, 113, 0.12)',
+                        color: '#fca5a5',
+                        fontSize: '0.72rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </>
+                )}
+
+                <input
+                  ref={topLogoUploadInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadTopLogoFile}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  disabled={isUploadingTopLogo}
+                  onClick={() => topLogoUploadInputRef.current?.click()}
+                  style={{
+                    padding: '0.32rem 0.62rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(251, 191, 36, 0.45)',
+                    background: 'rgba(251, 191, 36, 0.14)',
+                    color: '#fde68a',
+                    fontSize: '0.73rem',
+                    fontWeight: 700,
+                    cursor: isUploadingTopLogo ? 'wait' : 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isUploadingTopLogo ? 'កំពុង Upload...' : 'Upload Logo បញ្ឈរ'}
+                </button>
+              </div>
+
+              {savedTopLogos.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.71rem', color: '#94a3b8' }}>Logo ដែលបាន Save៖</span>
+                  {savedTopLogos.map((logoItem) => {
+                    const isAct = String(designConfig.topLogoUrl || '').trim() === logoItem.url;
+                    const thumb = resolveSheetAssetSrc(logoItem.url);
+                    return (
+                      <div
+                        key={logoItem.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.28rem',
+                          borderRadius: '6px',
+                          border: isAct ? '1.5px solid #fbbf24' : '1px solid rgba(148, 163, 184, 0.28)',
+                          background: isAct ? 'rgba(251, 191, 36, 0.18)' : '#1e293b',
+                          padding: '0.14rem 0.25rem',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDesignConfig((prev) =>
+                              normalizeCertificateDesign({
+                                ...prev,
+                                topLogoUrl: logoItem.url,
+                                logoLayoutMode: 'vertical',
+                              })
+                            )
+                          }
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: isAct ? '#fde68a' : '#e2e8f0',
+                            fontSize: '0.72rem',
+                            fontWeight: isAct ? 700 : 500,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.26rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {thumb && (
+                            <img
+                              src={thumb}
+                              alt={logoItem.label}
+                              style={{ width: '16px', height: '20px', objectFit: 'contain', background: '#fff', borderRadius: '2px' }}
+                            />
+                          )}
+                          <span>{logoItem.label}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSavedTopLogo(logoItem.id)}
+                          style={{
+                            border: 'none',
+                            background: 'rgba(248, 113, 113, 0.15)',
+                            color: '#fca5a5',
+                            borderRadius: '4px',
+                            padding: '0.06rem 0.28rem',
+                            fontSize: '0.68rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Bottom toggles: Show/Hide Student Photo, Cut Guide, Signature Link & Save */}

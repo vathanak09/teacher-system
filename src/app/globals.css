@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Moul&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&family=Chenla&family=Fasthand&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Moul&family=Koulen&family=Metal&family=Siemreap&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&family=Chenla&family=Fasthand&family=Playfair+Display:wght@400;600;700&family=Cinzel:wght@500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;700&display=swap');
 
 :root {
   --sidebar-bg: #1e3a8a; 
@@ -231,6 +231,14 @@ body {
 
 h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   font-family: 'Kantumruy Pro', 'Inter', sans-serif;
+}
+
+/* Allow explicit font selectors inside Certificate cards to cascade cleanly to child spans */
+.cert-inherit-font,
+.cert-inherit-font span,
+.cert-inherit-font div,
+.cert-inherit-font strong {
+  font-family: inherit;
 }
 
 .glass-panel {
