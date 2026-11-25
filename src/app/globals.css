@@ -1791,4 +1791,213 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
     width: 100% !important;
     margin: 0 !important;
   }
+
+  body.printing-receipt-a4 .print-workspace-body,
+  body.printing-payment-doc .print-workspace-body {
+    display: block !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.printing-receipt-a4 .print-left-sidebar,
+  body.printing-payment-doc .print-left-sidebar {
+    display: none !important;
+  }
+
+  body.printing-receipt-a4 .print-preview-stage,
+  body.printing-payment-doc .print-preview-stage {
+    display: block !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* ==========================================================================
+   Unified Print Studio Split Workspace (Left Settings Sidebar + Right Preview)
+   ========================================================================== */
+.print-workspace-body {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.print-left-sidebar {
+  width: 356px;
+  flex-shrink: 0;
+  position: sticky;
+  top: var(--print-toolbar-h, 58px);
+  height: calc(100vh - var(--print-toolbar-h, 58px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #0f172a;
+  border-right: 1px solid rgba(148, 163, 184, 0.22);
+  padding: 0.72rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  color: #f8fafc;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+
+.print-left-sidebar.print-sidebar-wide {
+  width: 396px;
+}
+
+.print-preview-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (max-width: 959px) {
+  .print-workspace-body {
+    flex-direction: column;
+  }
+  .print-left-sidebar,
+  .print-left-sidebar.print-sidebar-wide {
+    width: 100%;
+    position: static;
+    height: auto;
+    max-height: 55vh;
+    border-right: none;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  }
+}
+
+/* ==========================================================================
+   Scoped Print Typography, Spacing & Table Overrides (.print-custom-scope)
+   Applied ONLY when user customizes settings via PrintStyleSidebar
+   ========================================================================== */
+.print-custom-scope.print-ov-font,
+.print-custom-scope.print-ov-font *:not(svg):not(path):not(circle):not(rect):not(line) {
+  font-family: var(--pr-font) !important;
+}
+
+.print-custom-scope.print-ov-heading-font h1,
+.print-custom-scope.print-ov-heading-font h2,
+.print-custom-scope.print-ov-heading-font h3,
+.print-custom-scope.print-ov-heading-font [data-print-heading="true"],
+.print-custom-scope.print-ov-heading-font [style*="Moul"],
+.print-custom-scope.print-ov-heading-font [style*="Muol"] {
+  font-family: var(--pr-heading-font) !important;
+}
+
+.print-custom-scope.print-ov-body-size,
+.print-custom-scope.print-ov-body-size p,
+.print-custom-scope.print-ov-body-size span,
+.print-custom-scope.print-ov-body-size div,
+.print-custom-scope.print-ov-body-size li {
+  font-size: var(--pr-body-size) !important;
+}
+
+.print-custom-scope.print-ov-font-weight,
+.print-custom-scope.print-ov-font-weight p,
+.print-custom-scope.print-ov-font-weight span,
+.print-custom-scope.print-ov-font-weight div,
+.print-custom-scope.print-ov-font-weight td {
+  font-weight: var(--pr-font-weight) !important;
+}
+
+.print-custom-scope.print-ov-line-height,
+.print-custom-scope.print-ov-line-height * {
+  line-height: var(--pr-line-height) !important;
+}
+
+.print-custom-scope.print-ov-letter-spacing,
+.print-custom-scope.print-ov-letter-spacing * {
+  letter-spacing: var(--pr-letter-spacing) !important;
+}
+
+.print-custom-scope.print-ov-word-spacing,
+.print-custom-scope.print-ov-word-spacing * {
+  word-spacing: var(--pr-word-spacing) !important;
+}
+
+.print-custom-scope.print-ov-text-color,
+.print-custom-scope.print-ov-text-color *:not(thead th):not(thead th *) {
+  color: var(--pr-text-color) !important;
+}
+
+.print-custom-scope.print-ov-page-pad .receipt-a4-sheet,
+.print-custom-scope.print-ov-page-pad.receipt-a4-sheet {
+  padding: var(--pr-page-pad) !important;
+}
+
+.print-custom-scope.print-ov-grayscale {
+  filter: grayscale(100%) contrast(1.06);
+}
+
+/* Table Overrides */
+.print-custom-scope.print-ov-tbl-font table,
+.print-custom-scope.print-ov-tbl-font table td,
+.print-custom-scope.print-ov-tbl-font table td * {
+  font-size: var(--pr-tbl-font-size) !important;
+}
+
+.print-custom-scope.print-ov-tbl-header-font table thead tr,
+.print-custom-scope.print-ov-tbl-header-font table thead th,
+.print-custom-scope.print-ov-tbl-header-font table thead th * {
+  font-size: var(--pr-tbl-header-font-size) !important;
+}
+
+.print-custom-scope.print-ov-tbl-pad table th,
+.print-custom-scope.print-ov-tbl-pad table td {
+  padding: var(--pr-tbl-pad-y) var(--pr-tbl-pad-x) !important;
+}
+
+.print-custom-scope.print-ov-tbl-row-h table tbody tr,
+.print-custom-scope.print-ov-tbl-row-h table tbody td {
+  height: var(--pr-tbl-row-h) !important;
+}
+
+.print-custom-scope.print-ov-tbl-border-w table,
+.print-custom-scope.print-ov-tbl-border-w table th,
+.print-custom-scope.print-ov-tbl-border-w table td {
+  border-width: var(--pr-tbl-border-w) !important;
+  border-style: solid !important;
+}
+
+.print-custom-scope.print-ov-tbl-border-c table,
+.print-custom-scope.print-ov-tbl-border-c table th,
+.print-custom-scope.print-ov-tbl-border-c table td {
+  border-color: var(--pr-tbl-border-color) !important;
+}
+
+.print-custom-scope.print-ov-tbl-header-bg table thead tr,
+.print-custom-scope.print-ov-tbl-header-bg table thead th {
+  background: var(--pr-tbl-header-bg) !important;
+  background-color: var(--pr-tbl-header-bg) !important;
+}
+
+.print-custom-scope.print-ov-tbl-header-color table thead tr,
+.print-custom-scope.print-ov-tbl-header-color table thead th,
+.print-custom-scope.print-ov-tbl-header-color table thead th * {
+  color: var(--pr-tbl-header-color) !important;
+}
+
+.print-custom-scope.print-ov-tbl-stripe table tbody tr:nth-child(even),
+.print-custom-scope.print-ov-tbl-stripe table tbody tr:nth-child(even) > td {
+  background-color: var(--pr-tbl-stripe-bg) !important;
+}
+
+.print-custom-scope.print-ov-tbl-align table tbody td {
+  text-align: var(--pr-tbl-align) !important;
+}
+
+/* Title Size placed last so it always wins over Body Size */
+.print-custom-scope.print-ov-title-size h1,
+.print-custom-scope.print-ov-title-size h2,
+.print-custom-scope.print-ov-title-size h3,
+.print-custom-scope.print-ov-title-size [data-print-heading="true"],
+.print-custom-scope.print-ov-title-size [style*="Moul"],
+.print-custom-scope.print-ov-title-size [style*="Muol"] {
+  font-size: var(--pr-title-size) !important;
 }

@@ -17,6 +17,11 @@ import MonthlyResultSheet, {
   paginateMonthlyResultRows,
 } from './MonthlyResultSheet';
 import { AppIcon } from '../AppIcons';
+import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import {
+  buildPrintScopeProps,
+  usePrintDocumentStyle,
+} from '@/components/print/printStylePresets';
 
 export interface MonthlyResultBrandingConfig {
   verticalLogoUrl?: string;
@@ -88,6 +93,32 @@ export default function MonthlyResultPrintModal({
   const [saveFeedback, setSaveFeedback] = useState<string>('');
   const [previewScale, setPreviewScale] = useState<number>(1);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileInfo>(DEFAULT_SCHOOL_PROFILE);
+
+  const printStyle = usePrintDocumentStyle('monthly_result', isOpen);
+  const printScopeProps = useMemo(
+    () => buildPrintScopeProps(printStyle.styleConfig),
+    [printStyle.styleConfig]
+  );
+
+  const getDocOptions = () => ({
+    themeId,
+    sortMode,
+    splitBehavior,
+    pageLayoutMode,
+    includeUnscored,
+    showStampAndSignature,
+    customMonthTitle,
+  });
+
+  const applyDocOptions = (opts: Record<string, any>) => {
+    if (typeof opts.themeId === 'string') setThemeId(opts.themeId);
+    if (opts.sortMode) setSortMode(opts.sortMode as ResultSortMode);
+    if (opts.splitBehavior) setSplitBehavior(opts.splitBehavior);
+    if (opts.pageLayoutMode) setPageLayoutMode(opts.pageLayoutMode as ResultPageLayoutMode);
+    if (typeof opts.includeUnscored === 'boolean') setIncludeUnscored(opts.includeUnscored);
+    if (typeof opts.showStampAndSignature === 'boolean') setShowStampAndSignature(opts.showStampAndSignature);
+    if (typeof opts.customMonthTitle === 'string') setCustomMonthTitle(opts.customMonthTitle);
+  };
 
   // Sync persisted branding & date when modal opens or scoreSettings updates
   useEffect(() => {
@@ -178,17 +209,18 @@ export default function MonthlyResultPrintModal({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isClassMenuOpen]);
 
-  // Responsive preview zoom for A4 Portrait
+  // Responsive preview zoom for A4 Portrait (accounts for open Left Sidebar)
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
     const calcScale = () => {
-      const availW = Math.max(320, window.innerWidth - 48);
+      const sideOffset = isLinkPanelOpen && window.innerWidth >= 960 ? 396 : 48;
+      const availW = Math.max(300, window.innerWidth - sideOffset);
       setPreviewScale(Math.min(1, availW / A4_PORTRAIT_SPEC.sheetWPx));
     };
     calcScale();
     window.addEventListener('resize', calcScale);
     return () => window.removeEventListener('resize', calcScale);
-  }, [isOpen]);
+  }, [isOpen, isLinkPanelOpen]);
 
   // Dynamic @page A4 Portrait rule while modal is open
   useEffect(() => {
@@ -615,156 +647,9 @@ export default function MonthlyResultPrintModal({
                 outline: 'none',
               }}
             />
-
-            {/* Student Sort Selector */}
-            <select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as ResultSortMode)}
-              style={{
-                padding: '0.41rem 0.6rem',
-                borderRadius: '8px',
-                background: '#1e293b',
-                border: '1px solid rgba(148, 163, 184, 0.35)',
-                color: '#f8fafc',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-              title="តម្រៀបជួរសិស្ស"
-            >
-              <option value="rank_asc">តម្រៀប៖ ចំណាត់ថ្នាក់ (១→N)</option>
-              <option value="level_name">តម្រៀប៖ កម្រិត &amp; ឈ្មោះ</option>
-              <option value="name_asc">តម្រៀប៖ ឈ្មោះ (ក→អ)</option>
-              <option value="student_id">តម្រៀប៖ អត្តលេខ (ID)</option>
-            </select>
-
-            {/* Split-by-Level Print Mode */}
-            <select
-              value={splitBehavior}
-              onChange={(e) => setSplitBehavior(e.target.value as 'auto' | 'always' | 'never')}
-              style={{
-                padding: '0.41rem 0.6rem',
-                borderRadius: '8px',
-                background: splitBehavior === 'always' ? 'rgba(79, 70, 229, 0.25)' : '#1e293b',
-                border: splitBehavior === 'always' ? '1px solid #818cf8' : '1px solid rgba(148, 163, 184, 0.35)',
-                color: '#f8fafc',
-                fontSize: '0.82rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-              title="របៀបបំបែកទំព័រលទ្ធផលតាមវគ្គសម្រាប់ថ្នាក់មានច្រើនវគ្គ"
-            >
-              <option value="auto">វគ្គ៖ តាមការកំណត់ថ្នាក់</option>
-              <option value="always">វគ្គ៖ បំបែកគ្រប់វគ្គដាច់ដោយឡែក</option>
-              <option value="never">វគ្គ៖ រួមជាតារាងថ្នាក់តែមួយ</option>
-            </select>
-
-            {/* 1-Page Fit Height vs Multi-Page Toggle */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: '#1e293b',
-                border: '1px solid rgba(148, 163, 184, 0.35)',
-                borderRadius: '8px',
-                padding: '0.16rem',
-                gap: '0.16rem',
-              }}
-              title="ជ្រើសរើសរវាង ១ ទំព័រពេញតាមកម្ពស់ (សល់ចន្លោះសងខាងបើសិស្សច្រើន) ឬ បំបែកជា ២ ទំព័រ"
-            >
-              <button
-                type="button"
-                onClick={() => setPageLayoutMode('fit_one_page')}
-                style={{
-                  padding: '0.26rem 0.55rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: pageLayoutMode === 'fit_one_page' ? '#2563eb' : 'transparent',
-                  color: pageLayoutMode === 'fit_one_page' ? '#ffffff' : '#cbd5e1',
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                ១ ទំព័រ (Fit)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPageLayoutMode('multi_page')}
-                style={{
-                  padding: '0.26rem 0.55rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: pageLayoutMode === 'multi_page' ? '#4f46e5' : 'transparent',
-                  color: pageLayoutMode === 'multi_page' ? '#ffffff' : '#cbd5e1',
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                បំបែក ២ ទំព័រ
-              </button>
-            </div>
-
-            {/* 5 Beautiful Table Color Themes */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: '#1e293b',
-                border: '1px solid rgba(148, 163, 184, 0.28)',
-                borderRadius: '8px',
-                padding: '0.28rem 0.5rem',
-              }}
-            >
-              <span style={{ fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 600, marginRight: '0.15rem' }}>
-                ពណ៌តារាង៖
-              </span>
-              {RESULT_COLOR_THEMES.map((t) => {
-                const isSelected = t.id === activeTheme.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setThemeId(t.id)}
-                    title={`${t.nameKh} — ${t.descriptionKh}`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.28rem',
-                      padding: '0.2rem 0.45rem',
-                      borderRadius: '6px',
-                      border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.3)',
-                      background: isSelected ? 'rgba(56, 189, 248, 0.16)' : 'rgba(15, 23, 42, 0.55)',
-                      color: '#f8fafc',
-                      fontSize: '0.73rem',
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '3px',
-                        background: `linear-gradient(135deg, ${t.swatch[0]} 55%, ${t.swatch[1]} 55%)`,
-                        border: '1px solid rgba(255,255,255,0.45)',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ whiteSpace: 'nowrap' }}>{t.nameKh.split(' ')[0]}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Right Buttons: Link Box toggle, Print, Close */}
+          {/* Right Buttons: Sidebar toggle, Print, Close */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <button
               type="button"
@@ -783,8 +668,8 @@ export default function MonthlyResultPrintModal({
                 gap: '0.4rem',
               }}
             >
-              <AppIcon name="image" size={15} strokeWidth={2} />
-              <span>ភ្ជាប់ Link ត្រា &amp; ឡូហ្គោ</span>
+              <AppIcon name="sliders" size={15} strokeWidth={2} />
+              <span>{isLinkPanelOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ ពណ៌ & Font'}</span>
             </button>
 
             <button
@@ -832,47 +717,239 @@ export default function MonthlyResultPrintModal({
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Row 2: Link Inputs Box for Vertical Logo, Stamp, Signature, Title/Date & Options */}
+      {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <div className="print-workspace-body">
         {isLinkPanelOpen && (
-          <div
-            style={{
-              background: '#1e293b',
-              border: '1px solid rgba(148, 163, 184, 0.22)',
-              borderRadius: '10px',
-              padding: '0.65rem 0.85rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.55rem',
-            }}
+          <PrintStyleSidebar
+            title="ការកំណត់លទ្ធផលប្រឡង"
+            styleConfig={printStyle.styleConfig}
+            onChangeStyle={printStyle.setStyleConfig}
+            onResetStyle={printStyle.resetStyleConfig}
+            showTableSettings={true}
+            presets={printStyle.presets}
+            activePresetId={printStyle.activePresetId}
+            isSavingPreset={printStyle.isSavingPreset}
+            presetFeedback={printStyle.presetFeedback}
+            onSaveNewPreset={(name) => printStyle.saveNewPreset(name, getDocOptions())}
+            onUpdateActivePreset={() => printStyle.updateActivePreset(getDocOptions())}
+            onDeletePreset={printStyle.deletePreset}
+            onApplyPreset={(preset) => printStyle.applyPreset(preset, applyDocOptions)}
           >
+            {/* Layout, Sort & Color Themes */}
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '0.65rem',
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
               }}
             >
-              {/* Vertical Logo Link Input */}
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24' }}>
+                ទម្រង់ទំព័រ &amp; ពណ៌តារាង
+              </div>
+
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#93c5fd', marginBottom: '0.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.2rem', fontWeight: 600 }}>
+                  របៀបបង្ហាញទំព័រ A4
+                </label>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    background: '#0f172a',
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    borderRadius: '7px',
+                    padding: '0.16rem',
+                    gap: '0.16rem',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPageLayoutMode('fit_one_page')}
+                    style={{
+                      padding: '0.3rem 0.45rem',
+                      borderRadius: '5px',
+                      border: 'none',
+                      background: pageLayoutMode === 'fit_one_page' ? '#2563eb' : 'transparent',
+                      color: pageLayoutMode === 'fit_one_page' ? '#ffffff' : '#cbd5e1',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ១ ទំព័រ (Fit)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPageLayoutMode('multi_page')}
+                    style={{
+                      padding: '0.3rem 0.45rem',
+                      borderRadius: '5px',
+                      border: 'none',
+                      background: pageLayoutMode === 'multi_page' ? '#4f46e5' : 'transparent',
+                      color: pageLayoutMode === 'multi_page' ? '#ffffff' : '#cbd5e1',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    បំបែក ២ ទំព័រ
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.2rem', fontWeight: 600 }}>
+                  តម្រៀបជួរសិស្ស
+                </label>
+                <select
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value as ResultSortMode)}
+                  style={{
+                    width: '100%',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '7px',
+                    background: '#0f172a',
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    color: '#f8fafc',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="rank_asc">ចំណាត់ថ្នាក់ (១→N)</option>
+                  <option value="level_name">កម្រិត &amp; ឈ្មោះ</option>
+                  <option value="name_asc">ឈ្មោះ (ក→អ)</option>
+                  <option value="student_id">អត្តលេខ (ID)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.2rem', fontWeight: 600 }}>
+                  ការបំបែកតាមវគ្គ (Level)
+                </label>
+                <select
+                  value={splitBehavior}
+                  onChange={(e) => setSplitBehavior(e.target.value as 'auto' | 'always' | 'never')}
+                  style={{
+                    width: '100%',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '7px',
+                    background: '#0f172a',
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    color: '#f8fafc',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="auto">តាមការកំណត់ថ្នាក់</option>
+                  <option value="always">បំបែកគ្រប់វគ្គដាច់ដោយឡែក</option>
+                  <option value="never">រួមជាតារាងថ្នាក់តែមួយ</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.24rem', fontWeight: 600 }}>
+                  ពណ៌តារាង (Themes)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  {RESULT_COLOR_THEMES.map((t) => {
+                    const isSelected = t.id === activeTheme.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setThemeId(t.id)}
+                        title={`${t.nameKh} — ${t.descriptionKh}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.28rem',
+                          padding: '0.22rem 0.48rem',
+                          borderRadius: '6px',
+                          border: isSelected ? '1.5px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.3)',
+                          background: isSelected ? 'rgba(56, 189, 248, 0.16)' : '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.72rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: '11px',
+                            height: '11px',
+                            borderRadius: '3px',
+                            background: `linear-gradient(135deg, ${t.swatch[0]} 55%, ${t.swatch[1]} 55%)`,
+                            border: '1px solid rgba(255,255,255,0.45)',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span>{t.nameKh.split(' ')[0]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={includeUnscored}
+                  onChange={(e) => setIncludeUnscored(e.target.checked)}
+                />
+                <span>រាប់បញ្ចូលសិស្សទាំងអស់ក្នុងថ្នាក់</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showStampAndSignature}
+                  onChange={(e) => setShowStampAndSignature(e.target.checked)}
+                />
+                <span>បង្ហាញត្រា &amp; ហត្ថលេខា</span>
+              </label>
+            </div>
+
+            {/* Links, Signatory, Date & Month Title Override */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.48rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#93c5fd' }}>
+                ឡូហ្គោ ត្រា ហត្ថលេខា &amp; កាលបរិច្ឆេទ
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#93c5fd', marginBottom: '0.18rem' }}>
                   Link ឡូហ្គោបញ្ឈរ (Google Drive / URL)
                 </label>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', gap: '0.28rem' }}>
                   <input
                     type="text"
                     value={verticalLogoUrl}
                     onChange={(e) => setVerticalLogoUrl(e.target.value)}
-                    placeholder="ទុកទំនេរដើម្បីប្រើឡូហ្គោបញ្ឈរស្តង់ដារ..."
+                    placeholder="ទុកទំនេរ = ឡូហ្គោស្តង់ដារ..."
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      padding: '0.38rem 0.55rem',
+                      padding: '0.32rem 0.48rem',
                       borderRadius: '6px',
                       border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: '#0f172a',
                       color: '#f8fafc',
-                      fontSize: '0.78rem',
+                      fontSize: '0.75rem',
                       outline: 'none',
                     }}
                   />
@@ -880,9 +957,8 @@ export default function MonthlyResultPrintModal({
                     <button
                       type="button"
                       onClick={() => setVerticalLogoUrl('')}
-                      title="សម្អាត Link"
                       style={{
-                        padding: '0 0.45rem',
+                        padding: '0 0.42rem',
                         borderRadius: '6px',
                         border: '1px solid rgba(248, 113, 113, 0.35)',
                         background: 'rgba(248, 113, 113, 0.12)',
@@ -896,26 +972,25 @@ export default function MonthlyResultPrintModal({
                 </div>
               </div>
 
-              {/* Official Stamp Link Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#fda4af', marginBottom: '0.25rem' }}>
-                  Link ត្រា (Stamp Google Drive / URL)
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#fda4af', marginBottom: '0.18rem' }}>
+                  Link ត្រា (Stamp URL)
                 </label>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', gap: '0.28rem' }}>
                   <input
                     type="text"
                     value={stampUrl}
                     onChange={(e) => setStampUrl(e.target.value)}
-                    placeholder="ទុកទំនេរដើម្បីប្រើត្រា BSIS ក្រហមស្វ័យប្រវត្តិ..."
+                    placeholder="ទុកទំនេរ = ត្រា BSIS ក្រហម..."
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      padding: '0.38rem 0.55rem',
+                      padding: '0.32rem 0.48rem',
                       borderRadius: '6px',
                       border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: '#0f172a',
                       color: '#f8fafc',
-                      fontSize: '0.78rem',
+                      fontSize: '0.75rem',
                       outline: 'none',
                     }}
                   />
@@ -923,9 +998,8 @@ export default function MonthlyResultPrintModal({
                     <button
                       type="button"
                       onClick={() => setStampUrl('')}
-                      title="សម្អាត Link"
                       style={{
-                        padding: '0 0.45rem',
+                        padding: '0 0.42rem',
                         borderRadius: '6px',
                         border: '1px solid rgba(248, 113, 113, 0.35)',
                         background: 'rgba(248, 113, 113, 0.12)',
@@ -939,26 +1013,25 @@ export default function MonthlyResultPrintModal({
                 </div>
               </div>
 
-              {/* Optional Signature Link Input */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#c4b5fd', marginBottom: '0.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#c4b5fd', marginBottom: '0.18rem' }}>
                   Link ហត្ថលេខា (ស្រេចចិត្ត)
                 </label>
-                <div style={{ display: 'flex', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', gap: '0.28rem' }}>
                   <input
                     type="text"
                     value={signatureUrl}
                     onChange={(e) => setSignatureUrl(e.target.value)}
-                    placeholder="ទុកទំនេរដើម្បីប្រើហត្ថលេខាប៊ិកខៀវ..."
+                    placeholder="ទុកទំនេរ = ហត្ថលេខាប៊ិកខៀវ..."
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      padding: '0.38rem 0.55rem',
+                      padding: '0.32rem 0.48rem',
                       borderRadius: '6px',
                       border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: '#0f172a',
                       color: '#f8fafc',
-                      fontSize: '0.78rem',
+                      fontSize: '0.75rem',
                       outline: 'none',
                     }}
                   />
@@ -966,9 +1039,8 @@ export default function MonthlyResultPrintModal({
                     <button
                       type="button"
                       onClick={() => setSignatureUrl('')}
-                      title="សម្អាត Link"
                       style={{
-                        padding: '0 0.45rem',
+                        padding: '0 0.42rem',
                         borderRadius: '6px',
                         border: '1px solid rgba(248, 113, 113, 0.35)',
                         background: 'rgba(248, 113, 113, 0.12)',
@@ -982,10 +1054,9 @@ export default function MonthlyResultPrintModal({
                 </div>
               </div>
 
-              {/* Signatory Name + Date + Month Title Override */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.18rem' }}>
                     ឈ្មោះចុះហត្ថលេខា
                   </label>
                   <input
@@ -995,128 +1066,99 @@ export default function MonthlyResultPrintModal({
                     placeholder="សំរិត វឌ្ឍនៈ"
                     style={{
                       width: '100%',
-                      padding: '0.38rem 0.5rem',
+                      padding: '0.32rem 0.45rem',
                       borderRadius: '6px',
                       border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: '#0f172a',
                       color: '#f8fafc',
-                      fontSize: '0.78rem',
+                      fontSize: '0.75rem',
                       outline: 'none',
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.25rem' }}>
-                    កាលបរិច្ឆេទ (ខ្មែរ)
+                  <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.18rem' }}>
+                    ឈ្មោះខែបន្ថែម
                   </label>
-                  <input
-                    type="text"
-                    value={khmerIssueDate}
-                    onChange={(e) => setKhmerIssueDate(e.target.value)}
-                    placeholder="ថ្ងៃទី២៤ ខែវិច្ឆិកា ឆ្នាំ២០២៦"
-                    style={{
-                      width: '100%',
-                      padding: '0.38rem 0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.78rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Controls inside Link Panel: Custom Month Override, Toggles & Persistent Save Button */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.6rem',
-                paddingTop: '0.2rem',
-                borderTop: '1px solid rgba(148, 163, 184, 0.14)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ fontSize: '0.76rem', color: '#cbd5e1' }}>ឈ្មោះខែបន្ថែម៖</span>
                   <input
                     type="text"
                     value={customMonthTitle}
                     onChange={(e) => setCustomMonthTitle(e.target.value)}
-                    placeholder="ស្វ័យប្រវត្តិ (ឧ. កក្កដា)"
+                    placeholder="ស្វ័យប្រវត្តិ"
                     style={{
-                      width: '145px',
-                      padding: '0.28rem 0.5rem',
+                      width: '100%',
+                      padding: '0.32rem 0.45rem',
                       borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.28)',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
                       background: '#0f172a',
                       color: '#f8fafc',
-                      fontSize: '0.76rem',
+                      fontSize: '0.75rem',
                       outline: 'none',
                     }}
                   />
                 </div>
+              </div>
 
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#e2e8f0', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={includeUnscored}
-                    onChange={(e) => setIncludeUnscored(e.target.checked)}
-                  />
-                  <span>រាប់បញ្ចូលសិស្សទាំងអស់ក្នុងថ្នាក់</span>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.18rem' }}>
+                  កាលបរិច្ឆេទ (ខ្មែរ)
                 </label>
-
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#e2e8f0', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={showStampAndSignature}
-                    onChange={(e) => setShowStampAndSignature(e.target.checked)}
-                  />
-                  <span>បង្ហាញត្រា &amp; ហត្ថលេខា</span>
-                </label>
+                <input
+                  type="text"
+                  value={khmerIssueDate}
+                  onChange={(e) => setKhmerIssueDate(e.target.value)}
+                  placeholder="ថ្ងៃទី២៤ ខែវិច្ឆិកា ឆ្នាំ២០២៦"
+                  style={{
+                    width: '100%',
+                    padding: '0.32rem 0.45rem',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    fontSize: '0.75rem',
+                    outline: 'none',
+                  }}
+                />
               </div>
 
               {onSaveBrandingSettings && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {saveFeedback && (
-                    <span style={{ fontSize: '0.76rem', color: '#6ee7b7', fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem', paddingTop: '0.2rem' }}>
+                  {saveFeedback ? (
+                    <span style={{ fontSize: '0.73rem', color: '#6ee7b7', fontWeight: 700 }}>
                       {saveFeedback}
                     </span>
+                  ) : (
+                    <span />
                   )}
                   <button
                     type="button"
                     onClick={handleSaveBranding}
                     disabled={isSavingBranding}
                     style={{
-                      padding: '0.34rem 0.78rem',
+                      padding: '0.34rem 0.72rem',
                       borderRadius: '7px',
                       background: 'linear-gradient(135deg, #059669, #047857)',
                       border: 'none',
                       color: '#ffffff',
-                      fontSize: '0.78rem',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       cursor: isSavingBranding ? 'wait' : 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.35rem',
+                      gap: '0.32rem',
                     }}
                   >
-                    <AppIcon name="check" size={14} strokeWidth={2.5} />
-                    <span>{isSavingBranding ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក Link & ពណ៌ទុកប្រើប្រាស់'}</span>
+                    <AppIcon name="check" size={13} strokeWidth={2.5} />
+                    <span>{isSavingBranding ? 'កំពុងរក្សាទុក...' : 'រក្សាទុក Link & ពណ៌'}</span>
                   </button>
                 </div>
               )}
             </div>
-          </div>
+          </PrintStyleSidebar>
         )}
-      </div>
 
       {/* A4 Portrait Preview Canvas */}
+      <div className="print-preview-stage">
       <div
         className="receipt-a4-sheets-container"
         style={{
@@ -1193,30 +1235,37 @@ export default function MonthlyResultPrintModal({
                     height: A4_PORTRAIT_SPEC.sheetH,
                   }}
                 >
-                  <MonthlyResultSheet
-                    packet={pg.packet}
-                    rowsSlice={pg.rowsSlice}
-                    startIndex={pg.startIndex}
-                    pageIndex={pg.pageIndex}
-                    totalPagesForClass={pg.totalPagesForClass}
-                    isLastPageForClass={pg.isLastPageForClass}
-                    monthStr={selectedMonth}
-                    customMonthName={customMonthTitle}
-                    khmerIssueDate={khmerIssueDate}
-                    theme={activeTheme}
-                    verticalLogoUrl={verticalLogoUrl}
-                    stampUrl={stampUrl}
-                    signatureUrl={signatureUrl}
-                    signatoryName={signatoryName}
-                    showStampAndSignature={showStampAndSignature}
-                    schoolProfile={schoolProfile}
-                    layoutMode={pageLayoutMode}
-                  />
+                  <div
+                    className={printScopeProps.className}
+                    style={{ ...printScopeProps.style, width: '100%', height: '100%' }}
+                  >
+                    <MonthlyResultSheet
+                      packet={pg.packet}
+                      rowsSlice={pg.rowsSlice}
+                      startIndex={pg.startIndex}
+                      pageIndex={pg.pageIndex}
+                      totalPagesForClass={pg.totalPagesForClass}
+                      isLastPageForClass={pg.isLastPageForClass}
+                      monthStr={selectedMonth}
+                      customMonthName={customMonthTitle}
+                      khmerIssueDate={khmerIssueDate}
+                      theme={activeTheme}
+                      verticalLogoUrl={verticalLogoUrl}
+                      stampUrl={stampUrl}
+                      signatureUrl={signatureUrl}
+                      signatoryName={signatoryName}
+                      showStampAndSignature={showStampAndSignature}
+                      schoolProfile={schoolProfile}
+                      layoutMode={pageLayoutMode}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           ))
         )}
+      </div>
+      </div>
       </div>
     </div>,
     document.body

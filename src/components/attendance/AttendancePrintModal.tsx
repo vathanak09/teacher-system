@@ -13,6 +13,11 @@ import PrintableAttendanceSheet, {
   getAttendanceSheetSpec,
 } from './PrintableAttendanceSheet';
 import { AppIcon } from '../AppIcons';
+import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import {
+  buildPrintScopeProps,
+  usePrintDocumentStyle,
+} from '@/components/print/printStylePresets';
 
 export interface AttendancePrintModalProps {
   isOpen: boolean;
@@ -109,6 +114,39 @@ export default function AttendancePrintModal({
   const [extraHolidayInput, setExtraHolidayInput] = useState<string>('');
   const [extraBlankRows, setExtraBlankRows] = useState<number>(2);
   const [previewScale, setPreviewScale] = useState<number>(1);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+
+  const printStyle = usePrintDocumentStyle('attendance', isOpen);
+  const printScopeProps = useMemo(
+    () => buildPrintScopeProps(printStyle.styleConfig),
+    [printStyle.styleConfig]
+  );
+
+  const getDocOptions = () => ({
+    layoutMode,
+    sortMode,
+    showPart1,
+    showPart2,
+    highlightWeekends,
+    highlightHolidays,
+    zebraRows,
+    fillPageWithBlankRows,
+    extraHolidayInput,
+    extraBlankRows,
+  });
+
+  const applyDocOptions = (opts: Record<string, any>) => {
+    if (opts.layoutMode) setLayoutMode(opts.layoutMode as AttendancePrintLayoutMode);
+    if (opts.sortMode) setSortMode(opts.sortMode as StudentSortMode);
+    if (typeof opts.showPart1 === 'boolean') setShowPart1(opts.showPart1);
+    if (typeof opts.showPart2 === 'boolean') setShowPart2(opts.showPart2);
+    if (typeof opts.highlightWeekends === 'boolean') setHighlightWeekends(opts.highlightWeekends);
+    if (typeof opts.highlightHolidays === 'boolean') setHighlightHolidays(opts.highlightHolidays);
+    if (typeof opts.zebraRows === 'boolean') setZebraRows(opts.zebraRows);
+    if (typeof opts.fillPageWithBlankRows === 'boolean') setFillPageWithBlankRows(opts.fillPageWithBlankRows);
+    if (typeof opts.extraHolidayInput === 'string') setExtraHolidayInput(opts.extraHolidayInput);
+    if (typeof opts.extraBlankRows === 'number') setExtraBlankRows(opts.extraBlankRows);
+  };
 
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) =>
@@ -150,17 +188,18 @@ export default function AttendancePrintModal({
 
   const sheetSpec = useMemo(() => getAttendanceSheetSpec(layoutMode), [layoutMode]);
 
-  // Responsive preview scaling
+  // Responsive preview scaling (accounts for Left Sidebar width on desktop)
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
     const calcScale = () => {
-      const availW = Math.max(320, window.innerWidth - 56);
+      const sideOffset = isSidebarOpen && window.innerWidth >= 960 ? 396 : 56;
+      const availW = Math.max(300, window.innerWidth - sideOffset);
       setPreviewScale(Math.min(1, availW / sheetSpec.sheetWPx));
     };
     calcScale();
     window.addEventListener('resize', calcScale);
     return () => window.removeEventListener('resize', calcScale);
-  }, [isOpen, sheetSpec.sheetWPx]);
+  }, [isOpen, sheetSpec.sheetWPx, isSidebarOpen]);
 
   // Inject dynamic @page orientation rule while modal is open
   useEffect(() => {
@@ -382,7 +421,233 @@ export default function AttendancePrintModal({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            {/* Multi-Class Selector Popover */}
+            <div ref={classMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsClassMenuOpen((v) => !v)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.42rem',
+                  padding: '0.38rem 0.68rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${isClassMenuOpen ? '#38bdf8' : '#475569'}`,
+                  background: '#1e293b',
+                  color: '#f8fafc',
+                  fontWeight: 700,
+                  fontSize: '0.79rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <AppIcon name="layers" size={14} style={{ color: '#38bdf8' }} />
+                <span>{classButtonLabel}</span>
+                <AppIcon name="chevron-down" size={14} style={{ color: '#94a3b8' }} />
+              </button>
+
+              {isClassMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    right: 0,
+                    width: '320px',
+                    maxHeight: '360px',
+                    background: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: '10px',
+                    boxShadow: '0 16px 36px rgba(0,0,0,0.55)',
+                    zIndex: 100005,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '0.5rem',
+                      borderBottom: '1px solid #1e293b',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={classSearch}
+                      onChange={(e) => setClassSearch(e.target.value)}
+                      placeholder="ស្វែងរកលេខបន្ទប់ ឈ្មោះថ្នាក់ ឬគ្រូ..."
+                      style={{
+                        width: '100%',
+                        padding: '0.32rem 0.55rem',
+                        borderRadius: '6px',
+                        border: '1px solid #334155',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.78rem',
+                        outline: 'none',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClassIds(sortedClasses.map((c) => c.id))}
+                        style={{
+                          flex: 1,
+                          padding: '0.24rem 0.45rem',
+                          borderRadius: '5px',
+                          border: '1px solid #2563eb',
+                          background: 'rgba(37, 99, 235, 0.2)',
+                          color: '#93c5fd',
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ជ្រើសទាំងអស់ ({sortedClasses.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClassIds([])}
+                        style={{
+                          flex: 1,
+                          padding: '0.24rem 0.45rem',
+                          borderRadius: '5px',
+                          border: '1px solid #475569',
+                          background: '#1e293b',
+                          color: '#cbd5e1',
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ដកការជ្រើស
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ overflowY: 'auto', padding: '0.35rem' }}>
+                    {filteredClassOptions.map((cls) => {
+                      const checked = selectedClassIds.includes(cls.id);
+                      const count = resolveActiveClassStudents(cls, students).length;
+                      const code = cls.classCode || cls.className || 'គ្មានកូដ';
+                      return (
+                        <label
+                          key={cls.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '0.5rem',
+                            padding: '0.38rem 0.5rem',
+                            borderRadius: '6px',
+                            background: checked ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleClassId(cls.id)}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {code}
+                                {cls.className && cls.className !== code ? ` — ${cls.className}` : ''}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                {cls.teacherName || 'គ្មានគ្រូ'} • {cls.shift || '-'}
+                              </div>
+                            </div>
+                          </div>
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              color: '#86efac',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {count} នាក់
+                          </span>
+                        </label>
+                      );
+                    })}
+                    {filteredClassOptions.length === 0 && (
+                      <div style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.76rem', color: '#94a3b8' }}>
+                        រកមិនឃើញថ្នាក់រៀនទេ
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Month & Year quick pickers */}
+            <select
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              style={{
+                padding: '0.38rem 0.52rem',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+                background: '#1e293b',
+                color: '#f8fafc',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+              }}
+            >
+              {KHMER_MONTH_NAMES.map((kh, idx) => (
+                <option key={kh} value={idx + 1}>
+                  ខែ{kh} ({ENGLISH_MONTH_NAMES[idx]})
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              style={{
+                padding: '0.38rem 0.52rem',
+                borderRadius: '8px',
+                border: '1px solid #334155',
+                background: '#1e293b',
+                color: '#f8fafc',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+              }}
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  ឆ្នាំ {y}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen((v) => !v)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.42rem 0.72rem',
+                borderRadius: '8px',
+                border: `1px solid ${isSidebarOpen ? '#38bdf8' : '#475569'}`,
+                background: isSidebarOpen ? 'rgba(56, 189, 248, 0.16)' : '#1e293b',
+                color: isSidebarOpen ? '#7dd3fc' : '#e2e8f0',
+                fontWeight: 700,
+                fontSize: '0.79rem',
+                cursor: 'pointer',
+              }}
+            >
+              <AppIcon name="sliders" size={14} />
+              <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handlePrint}
@@ -391,7 +656,7 @@ export default function AttendancePrintModal({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.45rem',
-                padding: '0.48rem 1rem',
+                padding: '0.45rem 0.95rem',
                 borderRadius: '8px',
                 border: 'none',
                 background:
@@ -400,13 +665,13 @@ export default function AttendancePrintModal({
                     : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                 color: '#ffffff',
                 fontWeight: 800,
-                fontSize: '0.84rem',
+                fontSize: '0.82rem',
                 cursor: renderedPages.length === 0 ? 'not-allowed' : 'pointer',
                 boxShadow:
                   renderedPages.length === 0 ? 'none' : '0 2px 10px rgba(37,99,235,0.4)',
               }}
             >
-              <AppIcon name="printer" size={16} style={{ color: '#ffffff' }} />
+              <AppIcon name="printer" size={15} style={{ color: '#ffffff' }} />
               <span>Print A4 ({renderedPages.length} ទំព័រ)</span>
             </button>
 
@@ -414,13 +679,13 @@ export default function AttendancePrintModal({
               type="button"
               onClick={onClose}
               style={{
-                padding: '0.48rem 0.9rem',
+                padding: '0.45rem 0.85rem',
                 borderRadius: '8px',
                 border: '1px solid #475569',
                 background: '#1e293b',
                 color: '#e2e8f0',
                 fontWeight: 700,
-                fontSize: '0.82rem',
+                fontSize: '0.81rem',
                 cursor: 'pointer',
               }}
             >
@@ -428,449 +693,202 @@ export default function AttendancePrintModal({
             </button>
           </div>
         </div>
-
-        {/* Row 2: Class Multi-Picker + Month/Year + A4 Orientation/Layout */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
-            paddingTop: '0.42rem',
-            borderTop: '1px solid #1e293b',
-          }}
-        >
-          {/* Multi-Class Selector Popover */}
-          <div ref={classMenuRef} style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setIsClassMenuOpen((v) => !v)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.32rem 0.7rem',
-                borderRadius: '7px',
-                border: `1px solid ${isClassMenuOpen ? '#38bdf8' : '#475569'}`,
-                background: '#1e293b',
-                color: '#f8fafc',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-            >
-              <AppIcon name="layers" size={14} style={{ color: '#38bdf8' }} />
-              <span>{classButtonLabel}</span>
-              <AppIcon name="chevron-down" size={14} style={{ color: '#94a3b8' }} />
-            </button>
-
-            {isClassMenuOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  left: 0,
-                  width: '320px',
-                  maxHeight: '360px',
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '10px',
-                  boxShadow: '0 16px 36px rgba(0,0,0,0.55)',
-                  zIndex: 100005,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '0.5rem',
-                    borderBottom: '1px solid #1e293b',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.4rem',
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={classSearch}
-                    onChange={(e) => setClassSearch(e.target.value)}
-                    placeholder="ស្វែងរកលេខបន្ទប់ ឈ្មោះថ្នាក់ ឬគ្រូ..."
-                    style={{
-                      width: '100%',
-                      padding: '0.32rem 0.55rem',
-                      borderRadius: '6px',
-                      border: '1px solid #334155',
-                      background: '#1e293b',
-                      color: '#f8fafc',
-                      fontSize: '0.78rem',
-                      outline: 'none',
-                    }}
-                  />
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedClassIds(sortedClasses.map((c) => c.id))}
-                      style={{
-                        flex: 1,
-                        padding: '0.24rem 0.45rem',
-                        borderRadius: '5px',
-                        border: '1px solid #2563eb',
-                        background: 'rgba(37, 99, 235, 0.2)',
-                        color: '#93c5fd',
-                        fontSize: '0.73rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ជ្រើសទាំងអស់ ({sortedClasses.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedClassIds([])}
-                      style={{
-                        flex: 1,
-                        padding: '0.24rem 0.45rem',
-                        borderRadius: '5px',
-                        border: '1px solid #475569',
-                        background: '#1e293b',
-                        color: '#cbd5e1',
-                        fontSize: '0.73rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ដកការជ្រើស
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ overflowY: 'auto', padding: '0.35rem' }}>
-                  {filteredClassOptions.map((cls) => {
-                    const checked = selectedClassIds.includes(cls.id);
-                    const count = resolveActiveClassStudents(cls, students).length;
-                    const code = cls.classCode || cls.className || 'គ្មានកូដ';
-                    return (
-                      <label
-                        key={cls.id}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '0.5rem',
-                          padding: '0.38rem 0.5rem',
-                          borderRadius: '6px',
-                          background: checked ? 'rgba(37, 99, 235, 0.18)' : 'transparent',
-                          cursor: 'pointer',
-                          fontSize: '0.78rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleClassId(cls.id)}
-                          />
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {code}
-                              {cls.className && cls.className !== code ? ` — ${cls.className}` : ''}
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                              {cls.teacherName || 'គ្មានគ្រូ'} • {cls.shift || '-'}
-                            </div>
-                          </div>
-                        </div>
-                        <span
-                          style={{
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            color: '#86efac',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {count} នាក់
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {filteredClassOptions.length === 0 && (
-                    <div style={{ padding: '0.8rem', textAlign: 'center', fontSize: '0.76rem', color: '#94a3b8' }}>
-                      រកមិនឃើញថ្នាក់រៀនទេ
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Month & Year */}
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            style={{
-              padding: '0.3rem 0.55rem',
-              borderRadius: '7px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-            }}
-          >
-            {KHMER_MONTH_NAMES.map((kh, idx) => (
-              <option key={kh} value={idx + 1}>
-                ខែ{kh} ({ENGLISH_MONTH_NAMES[idx]})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            style={{
-              padding: '0.3rem 0.55rem',
-              borderRadius: '7px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-            }}
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                ឆ្នាំ {y}
-              </option>
-            ))}
-          </select>
-
-          {/* A4 Layout Mode */}
-          <select
-            value={layoutMode}
-            onChange={(e) => setLayoutMode(e.target.value as AttendancePrintLayoutMode)}
-            style={{
-              padding: '0.3rem 0.55rem',
-              borderRadius: '7px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#fbbf24',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-            }}
-          >
-            <option value="auto_a4_portrait">
-              A4 បញ្ឈរ (ស្វ័យប្រវត្តិ៖ ≤{AUTO_COMBINED_MAX_STUDENTS}នាក់ រួម ១ ទំព័រ / &gt;{AUTO_COMBINED_MAX_STUDENTS}នាក់ ញែក ២ ទំព័រ)
-            </option>
-            <option value="combined_a4_portrait">A4 បញ្ឈរ (បង្ខំរួម Part 1 + Part 2 ក្នុង ១ ទំព័រ)</option>
-            <option value="split_a4_portrait">A4 បញ្ឈរ (ញែក ២ ទំព័រ៖ ទី១ វត្តមាន / ទី២ ពិន្ទុ)</option>
-            <option value="split_a4_landscape">A4 ផ្ដេក (ធំទូលាយ៖ ទី១ វត្តមាន / ទី២ ពិន្ទុ)</option>
-          </select>
-
-          {/* Student Sort Mode */}
-          <select
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as StudentSortMode)}
-            style={{
-              padding: '0.3rem 0.55rem',
-              borderRadius: '7px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#e2e8f0',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="level_name">តម្រៀប៖ វគ្គ (Level) + ឈ្មោះ</option>
-            <option value="name_asc">តម្រៀប៖ ឈ្មោះ (ក - អ)</option>
-            <option value="female_first">តម្រៀប៖ ស្រីមុន + ឈ្មោះ</option>
-            <option value="student_id">តម្រៀប៖ អត្តលេខ (ID)</option>
-          </select>
-        </div>
-
-        {/* Row 3: Section Toggles, Highlight Toggles, Blank Rows, Extra Holidays */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.55rem',
-            paddingTop: '0.4rem',
-            borderTop: '1px solid #1e293b',
-            fontSize: '0.76rem',
-          }}
-        >
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#e2e8f0',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showPart1}
-              onChange={(e) => setShowPart1(e.target.checked)}
-            />
-            <span>ផ្នែកទី១ (វត្តមាន)</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#e2e8f0',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showPart2}
-              onChange={(e) => setShowPart2(e.target.checked)}
-            />
-            <span>ផ្នែកទី២ (ពិន្ទុ)</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#86efac',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={highlightWeekends}
-              onChange={(e) => setHighlightWeekends(e.target.checked)}
-              style={{ accentColor: '#22c55e' }}
-            />
-            <span>Highlight សៅរ៍-អាទិត្យ</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#fca5a5',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={highlightHolidays}
-              onChange={(e) => setHighlightHolidays(e.target.checked)}
-              style={{ accentColor: '#ef4444' }}
-            />
-            <span>Highlight បុណ្យជាតិកម្ពុជា</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#cbd5e1',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={zebraRows}
-              onChange={(e) => setZebraRows(e.target.checked)}
-            />
-            <span>ឆ្នូតជួរដេក</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#93c5fd',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={fillPageWithBlankRows}
-              onChange={(e) => setFillPageWithBlankRows(e.target.checked)}
-              style={{ accentColor: '#3b82f6' }}
-            />
-            <span>បំពេញជួរទទេពេញទំព័រ</span>
-          </label>
-
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#cbd5e1',
-            }}
-          >
-            <span>ជួរទទេអប្បបរមា:</span>
-            <input
-              type="number"
-              min={0}
-              max={15}
-              value={extraBlankRows}
-              onChange={(e) =>
-                setExtraBlankRows(Math.max(0, Math.min(15, parseInt(e.target.value, 10) || 0)))
-              }
-              style={{
-                width: '48px',
-                padding: '0.16rem 0.3rem',
-                borderRadius: '5px',
-                border: '1px solid #475569',
-                background: '#1e293b',
-                color: '#f8fafc',
-                textAlign: 'center',
-                fontWeight: 700,
-                fontSize: '0.76rem',
-              }}
-            />
-          </div>
-
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.32rem',
-              color: '#cbd5e1',
-            }}
-          >
-            <span>បន្ថែមថ្ងៃឈប់ (ថ្ងៃទី):</span>
-            <input
-              type="text"
-              value={extraHolidayInput}
-              onChange={(e) => setExtraHolidayInput(e.target.value)}
-              placeholder="ឧ. 10, 15"
-              style={{
-                width: '96px',
-                padding: '0.16rem 0.45rem',
-                borderRadius: '5px',
-                border: '1px solid #475569',
-                background: '#1e293b',
-                color: '#f8fafc',
-                fontSize: '0.75rem',
-              }}
-            />
-          </div>
-        </div>
       </div>
 
+      {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <div className="print-workspace-body">
+        {isSidebarOpen && (
+          <PrintStyleSidebar
+            title="ការកំណត់បញ្ជីវត្តមាន"
+            styleConfig={printStyle.styleConfig}
+            onChangeStyle={printStyle.setStyleConfig}
+            onResetStyle={printStyle.resetStyleConfig}
+            showTableSettings={true}
+            presets={printStyle.presets}
+            activePresetId={printStyle.activePresetId}
+            isSavingPreset={printStyle.isSavingPreset}
+            presetFeedback={printStyle.presetFeedback}
+            onSaveNewPreset={(name) => printStyle.saveNewPreset(name, getDocOptions())}
+            onUpdateActivePreset={() => printStyle.updateActivePreset(getDocOptions())}
+            onDeletePreset={printStyle.deletePreset}
+            onApplyPreset={(preset) => printStyle.applyPreset(preset, applyDocOptions)}
+          >
+            {/* Layout & Sorting Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24' }}>
+                ទម្រង់ក្រដាស A4 &amp; ការតម្រៀបសិស្ស
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.2rem', fontWeight: 600 }}>
+                  របៀបដាក់ទំព័រ A4
+                </label>
+                <select
+                  value={layoutMode}
+                  onChange={(e) => setLayoutMode(e.target.value as AttendancePrintLayoutMode)}
+                  style={{
+                    width: '100%',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '7px',
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#fbbf24',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  <option value="auto_a4_portrait">
+                    A4 បញ្ឈរ (ស្វ័យប្រវត្តិ ≤{AUTO_COMBINED_MAX_STUDENTS} នាក់ រួម ១ ទំព័រ)
+                  </option>
+                  <option value="combined_a4_portrait">A4 បញ្ឈរ (រួម Part 1 + Part 2 ក្នុង ១ ទំព័រ)</option>
+                  <option value="split_a4_portrait">A4 បញ្ឈរ (ញែក ២ ទំព័រ៖ វត្តមាន / ពិន្ទុ)</option>
+                  <option value="split_a4_landscape">A4 ផ្ដេក (ធំទូលាយ៖ វត្តមាន / ពិន្ទុ)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.2rem', fontWeight: 600 }}>
+                  ការតម្រៀបសិស្ស
+                </label>
+                <select
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value as StudentSortMode)}
+                  style={{
+                    width: '100%',
+                    padding: '0.35rem 0.5rem',
+                    borderRadius: '7px',
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#e2e8f0',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="level_name">វគ្គ (Level) + ឈ្មោះ</option>
+                  <option value="name_asc">ឈ្មោះ (ក - អ)</option>
+                  <option value="female_first">ស្រីមុន + ឈ្មោះ</option>
+                  <option value="student_id">អត្តលេខ (ID)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Sections & Highlights Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                fontSize: '0.76rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#93c5fd' }}>
+                ផ្នែកបង្ហាញ &amp; ពណ៌ថ្ងៃឈប់សម្រាក
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={showPart1} onChange={(e) => setShowPart1(e.target.checked)} />
+                <span>ផ្នែកទី១ (បញ្ជីវត្តមាន)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={showPart2} onChange={(e) => setShowPart2(e.target.checked)} />
+                <span>ផ្នែកទី២ (បញ្ជីពិន្ទុ)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#86efac', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={highlightWeekends}
+                  onChange={(e) => setHighlightWeekends(e.target.checked)}
+                  style={{ accentColor: '#22c55e' }}
+                />
+                <span>Highlight សៅរ៍-អាទិត្យ</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#fca5a5', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={highlightHolidays}
+                  onChange={(e) => setHighlightHolidays(e.target.checked)}
+                  style={{ accentColor: '#ef4444' }}
+                />
+                <span>Highlight បុណ្យជាតិកម្ពុជា</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                <input type="checkbox" checked={zebraRows} onChange={(e) => setZebraRows(e.target.checked)} />
+                <span>ឆ្នូតជួរដេកឆ្លាស់ពណ៌</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#93c5fd', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={fillPageWithBlankRows}
+                  onChange={(e) => setFillPageWithBlankRows(e.target.checked)}
+                  style={{ accentColor: '#3b82f6' }}
+                />
+                <span>បំពេញជួរទទេពេញទំព័រ</span>
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem', paddingTop: '0.3rem', borderTop: '1px solid rgba(148,163,184,0.15)' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.71rem', color: '#94a3b8', marginBottom: '0.18rem' }}>
+                    ជួរទទេអប្បបរមា
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={15}
+                    value={extraBlankRows}
+                    onChange={(e) =>
+                      setExtraBlankRows(Math.max(0, Math.min(15, parseInt(e.target.value, 10) || 0)))
+                    }
+                    style={{
+                      width: '100%',
+                      padding: '0.28rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      background: '#0f172a',
+                      color: '#f8fafc',
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.76rem',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.71rem', color: '#94a3b8', marginBottom: '0.18rem' }}>
+                    បន្ថែមថ្ងៃឈប់ (ថ្ងៃទី)
+                  </label>
+                  <input
+                    type="text"
+                    value={extraHolidayInput}
+                    onChange={(e) => setExtraHolidayInput(e.target.value)}
+                    placeholder="ឧ. 10, 15"
+                    style={{
+                      width: '100%',
+                      padding: '0.28rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      background: '#0f172a',
+                      color: '#f8fafc',
+                      fontSize: '0.75rem',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </PrintStyleSidebar>
+        )}
+
       {/* Live Preview & Print Sheets */}
+      <div className="print-preview-stage">
       <div
         className="receipt-a4-sheets-container"
         style={{
@@ -944,26 +962,33 @@ export default function AttendancePrintModal({
                     height: sheetSpec.sheetH,
                   }}
                 >
-                  <PrintableAttendanceSheet
-                    packet={pg.packet}
-                    month={month}
-                    year={year}
-                    layoutMode={layoutMode}
-                    renderPart={pg.renderPart}
-                    showPart1={showPart1}
-                    showPart2={showPart2}
-                    highlightWeekends={highlightWeekends}
-                    highlightHolidays={highlightHolidays}
-                    zebraRows={zebraRows}
-                    fillPageWithBlankRows={fillPageWithBlankRows}
-                    extraHolidayDays={extraHolidayDays}
-                    extraBlankRows={extraBlankRows}
-                  />
+                  <div
+                    className={printScopeProps.className}
+                    style={{ ...printScopeProps.style, width: '100%', height: '100%' }}
+                  >
+                    <PrintableAttendanceSheet
+                      packet={pg.packet}
+                      month={month}
+                      year={year}
+                      layoutMode={layoutMode}
+                      renderPart={pg.renderPart}
+                      showPart1={showPart1}
+                      showPart2={showPart2}
+                      highlightWeekends={highlightWeekends}
+                      highlightHolidays={highlightHolidays}
+                      zebraRows={zebraRows}
+                      fillPageWithBlankRows={fillPageWithBlankRows}
+                      extraHolidayDays={extraHolidayDays}
+                      extraBlankRows={extraBlankRows}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           ))
         )}
+      </div>
+      </div>
       </div>
     </div>,
     document.body

@@ -672,17 +672,22 @@ export default function CertificatePrintModal({
         ? A4_PORTRAIT_SPEC
         : A5_LANDSCAPE_SPEC;
 
-  // Responsive preview zoom
+  // Responsive preview zoom (accounts for open Left Settings Sidebar on desktop)
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
     const calcScale = () => {
-      const availW = Math.max(320, window.innerWidth - 48);
+      const hasLeftSidebar =
+        (isConfigOpen || isStudentPickerOpen) &&
+        viewMode === 'preview' &&
+        window.innerWidth >= 960;
+      const sideOffset = hasLeftSidebar ? 436 : 48;
+      const availW = Math.max(300, window.innerWidth - sideOffset);
       setPreviewScale(Math.min(1, availW / sheetSpec.sheetWPx));
     };
     calcScale();
     window.addEventListener('resize', calcScale);
     return () => window.removeEventListener('resize', calcScale);
-  }, [isOpen, sheetSpec.sheetWPx]);
+  }, [isOpen, sheetSpec.sheetWPx, isConfigOpen, isStudentPickerOpen, viewMode]);
 
   // Inject dynamic @page size
   useEffect(() => {
@@ -2005,6 +2010,55 @@ export default function CertificatePrintModal({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Two-Column Print Studio Workspace: Left Scrollable Settings Sidebar + Right Live Preview */}
+      <div className="print-workspace-body">
+        {(isStudentPickerOpen || isConfigOpen) && (
+          <aside className="no-print print-left-sidebar print-sidebar-wide">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.4rem',
+                paddingBottom: '0.45rem',
+                borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <AppIcon name="sliders" size={15} style={{ color: '#fbbf24' }} />
+                <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#f8fafc' }}>
+                  {docType === 'certificate'
+                    ? 'ការកំណត់វិញ្ញាបនបត្រ'
+                    : 'ការកំណត់ប័ណ្ណសរសើរ'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfigOpen(false);
+                  setIsStudentPickerOpen(false);
+                }}
+                title="បិទផ្ទាំងការកំណត់ខាងឆ្វេង"
+                style={{
+                  padding: '0.22rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid rgba(148, 163, 184, 0.3)',
+                  background: '#1e293b',
+                  color: '#cbd5e1',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                }}
+              >
+                <AppIcon name="x" size={12} />
+                <span>លាក់ផ្ទាំង</span>
+              </button>
+            </div>
 
         {/* Optional Student Inclusion/Exclusion Checklist Drawer */}
         {isStudentPickerOpen && (
@@ -3406,11 +3460,13 @@ export default function CertificatePrintModal({
             )}
           </div>
         )}
-      </div>
+          </aside>
+        )}
 
       {/* Main Workspace: Interactive Design Studio OR A4/A5 Print Preview */}
+      <div className="print-preview-stage">
       {viewMode === 'design' ? (
-        <div style={{ flex: 1, padding: '1rem' }}>
+        <div style={{ width: '100%', flex: 1, padding: '1rem' }}>
           <CertificateDesignEditor
             recipient={
               selectedRecipients[0] ||
@@ -3585,6 +3641,8 @@ export default function CertificatePrintModal({
         )}
       </div>
       )}
+      </div>
+      </div>
     </div>,
     document.body
   );

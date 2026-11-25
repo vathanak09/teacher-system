@@ -10,6 +10,11 @@ import DueNoticeCard, {
   getEffectiveNoticePrintCount,
 } from './receipts/DueNoticeCard';
 import { AppIcon } from './AppIcons';
+import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import {
+  buildPrintScopeProps,
+  usePrintDocumentStyle,
+} from '@/components/print/printStylePresets';
 
 const A4_PORTRAIT_W_PX = 793.7;
 const A4_PORTRAIT_H_PX = 1122.52;
@@ -81,13 +86,19 @@ export default function DueNoticePrintModal({
   const [filterPrintCount, setFilterPrintCount] = useState<'all' | 'unprinted' | 'printed'>('all');
   const [sortByClass, setSortByClass] = useState<boolean>(false);
 
-  // Inline Cashier & Signature Editor
-  const [isCashierEditorOpen, setIsCashierEditorOpen] = useState<boolean>(false);
+  // Left Sidebar & Cashier/Signature Editor
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [draftCashierName, setDraftCashierName] = useState<string>(
     noticeCashierName || DEFAULT_NOTICE_CASHIER
   );
   const [draftSignatureUrl, setDraftSignatureUrl] = useState<string>(noticeSignatureUrl || '');
   const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+
+  const printStyle = usePrintDocumentStyle('due_notice', isOpen);
+  const printScopeProps = useMemo(
+    () => buildPrintScopeProps(printStyle.styleConfig),
+    [printStyle.styleConfig]
+  );
 
   // Restore saved preferences from localStorage
   useEffect(() => {
@@ -140,18 +151,19 @@ export default function DueNoticePrintModal({
     }
   }, [isOpen, items]);
 
-  // Responsive preview scaling for A4 Portrait sheet
+  // Responsive preview scaling for A4 Portrait sheet (accounts for Left Sidebar)
   useEffect(() => {
     if (!isOpen || typeof window === 'undefined') return;
     const calcScale = () => {
-      const availW = Math.max(320, window.innerWidth - 56);
+      const sideOffset = isSidebarOpen && window.innerWidth >= 960 ? 396 : 56;
+      const availW = Math.max(300, window.innerWidth - sideOffset);
       const scale = Math.min(1, availW / A4_PORTRAIT_W_PX);
       setPreviewScale(scale);
     };
     calcScale();
     window.addEventListener('resize', calcScale);
     return () => window.removeEventListener('resize', calcScale);
-  }, [isOpen]);
+  }, [isOpen, isSidebarOpen]);
 
   // Inject @page A4 portrait rule while modal is open
   useEffect(() => {
@@ -430,10 +442,35 @@ export default function DueNoticePrintModal({
         noticeSignatureUrl: draftSignatureUrl.trim(),
         noticePenaltyPercent: penaltyPercent,
       });
-      setIsCashierEditorOpen(false);
     } finally {
       setIsSavingSettings(false);
     }
+  };
+
+  const getDocOptions = () => ({
+    penaltyPercent,
+    hidePenalty,
+    hideAmount,
+    hideHeader,
+    hideFooter,
+    hidePrintCount,
+    showCutLines,
+    showSignature,
+    sortByClass,
+  });
+
+  const applyDocOptions = (opts: Record<string, any>) => {
+    if (typeof opts.penaltyPercent === 'number' && !Number.isNaN(opts.penaltyPercent)) {
+      handlePenaltyInputChange(String(opts.penaltyPercent));
+    }
+    if (typeof opts.hidePenalty === 'boolean') handleToggleHidePenalty(opts.hidePenalty);
+    if (typeof opts.hideAmount === 'boolean') handleToggleHideAmount(opts.hideAmount);
+    if (typeof opts.hideHeader === 'boolean') handleToggleHideHeader(opts.hideHeader);
+    if (typeof opts.hideFooter === 'boolean') handleToggleHideFooter(opts.hideFooter);
+    if (typeof opts.hidePrintCount === 'boolean') handleToggleHidePrintCount(opts.hidePrintCount);
+    if (typeof opts.showCutLines === 'boolean') handleToggleCutLines(opts.showCutLines);
+    if (typeof opts.showSignature === 'boolean') handleToggleSignature(opts.showSignature);
+    if (typeof opts.sortByClass === 'boolean') setSortByClass(opts.sortByClass);
   };
 
   if (!isOpen || typeof document === 'undefined') return null;
@@ -565,6 +602,27 @@ export default function DueNoticePrintModal({
 
             <button
               type="button"
+              onClick={() => setIsSidebarOpen((v) => !v)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.44rem 0.72rem',
+                borderRadius: '8px',
+                border: `1px solid ${isSidebarOpen ? '#38bdf8' : '#475569'}`,
+                background: isSidebarOpen ? 'rgba(56, 189, 248, 0.16)' : '#1e293b',
+                color: isSidebarOpen ? '#7dd3fc' : '#e2e8f0',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              <AppIcon name="sliders" size={14} />
+              <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handlePrint}
               disabled={filteredItems.length === 0}
               style={{
@@ -608,514 +666,387 @@ export default function DueNoticePrintModal({
             </button>
           </div>
         </div>
-
-        {/* Row 2: Penalty % Input + Hide/Show Toggles + Pre-Printed Preset + Cashier Settings */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.55rem',
-            paddingTop: '0.42rem',
-            borderTop: '1px solid #1e293b',
-          }}
-        >
-          {/* Penalty Percentage Input */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.26rem 0.6rem',
-              borderRadius: '7px',
-              background: hidePenalty ? '#1e293b' : 'rgba(220, 38, 38, 0.16)',
-              border: `1px solid ${hidePenalty ? '#334155' : 'rgba(248, 113, 113, 0.5)'}`,
-              opacity: hidePenalty ? 0.6 : 1,
-            }}
-          >
-            <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#fca5a5', whiteSpace: 'nowrap' }}>
-              ផាកពិន័យ %/ថ្ងៃ:
-            </span>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="100"
-              disabled={hidePenalty}
-              value={penaltyInputStr}
-              onChange={(e) => handlePenaltyInputChange(e.target.value)}
-              style={{
-                width: '58px',
-                padding: '0.16rem 0.35rem',
-                borderRadius: '5px',
-                border: '1px solid #475569',
-                background: '#0f172a',
-                color: '#f8fafc',
-                fontSize: '0.8rem',
-                fontWeight: 800,
-                textAlign: 'center',
-              }}
-            />
-            <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1' }}>%</span>
-          </div>
-
-          {/* Issue Date Picker */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.26rem 0.55rem',
-              borderRadius: '7px',
-              background: '#1e293b',
-              border: '1px solid #334155',
-            }}
-          >
-            <span style={{ fontSize: '0.74rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-              ថ្ងៃចេញលិខិត:
-            </span>
-            <input
-              type="date"
-              value={issueDateStr}
-              onChange={(e) => setIssueDateStr(e.target.value || getTodayYMD())}
-              style={{
-                padding: '0.14rem 0.3rem',
-                borderRadius: '5px',
-                border: '1px solid #475569',
-                background: '#0f172a',
-                color: '#f8fafc',
-                fontSize: '0.76rem',
-              }}
-            />
-          </div>
-
-          {/* Toggle Checkboxes requested by User */}
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              color: hidePenalty ? '#fca5a5' : '#e2e8f0',
-              background: hidePenalty ? 'rgba(239, 68, 68, 0.16)' : '#1e293b',
-              border: `1px solid ${hidePenalty ? '#ef4444' : '#334155'}`,
-              padding: '0.28rem 0.6rem',
-              borderRadius: '7px',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={hidePenalty}
-              onChange={(e) => handleToggleHidePenalty(e.target.checked)}
-              style={{ accentColor: '#ef4444' }}
-            />
-            <span>លាក់ផាកពិន័យ</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              color: hideAmount ? '#fcd34d' : '#e2e8f0',
-              background: hideAmount ? 'rgba(245, 158, 11, 0.16)' : '#1e293b',
-              border: `1px solid ${hideAmount ? '#f59e0b' : '#334155'}`,
-              padding: '0.28rem 0.6rem',
-              borderRadius: '7px',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={hideAmount}
-              onChange={(e) => handleToggleHideAmount(e.target.checked)}
-              style={{ accentColor: '#f59e0b' }}
-            />
-            <span>លាក់ទឹកប្រាក់</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              color: hideHeader ? '#93c5fd' : '#e2e8f0',
-              background: hideHeader ? 'rgba(59, 130, 246, 0.18)' : '#1e293b',
-              border: `1px solid ${hideHeader ? '#3b82f6' : '#334155'}`,
-              padding: '0.28rem 0.6rem',
-              borderRadius: '7px',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={hideHeader}
-              onChange={(e) => handleToggleHideHeader(e.target.checked)}
-              style={{ accentColor: '#3b82f6' }}
-            />
-            <span>លាក់ Header</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              color: hideFooter ? '#93c5fd' : '#e2e8f0',
-              background: hideFooter ? 'rgba(59, 130, 246, 0.18)' : '#1e293b',
-              border: `1px solid ${hideFooter ? '#3b82f6' : '#334155'}`,
-              padding: '0.28rem 0.6rem',
-              borderRadius: '7px',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={hideFooter}
-              onChange={(e) => handleToggleHideFooter(e.target.checked)}
-              style={{ accentColor: '#3b82f6' }}
-            />
-            <span>លាក់ Footer</span>
-          </label>
-
-          {/* 1-Click Pre-Printed Paper Preset */}
-          <button
-            type="button"
-            onClick={handleTogglePrePrintedPreset}
-            title="លាក់ទាំង Header និង Footer ដើម្បីព្រីនលើក្រដាសគំរូដែលមានស្រាប់"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.28rem 0.65rem',
-              borderRadius: '7px',
-              border: `1px solid ${isPrePrintedMode ? '#22c55e' : '#475569'}`,
-              background: isPrePrintedMode ? 'rgba(34, 197, 94, 0.2)' : '#1e293b',
-              color: isPrePrintedMode ? '#86efac' : '#cbd5e1',
-              fontWeight: 700,
-              fontSize: '0.76rem',
-              cursor: 'pointer',
-            }}
-          >
-            <AppIcon name="file-text" size={14} style={{ color: isPrePrintedMode ? '#86efac' : '#94a3b8' }} />
-            <span>{isPrePrintedMode ? 'កំពុងលាក់ Header+Footer' : 'ព្រីនលើក្រដាសគំរូស្រាប់'}</span>
-          </button>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              fontSize: '0.76rem',
-              color: '#cbd5e1',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={hidePrintCount}
-              onChange={(e) => handleToggleHidePrintCount(e.target.checked)}
-            />
-            <span>លាក់លើកទីព្រីន</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              fontSize: '0.76rem',
-              color: '#cbd5e1',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showCutLines}
-              onChange={(e) => handleToggleCutLines(e.target.checked)}
-            />
-            <span>បន្ទាត់កាត់</span>
-          </label>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              fontSize: '0.76rem',
-              color: '#cbd5e1',
-              cursor: 'pointer',
-              userSelect: 'none',
-              opacity: hideFooter ? 0.5 : 1,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showSignature}
-              disabled={hideFooter}
-              onChange={(e) => handleToggleSignature(e.target.checked)}
-            />
-            <span>ហត្ថលេខា</span>
-          </label>
-
-          <button
-            type="button"
-            onClick={() => setIsCashierEditorOpen((v) => !v)}
-            style={{
-              marginLeft: 'auto',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              padding: '0.28rem 0.65rem',
-              borderRadius: '7px',
-              border: `1px solid ${isCashierEditorOpen ? '#38bdf8' : '#475569'}`,
-              background: isCashierEditorOpen ? 'rgba(56, 189, 248, 0.16)' : '#1e293b',
-              color: isCashierEditorOpen ? '#7dd3fc' : '#e2e8f0',
-              fontWeight: 700,
-              fontSize: '0.76rem',
-              cursor: 'pointer',
-            }}
-          >
-            <AppIcon name="sliders" size={14} style={{ color: isCashierEditorOpen ? '#7dd3fc' : '#94a3b8' }} />
-            <span>បេឡា & ហត្ថលេខា</span>
-          </button>
-        </div>
-
-        {/* Row 3: In-Modal Filters & Class Grouping */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
-            paddingTop: '0.4rem',
-            borderTop: '1px solid #1e293b',
-          }}
-        >
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#94a3b8' }}>
-            ច្រោះទិន្នន័យ:
-          </span>
-
-          <select
-            value={filterClass}
-            onChange={(e) => setFilterClass(e.target.value)}
-            style={{
-              padding: '0.26rem 0.55rem',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all">គ្រប់ថ្នាក់ ({items.length})</option>
-            {filterOptions.classes.map(([cls, count]) => (
-              <option key={cls} value={cls}>
-                ថ្នាក់ {cls} ({count})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-              padding: '0.26rem 0.55rem',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all">គ្រប់ស្ថានភាព ({items.length})</option>
-            <option value="overdue">លើសថ្ងៃ ({filterOptions.overdueCount})</option>
-            <option value="due">ដល់ថ្ងៃ ({filterOptions.dueCount})</option>
-            {filterOptions.upcomingCount > 0 && (
-              <option value="upcoming">ជិតដល់ថ្ងៃ ({filterOptions.upcomingCount})</option>
-            )}
-          </select>
-
-          <select
-            value={filterShift}
-            onChange={(e) => setFilterShift(e.target.value)}
-            style={{
-              padding: '0.26rem 0.55rem',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all">គ្រប់វេន</option>
-            {filterOptions.shifts.map(([shift, count]) => (
-              <option key={shift} value={shift}>
-                វេន {shift} ({count})
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterPrintCount}
-            onChange={(e) => setFilterPrintCount(e.target.value as 'all' | 'unprinted' | 'printed')}
-            style={{
-              padding: '0.26rem 0.55rem',
-              borderRadius: '6px',
-              border: '1px solid #334155',
-              background: '#1e293b',
-              color: '#f8fafc',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-            }}
-          >
-            <option value="all">គ្រប់ចំនួនព្រីន ({items.length})</option>
-            <option value="unprinted">មិនទាន់ព្រីន ({filterOptions.unprintedCount})</option>
-            <option value="printed">ធ្លាប់ព្រីនហើយ ({filterOptions.printedBeforeCount})</option>
-          </select>
-
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.77rem',
-              color: '#e2e8f0',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={sortByClass}
-              onChange={(e) => setSortByClass(e.target.checked)}
-            />
-            <span>តម្រៀបជាក្រុមតាមថ្នាក់ (មិនគ្រីស = តាមតារាងសិស្ស • លំនាំ Z)</span>
-          </label>
-
-          {hasActiveModalFilter && (
-            <button
-              type="button"
-              onClick={() => {
-                setFilterClass('all');
-                setFilterStatus('all');
-                setFilterShift('all');
-                setFilterPrintCount('all');
-              }}
-              style={{
-                padding: '0.22rem 0.55rem',
-                borderRadius: '6px',
-                border: '1px solid #475569',
-                background: 'transparent',
-                color: '#fbbf24',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              សម្អាតតម្រង
-            </button>
-          )}
-        </div>
-
-        {/* Row 4 (Collapsible): Inline បេឡា Cashier Name & Google Drive Signature Link */}
-        {isCashierEditorOpen && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '0.55rem',
-              padding: '0.55rem 0.7rem',
-              borderRadius: '8px',
-              background: '#1e293b',
-              border: '1px solid #334155',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <label style={{ fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                ឈ្មោះបេឡា:
-              </label>
-              <input
-                type="text"
-                value={draftCashierName}
-                onChange={(e) => setDraftCashierName(e.target.value)}
-                placeholder={DEFAULT_NOTICE_CASHIER}
-                style={{
-                  width: '150px',
-                  padding: '0.3rem 0.55rem',
-                  borderRadius: '6px',
-                  border: '1px solid #475569',
-                  background: '#0f172a',
-                  color: '#f8fafc',
-                  fontSize: '0.8rem',
-                }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flex: 1, minWidth: '240px' }}>
-              <label style={{ fontSize: '0.76rem', color: '#cbd5e1', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                Link ហត្ថលេខា Google Drive:
-              </label>
-              <input
-                type="text"
-                value={draftSignatureUrl}
-                onChange={(e) => setDraftSignatureUrl(e.target.value)}
-                placeholder="https://drive.google.com/file/d/.../view"
-                style={{
-                  flex: 1,
-                  padding: '0.3rem 0.55rem',
-                  borderRadius: '6px',
-                  border: '1px solid #475569',
-                  background: '#0f172a',
-                  color: '#f8fafc',
-                  fontSize: '0.78rem',
-                }}
-              />
-            </div>
-
-            {onSaveNoticeSettings && (
-              <button
-                type="button"
-                disabled={isSavingSettings}
-                onClick={handleSaveSettingsClick}
-                style={{
-                  padding: '0.34rem 0.8rem',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: '#16a34a',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '0.78rem',
-                  cursor: isSavingSettings ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {isSavingSettings ? 'កំពុងរក្សាទុក...' : 'រក្សាទុកក្នុងប្រព័ន្ធ'}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
+      {/* Two-Column Split Workspace: Left Settings Sidebar + Right Live A4 Preview */}
+      <div className="print-workspace-body">
+        {isSidebarOpen && (
+          <PrintStyleSidebar
+            title="ការកំណត់លិខិតបង់ប្រាក់"
+            styleConfig={printStyle.styleConfig}
+            onChangeStyle={printStyle.setStyleConfig}
+            onResetStyle={printStyle.resetStyleConfig}
+            showTableSettings={true}
+            presets={printStyle.presets}
+            activePresetId={printStyle.activePresetId}
+            isSavingPreset={printStyle.isSavingPreset}
+            presetFeedback={printStyle.presetFeedback}
+            onSaveNewPreset={(name) => printStyle.saveNewPreset(name, getDocOptions())}
+            onUpdateActivePreset={() => printStyle.updateActivePreset(getDocOptions())}
+            onDeletePreset={printStyle.deletePreset}
+            onApplyPreset={(preset) => printStyle.applyPreset(preset, applyDocOptions)}
+          >
+            {/* Penalty & Date Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.48rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fca5a5' }}>
+                ផាកពិន័យ &amp; ថ្ងៃចេញលិខិត
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.71rem', color: '#fca5a5', fontWeight: 700, marginBottom: '0.18rem' }}>
+                    ផាកពិន័យ (%/ថ្ងៃ)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    disabled={hidePenalty}
+                    value={penaltyInputStr}
+                    onChange={(e) => handlePenaltyInputChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.3rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      background: '#0f172a',
+                      color: '#f8fafc',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      textAlign: 'center',
+                      opacity: hidePenalty ? 0.5 : 1,
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.71rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.18rem' }}>
+                    ថ្ងៃចេញលិខិត
+                  </label>
+                  <input
+                    type="date"
+                    value={issueDateStr}
+                    onChange={(e) => setIssueDateStr(e.target.value || getTodayYMD())}
+                    style={{
+                      width: '100%',
+                      padding: '0.28rem 0.35rem',
+                      borderRadius: '6px',
+                      border: '1px solid #475569',
+                      background: '#0f172a',
+                      color: '#f8fafc',
+                      fontSize: '0.74rem',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTogglePrePrintedPreset}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  padding: '0.38rem 0.65rem',
+                  borderRadius: '7px',
+                  border: `1px solid ${isPrePrintedMode ? '#22c55e' : '#475569'}`,
+                  background: isPrePrintedMode ? 'rgba(34, 197, 94, 0.2)' : '#0f172a',
+                  color: isPrePrintedMode ? '#86efac' : '#cbd5e1',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                }}
+              >
+                <AppIcon name="file-text" size={14} style={{ color: isPrePrintedMode ? '#86efac' : '#94a3b8' }} />
+                <span>{isPrePrintedMode ? 'កំពុងលាក់ Header+Footer' : 'ព្រីនលើក្រដាសគំរូស្រាប់'}</span>
+              </button>
+            </div>
+
+            {/* Show/Hide Toggles Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.42rem',
+                fontSize: '0.76rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#93c5fd' }}>
+                បង្ហាញ / លាក់ផ្នែកលើលិខិត
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: hidePenalty ? '#fca5a5' : '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={hidePenalty} onChange={(e) => handleToggleHidePenalty(e.target.checked)} style={{ accentColor: '#ef4444' }} />
+                  <span>លាក់ផាកពិន័យ</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: hideAmount ? '#fcd34d' : '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={hideAmount} onChange={(e) => handleToggleHideAmount(e.target.checked)} style={{ accentColor: '#f59e0b' }} />
+                  <span>លាក់ទឹកប្រាក់</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: hideHeader ? '#93c5fd' : '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={hideHeader} onChange={(e) => handleToggleHideHeader(e.target.checked)} style={{ accentColor: '#3b82f6' }} />
+                  <span>លាក់ Header</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: hideFooter ? '#93c5fd' : '#e2e8f0', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={hideFooter} onChange={(e) => handleToggleHideFooter(e.target.checked)} style={{ accentColor: '#3b82f6' }} />
+                  <span>លាក់ Footer</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={hidePrintCount} onChange={(e) => handleToggleHidePrintCount(e.target.checked)} />
+                  <span>លាក់លើកទីព្រីន</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={showCutLines} onChange={(e) => handleToggleCutLines(e.target.checked)} />
+                  <span>បន្ទាត់កាត់</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#cbd5e1', cursor: 'pointer', opacity: hideFooter ? 0.5 : 1 }}>
+                  <input type="checkbox" checked={showSignature} disabled={hideFooter} onChange={(e) => handleToggleSignature(e.target.checked)} />
+                  <span>ហត្ថលេខា</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Filters Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#6ee7b7' }}>
+                  ច្រោះទិន្នន័យសិស្ស
+                </span>
+                {hasActiveModalFilter && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterClass('all');
+                      setFilterStatus('all');
+                      setFilterShift('all');
+                      setFilterPrintCount('all');
+                    }}
+                    style={{
+                      padding: '0.16rem 0.45rem',
+                      borderRadius: '5px',
+                      border: '1px solid #475569',
+                      background: 'transparent',
+                      color: '#fbbf24',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    សម្អាតតម្រង
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.32rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid #334155',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="all">គ្រប់ថ្នាក់ ({items.length})</option>
+                {filterOptions.classes.map(([cls, count]) => (
+                  <option key={cls} value={cls}>
+                    ថ្នាក់ {cls} ({count})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.32rem 0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid #334155',
+                  background: '#0f172a',
+                  color: '#f8fafc',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="all">គ្រប់ស្ថានភាព ({items.length})</option>
+                <option value="overdue">លើសថ្ងៃ ({filterOptions.overdueCount})</option>
+                <option value="due">ដល់ថ្ងៃ ({filterOptions.dueCount})</option>
+                {filterOptions.upcomingCount > 0 && (
+                  <option value="upcoming">ជិតដល់ថ្ងៃ ({filterOptions.upcomingCount})</option>
+                )}
+              </select>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                <select
+                  value={filterShift}
+                  onChange={(e) => setFilterShift(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.32rem 0.45rem',
+                    borderRadius: '6px',
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="all">គ្រប់វេន</option>
+                  {filterOptions.shifts.map(([shift, count]) => (
+                    <option key={shift} value={shift}>
+                      វេន {shift} ({count})
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterPrintCount}
+                  onChange={(e) => setFilterPrintCount(e.target.value as 'all' | 'unprinted' | 'printed')}
+                  style={{
+                    width: '100%',
+                    padding: '0.32rem 0.45rem',
+                    borderRadius: '6px',
+                    border: '1px solid #334155',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <option value="all">គ្រប់ចំនួនព្រីន</option>
+                  <option value="unprinted">មិនទាន់ព្រីន ({filterOptions.unprintedCount})</option>
+                  <option value="printed">ធ្លាប់ព្រីន ({filterOptions.printedBeforeCount})</option>
+                </select>
+              </div>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.38rem',
+                  fontSize: '0.75rem',
+                  color: '#e2e8f0',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={sortByClass}
+                  onChange={(e) => setSortByClass(e.target.checked)}
+                />
+                <span>តម្រៀបជាក្រុមតាមថ្នាក់ (លំនាំ Z)</span>
+              </label>
+            </div>
+
+            {/* Cashier Name & Signature Link Card */}
+            <div
+              style={{
+                background: 'rgba(30, 41, 59, 0.72)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#7dd3fc' }}>
+                បេឡា &amp; ហត្ថលេខា
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.71rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.18rem' }}>
+                  ឈ្មោះបេឡា
+                </label>
+                <input
+                  type="text"
+                  value={draftCashierName}
+                  onChange={(e) => setDraftCashierName(e.target.value)}
+                  placeholder={DEFAULT_NOTICE_CASHIER}
+                  style={{
+                    width: '100%',
+                    padding: '0.32rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid #475569',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    fontSize: '0.76rem',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.71rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.18rem' }}>
+                  Link ហត្ថលេខា Google Drive
+                </label>
+                <input
+                  type="text"
+                  value={draftSignatureUrl}
+                  onChange={(e) => setDraftSignatureUrl(e.target.value)}
+                  placeholder="https://drive.google.com/file/d/.../view"
+                  style={{
+                    width: '100%',
+                    padding: '0.32rem 0.5rem',
+                    borderRadius: '6px',
+                    border: '1px solid #475569',
+                    background: '#0f172a',
+                    color: '#f8fafc',
+                    fontSize: '0.75rem',
+                  }}
+                />
+              </div>
+              {onSaveNoticeSettings && (
+                <button
+                  type="button"
+                  disabled={isSavingSettings}
+                  onClick={handleSaveSettingsClick}
+                  style={{
+                    padding: '0.36rem 0.75rem',
+                    borderRadius: '7px',
+                    border: 'none',
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.76rem',
+                    cursor: isSavingSettings ? 'wait' : 'pointer',
+                  }}
+                >
+                  {isSavingSettings ? 'កំពុងរក្សាទុក...' : 'រក្សាទុកបេឡា & ហត្ថលេខាក្នុងប្រព័ន្ធ'}
+                </button>
+              )}
+            </div>
+          </PrintStyleSidebar>
+        )}
+
       {/* Preview / Print Sheets Container */}
+      <div className="print-preview-stage">
       <div
         className="receipt-a4-sheets-container"
         style={{
@@ -1145,7 +1076,7 @@ export default function DueNoticePrintModal({
               គ្មានទិន្នន័យសិស្សត្រូវនឹងតម្រងនេះទេ
             </div>
             <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-              សូមប្តូរ ឬសម្អាតតម្រងខាងលើ ដើម្បីបង្ហាញលិខិតជូនដំណឹងសម្រាប់ Print។
+              សូមប្តូរ ឬសម្អាតតម្រងខាងឆ្វេង ដើម្បីបង្ហាញលិខិតជូនដំណឹងសម្រាប់ Print។
             </div>
           </div>
         ) : (
@@ -1191,8 +1122,9 @@ export default function DueNoticePrintModal({
                   }}
                 >
                   <div
-                    className="receipt-a4-sheet"
+                    className={`receipt-a4-sheet ${printScopeProps.className}`}
                     style={{
+                      ...printScopeProps.style,
                       width: '21cm',
                       height: '296.6mm',
                       background: '#ffffff',
@@ -1263,6 +1195,8 @@ export default function DueNoticePrintModal({
             </div>
           ))
         )}
+      </div>
+      </div>
       </div>
     </div>,
     document.body
