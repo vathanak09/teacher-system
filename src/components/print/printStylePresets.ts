@@ -7,7 +7,8 @@ export type PrintDocCategory =
   | 'attendance'
   | 'monthly_result'
   | 'receipt'
-  | 'due_notice';
+  | 'due_notice'
+  | 'honor_roll';
 
 export type TableSelectionMode = 'cell' | 'row' | 'col';
 export type TableSectionName = 'thead' | 'tbody' | 'tfoot';

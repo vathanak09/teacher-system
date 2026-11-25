@@ -8,6 +8,7 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import ScoresGuideModal from '@/components/ScoresGuideModal';
 import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/components/scores/MonthlyResultPrintModal';
 import CertificatePrintModal, { CertificateBrandingConfig } from '@/components/scores/CertificatePrintModal';
+import HonorRollPrintModal from '@/components/scores/HonorRollPrintModal';
 import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
 import { AppIcon } from '@/components/AppIcons';
 
@@ -249,6 +250,7 @@ export default function ScoresPage() {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isMonthlyResultOpen, setIsMonthlyResultOpen] = useState(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [isHonorRollOpen, setIsHonorRollOpen] = useState(false);
 
   const handleSaveScorePrintSettings = async (
     patch: MonthlyResultBrandingConfig | CertificateBrandingConfig
@@ -303,6 +305,30 @@ export default function ScoresPage() {
     >
       <AppIcon name="award" size={16} strokeWidth={2.2} />
       <span>ប័ណ្ណសរសើរ &amp; វិញ្ញាបនបត្រ</span>
+    </button>
+  );
+
+  const honorRollButton = (
+    <button
+      type="button"
+      onClick={() => setIsHonorRollOpen(true)}
+      style={{
+        padding: '0.5rem 0.95rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        background: 'linear-gradient(135deg, #1d4ed8, #1e3a8a)',
+        border: '1px solid rgba(250, 204, 21, 0.55)',
+        borderRadius: '8px',
+        color: '#fef9c3',
+        cursor: 'pointer',
+        fontWeight: 700,
+        boxShadow: '0 2px 10px rgba(30, 58, 138, 0.32)',
+      }}
+      title="ព្រីនតារាងកិត្តិយសប្រចាំខែ (Honor Roll A4)"
+    >
+      <AppIcon name="star" size={16} strokeWidth={2.2} />
+      <span>តារាងកិត្តិយស</span>
     </button>
   );
 
@@ -1631,6 +1657,26 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     />
   ) : null;
 
+  const honorRollModal = isHonorRollOpen ? (
+    <HonorRollPrintModal
+      isOpen={isHonorRollOpen}
+      onClose={() => setIsHonorRollOpen(false)}
+      classes={displayClasses}
+      allStudents={allStudents}
+      allTeachers={allTeachers}
+      allScores={allScores}
+      monthCoeffMap={monthCoeffMap}
+      scoreSettings={settings}
+      selectedMonth={selectedMonth.startsWith('FINAL_') ? monthlyMonthDraft : selectedMonth}
+      onMonthChange={(m) => {
+        setExamMode('monthly');
+        setMonthlyMonthDraft(m);
+        setSelectedMonth(m);
+      }}
+      initialClassId={selectedClassId}
+    />
+  ) : null;
+
   if (!selectedClassId) {
     return (
       <div className="page-container animate-fade-in">
@@ -2041,6 +2087,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             {examSessionSelectorBar}
 
             {monthlyResultButton}
+            {honorRollButton}
             {certificateButton}
             {guideButton}
           </div>
@@ -2311,6 +2358,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         )}
         <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
         {monthlyResultModal}
+        {honorRollModal}
         {certificateModal}
       </div>
     );
@@ -2333,6 +2381,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {examSessionSelectorBar}
           {monthlyResultButton}
+          {honorRollButton}
           {certificateButton}
           {guideButton}
         </div>
@@ -3231,6 +3280,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         )}
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {monthlyResultModal}
+      {honorRollModal}
       {certificateModal}
     </div>
   );
