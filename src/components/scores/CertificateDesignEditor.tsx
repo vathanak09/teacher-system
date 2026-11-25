@@ -245,7 +245,7 @@ export default function CertificateDesignEditor({
     setSelectedCustomTextId(null);
     setSelectedKey((prev) => {
       if (docType === 'certificate' && (prev === 'rankBadge' || prev === 'classMeta')) return 'titleBlock';
-      if (docType !== 'certificate' && prev === 'ministryLogo') return 'titleBlock';
+      if (docType !== 'certificate' && (prev === 'ministryLogo' || prev === 'certNumber')) return 'titleBlock';
       return prev;
     });
   }, [docType]);
@@ -798,7 +798,7 @@ export default function CertificateDesignEditor({
     const baseFontFamily =
       boxKey === 'nationalMotto' || boxKey === 'titleBlock'
         ? normalizedDesign.khmerTitleFont
-        : boxKey === 'englishBody'
+        : boxKey === 'englishBody' || boxKey === 'certNumber'
           ? normalizedDesign.englishFont
           : normalizedDesign.khmerBodyFont;
     const baseFontSizePt =
@@ -806,7 +806,7 @@ export default function CertificateDesignEditor({
         ? normalizedDesign.mottoKhFontPt
         : boxKey === 'titleBlock'
           ? normalizedDesign.titleFontPt
-          : boxKey === 'englishBody'
+          : boxKey === 'englishBody' || boxKey === 'certNumber'
             ? normalizedDesign.englishBodyFontPt
             : boxKey === 'classMeta'
               ? 7.5
@@ -1248,7 +1248,7 @@ export default function CertificateDesignEditor({
                   .filter((key) =>
                     docType === 'certificate'
                       ? key !== 'rankBadge' && key !== 'classMeta'
-                      : key !== 'ministryLogo'
+                      : key !== 'ministryLogo' && key !== 'certNumber'
                   )
                   .map((key) => {
                   const active = !selectedCustomTextId && key === selectedKey;

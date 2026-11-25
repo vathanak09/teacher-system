@@ -5,6 +5,7 @@ export type CertTextBoxKey =
   | 'titleBlock'
   | 'khmerBody'
   | 'englishBody'
+  | 'certNumber'
   | 'classMeta';
 
 export const CERT_TEXTBOX_KEYS: CertTextBoxKey[] = [
@@ -12,6 +13,7 @@ export const CERT_TEXTBOX_KEYS: CertTextBoxKey[] = [
   'titleBlock',
   'khmerBody',
   'englishBody',
+  'certNumber',
   'classMeta',
 ];
 
@@ -396,6 +398,10 @@ export function getDefaultTextBoxRichHtml(
       `<div style="font-family: ${hints.khmerTitleFont}; font-size: ${hints.titleFontPt}pt; color: ${khColor};">${khTitle}</div>`,
       `<div style="font-family: ${hints.englishFont}; font-size: ${hints.subtitleFontPt}pt; font-weight: 700; color: ${enColor}; letter-spacing: 1.3px;">${enTitle}</div>`,
     ].join('');
+  }
+
+  if (boxKey === 'certNumber') {
+    return `<div>No. <span data-token="certNo" style="font-weight: 700; color: #0f172a; border-bottom: 1px dotted ${dotColor}; padding: 0 3mm; min-width: 16mm; display: inline-block; text-align: center;">{{certNo}}</span></div>`;
   }
 
   if (boxKey === 'classMeta') {

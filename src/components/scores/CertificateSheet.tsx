@@ -600,6 +600,7 @@ export type CertElementKey =
   | 'rankBadge'
   | 'khmerBody'
   | 'englishBody'
+  | 'certNumber'
   | 'studentPhoto'
   | 'classMeta'
   | 'stampBlock';
@@ -629,6 +630,7 @@ export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
   rankBadge: 'រូបបូរ / ចំណាត់ថ្នាក់',
   khmerBody: 'ខ្លឹមសារខ្មែរ (ឆ្វេង)',
   englishBody: 'ខ្លឹមសារអង់គ្លេស (ស្តាំ)',
+  certNumber: 'លេខរៀងប័ណ្ណ (No.)',
   studentPhoto: 'ប្រអប់រូបថតសិស្ស',
   classMeta: 'ព័ត៌មានថ្នាក់ & គ្រូ',
   stampBlock: 'ថ្ងៃចុះហត្ថលេខា, ត្រា & ហត្ថលេខា',
@@ -806,6 +808,7 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
     rankBadge: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     khmerBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     englishBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    certNumber: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
     studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
@@ -852,6 +855,7 @@ export const DEFAULT_COURSE_CERTIFICATE_DESIGN: CertificateDesignConfig = {
     rankBadge: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
     khmerBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     englishBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    certNumber: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
     stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
@@ -2278,28 +2282,44 @@ export function CertificateCardA5({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3.5mm' }}>
-                  {isCertDoc && (
+                  {isCertDoc && design.elements.certNumber.visible !== false && (() => {
+                    const ov = getTextBoxOverride('certNumber');
+                    const richNode = renderRichOverrideBody(ov, 0.3);
+                    return (
                     <div
                       className="cert-inherit-font"
-                      style={{
+                      onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('certNumber', e) : undefined}
+                      style={getInteractiveProps('certNumber', {
                         display: 'inline-flex',
                         alignItems: 'baseline',
                         gap: '1mm',
-                        fontSize: `${design.englishBodyFontPt}pt`,
-                        fontFamily: design.englishFont,
-                        color: design.bodyColor,
+                        fontSize: `${ov?.fontSizePt ?? design.englishBodyFontPt}pt`,
+                        fontFamily: ov?.fontFamily || design.englishFont,
+                        lineHeight: ov?.lineHeight ?? design.bodyLineHeight,
+                        letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                        color: ov?.color || design.bodyColor,
+                        textAlign: ov?.textAlign || 'left',
+                        width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
                         paddingBottom: '2mm',
-                      }}
+                      })}
                     >
-                      <span>No.</span>
-                      {renderDottedVal(
-                        <strong style={{ color: '#0f172a', fontWeight: 700 }}>
-                          {recipient.certNumber || '-'}
-                        </strong>,
-                        { flex: '0 0 18mm', minWidth: '16mm' }
+                      {richNode ? (
+                        richNode
+                      ) : (
+                        <>
+                          <span>No.</span>
+                          {renderDottedVal(
+                            <strong style={{ color: ov?.color || '#0f172a', fontWeight: 700 }}>
+                              {recipient.certNumber || '-'}
+                            </strong>,
+                            { flex: '0 0 18mm', minWidth: '16mm' }
+                          )}
+                        </>
                       )}
+                      {renderResizeHandle('certNumber', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមលេខរៀងប័ណ្ណ')}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {showStudentPhoto && design.elements.studentPhoto.visible !== false && (
                     <div
