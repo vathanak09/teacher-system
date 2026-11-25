@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ENGLISH_MONTH_NAMES } from '@/utils/cambodiaHolidays';
-import { photoFrameTemplateService, settingsService } from '@/services/db';
+import { photoFrameTemplateService, scoreCoefficientService, scoreService, settingsService } from '@/services/db';
 import { uploadCertificateFrame } from '@/services/db/StorageService';
 import { SchoolProfileInfo, DEFAULT_SCHOOL_PROFILE } from '@/components/settings/SchoolInfoSettingsPanel';
 import {
@@ -13,6 +13,7 @@ import {
   resolveSheetAssetSrc,
 } from './MonthlyResultSheet';
 import {
+  A4_LANDSCAPE_SPEC,
   A5_LANDSCAPE_SPEC,
   CERTIFICATE_FRAME_PRESETS,
   CertificateDesignConfig,
@@ -20,10 +21,13 @@ import {
   CertificatePairA4Page,
   CertificatePrintPaperMode,
   CertificateRecipient,
+  CertificateSingleA4LandscapePage,
   CertificateSingleA5Page,
   DEFAULT_CERTIFICATE_DESIGN,
   DEFAULT_CERTIFICATE_MARGINS_CM,
+  DEFAULT_COURSE_CERTIFICATE_DESIGN,
   FrameMarginsCm,
+  formatCertPlaceDateDefault,
   formatConductedDateDefault,
   formatExamLabelsFromMonthStr,
   formatIssuedDateDefault,
@@ -40,6 +44,16 @@ export interface SavedCustomFrameLink {
   url: string;
 }
 
+export interface FinalExamSessionSummary {
+  id: string;
+  title: string;
+  classId?: string;
+  courseNameKh?: string;
+  courseNameEn?: string;
+  levelName?: string;
+  examDate?: string;
+}
+
 export interface CertificateBrandingConfig {
   certDocType?: CertificateDocType;
   certFramePresetId?: string;
@@ -49,6 +63,25 @@ export interface CertificateBrandingConfig {
   certSavedTopLogos?: SavedCustomFrameLink[];
   certFrameMarginsCm?: FrameMarginsCm;
   certDesignConfig?: CertificateDesignConfig;
+  certCertificateFramePresetId?: string;
+  certCertificateFrameUrl?: string;
+  certCertificateFrameMarginsCm?: FrameMarginsCm;
+  certCertificateDesignConfig?: CertificateDesignConfig;
+  certCertificateDesignTemplates?: SavedCertificateDesignTemplate[];
+  certCertificateActiveDesignId?: string | null;
+  certCertificateShowStudentPhoto?: boolean;
+  certCertificatePrincipalTitle?: string;
+  certCertificateStampUrl?: string;
+  certCertificateSignatureUrl?: string;
+  certCertificateSignatoryName?: string;
+  certMinistryLogoUrl?: string;
+  certSavedMinistryLogos?: SavedCustomFrameLink[];
+  certProvinceKh?: string;
+  certDeptKh?: string;
+  certCourseNameKh?: string;
+  certCourseNameEn?: string;
+  certPlaceDateText?: string;
+  certStartNumber?: number;
   certDesignTemplates?: SavedCertificateDesignTemplate[];
   certActiveDesignId?: string | null;
   certShowStudentPhoto?: boolean;
@@ -58,7 +91,7 @@ export interface CertificateBrandingConfig {
   resultSignatoryName?: string;
 }
 
-export type RankRangeMode = 'top3' | 'top5' | 'manual';
+export type RankRangeMode = 'top3' | 'top5' | 'passed' | 'manual';
 
 export interface CertificatePrintModalProps {
   isOpen: boolean;
@@ -70,13 +103,21 @@ export interface CertificatePrintModalProps {
   monthCoeffMap: Record<string, any>;
   scoreSettings: any;
   selectedMonth: string;
+  monthlyMonth?: string;
+  finalExamSessions?: FinalExamSessionSummary[];
   onMonthChange: (newMonth: string) => void;
+  onCreateFinalExam?: () => void;
   monthExtraData?: {
     monthKhmer?: string;
     monthEnglish?: string;
     issueDateEnglish?: string;
   };
   initialClassId?: string | null;
+  initialDocType?: CertificateDocType;
+  finalExamTitle?: string;
+  finalExamCourseKh?: string;
+  finalExamCourseEn?: string;
+  finalExamDate?: string;
   onSaveSettings?: (patch: CertificateBrandingConfig) => Promise<void>;
 }
 
@@ -104,9 +145,17 @@ export default function CertificatePrintModal({
   monthCoeffMap,
   scoreSettings,
   selectedMonth,
+  monthlyMonth,
+  finalExamSessions = [],
   onMonthChange,
+  onCreateFinalExam,
   monthExtraData,
   initialClassId,
+  initialDocType,
+  finalExamTitle,
+  finalExamCourseKh,
+  finalExamCourseEn,
+  finalExamDate,
   onSaveSettings,
 }: CertificatePrintModalProps) {
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
@@ -115,10 +164,35 @@ export default function CertificatePrintModal({
   const classMenuRef = useRef<HTMLDivElement>(null);
 
   const [docType, setDocType] = useState<CertificateDocType>('praise');
+  const [praiseMonth, setPraiseMonth] = useState<string>(() => {
+    if (monthlyMonth && /^\d{4}-\d{2}$/.test(monthlyMonth)) return monthlyMonth;
+    if (selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)) return selectedMonth;
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  });
+  const [selectedFinalExamId, setSelectedFinalExamId] = useState<string>('');
+  const [modalScores, setModalScores] = useState<any[]>([]);
+  const [modalCoeffMap, setModalCoeffMap] = useState<Record<string, any>>({});
+  const [isLoadingModalScores, setIsLoadingModalScores] = useState<boolean>(false);
+  const lastAutoSelectedKeyRef = useRef<string>('');
+
   const [rankMode, setRankMode] = useState<RankRangeMode>('top3');
   const [splitBehavior, setSplitBehavior] = useState<'auto' | 'always' | 'never'>('auto');
   const [paperMode, setPaperMode] = useState<CertificatePrintPaperMode>('a4_two_up');
-  const [showStudentPhoto, setShowStudentPhoto] = useState<boolean>(false);
+  const [praiseShowStudentPhoto, setPraiseShowStudentPhoto] = useState<boolean>(false);
+  const [certShowStudentPhoto, setCertShowStudentPhoto] = useState<boolean>(true);
+  const showStudentPhoto = docType === 'certificate' ? certShowStudentPhoto : praiseShowStudentPhoto;
+  const setShowStudentPhoto = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      if (docType === 'certificate') {
+        setCertShowStudentPhoto((prev) => (typeof next === 'function' ? next(prev) : next));
+      } else {
+        setPraiseShowStudentPhoto((prev) => (typeof next === 'function' ? next(prev) : next));
+      }
+    },
+    [docType]
+  );
   const [showCutGuide, setShowCutGuide] = useState<boolean>(true);
 
   // Manual student inclusion/exclusion overrides
@@ -126,26 +200,70 @@ export default function CertificatePrintModal({
   const [excludedUids, setExcludedUids] = useState<string[]>([]);
   const [manualPickedUids, setManualPickedUids] = useState<string[]>([]);
 
-  // Frame template & links
-  const [framePresetId, setFramePresetId] = useState<string>(CERTIFICATE_FRAME_PRESETS[0].id);
-  const [customFrameUrl, setCustomFrameUrl] = useState<string>('');
+  // Frame template & links (separate active preset/url/margins per docType; shared image bank)
+  const [praiseFramePresetId, setPraiseFramePresetId] = useState<string>(CERTIFICATE_FRAME_PRESETS[0].id);
+  const [certFramePresetId, setCertFramePresetId] = useState<string>(CERTIFICATE_FRAME_PRESETS[1].id);
+  const framePresetId = docType === 'certificate' ? certFramePresetId : praiseFramePresetId;
+  const setFramePresetId = useCallback(
+    (next: string) => {
+      if (docType === 'certificate') setCertFramePresetId(next);
+      else setPraiseFramePresetId(next);
+    },
+    [docType]
+  );
+
+  const [praiseCustomFrameUrl, setPraiseCustomFrameUrl] = useState<string>('');
+  const [certCustomFrameUrl, setCertCustomFrameUrl] = useState<string>('');
+  const customFrameUrl = docType === 'certificate' ? certCustomFrameUrl : praiseCustomFrameUrl;
+  const setCustomFrameUrl = useCallback(
+    (next: string) => {
+      if (docType === 'certificate') setCertCustomFrameUrl(next);
+      else setPraiseCustomFrameUrl(next);
+    },
+    [docType]
+  );
+
   const [savedCustomFrames, setSavedCustomFrames] = useState<SavedCustomFrameLink[]>([]);
   const [newFrameLabel, setNewFrameLabel] = useState<string>('');
   const [savedTopLogos, setSavedTopLogos] = useState<SavedCustomFrameLink[]>([]);
   const [newTopLogoLabel, setNewTopLogoLabel] = useState<string>('');
   const [isUploadingTopLogo, setIsUploadingTopLogo] = useState<boolean>(false);
   const topLogoUploadInputRef = useRef<HTMLInputElement>(null);
+  const [savedMinistryLogos, setSavedMinistryLogos] = useState<SavedCustomFrameLink[]>([]);
+  const [newMinistryLogoLabel, setNewMinistryLogoLabel] = useState<string>('');
+  const [isUploadingMinistryLogo, setIsUploadingMinistryLogo] = useState<boolean>(false);
+  const ministryLogoUploadInputRef = useRef<HTMLInputElement>(null);
+  const [courseNameKh, setCourseNameKh] = useState<string>('ភាសាអង់គ្លេស');
+  const [courseNameEn, setCourseNameEn] = useState<string>('English Course');
+  const [provinceKh, setProvinceKh] = useState<string>('ខេត្តកណ្តាល');
+  const [deptKh, setDeptKh] = useState<string>('មន្ទីរអប់រំ យុវជន និងកីឡា');
+  const [certPlaceDateText, setCertPlaceDateText] = useState<string>(() => formatCertPlaceDateDefault('Kandal'));
+  const [certStartNumber, setCertStartNumber] = useState<number>(1);
   const [studioFrameTemplates, setStudioFrameTemplates] = useState<SavedCustomFrameLink[]>([]);
-  const [frameMarginsCm, setFrameMarginsCm] = useState<FrameMarginsCm>(DEFAULT_CERTIFICATE_MARGINS_CM);
+
+  const [praiseMarginsCm, setPraiseMarginsCm] = useState<FrameMarginsCm>(DEFAULT_CERTIFICATE_MARGINS_CM);
+  const [certMarginsCm, setCertMarginsCm] = useState<FrameMarginsCm>(DEFAULT_CERTIFICATE_MARGINS_CM);
+  const frameMarginsCm = docType === 'certificate' ? certMarginsCm : praiseMarginsCm;
+  const setFrameMarginsCm = useCallback(
+    (next: FrameMarginsCm | ((prev: FrameMarginsCm) => FrameMarginsCm)) => {
+      if (docType === 'certificate') {
+        setCertMarginsCm((prev) => (typeof next === 'function' ? next(prev) : next));
+      } else {
+        setPraiseMarginsCm((prev) => (typeof next === 'function' ? next(prev) : next));
+      }
+    },
+    [docType]
+  );
+
   const [uniformMargins, setUniformMargins] = useState<boolean>(true);
   const [isUploadingFrames, setIsUploadingFrames] = useState<boolean>(false);
   const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const frameUploadInputRef = useRef<HTMLInputElement>(null);
 
-  // Bilingual text & dates & signing
+  // Praise Monthly text & Praise Footer vs Certificate Footer (strictly separated)
   const defaultExam = useMemo(
-    () => formatExamLabelsFromMonthStr(selectedMonth, monthExtraData?.monthKhmer),
-    [selectedMonth, monthExtraData?.monthKhmer]
+    () => formatExamLabelsFromMonthStr(praiseMonth, monthExtraData?.monthKhmer),
+    [praiseMonth, monthExtraData?.monthKhmer]
   );
   const [examKhmer, setExamKhmer] = useState<string>(defaultExam.examKhmer);
   const [examEnglish, setExamEnglish] = useState<string>(defaultExam.examEnglish);
@@ -153,59 +271,241 @@ export default function CertificatePrintModal({
   const [issuedDate, setIssuedDate] = useState<string>(
     String(monthExtraData?.issueDateEnglish || '').trim() || formatIssuedDateDefault()
   );
-  const [stampUrl, setStampUrl] = useState<string>('');
-  const [signatureUrl, setSignatureUrl] = useState<string>('');
-  const [signatoryName, setSignatoryName] = useState<string>('សំរិត វឌ្ឍនៈ');
-  const [principalTitle, setPrincipalTitle] = useState<string>('The Principal of BSIS');
+  const [praiseStampUrl, setPraiseStampUrl] = useState<string>('');
+  const [praiseSignatureUrl, setPraiseSignatureUrl] = useState<string>('');
+  const [praiseSignatoryName, setPraiseSignatoryName] = useState<string>('សំរិត វឌ្ឍនៈ');
+  const [praisePrincipalTitle, setPraisePrincipalTitle] = useState<string>('The Principal of BSIS');
+
+  const [certStampUrl, setCertStampUrl] = useState<string>('');
+  const [certSignatureUrl, setCertSignatureUrl] = useState<string>('');
+  const [certSignatoryName, setCertSignatoryName] = useState<string>('សំរិត វឌ្ឍនៈ');
+  const [certPrincipalTitle, setCertPrincipalTitle] = useState<string>('The principal of BSIS');
+
+  const stampUrl = docType === 'certificate' ? certStampUrl : praiseStampUrl;
+  const setStampUrl = useCallback(
+    (v: string) => (docType === 'certificate' ? setCertStampUrl(v) : setPraiseStampUrl(v)),
+    [docType]
+  );
+  const signatureUrl = docType === 'certificate' ? certSignatureUrl : praiseSignatureUrl;
+  const setSignatureUrl = useCallback(
+    (v: string) => (docType === 'certificate' ? setCertSignatureUrl(v) : setPraiseSignatureUrl(v)),
+    [docType]
+  );
+  const signatoryName = docType === 'certificate' ? certSignatoryName : praiseSignatoryName;
+  const setSignatoryName = useCallback(
+    (v: string) => (docType === 'certificate' ? setCertSignatoryName(v) : setPraiseSignatoryName(v)),
+    [docType]
+  );
+  const principalTitle = docType === 'certificate' ? certPrincipalTitle : praisePrincipalTitle;
+  const setPrincipalTitle = useCallback(
+    (v: string) => (docType === 'certificate' ? setCertPrincipalTitle(v) : setPraisePrincipalTitle(v)),
+    [docType]
+  );
 
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'preview' | 'design'>('preview');
-  const [designConfig, setDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_CERTIFICATE_DESIGN);
-  const [savedDesignTemplates, setSavedDesignTemplates] = useState<SavedCertificateDesignTemplate[]>([]);
-  const [activeDesignTemplateId, setActiveDesignTemplateId] = useState<string | null>(null);
+  const [praiseDesignConfig, setPraiseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_CERTIFICATE_DESIGN);
+  const [courseDesignConfig, setCourseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_COURSE_CERTIFICATE_DESIGN);
+  const activeDefaultDesign =
+    docType === 'certificate' ? DEFAULT_COURSE_CERTIFICATE_DESIGN : DEFAULT_CERTIFICATE_DESIGN;
+  const designConfig = docType === 'certificate' ? courseDesignConfig : praiseDesignConfig;
+  const setDesignConfig = useCallback(
+    (nextOrFn: CertificateDesignConfig | ((prev: CertificateDesignConfig) => CertificateDesignConfig)) => {
+      if (docType === 'certificate') {
+        setCourseDesignConfig((prev) =>
+          typeof nextOrFn === 'function' ? nextOrFn(prev) : nextOrFn
+        );
+      } else {
+        setPraiseDesignConfig((prev) =>
+          typeof nextOrFn === 'function' ? nextOrFn(prev) : nextOrFn
+        );
+      }
+    },
+    [docType]
+  );
+  const [praiseDesignTemplates, setPraiseDesignTemplates] = useState<SavedCertificateDesignTemplate[]>([]);
+  const [certDesignTemplates, setCertDesignTemplates] = useState<SavedCertificateDesignTemplate[]>([]);
+  const savedDesignTemplates = docType === 'certificate' ? certDesignTemplates : praiseDesignTemplates;
+  const setSavedDesignTemplates = useCallback(
+    (next: SavedCertificateDesignTemplate[] | ((prev: SavedCertificateDesignTemplate[]) => SavedCertificateDesignTemplate[])) => {
+      if (docType === 'certificate') {
+        setCertDesignTemplates((prev) => (typeof next === 'function' ? next(prev) : next));
+      } else {
+        setPraiseDesignTemplates((prev) => (typeof next === 'function' ? next(prev) : next));
+      }
+    },
+    [docType]
+  );
+  const [praiseActiveDesignId, setPraiseActiveDesignId] = useState<string | null>(null);
+  const [certActiveDesignId, setCertActiveDesignId] = useState<string | null>(null);
+  const activeDesignTemplateId = docType === 'certificate' ? certActiveDesignId : praiseActiveDesignId;
+  const setActiveDesignTemplateId = useCallback(
+    (next: string | null) => {
+      if (docType === 'certificate') setCertActiveDesignId(next);
+      else setPraiseActiveDesignId(next);
+    },
+    [docType]
+  );
   const [isSavingDesignTemplate, setIsSavingDesignTemplate] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveFeedback, setSaveFeedback] = useState<string>('');
   const [previewScale, setPreviewScale] = useState<number>(1);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileInfo>(DEFAULT_SCHOOL_PROFILE);
 
+  // Active exam session strictly separated: Praise = monthly (YYYY-MM), Certificate = final exam (FINAL_...)
+  const activeExamDataKey = docType === 'certificate' ? selectedFinalExamId : praiseMonth;
+  const activeFinalSession = useMemo(
+    () => finalExamSessions.find((s) => s.id === selectedFinalExamId) || null,
+    [finalExamSessions, selectedFinalExamId]
+  );
+  const effectiveScores = activeExamDataKey && activeExamDataKey === selectedMonth ? allScores : modalScores;
+  const effectiveCoeffMap = activeExamDataKey && activeExamDataKey === selectedMonth ? monthCoeffMap : modalCoeffMap;
+
   // Sync defaults from scoreSettings & monthExtraData when opened
   useEffect(() => {
     if (!isOpen) return;
-    setDocType(scoreSettings?.certDocType === 'certificate' ? 'certificate' : 'praise');
-    setFramePresetId(scoreSettings?.certFramePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
-    setCustomFrameUrl(scoreSettings?.certFrameUrl || '');
+    const isFinalSessionActive = String(selectedMonth || '').startsWith('FINAL_');
+    const resolvedDocType: CertificateDocType =
+      initialDocType ||
+      (isFinalSessionActive
+        ? 'certificate'
+        : scoreSettings?.certDocType === 'certificate'
+          ? 'certificate'
+          : 'praise');
+    setDocType(resolvedDocType);
+    setRankMode(resolvedDocType === 'certificate' ? 'passed' : 'top3');
+
+    const resolvedPraiseMonth =
+      monthlyMonth && /^\d{4}-\d{2}$/.test(monthlyMonth)
+        ? monthlyMonth
+        : selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)
+          ? selectedMonth
+          : praiseMonth;
+    setPraiseMonth(resolvedPraiseMonth);
+
+    const matchedInitialFinalId = isFinalSessionActive
+      ? selectedMonth
+      : (initialClassId && finalExamSessions.find((s) => s.classId === initialClassId)?.id) ||
+        finalExamSessions[0]?.id ||
+        '';
+    setSelectedFinalExamId(matchedInitialFinalId);
+    lastAutoSelectedKeyRef.current = '';
+
+    setPraiseFramePresetId(scoreSettings?.certFramePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
+    setCertFramePresetId(scoreSettings?.certCertificateFramePresetId || CERTIFICATE_FRAME_PRESETS[1].id);
+    setPraiseCustomFrameUrl(scoreSettings?.certFrameUrl || '');
+    setCertCustomFrameUrl(scoreSettings?.certCertificateFrameUrl || '');
     setSavedCustomFrames(Array.isArray(scoreSettings?.certCustomFrames) ? scoreSettings.certCustomFrames : []);
     setSavedTopLogos(Array.isArray(scoreSettings?.certSavedTopLogos) ? scoreSettings.certSavedTopLogos : []);
-    const restoredDesign = normalizeCertificateDesign(scoreSettings?.certDesignConfig);
-    if (!restoredDesign.topLogoUrl && scoreSettings?.certTopLogoUrl) {
-      restoredDesign.topLogoUrl = String(scoreSettings.certTopLogoUrl);
+    setSavedMinistryLogos(Array.isArray(scoreSettings?.certSavedMinistryLogos) ? scoreSettings.certSavedMinistryLogos : []);
+
+    const restoredPraise = normalizeCertificateDesign(scoreSettings?.certDesignConfig, DEFAULT_CERTIFICATE_DESIGN);
+    if (!restoredPraise.topLogoUrl && scoreSettings?.certTopLogoUrl) {
+      restoredPraise.topLogoUrl = String(scoreSettings.certTopLogoUrl);
     }
-    setDesignConfig(restoredDesign);
-    setSavedDesignTemplates(
-      Array.isArray(scoreSettings?.certDesignTemplates) ? scoreSettings.certDesignTemplates : []
+    setPraiseDesignConfig(restoredPraise);
+
+    const restoredCourse = normalizeCertificateDesign(
+      scoreSettings?.certCertificateDesignConfig,
+      DEFAULT_COURSE_CERTIFICATE_DESIGN
     );
-    setActiveDesignTemplateId(scoreSettings?.certActiveDesignId || null);
-    const savedMargins = scoreSettings?.certFrameMarginsCm;
-    if (savedMargins && typeof savedMargins === 'object') {
-      const m: FrameMarginsCm = {
-        top: Number(savedMargins.top) > 0 ? Number(savedMargins.top) : DEFAULT_CERTIFICATE_MARGINS_CM.top,
-        right: Number(savedMargins.right) > 0 ? Number(savedMargins.right) : DEFAULT_CERTIFICATE_MARGINS_CM.right,
-        bottom: Number(savedMargins.bottom) > 0 ? Number(savedMargins.bottom) : DEFAULT_CERTIFICATE_MARGINS_CM.bottom,
-        left: Number(savedMargins.left) > 0 ? Number(savedMargins.left) : DEFAULT_CERTIFICATE_MARGINS_CM.left,
-      };
-      setFrameMarginsCm(m);
-      setUniformMargins(m.top === m.right && m.top === m.bottom && m.top === m.left);
-    } else {
-      setFrameMarginsCm(DEFAULT_CERTIFICATE_MARGINS_CM);
-      setUniformMargins(true);
+    if (!restoredCourse.topLogoUrl && scoreSettings?.certTopLogoUrl) {
+      restoredCourse.topLogoUrl = String(scoreSettings.certTopLogoUrl);
     }
-    setShowStudentPhoto(Boolean(scoreSettings?.certShowStudentPhoto));
-    setPrincipalTitle(scoreSettings?.certPrincipalTitle || 'The Principal of BSIS');
-    setStampUrl(scoreSettings?.resultStampUrl || '');
-    setSignatureUrl(scoreSettings?.resultSignatureUrl || '');
-    setSignatoryName(scoreSettings?.resultSignatoryName || 'សំរិត វឌ្ឍនៈ');
-    const examLabels = formatExamLabelsFromMonthStr(selectedMonth, monthExtraData?.monthKhmer);
+    if (!restoredCourse.ministryLogoUrl && scoreSettings?.certMinistryLogoUrl) {
+      restoredCourse.ministryLogoUrl = String(scoreSettings.certMinistryLogoUrl);
+    }
+    setCourseDesignConfig(restoredCourse);
+
+    const activeFinalObj = finalExamSessions.find((s) => s.id === matchedInitialFinalId);
+    setProvinceKh(scoreSettings?.certProvinceKh || restoredCourse.certProvinceKh || 'ខេត្តកណ្តាល');
+    setDeptKh(scoreSettings?.certDeptKh || restoredCourse.certDeptKh || 'មន្ទីរអប់រំ យុវជន និងកីឡា');
+    setCourseNameKh(activeFinalObj?.courseNameKh || finalExamCourseKh || scoreSettings?.certCourseNameKh || 'ភាសាអង់គ្លេស');
+    setCourseNameEn(activeFinalObj?.courseNameEn || finalExamCourseEn || scoreSettings?.certCourseNameEn || 'English Course');
+
+    const resolvedFinalDate = activeFinalObj?.examDate || finalExamDate;
+    if (resolvedFinalDate && /^\d{4}-\d{2}-\d{2}$/.test(resolvedFinalDate)) {
+      const [fy, fm, fd] = resolvedFinalDate.split('-').map(Number);
+      setCertPlaceDateText(formatCertPlaceDateDefault('Kandal', new Date(fy, (fm || 1) - 1, fd || 1)));
+    } else {
+      setCertPlaceDateText(scoreSettings?.certPlaceDateText || formatCertPlaceDateDefault('Kandal'));
+    }
+    setCertStartNumber(
+      Number(scoreSettings?.certStartNumber) >= 1 ? Math.floor(Number(scoreSettings.certStartNumber)) : 1
+    );
+
+    const legacyTemplates: SavedCertificateDesignTemplate[] = Array.isArray(scoreSettings?.certDesignTemplates)
+      ? scoreSettings.certDesignTemplates
+      : [];
+    const separatedPraiseTemplates = legacyTemplates.filter((t) => (t?.docType || 'praise') !== 'certificate');
+    const explicitCertTemplates: SavedCertificateDesignTemplate[] = Array.isArray(
+      scoreSettings?.certCertificateDesignTemplates
+    )
+      ? scoreSettings.certCertificateDesignTemplates
+      : [];
+    const legacyCertTemplates = legacyTemplates.filter((t) => t?.docType === 'certificate');
+    const mergedCertTemplatesMap = new Map<string, SavedCertificateDesignTemplate>();
+    [...legacyCertTemplates, ...explicitCertTemplates].forEach((t) => {
+      if (t?.id) mergedCertTemplatesMap.set(t.id, t);
+    });
+    setPraiseDesignTemplates(separatedPraiseTemplates);
+    setCertDesignTemplates(Array.from(mergedCertTemplatesMap.values()));
+    setPraiseActiveDesignId(scoreSettings?.certActiveDesignId || null);
+    setCertActiveDesignId(scoreSettings?.certCertificateActiveDesignId || null);
+
+    const parseMargins = (rawM: any): FrameMarginsCm => {
+      if (rawM && typeof rawM === 'object') {
+        return {
+          top: Number(rawM.top) > 0 ? Number(rawM.top) : DEFAULT_CERTIFICATE_MARGINS_CM.top,
+          right: Number(rawM.right) > 0 ? Number(rawM.right) : DEFAULT_CERTIFICATE_MARGINS_CM.right,
+          bottom: Number(rawM.bottom) > 0 ? Number(rawM.bottom) : DEFAULT_CERTIFICATE_MARGINS_CM.bottom,
+          left: Number(rawM.left) > 0 ? Number(rawM.left) : DEFAULT_CERTIFICATE_MARGINS_CM.left,
+        };
+      }
+      return DEFAULT_CERTIFICATE_MARGINS_CM;
+    };
+    const pMargins = parseMargins(scoreSettings?.certFrameMarginsCm);
+    const cMargins = parseMargins(scoreSettings?.certCertificateFrameMarginsCm || scoreSettings?.certFrameMarginsCm);
+    setPraiseMarginsCm(pMargins);
+    setCertMarginsCm(cMargins);
+    const activeM = resolvedDocType === 'certificate' ? cMargins : pMargins;
+    setUniformMargins(activeM.top === activeM.right && activeM.top === activeM.bottom && activeM.top === activeM.left);
+
+    setPraiseShowStudentPhoto(Boolean(scoreSettings?.certShowStudentPhoto));
+    setCertShowStudentPhoto(
+      scoreSettings?.certCertificateShowStudentPhoto !== undefined
+        ? Boolean(scoreSettings.certCertificateShowStudentPhoto)
+        : true
+    );
+
+    // Separate footers for Praise Letter vs Course Certificate
+    setPraisePrincipalTitle(scoreSettings?.certPrincipalTitle || 'The Principal of BSIS');
+    setPraiseStampUrl(scoreSettings?.resultStampUrl || '');
+    setPraiseSignatureUrl(scoreSettings?.resultSignatureUrl || '');
+    setPraiseSignatoryName(scoreSettings?.resultSignatoryName || 'សំរិត វឌ្ឍនៈ');
+
+    setCertPrincipalTitle(
+      scoreSettings?.certCertificatePrincipalTitle !== undefined
+        ? String(scoreSettings.certCertificatePrincipalTitle)
+        : scoreSettings?.certPrincipalTitle || 'The principal of BSIS'
+    );
+    setCertStampUrl(
+      scoreSettings?.certCertificateStampUrl !== undefined
+        ? String(scoreSettings.certCertificateStampUrl)
+        : scoreSettings?.resultStampUrl || ''
+    );
+    setCertSignatureUrl(
+      scoreSettings?.certCertificateSignatureUrl !== undefined
+        ? String(scoreSettings.certCertificateSignatureUrl)
+        : scoreSettings?.resultSignatureUrl || ''
+    );
+    setCertSignatoryName(
+      scoreSettings?.certCertificateSignatoryName !== undefined
+        ? String(scoreSettings.certCertificateSignatoryName)
+        : scoreSettings?.resultSignatoryName || 'សំរិត វឌ្ឍនៈ'
+    );
+
+    const examLabels = formatExamLabelsFromMonthStr(resolvedPraiseMonth, monthExtraData?.monthKhmer);
     setExamKhmer(examLabels.examKhmer);
     setExamEnglish(
       String(monthExtraData?.monthEnglish || '').trim()
@@ -218,15 +518,66 @@ export default function CertificatePrintModal({
     setSaveFeedback('');
     setUploadStatusText('');
     setExcludedUids([]);
-  }, [isOpen, scoreSettings, selectedMonth, monthExtraData]);
+  }, [
+    isOpen,
+    scoreSettings,
+    selectedMonth,
+    monthlyMonth,
+    finalExamSessions,
+    initialClassId,
+    monthExtraData,
+    initialDocType,
+    finalExamCourseKh,
+    finalExamCourseEn,
+    finalExamDate,
+  ]);
 
-  // Update exam labels when month changes inside modal
+  // Keep uniformMargins checkbox synced when toggling between Praise & Certificate
+  useEffect(() => {
+    setUniformMargins(
+      frameMarginsCm.top === frameMarginsCm.right &&
+      frameMarginsCm.top === frameMarginsCm.bottom &&
+      frameMarginsCm.top === frameMarginsCm.left
+    );
+  }, [docType]);
+
+  // Update Praise exam labels when praiseMonth changes inside modal
   useEffect(() => {
     if (!isOpen) return;
-    const examLabels = formatExamLabelsFromMonthStr(selectedMonth, monthExtraData?.monthKhmer);
+    const examLabels = formatExamLabelsFromMonthStr(praiseMonth, monthExtraData?.monthKhmer);
     setExamKhmer(examLabels.examKhmer);
     setExamEnglish(examLabels.examEnglish);
-  }, [selectedMonth, isOpen, monthExtraData?.monthKhmer]);
+  }, [praiseMonth, isOpen, monthExtraData?.monthKhmer]);
+
+  // Subscribe to RTDB scores & coefficients for active exam key (monthly for Praise, FINAL_ for Certificate)
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!activeExamDataKey) {
+      setModalScores([]);
+      setModalCoeffMap({});
+      setIsLoadingModalScores(false);
+      return;
+    }
+    if (activeExamDataKey === selectedMonth) {
+      setIsLoadingModalScores(false);
+      return;
+    }
+    setIsLoadingModalScores(true);
+    let loadedScoresDone = false;
+    const unsubScores = scoreService.subscribeByQuery('month', '==', activeExamDataKey, (data: any[]) => {
+      setModalScores(data);
+      loadedScoresDone = true;
+      setIsLoadingModalScores(false);
+    });
+    const unsubCoeffs = scoreCoefficientService.subscribeOne(activeExamDataKey, (doc: any) => {
+      setModalCoeffMap(doc?.classes && typeof doc.classes === 'object' ? doc.classes : {});
+      if (loadedScoresDone) setIsLoadingModalScores(false);
+    });
+    return () => {
+      unsubScores();
+      unsubCoeffs();
+    };
+  }, [isOpen, activeExamDataKey, selectedMonth]);
 
   // Subscribe to schoolInfo & photoFrameTemplates while open
   useEffect(() => {
@@ -263,18 +614,26 @@ export default function CertificatePrintModal({
 
   const scoreCountByClass = useMemo(() => {
     const map = new Map<string, number>();
-    allScores.forEach((s: any) => {
-      if (s?.month !== selectedMonth) return;
+    if (!activeExamDataKey) return map;
+    effectiveScores.forEach((s: any) => {
+      if (s?.month !== activeExamDataKey) return;
       const cid = String(s?.classId || '').trim();
       if (!cid) return;
       const hasVal = s?.totalScore !== '' && s?.totalScore !== undefined && s?.totalScore !== null && !isNaN(Number(s?.totalScore));
       if (hasVal) map.set(cid, (map.get(cid) || 0) + 1);
     });
     return map;
-  }, [allScores, selectedMonth]);
+  }, [effectiveScores, activeExamDataKey]);
 
   useEffect(() => {
     if (!isOpen) return;
+    const autoKey = `${docType}:${activeExamDataKey}:${initialClassId || ''}`;
+    if (lastAutoSelectedKeyRef.current === autoKey) return;
+    lastAutoSelectedKeyRef.current = autoKey;
+    if (docType === 'certificate' && activeFinalSession?.classId && classes.some((c) => c.id === activeFinalSession.classId)) {
+      setSelectedClassIds([activeFinalSession.classId]);
+      return;
+    }
     if (initialClassId && classes.some((c) => c.id === initialClassId)) {
       setSelectedClassIds([initialClassId]);
       return;
@@ -289,7 +648,7 @@ export default function CertificatePrintModal({
     } else {
       setSelectedClassIds([]);
     }
-  }, [isOpen, initialClassId, classes, sortedClasses]);
+  }, [isOpen, docType, activeExamDataKey, initialClassId, classes, sortedClasses, activeFinalSession, scoreCountByClass]);
 
   // Close menus on outside click
   useEffect(() => {
@@ -303,7 +662,15 @@ export default function CertificatePrintModal({
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isClassMenuOpen]);
 
-  const sheetSpec = paperMode === 'a4_two_up' ? A4_PORTRAIT_SPEC : A5_LANDSCAPE_SPEC;
+  const effectivePaperMode: CertificatePrintPaperMode =
+    docType === 'certificate' ? 'a4_landscape' : paperMode;
+
+  const sheetSpec =
+    effectivePaperMode === 'a4_landscape'
+      ? A4_LANDSCAPE_SPEC
+      : effectivePaperMode === 'a4_two_up'
+        ? A4_PORTRAIT_SPEC
+        : A5_LANDSCAPE_SPEC;
 
   // Responsive preview zoom
   useEffect(() => {
@@ -335,14 +702,15 @@ export default function CertificatePrintModal({
     };
   }, [isOpen, sheetSpec.pageCss]);
 
-  // Compute ranked students across selected classes (and split levels if active)
+  // Compute ranked students across selected classes (Praise = monthly only; Certificate = Final Exam only)
   const classPackets: MonthlyResultClassPacket[] = useMemo(() => {
+    if (!activeExamDataKey) return [];
     const selectedSet = new Set(selectedClassIds);
     return sortedClasses
       .filter((c) => selectedSet.has(c.id))
       .flatMap((classObj) => {
-        const classScoreRows = allScores.filter(
-          (s: any) => s?.classId === classObj.id && s?.month === selectedMonth
+        const classScoreRows = effectiveScores.filter(
+          (s: any) => s?.classId === classObj.id && s?.month === activeExamDataKey
         );
         return computeMonthlyResultPacketsForClass(
           {
@@ -351,7 +719,7 @@ export default function CertificatePrintModal({
             allTeachers,
             allClasses: classes,
             classScoreRows,
-            monthCoeffMap,
+            monthCoeffMap: effectiveCoeffMap,
             scoreSettings,
             sortMode: 'rank_asc',
             includeUnscored: false,
@@ -360,14 +728,14 @@ export default function CertificatePrintModal({
         );
       });
   }, [
+    activeExamDataKey,
     sortedClasses,
     selectedClassIds,
-    allScores,
-    selectedMonth,
+    effectiveScores,
     allStudents,
     allTeachers,
     classes,
-    monthCoeffMap,
+    effectiveCoeffMap,
     scoreSettings,
     splitBehavior,
   ]);
@@ -389,17 +757,19 @@ export default function CertificatePrintModal({
           fullName: r.fullName,
           englishName: r.englishName || '',
           gender: r.gender,
-          level: r.level || packet.splitLevelLabel || '',
-          bookName: packet.bookName || '',
+          dob: r.dob || '',
+          level: r.level || packet.splitLevelLabel || (docType === 'certificate' ? activeFinalSession?.levelName || '' : ''),
+          bookName: packet.bookName || (docType === 'certificate' ? activeFinalSession?.levelName || '' : ''),
           rank: r.rank,
           grade: r.grade,
+          isPassing: r.isPassing,
           averageDisplay: r.averageDisplay,
           photo: r.photo || '',
         });
       });
     });
     return list;
-  }, [classPackets]);
+  }, [classPackets, docType, activeFinalSession?.levelName]);
 
   // Keep manual list initialized with Top 3 whenever switching into manual mode if empty
   useEffect(() => {
@@ -411,28 +781,43 @@ export default function CertificatePrintModal({
   }, [rankMode, allCandidateRecipients, manualPickedUids.length]);
 
   const selectedRecipients: CertificateRecipient[] = useMemo(() => {
+    let baseList: CertificateRecipient[];
     if (rankMode === 'manual') {
       const picked = new Set(manualPickedUids);
-      return allCandidateRecipients.filter((c) => picked.has(c.uid));
+      baseList = allCandidateRecipients.filter((c) => picked.has(c.uid));
+    } else if (rankMode === 'passed') {
+      const excluded = new Set(excludedUids);
+      baseList = allCandidateRecipients.filter(
+        (c) => c.isPassing !== false && !excluded.has(c.uid)
+      );
+    } else {
+      const maxRank = rankMode === 'top3' ? 3 : 5;
+      const excluded = new Set(excludedUids);
+      baseList = allCandidateRecipients.filter(
+        (c) => c.rank >= 1 && c.rank <= maxRank && !excluded.has(c.uid)
+      );
     }
-    const maxRank = rankMode === 'top3' ? 3 : 5;
-    const excluded = new Set(excludedUids);
-    return allCandidateRecipients.filter(
-      (c) => c.rank >= 1 && c.rank <= maxRank && !excluded.has(c.uid)
-    );
-  }, [allCandidateRecipients, rankMode, excludedUids, manualPickedUids]);
+    const startNo = Number.isFinite(certStartNumber) && certStartNumber >= 1 ? Math.floor(certStartNumber) : 1;
+    return baseList.map((c, idx) => ({
+      ...c,
+      certNumber: String(startNo + idx),
+    }));
+  }, [allCandidateRecipients, rankMode, excludedUids, manualPickedUids, certStartNumber]);
 
   const activeFramePreset = useMemo(
     () => CERTIFICATE_FRAME_PRESETS.find((f) => f.id === framePresetId) || CERTIFICATE_FRAME_PRESETS[0],
     [framePresetId]
   );
 
-  // Build printable pages (either 2x A5 per A4 Portrait, or 1x A5 Landscape per page)
+  // Build printable pages (A4 Landscape for Certificate; 2x A5/A4 Portrait or 1x A5 for Praise)
   const renderedPrintPages = useMemo(() => {
-    if (paperMode === 'a5_single') {
+    if (effectivePaperMode === 'a4_landscape' || effectivePaperMode === 'a5_single') {
       return selectedRecipients.map((rec, idx) => ({
-        key: `a5-${rec.uid}`,
-        label: `ប័ណ្ណទី ${idx + 1}: ${rec.fullName} (លេខ ${rec.rank})`,
+        key: `${effectivePaperMode}-${rec.uid}`,
+        label:
+          docType === 'certificate'
+            ? `A4 ផ្ដេក #${idx + 1}: ${rec.fullName} (${rec.certNumber ? `No. ${rec.certNumber} • ` : ''}និទ្ទេស ${rec.grade})`
+            : `ប័ណ្ណទី ${idx + 1}: ${rec.fullName} (លេខ ${rec.rank})`,
         topRecipient: rec,
         bottomRecipient: null as CertificateRecipient | null,
       }));
@@ -458,7 +843,7 @@ export default function CertificatePrintModal({
       });
     }
     return pairs;
-  }, [selectedRecipients, paperMode]);
+  }, [selectedRecipients, effectivePaperMode, docType]);
 
   const handlePrint = () => {
     if (typeof window === 'undefined' || renderedPrintPages.length === 0) return;
@@ -496,9 +881,15 @@ export default function CertificatePrintModal({
   ) => {
     if (!onSaveSettings) return;
     try {
+      const urlPatch =
+        nextActiveUrl !== undefined
+          ? docType === 'certificate'
+            ? { certCertificateFrameUrl: nextActiveUrl }
+            : { certFrameUrl: nextActiveUrl }
+          : {};
       await onSaveSettings({
         certCustomFrames: nextList,
-        ...(nextActiveUrl !== undefined ? { certFrameUrl: nextActiveUrl } : {}),
+        ...urlPatch,
       });
     } catch (err) {
       console.error('Failed auto-saving uploaded frame templates:', err);
@@ -566,45 +957,95 @@ export default function CertificatePrintModal({
     await persistSavedFramesImmediately(nextList, nextUrl);
   };
 
-  const handleUploadTopLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const persistActiveLogoConfig = async (
+    targetKind: 'top' | 'ministry',
+    nextDesign: CertificateDesignConfig,
+    nextList: SavedCustomFrameLink[]
+  ) => {
+    if (!onSaveSettings) return;
+    const normDesign = normalizeCertificateDesign(nextDesign, activeDefaultDesign);
+    const designPatch: CertificateBrandingConfig =
+      docType === 'certificate'
+        ? { certCertificateDesignConfig: normDesign }
+        : { certDesignConfig: normDesign };
+    if (targetKind === 'ministry') {
+      await onSaveSettings({
+        certMinistryLogoUrl: String(normDesign.ministryLogoUrl || '').trim(),
+        certSavedMinistryLogos: nextList,
+        certCertificateDesignConfig: normalizeCertificateDesign(nextDesign, DEFAULT_COURSE_CERTIFICATE_DESIGN),
+      });
+    } else {
+      await onSaveSettings({
+        certTopLogoUrl: String(normDesign.topLogoUrl || '').trim(),
+        certSavedTopLogos: nextList,
+        ...designPatch,
+      });
+    }
+  };
+
+  const handleUploadLogoAsset = async (
+    targetKind: 'top' | 'ministry',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploadingTopLogo(true);
-    setUploadStatusText('កំពុង Upload Logo បញ្ឈរ...');
+    const isMinistry = targetKind === 'ministry';
+    if (isMinistry) {
+      setIsUploadingMinistryLogo(true);
+      setUploadStatusText('កំពុង Upload ឡូហ្គោក្រសួងអប់រំ...');
+    } else {
+      setIsUploadingTopLogo(true);
+      setUploadStatusText('កំពុង Upload Logo បញ្ឈរ...');
+    }
     try {
       const baseName = file.name.replace(/\.[^.]+$/, '');
-      const cleanId = `cert_top_logo_${Date.now()}`;
+      const cleanId = `cert_${targetKind}_logo_${Date.now()}`;
       const url = await uploadCertificateFrame(file, cleanId);
-      const nextDesign = normalizeCertificateDesign({
-        ...designConfig,
-        topLogoUrl: url,
-        logoLayoutMode: 'vertical',
-      });
-      setDesignConfig(nextDesign);
-      const entry: SavedCustomFrameLink = {
-        id: String(Date.now()),
-        label: newTopLogoLabel.trim() || baseName.slice(0, 22) || `Logo ${savedTopLogos.length + 1}`,
-        url,
-      };
-      const nextLogos = [...savedTopLogos, entry];
-      setSavedTopLogos(nextLogos);
-      setNewTopLogoLabel('');
-      if (onSaveSettings) {
-        await onSaveSettings({
-          certTopLogoUrl: url,
-          certSavedTopLogos: nextLogos,
-          certDesignConfig: nextDesign,
-        });
+      const baseForKind = isMinistry ? courseDesignConfig : designConfig;
+      const nextDesign = normalizeCertificateDesign(
+        isMinistry
+          ? { ...baseForKind, ministryLogoUrl: url }
+          : { ...baseForKind, topLogoUrl: url, logoLayoutMode: 'vertical' },
+        isMinistry ? DEFAULT_COURSE_CERTIFICATE_DESIGN : activeDefaultDesign
+      );
+      if (isMinistry) {
+        setCourseDesignConfig(nextDesign);
+        const entry: SavedCustomFrameLink = {
+          id: String(Date.now()),
+          label: newMinistryLogoLabel.trim() || baseName.slice(0, 22) || `MoEYS ${savedMinistryLogos.length + 1}`,
+          url,
+        };
+        const nextList = [...savedMinistryLogos, entry];
+        setSavedMinistryLogos(nextList);
+        setNewMinistryLogoLabel('');
+        await persistActiveLogoConfig('ministry', nextDesign, nextList);
+        setUploadStatusText('Upload ឡូហ្គោក្រសួងអប់រំបានជោគជ័យ!');
+      } else {
+        setDesignConfig(nextDesign);
+        const entry: SavedCustomFrameLink = {
+          id: String(Date.now()),
+          label: newTopLogoLabel.trim() || baseName.slice(0, 22) || `Logo ${savedTopLogos.length + 1}`,
+          url,
+        };
+        const nextLogos = [...savedTopLogos, entry];
+        setSavedTopLogos(nextLogos);
+        setNewTopLogoLabel('');
+        await persistActiveLogoConfig('top', nextDesign, nextLogos);
+        setUploadStatusText('Upload Logo បញ្ឈរបានជោគជ័យ!');
       }
-      setUploadStatusText('Upload Logo បញ្ឈរបានជោគជ័យ!');
       setTimeout(() => setUploadStatusText(''), 3000);
     } catch (err: any) {
-      console.error('Top logo upload failed:', err);
+      console.error('Logo upload failed:', err);
       alert('មានបញ្ហាក្នុងការ Upload Logo៖ ' + (err?.message || 'Unknown error'));
       setUploadStatusText('');
     } finally {
-      setIsUploadingTopLogo(false);
-      if (topLogoUploadInputRef.current) topLogoUploadInputRef.current.value = '';
+      if (isMinistry) {
+        setIsUploadingMinistryLogo(false);
+        if (ministryLogoUploadInputRef.current) ministryLogoUploadInputRef.current.value = '';
+      } else {
+        setIsUploadingTopLogo(false);
+        if (topLogoUploadInputRef.current) topLogoUploadInputRef.current.value = '';
+      }
     }
   };
 
@@ -618,31 +1059,47 @@ export default function CertificatePrintModal({
       : [...savedTopLogos, { id: String(Date.now()), label, url: cleanUrl }];
     setSavedTopLogos(nextLogos);
     setNewTopLogoLabel('');
-    if (onSaveSettings) {
-      await onSaveSettings({
-        certTopLogoUrl: cleanUrl,
-        certSavedTopLogos: nextLogos,
-        certDesignConfig: normalizeCertificateDesign(designConfig),
-      });
-    }
+    await persistActiveLogoConfig('top', designConfig, nextLogos);
   };
 
-  const handleRemoveSavedTopLogo = async (id: string) => {
+  const handleAddMinistryLogoLink = async () => {
+    const cleanUrl = String(courseDesignConfig.ministryLogoUrl || '').trim();
+    if (!cleanUrl) return;
+    const exists = savedMinistryLogos.some((l) => l.url === cleanUrl);
+    const label = newMinistryLogoLabel.trim() || `ក្រសួងអប់រំ ${savedMinistryLogos.length + 1}`;
+    const nextLogos = exists
+      ? savedMinistryLogos
+      : [...savedMinistryLogos, { id: String(Date.now()), label, url: cleanUrl }];
+    setSavedMinistryLogos(nextLogos);
+    setNewMinistryLogoLabel('');
+    await persistActiveLogoConfig('ministry', courseDesignConfig, nextLogos);
+  };
+
+  const handleRemoveSavedLogo = async (targetKind: 'top' | 'ministry', id: string) => {
+    if (targetKind === 'ministry') {
+      const target = savedMinistryLogos.find((l) => l.id === id);
+      const nextLogos = savedMinistryLogos.filter((l) => l.id !== id);
+      setSavedMinistryLogos(nextLogos);
+      let nextDesign = courseDesignConfig;
+      if (target && String(courseDesignConfig.ministryLogoUrl || '').trim() === target.url) {
+        nextDesign = normalizeCertificateDesign(
+          { ...courseDesignConfig, ministryLogoUrl: '' },
+          DEFAULT_COURSE_CERTIFICATE_DESIGN
+        );
+        setCourseDesignConfig(nextDesign);
+      }
+      await persistActiveLogoConfig('ministry', nextDesign, nextLogos);
+      return;
+    }
     const target = savedTopLogos.find((l) => l.id === id);
     const nextLogos = savedTopLogos.filter((l) => l.id !== id);
     setSavedTopLogos(nextLogos);
     let nextDesign = designConfig;
     if (target && String(designConfig.topLogoUrl || '').trim() === target.url) {
-      nextDesign = normalizeCertificateDesign({ ...designConfig, topLogoUrl: '' });
+      nextDesign = normalizeCertificateDesign({ ...designConfig, topLogoUrl: '' }, activeDefaultDesign);
       setDesignConfig(nextDesign);
     }
-    if (onSaveSettings) {
-      await onSaveSettings({
-        certTopLogoUrl: nextDesign.topLogoUrl,
-        certSavedTopLogos: nextLogos,
-        certDesignConfig: nextDesign,
-      });
-    }
+    await persistActiveLogoConfig('top', nextDesign, nextLogos);
   };
 
   const handleUpdateMarginCm = (side: keyof FrameMarginsCm, rawVal: string) => {
@@ -662,36 +1119,109 @@ export default function CertificatePrintModal({
   };
 
   const handleApplyDesignTemplate = async (tpl: SavedCertificateDesignTemplate) => {
-    setDocType(tpl.docType || 'praise');
-    setFramePresetId(tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
-    setCustomFrameUrl(tpl.customFrameUrl || '');
+    const tplDocType: CertificateDocType = tpl.docType || 'praise';
+    const tplDefault =
+      tplDocType === 'certificate' ? DEFAULT_COURSE_CERTIFICATE_DESIGN : DEFAULT_CERTIFICATE_DESIGN;
+    const norm = normalizeCertificateDesign(tpl.designConfig, tplDefault);
+    setDocType(tplDocType);
+
+    if (tplDocType === 'certificate') {
+      setCertFramePresetId(tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[1].id);
+      setCertCustomFrameUrl(tpl.customFrameUrl || '');
+      if (tpl.frameMarginsCm) setCertMarginsCm(tpl.frameMarginsCm);
+      setCertShowStudentPhoto(tpl.showStudentPhoto !== undefined ? Boolean(tpl.showStudentPhoto) : true);
+      setCourseDesignConfig(norm);
+      setCertActiveDesignId(tpl.id);
+      setRankMode('passed');
+    } else {
+      setPraiseFramePresetId(tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
+      setPraiseCustomFrameUrl(tpl.customFrameUrl || '');
+      if (tpl.frameMarginsCm) setPraiseMarginsCm(tpl.frameMarginsCm);
+      setPraiseShowStudentPhoto(Boolean(tpl.showStudentPhoto));
+      setPraiseDesignConfig(norm);
+      setPraiseActiveDesignId(tpl.id);
+      setRankMode((prev) => (prev === 'passed' ? 'top3' : prev));
+    }
+
     if (tpl.frameMarginsCm) {
-      setFrameMarginsCm(tpl.frameMarginsCm);
       setUniformMargins(
         tpl.frameMarginsCm.top === tpl.frameMarginsCm.right &&
         tpl.frameMarginsCm.top === tpl.frameMarginsCm.bottom &&
         tpl.frameMarginsCm.top === tpl.frameMarginsCm.left
       );
     }
-    setShowStudentPhoto(Boolean(tpl.showStudentPhoto));
-    const norm = normalizeCertificateDesign(tpl.designConfig);
-    setDesignConfig(norm);
-    setActiveDesignTemplateId(tpl.id);
+
     if (onSaveSettings) {
       try {
-        await onSaveSettings({
-          certDocType: tpl.docType || 'praise',
-          certFramePresetId: tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id,
-          certFrameUrl: tpl.customFrameUrl || '',
-          certTopLogoUrl: norm.topLogoUrl || '',
-          certFrameMarginsCm: tpl.frameMarginsCm,
-          certShowStudentPhoto: Boolean(tpl.showStudentPhoto),
-          certDesignConfig: norm,
-          certActiveDesignId: tpl.id,
-        });
+        if (tplDocType === 'certificate') {
+          await onSaveSettings({
+            certDocType: 'certificate',
+            certCertificateFramePresetId: tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[1].id,
+            certCertificateFrameUrl: tpl.customFrameUrl || '',
+            certCertificateFrameMarginsCm: tpl.frameMarginsCm,
+            certCertificateShowStudentPhoto: Boolean(tpl.showStudentPhoto),
+            certCertificateDesignConfig: norm,
+            certCertificateActiveDesignId: tpl.id,
+            certMinistryLogoUrl: norm.ministryLogoUrl || '',
+            certTopLogoUrl: norm.topLogoUrl || '',
+          });
+        } else {
+          await onSaveSettings({
+            certDocType: 'praise',
+            certFramePresetId: tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id,
+            certFrameUrl: tpl.customFrameUrl || '',
+            certFrameMarginsCm: tpl.frameMarginsCm,
+            certShowStudentPhoto: Boolean(tpl.showStudentPhoto),
+            certDesignConfig: norm,
+            certActiveDesignId: tpl.id,
+            certTopLogoUrl: norm.topLogoUrl || '',
+          });
+        }
       } catch (err) {
         console.error('Failed persisting applied template:', err);
       }
+    }
+  };
+
+  const persistTemplatesForDocType = async (
+    nextTemplates: SavedCertificateDesignTemplate[],
+    activeId: string | null,
+    norm?: CertificateDesignConfig
+  ) => {
+    if (!onSaveSettings) return;
+    if (docType === 'certificate') {
+      await onSaveSettings({
+        certDocType: 'certificate',
+        certCertificateDesignTemplates: nextTemplates,
+        certCertificateActiveDesignId: activeId,
+        certCertificateFramePresetId: framePresetId,
+        certCertificateFrameUrl: customFrameUrl.trim(),
+        certCertificateFrameMarginsCm: frameMarginsCm,
+        certCertificateShowStudentPhoto: showStudentPhoto,
+        ...(norm
+          ? {
+              certCertificateDesignConfig: norm,
+              certMinistryLogoUrl: norm.ministryLogoUrl || '',
+              certTopLogoUrl: norm.topLogoUrl || '',
+            }
+          : {}),
+      });
+    } else {
+      await onSaveSettings({
+        certDocType: 'praise',
+        certDesignTemplates: nextTemplates,
+        certActiveDesignId: activeId,
+        certFramePresetId: framePresetId,
+        certFrameUrl: customFrameUrl.trim(),
+        certFrameMarginsCm: frameMarginsCm,
+        certShowStudentPhoto: showStudentPhoto,
+        ...(norm
+          ? {
+              certDesignConfig: norm,
+              certTopLogoUrl: norm.topLogoUrl || '',
+            }
+          : {}),
+      });
     }
   };
 
@@ -699,6 +1229,7 @@ export default function CertificatePrintModal({
     if (!onSaveSettings) return;
     setIsSavingDesignTemplate(true);
     try {
+      const norm = normalizeCertificateDesign(designConfig, activeDefaultDesign);
       const nextTpl: SavedCertificateDesignTemplate = {
         id: String(Date.now()),
         name,
@@ -707,23 +1238,13 @@ export default function CertificatePrintModal({
         customFrameUrl: customFrameUrl.trim(),
         frameMarginsCm,
         showStudentPhoto,
-        designConfig: normalizeCertificateDesign(designConfig),
+        designConfig: norm,
         updatedAt: new Date().toISOString(),
       };
       const nextTemplates = [...savedDesignTemplates, nextTpl];
       setSavedDesignTemplates(nextTemplates);
       setActiveDesignTemplateId(nextTpl.id);
-      await onSaveSettings({
-        certDesignTemplates: nextTemplates,
-        certActiveDesignId: nextTpl.id,
-        certDesignConfig: nextTpl.designConfig,
-        certTopLogoUrl: nextTpl.designConfig.topLogoUrl || '',
-        certDocType: docType,
-        certFramePresetId: framePresetId,
-        certFrameUrl: customFrameUrl.trim(),
-        certFrameMarginsCm: frameMarginsCm,
-        certShowStudentPhoto: showStudentPhoto,
-      });
+      await persistTemplatesForDocType(nextTemplates, nextTpl.id, norm);
     } finally {
       setIsSavingDesignTemplate(false);
     }
@@ -733,7 +1254,7 @@ export default function CertificatePrintModal({
     if (!onSaveSettings || !activeDesignTemplateId) return;
     setIsSavingDesignTemplate(true);
     try {
-      const norm = normalizeCertificateDesign(designConfig);
+      const norm = normalizeCertificateDesign(designConfig, activeDefaultDesign);
       const nextTemplates = savedDesignTemplates.map((t) =>
         t.id === activeDesignTemplateId
           ? {
@@ -749,17 +1270,7 @@ export default function CertificatePrintModal({
           : t
       );
       setSavedDesignTemplates(nextTemplates);
-      await onSaveSettings({
-        certDesignTemplates: nextTemplates,
-        certActiveDesignId: activeDesignTemplateId,
-        certDesignConfig: norm,
-        certTopLogoUrl: norm.topLogoUrl || '',
-        certDocType: docType,
-        certFramePresetId: framePresetId,
-        certFrameUrl: customFrameUrl.trim(),
-        certFrameMarginsCm: frameMarginsCm,
-        certShowStudentPhoto: showStudentPhoto,
-      });
+      await persistTemplatesForDocType(nextTemplates, activeDesignTemplateId, norm);
     } finally {
       setIsSavingDesignTemplate(false);
     }
@@ -770,12 +1281,7 @@ export default function CertificatePrintModal({
     const nextActive = activeDesignTemplateId === id ? null : activeDesignTemplateId;
     setSavedDesignTemplates(nextTemplates);
     setActiveDesignTemplateId(nextActive);
-    if (onSaveSettings) {
-      await onSaveSettings({
-        certDesignTemplates: nextTemplates,
-        certActiveDesignId: nextActive,
-      });
-    }
+    await persistTemplatesForDocType(nextTemplates, nextActive);
   };
 
   const handleSaveConfig = async () => {
@@ -783,23 +1289,54 @@ export default function CertificatePrintModal({
     setIsSaving(true);
     setSaveFeedback('');
     try {
-      const normDesign = normalizeCertificateDesign(designConfig);
+      const normPraise = normalizeCertificateDesign(praiseDesignConfig, DEFAULT_CERTIFICATE_DESIGN);
+      const normCourse = normalizeCertificateDesign(
+        {
+          ...courseDesignConfig,
+          certProvinceKh: provinceKh,
+          certDeptKh: deptKh,
+        },
+        DEFAULT_COURSE_CERTIFICATE_DESIGN
+      );
       await onSaveSettings({
         certDocType: docType,
-        certFramePresetId: framePresetId,
-        certFrameUrl: customFrameUrl.trim(),
         certCustomFrames: savedCustomFrames,
-        certTopLogoUrl: String(normDesign.topLogoUrl || '').trim(),
+        certTopLogoUrl: String((docType === 'certificate' ? normCourse : normPraise).topLogoUrl || '').trim(),
         certSavedTopLogos: savedTopLogos,
-        certFrameMarginsCm: frameMarginsCm,
-        certDesignConfig: normDesign,
-        certDesignTemplates: savedDesignTemplates,
-        certActiveDesignId: activeDesignTemplateId,
-        certShowStudentPhoto: showStudentPhoto,
-        certPrincipalTitle: principalTitle.trim() || 'The Principal of BSIS',
-        resultStampUrl: stampUrl.trim(),
-        resultSignatureUrl: signatureUrl.trim(),
-        resultSignatoryName: signatoryName.trim() || 'សំរិត វឌ្ឍនៈ',
+
+        // Praise Letter separate settings & templates
+        certFramePresetId: praiseFramePresetId,
+        certFrameUrl: praiseCustomFrameUrl.trim(),
+        certFrameMarginsCm: praiseMarginsCm,
+        certDesignConfig: normPraise,
+        certDesignTemplates: praiseDesignTemplates,
+        certActiveDesignId: praiseActiveDesignId,
+        certShowStudentPhoto: praiseShowStudentPhoto,
+        certPrincipalTitle: praisePrincipalTitle.trim() || 'The Principal of BSIS',
+        resultStampUrl: praiseStampUrl.trim(),
+        resultSignatureUrl: praiseSignatureUrl.trim(),
+        resultSignatoryName: praiseSignatoryName.trim() || 'សំរិត វឌ្ឍនៈ',
+
+        // Course Certificate separate settings, templates & footers
+        certCertificateFramePresetId: certFramePresetId,
+        certCertificateFrameUrl: certCustomFrameUrl.trim(),
+        certCertificateFrameMarginsCm: certMarginsCm,
+        certCertificateDesignConfig: normCourse,
+        certCertificateDesignTemplates: certDesignTemplates,
+        certCertificateActiveDesignId: certActiveDesignId,
+        certCertificateShowStudentPhoto: certShowStudentPhoto,
+        certCertificatePrincipalTitle: certPrincipalTitle.trim() || 'The principal of BSIS',
+        certCertificateStampUrl: certStampUrl.trim(),
+        certCertificateSignatureUrl: certSignatureUrl.trim(),
+        certCertificateSignatoryName: certSignatoryName.trim() || 'សំរិត វឌ្ឍនៈ',
+        certMinistryLogoUrl: String(normCourse.ministryLogoUrl || '').trim(),
+        certSavedMinistryLogos: savedMinistryLogos,
+        certProvinceKh: provinceKh.trim() || 'ខេត្តកណ្តាល',
+        certDeptKh: deptKh.trim() || 'មន្ទីរអប់រំ យុវជន និងកីឡា',
+        certCourseNameKh: courseNameKh.trim() || 'ភាសាអង់គ្លេស',
+        certCourseNameEn: courseNameEn.trim() || 'English Course',
+        certPlaceDateText: certPlaceDateText.trim() || formatCertPlaceDateDefault('Kandal'),
+        certStartNumber: Number.isFinite(certStartNumber) && certStartNumber >= 1 ? Math.floor(certStartNumber) : 1,
       });
       setSaveFeedback('បានរក្សាទុក!');
       setTimeout(() => setSaveFeedback(''), 3000);
@@ -864,6 +1401,11 @@ export default function CertificatePrintModal({
     examEnglish,
     conductedDate,
     issuedDate,
+    courseNameKh,
+    courseNameEn,
+    certPlaceDateText,
+    provinceKh,
+    deptKh,
     showStudentPhoto,
     stampUrl,
     signatureUrl,
@@ -925,7 +1467,10 @@ export default function CertificatePrintModal({
             >
               <button
                 type="button"
-                onClick={() => setDocType('praise')}
+                onClick={() => {
+                  setDocType('praise');
+                  setRankMode((prev) => (prev === 'passed' ? 'top3' : prev));
+                }}
                 style={{
                   padding: '0.3rem 0.65rem',
                   borderRadius: '6px',
@@ -942,7 +1487,10 @@ export default function CertificatePrintModal({
               </button>
               <button
                 type="button"
-                onClick={() => setDocType('certificate')}
+                onClick={() => {
+                  setDocType('certificate');
+                  setRankMode('passed');
+                }}
                 style={{
                   padding: '0.3rem 0.65rem',
                   borderRadius: '6px',
@@ -1115,24 +1663,100 @@ export default function CertificatePrintModal({
               )}
             </div>
 
-            {/* Month Picker */}
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => onMonthChange(e.target.value)}
-              style={{
-                padding: '0.36rem 0.55rem',
-                borderRadius: '8px',
-                background: '#1e293b',
-                border: '1px solid rgba(148, 163, 184, 0.35)',
-                color: '#f8fafc',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                outline: 'none',
-              }}
-            />
+            {/* Exam Session Picker: Final Exam ONLY for Certificate | Monthly ONLY for Praise */}
+            {docType === 'certificate' ? (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                <select
+                  value={selectedFinalExamId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setSelectedFinalExamId(nextId);
+                    const sess = finalExamSessions.find((s) => s.id === nextId);
+                    if (sess) {
+                      if (sess.courseNameKh) setCourseNameKh(sess.courseNameKh);
+                      if (sess.courseNameEn) setCourseNameEn(sess.courseNameEn);
+                      if (sess.examDate && /^\d{4}-\d{2}-\d{2}$/.test(sess.examDate)) {
+                        const [fy, fm, fd] = sess.examDate.split('-').map(Number);
+                        setCertPlaceDateText(
+                          formatCertPlaceDateDefault('Kandal', new Date(fy, (fm || 1) - 1, fd || 1))
+                        );
+                      }
+                      if (sess.classId) setSelectedClassIds([sess.classId]);
+                      onMonthChange(nextId);
+                    }
+                  }}
+                  style={{
+                    padding: '0.38rem 0.6rem',
+                    borderRadius: '8px',
+                    background: '#1e293b',
+                    border: '1px solid rgba(167, 139, 250, 0.5)',
+                    color: '#ede9fe',
+                    fontSize: '0.79rem',
+                    fontWeight: 700,
+                    outline: 'none',
+                    maxWidth: '270px',
+                    cursor: 'pointer',
+                  }}
+                  title="វិញ្ញាបនបត្រប្រើទិន្នន័យចេញពីការប្រឡងបញ្ចប់វគ្គប៉ុណ្ណោះ"
+                >
+                  {finalExamSessions.length === 0 ? (
+                    <option value="">មិនទាន់មានការប្រឡងបញ្ចប់វគ្គទេ</option>
+                  ) : (
+                    finalExamSessions.map((sess) => {
+                      const clsObj = classes.find((c) => c.id === sess.classId);
+                      const clsTag = clsObj ? `${clsObj.classCode || clsObj.className} • ` : '';
+                      return (
+                        <option key={sess.id} value={sess.id}>
+                          {clsTag}{sess.title}{sess.examDate ? ` (${sess.examDate})` : ''}
+                        </option>
+                      );
+                    })
+                  )}
+                </select>
+                {onCreateFinalExam && (
+                  <button
+                    type="button"
+                    onClick={onCreateFinalExam}
+                    style={{
+                      padding: '0.36rem 0.58rem',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(167, 139, 250, 0.45)',
+                      background: 'rgba(124, 58, 237, 0.22)',
+                      color: '#ddd6fe',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="បង្កើតការប្រឡងបញ្ចប់វគ្គថ្មី"
+                  >
+                    + បង្កើតថ្មី
+                  </button>
+                )}
+              </div>
+            ) : (
+              <input
+                type="month"
+                value={praiseMonth}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPraiseMonth(val);
+                  if (val) onMonthChange(val);
+                }}
+                style={{
+                  padding: '0.36rem 0.55rem',
+                  borderRadius: '8px',
+                  background: '#1e293b',
+                  border: '1px solid rgba(148, 163, 184, 0.35)',
+                  color: '#f8fafc',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+            )}
 
-            {/* Rank Range Selector: លេខ 1-3 | លេខ 1-5 | ជ្រើសផ្ទាល់ */}
+            {/* Rank / Passing Filter Selector */}
             <div
               style={{
                 display: 'inline-flex',
@@ -1143,11 +1767,17 @@ export default function CertificatePrintModal({
                 gap: '0.15rem',
               }}
             >
-              {[
-                { id: 'top3' as RankRangeMode, label: 'លេខ ១ - ៣' },
-                { id: 'top5' as RankRangeMode, label: 'លេខ ១ - ៥' },
-                { id: 'manual' as RankRangeMode, label: 'ជ្រើសផ្ទាល់' },
-              ].map((opt) => (
+              {(docType === 'certificate'
+                ? [
+                    { id: 'passed' as RankRangeMode, label: 'សិស្សជាប់ ១ ថ្នាក់' },
+                    { id: 'manual' as RankRangeMode, label: 'ជ្រើសផ្ទាល់' },
+                  ]
+                : [
+                    { id: 'top3' as RankRangeMode, label: 'លេខ ១ - ៣' },
+                    { id: 'top5' as RankRangeMode, label: 'លេខ ១ - ៥' },
+                    { id: 'manual' as RankRangeMode, label: 'ជ្រើសផ្ទាល់' },
+                  ]
+              ).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
@@ -1194,25 +1824,42 @@ export default function CertificatePrintModal({
               <span>សិស្ស ({selectedRecipients.length})</span>
             </button>
 
-            {/* Paper Layout Mode: 2x A5 inside A4 Portrait vs Single A5 */}
-            <select
-              value={paperMode}
-              onChange={(e) => setPaperMode(e.target.value as CertificatePrintPaperMode)}
-              style={{
-                padding: '0.39rem 0.55rem',
-                borderRadius: '8px',
-                background: '#1e293b',
-                border: '1px solid rgba(148, 163, 184, 0.35)',
-                color: '#f8fafc',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="a4_two_up">ខ្នាត A5 (២ ប័ណ្ណក្នុង ១ ទំព័រ A4 បញ្ឈរ)</option>
-              <option value="a5_single">ខ្នាត A5 ផ្តេក (១ ប័ណ្ណ/ទំព័រ)</option>
-            </select>
+            {/* Paper Layout Mode: Fixed A4 Landscape for Certificate | A5-2up / A5 for Praise */}
+            {docType === 'certificate' ? (
+              <div
+                style={{
+                  padding: '0.38rem 0.6rem',
+                  borderRadius: '8px',
+                  background: 'rgba(37, 99, 235, 0.18)',
+                  border: '1px solid rgba(96, 165, 250, 0.45)',
+                  color: '#bfdbfe',
+                  fontSize: '0.77rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ខ្នាត A4 ផ្ដេក (១ សន្លឹក/ទំព័រ)
+              </div>
+            ) : (
+              <select
+                value={paperMode}
+                onChange={(e) => setPaperMode(e.target.value as CertificatePrintPaperMode)}
+                style={{
+                  padding: '0.39rem 0.55rem',
+                  borderRadius: '8px',
+                  background: '#1e293b',
+                  border: '1px solid rgba(148, 163, 184, 0.35)',
+                  color: '#f8fafc',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="a4_two_up">ខ្នាត A5 (២ ប័ណ្ណក្នុង ១ ទំព័រ A4 បញ្ឈរ)</option>
+                <option value="a5_single">ខ្នាត A5 ផ្តេក (១ ប័ណ្ណ/ទំព័រ)</option>
+              </select>
+            )}
 
             {/* Split-by-level mode */}
             <select
@@ -1396,6 +2043,16 @@ export default function CertificatePrintModal({
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    setRankMode('manual');
+                    setManualPickedUids(allCandidateRecipients.filter((c) => c.isPassing !== false).map((c) => c.uid));
+                  }}
+                  style={{ padding: '0.2rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(56,189,248,0.4)', background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', fontSize: '0.73rem', cursor: 'pointer' }}
+                >
+                  Tick ជាប់ទាំងអស់
+                </button>
+                <button
+                  type="button"
                   onClick={() => setIsStudentPickerOpen(false)}
                   style={{ padding: '0.2rem 0.5rem', borderRadius: '6px', border: 'none', background: '#059669', color: '#ffffff', fontSize: '0.73rem', fontWeight: 700, cursor: 'pointer' }}
                 >
@@ -1408,7 +2065,9 @@ export default function CertificatePrintModal({
                 const isIncluded =
                   rankMode === 'manual'
                     ? manualPickedUids.includes(rec.uid)
-                    : rec.rank <= (rankMode === 'top3' ? 3 : 5) && !excludedUids.includes(rec.uid);
+                    : rankMode === 'passed'
+                      ? rec.isPassing !== false && !excludedUids.includes(rec.uid)
+                      : rec.rank <= (rankMode === 'top3' ? 3 : 5) && !excludedUids.includes(rec.uid);
                 return (
                   <label
                     key={rec.uid}
@@ -1757,7 +2416,7 @@ export default function CertificatePrintModal({
               </div>
             </div>
 
-            {/* Frame Link Input + Dates + Bilingual Exam Names + Signing */}
+            {/* Frame Link Input (Common) + Separated Content/Footer per docType */}
             <div
               style={{
                 display: 'grid',
@@ -1768,7 +2427,7 @@ export default function CertificatePrintModal({
               {/* Custom Frame URL Input + Add preset button */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#93c5fd', marginBottom: '0.2rem' }}>
-                  Link គំរូស៊ុមផ្សេងៗ (Google Drive / PNG URL)
+                  Link គំរូស៊ុម ({docType === 'certificate' ? 'វិញ្ញាបនបត្រ A4 ផ្ដេក' : 'ប័ណ្ណសរសើរ A5'})
                 </label>
                 <div style={{ display: 'flex', gap: '0.28rem' }}>
                   <input
@@ -1843,183 +2502,231 @@ export default function CertificatePrintModal({
                 </div>
               </div>
 
-              {/* Exam Names (Khmer & English) */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
-                    ការប្រឡង (ខ្មែរ)
-                  </label>
-                  <input
-                    type="text"
-                    value={examKhmer}
-                    onChange={(e) => setExamKhmer(e.target.value)}
-                    placeholder="ប្រចាំខែកុម្ភៈ"
-                    style={{
-                      width: '100%',
-                      padding: '0.35rem 0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.76rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
-                    Exam Name (English)
-                  </label>
-                  <input
-                    type="text"
-                    value={examEnglish}
-                    onChange={(e) => setExamEnglish(e.target.value)}
-                    placeholder="The Monthly Exam of February"
-                    style={{
-                      width: '100%',
-                      padding: '0.35rem 0.5rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.76rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Conducted Date + Issued/Signing Date */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
-                    ថ្ងៃប្រឡង (Conducted)
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.22rem' }}>
-                    <input
-                      type="text"
-                      value={conductedDate}
-                      onChange={(e) => setConductedDate(e.target.value)}
-                      placeholder="06/Mar/2025"
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        padding: '0.35rem 0.45rem',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(148, 163, 184, 0.3)',
-                        background: '#0f172a',
-                        color: '#f8fafc',
-                        fontSize: '0.76rem',
-                        outline: 'none',
-                      }}
-                    />
-                    <input
-                      type="date"
-                      title="ជ្រើសថ្ងៃប្រឡងពីប្រតិទិន"
-                      onChange={(e) => {
-                        const formatted = isoDateToConductedFormat(e.target.value);
-                        if (formatted) setConductedDate(formatted);
-                      }}
-                      style={{
-                        width: '28px',
-                        padding: '0.2rem',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(148, 163, 184, 0.3)',
-                        background: '#0f172a',
-                        color: '#f8fafc',
-                        cursor: 'pointer',
-                      }}
-                    />
+              {docType !== 'certificate' && (
+                <>
+                  {/* Praise Letter Exam Names (Khmer & English) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
+                        ការប្រឡង (ខ្មែរ)
+                      </label>
+                      <input
+                        type="text"
+                        value={examKhmer}
+                        onChange={(e) => setExamKhmer(e.target.value)}
+                        placeholder="ប្រចាំខែកុម្ភៈ"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.76rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
+                        Exam Name (English)
+                      </label>
+                      <input
+                        type="text"
+                        value={examEnglish}
+                        onChange={(e) => setExamEnglish(e.target.value)}
+                        placeholder="The Monthly Exam of February"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.5rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.76rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#fde68a', marginBottom: '0.2rem' }}>
-                    ថ្ងៃចុះហត្ថលេខា (Issued Date)
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.22rem' }}>
-                    <input
-                      type="text"
-                      value={issuedDate}
-                      onChange={(e) => setIssuedDate(e.target.value)}
-                      placeholder="25-November-2026"
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        padding: '0.35rem 0.45rem',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(148, 163, 184, 0.3)',
-                        background: '#0f172a',
-                        color: '#f8fafc',
-                        fontSize: '0.76rem',
-                        outline: 'none',
-                      }}
-                    />
-                    <input
-                      type="date"
-                      title="ជ្រើសថ្ងៃចុះហត្ថលេខាពីប្រតិទិន"
-                      onChange={(e) => {
-                        const formatted = isoDateToIssuedFormat(e.target.value);
-                        if (formatted) setIssuedDate(formatted);
-                      }}
-                      style={{
-                        width: '28px',
-                        padding: '0.2rem',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(148, 163, 184, 0.3)',
-                        background: '#0f172a',
-                        color: '#f8fafc',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* Stamp Link + Signature Link + Signatory Name */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#fda4af', marginBottom: '0.2rem' }}>
-                    Link ត្រា (Stamp URL)
-                  </label>
-                  <input
-                    type="text"
-                    value={stampUrl}
-                    onChange={(e) => setStampUrl(e.target.value)}
-                    placeholder="ទុកទំនេរ = ត្រា BSIS ក្រហម"
-                    style={{
-                      width: '100%',
-                      padding: '0.35rem 0.45rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.75rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
-                    ឈ្មោះចុះហត្ថលេខា
-                  </label>
-                  <input
-                    type="text"
-                    value={signatoryName}
-                    onChange={(e) => setSignatoryName(e.target.value)}
-                    placeholder="សំរិត វឌ្ឍនៈ"
-                    style={{
-                      width: '100%',
-                      padding: '0.35rem 0.45rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.3)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.75rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-              </div>
+                  {/* Praise Letter Dates (Conducted + Issued Date) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
+                        ថ្ងៃប្រឡង (Conducted)
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.22rem' }}>
+                        <input
+                          type="text"
+                          value={conductedDate}
+                          onChange={(e) => setConductedDate(e.target.value)}
+                          placeholder="06/Mar/2025"
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding: '0.35rem 0.45rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
+                            background: '#0f172a',
+                            color: '#f8fafc',
+                            fontSize: '0.76rem',
+                            outline: 'none',
+                          }}
+                        />
+                        <input
+                          type="date"
+                          title="ជ្រើសថ្ងៃប្រឡងពីប្រតិទិន"
+                          onChange={(e) => {
+                            const formatted = isoDateToConductedFormat(e.target.value);
+                            if (formatted) setConductedDate(formatted);
+                          }}
+                          style={{
+                            width: '28px',
+                            padding: '0.2rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
+                            background: '#0f172a',
+                            color: '#f8fafc',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#fde68a', marginBottom: '0.2rem' }}>
+                        ថ្ងៃចុះហត្ថលេខា (Issued Date - ប័ណ្ណសរសើរ)
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.22rem' }}>
+                        <input
+                          type="text"
+                          value={issuedDate}
+                          onChange={(e) => setIssuedDate(e.target.value)}
+                          placeholder="25-November-2026"
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding: '0.35rem 0.45rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
+                            background: '#0f172a',
+                            color: '#f8fafc',
+                            fontSize: '0.76rem',
+                            outline: 'none',
+                          }}
+                        />
+                        <input
+                          type="date"
+                          title="ជ្រើសថ្ងៃចុះហត្ថលេខាពីប្រតិទិន"
+                          onChange={(e) => {
+                            const formatted = isoDateToIssuedFormat(e.target.value);
+                            if (formatted) setIssuedDate(formatted);
+                          }}
+                          style={{
+                            width: '28px',
+                            padding: '0.2rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148, 163, 184, 0.3)',
+                            background: '#0f172a',
+                            color: '#f8fafc',
+                            cursor: 'pointer',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Praise Letter Separate Footer: Title, Signatory Name, Stamp URL, Signature URL */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
+                        តួនាទីជើងប័ណ្ណសរសើរ (Principal Title)
+                      </label>
+                      <input
+                        type="text"
+                        value={praisePrincipalTitle}
+                        onChange={(e) => setPraisePrincipalTitle(e.target.value)}
+                        placeholder="The Principal of BSIS"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.45rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.75rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.2rem' }}>
+                        ឈ្មោះចុះហត្ថលេខា (ប័ណ្ណសរសើរ)
+                      </label>
+                      <input
+                        type="text"
+                        value={praiseSignatoryName}
+                        onChange={(e) => setPraiseSignatoryName(e.target.value)}
+                        placeholder="សំរិត វឌ្ឍនៈ"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.45rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.75rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#fda4af', marginBottom: '0.2rem' }}>
+                        Link ត្រា (ប័ណ្ណសរសើរ)
+                      </label>
+                      <input
+                        type="text"
+                        value={praiseStampUrl}
+                        onChange={(e) => setPraiseStampUrl(e.target.value)}
+                        placeholder="ទុកទំនេរ = ត្រា BSIS ក្រហម"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.45rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.75rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.2rem' }}>
+                        Link ហត្ថលេខា (ប័ណ្ណសរសើរ)
+                      </label>
+                      <input
+                        type="text"
+                        value={praiseSignatureUrl}
+                        onChange={(e) => setPraiseSignatureUrl(e.target.value)}
+                        placeholder="ទុកទំនេរ = ហត្ថលេខាប៊ិកខៀវ"
+                        style={{
+                          width: '100%',
+                          padding: '0.35rem 0.45rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.75rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Vertical Top School Logo URL + Upload & Saved Presets */}
@@ -2141,7 +2848,7 @@ export default function CertificatePrintModal({
                   ref={topLogoUploadInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleUploadTopLogoFile}
+                  onChange={(e) => handleUploadLogoAsset('top', e)}
                   style={{ display: 'none' }}
                 />
                 <button
@@ -2217,7 +2924,7 @@ export default function CertificatePrintModal({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRemoveSavedTopLogo(logoItem.id)}
+                          onClick={() => handleRemoveSavedLogo('top', logoItem.id)}
                           style={{
                             border: 'none',
                             background: 'rgba(248, 113, 113, 0.15)',
@@ -2237,7 +2944,348 @@ export default function CertificatePrintModal({
               )}
             </div>
 
-            {/* Bottom toggles: Show/Hide Student Photo, Cut Guide, Signature Link & Save */}
+            {/* Course Completion Certificate Settings & MoEYS Logo Block */}
+            {docType === 'certificate' && (
+              <div
+                style={{
+                  background: '#0f172a',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  borderRadius: '8px',
+                  padding: '0.5rem 0.65rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#7dd3fc' }}>
+                    ការកំណត់វិញ្ញាបនបត្របញ្ចប់វគ្គសិក្សា &amp; ឡូហ្គោក្រសួងអប់រំ (MoEYS)
+                  </span>
+                </div>
+
+                {/* Ministry Logo Link + Upload + Save Preset */}
+                <div style={{ display: 'flex', gap: '0.32rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={courseDesignConfig.ministryLogoUrl || ''}
+                    onChange={(e) =>
+                      setCourseDesignConfig((prev) =>
+                        normalizeCertificateDesign(
+                          { ...prev, ministryLogoUrl: e.target.value },
+                          DEFAULT_COURSE_CERTIFICATE_DESIGN
+                        )
+                      )
+                    }
+                    placeholder="បិទភ្ជាប់ Link ឡូហ្គោក្រសួងអប់រំ (Google Drive / URL) ឬ Upload..."
+                    style={{
+                      flex: 1,
+                      minWidth: '180px',
+                      padding: '0.34rem 0.5rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.75rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {courseDesignConfig.ministryLogoUrl && (
+                    <>
+                      <input
+                        type="text"
+                        value={newMinistryLogoLabel}
+                        onChange={(e) => setNewMinistryLogoLabel(e.target.value)}
+                        placeholder="ឈ្មោះ Logo"
+                        style={{
+                          width: '82px',
+                          padding: '0.34rem 0.42rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#1e293b',
+                          color: '#f8fafc',
+                          fontSize: '0.73rem',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddMinistryLogoLink}
+                        style={{
+                          padding: '0.32rem 0.55rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(52, 211, 153, 0.45)',
+                          background: 'rgba(16, 185, 129, 0.16)',
+                          color: '#6ee7b7',
+                          fontSize: '0.73rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        + រក្សាទុក Logo ក្រសួង
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCourseDesignConfig((prev) =>
+                            normalizeCertificateDesign(
+                              { ...prev, ministryLogoUrl: '' },
+                              DEFAULT_COURSE_CERTIFICATE_DESIGN
+                            )
+                          )
+                        }
+                        title="ប្រើឡូហ្គោក្រសួងដើមវិញ"
+                        style={{
+                          padding: '0.32rem 0.45rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(248, 113, 113, 0.35)',
+                          background: 'rgba(248, 113, 113, 0.12)',
+                          color: '#fca5a5',
+                          fontSize: '0.72rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
+                  <input
+                    ref={ministryLogoUploadInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleUploadLogoAsset('ministry', e)}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    disabled={isUploadingMinistryLogo}
+                    onClick={() => ministryLogoUploadInputRef.current?.click()}
+                    style={{
+                      padding: '0.32rem 0.62rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(56, 189, 248, 0.45)',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#bae6fd',
+                      fontSize: '0.73rem',
+                      fontWeight: 700,
+                      cursor: isUploadingMinistryLogo ? 'wait' : 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {isUploadingMinistryLogo ? 'កំពុង Upload...' : 'Upload Logo ក្រសួងអប់រំ'}
+                  </button>
+                </div>
+
+                {savedMinistryLogos.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.71rem', color: '#94a3b8' }}>Logo ក្រសួងដែលបាន Save៖</span>
+                    {savedMinistryLogos.map((logoItem) => {
+                      const isAct = String(courseDesignConfig.ministryLogoUrl || '').trim() === logoItem.url;
+                      const thumb = resolveSheetAssetSrc(logoItem.url);
+                      return (
+                        <div
+                          key={logoItem.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.28rem',
+                            borderRadius: '6px',
+                            border: isAct ? '1.5px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.28)',
+                            background: isAct ? 'rgba(56, 189, 248, 0.18)' : '#1e293b',
+                            padding: '0.14rem 0.25rem',
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCourseDesignConfig((prev) =>
+                                normalizeCertificateDesign(
+                                  { ...prev, ministryLogoUrl: logoItem.url },
+                                  DEFAULT_COURSE_CERTIFICATE_DESIGN
+                                )
+                              )
+                            }
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: isAct ? '#bae6fd' : '#e2e8f0',
+                              fontSize: '0.72rem',
+                              fontWeight: isAct ? 700 : 500,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.26rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {thumb && (
+                              <img
+                                src={thumb}
+                                alt={logoItem.label}
+                                style={{ width: '18px', height: '18px', objectFit: 'contain', background: '#fff', borderRadius: '2px' }}
+                              />
+                            )}
+                            <span>{logoItem.label}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSavedLogo('ministry', logoItem.id)}
+                            style={{
+                              border: 'none',
+                              background: 'rgba(248, 113, 113, 0.15)',
+                              color: '#fca5a5',
+                              borderRadius: '4px',
+                              padding: '0.06rem 0.28rem',
+                              fontSize: '0.68rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Course, Province, Dept, Start No & Separated Certificate Footer inputs */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.4rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      ខេត្ត / ក្រុង
+                    </label>
+                    <input
+                      type="text"
+                      value={provinceKh}
+                      onChange={(e) => setProvinceKh(e.target.value)}
+                      placeholder="ខេត្តកណ្តាល"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      មន្ទីរអប់រំ
+                    </label>
+                    <input
+                      type="text"
+                      value={deptKh}
+                      onChange={(e) => setDeptKh(e.target.value)}
+                      placeholder="មន្ទីរអប់រំ យុវជន និងកីឡា"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      វគ្គសិក្សា (ខ្មែរ)
+                    </label>
+                    <input
+                      type="text"
+                      value={courseNameKh}
+                      onChange={(e) => setCourseNameKh(e.target.value)}
+                      placeholder="ភាសាអង់គ្លេស"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      Course Name (English)
+                    </label>
+                    <input
+                      type="text"
+                      value={courseNameEn}
+                      onChange={(e) => setCourseNameEn(e.target.value)}
+                      placeholder="English Course"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      លេខរៀងចាប់ផ្តើម (No.)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={certStartNumber}
+                      onChange={(e) => setCertStartNumber(Math.max(1, parseInt(e.target.value || '1', 10) || 1))}
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Separated Footer & Signature controls specifically for Course Certificate */}
+                <div
+                  style={{
+                    borderTop: '1px dashed rgba(56, 189, 248, 0.25)',
+                    paddingTop: '0.45rem',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#fde68a', marginBottom: '0.16rem' }}>
+                      ទីកន្លែង &amp; ថ្ងៃចេញ (ជើងវិញ្ញាបនបត្រ)
+                    </label>
+                    <input
+                      type="text"
+                      value={certPlaceDateText}
+                      onChange={(e) => setCertPlaceDateText(e.target.value)}
+                      placeholder="Kandal, April 01st 2026"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#cbd5e1', marginBottom: '0.16rem' }}>
+                      តួនាទីជើងវិញ្ញាបនបត្រ (Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={certPrincipalTitle}
+                      onChange={(e) => setCertPrincipalTitle(e.target.value)}
+                      placeholder="The principal of BSIS"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#cbd5e1', marginBottom: '0.16rem' }}>
+                      ឈ្មោះចុះហត្ថលេខា (វិញ្ញាបនបត្រ)
+                    </label>
+                    <input
+                      type="text"
+                      value={certSignatoryName}
+                      onChange={(e) => setCertSignatoryName(e.target.value)}
+                      placeholder="សំរិត វឌ្ឍនៈ"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#fda4af', marginBottom: '0.16rem' }}>
+                      Link ត្រា (វិញ្ញាបនបត្រ)
+                    </label>
+                    <input
+                      type="text"
+                      value={certStampUrl}
+                      onChange={(e) => setCertStampUrl(e.target.value)}
+                      placeholder="ទុកទំនេរ = ត្រា BSIS"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                      Link ហត្ថលេខា (វិញ្ញាបនបត្រ)
+                    </label>
+                    <input
+                      type="text"
+                      value={certSignatureUrl}
+                      onChange={(e) => setCertSignatureUrl(e.target.value)}
+                      placeholder="ទុកទំនេរ = ហត្ថលេខាប៊ិកខៀវ"
+                      style={{ width: '100%', padding: '0.28rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(148,163,184,0.3)', background: '#1e293b', color: '#f8fafc', fontSize: '0.73rem', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom toggles: Show/Hide Student Photo, Cut Guide (A5-2up only) & Save */}
             <div
               style={{
                 display: 'flex',
@@ -2273,7 +3321,7 @@ export default function CertificatePrintModal({
                   <span>បង្ហាញរូបថតសិស្ស ({showStudentPhoto ? 'បើក' : 'លាក់'})</span>
                 </label>
 
-                {paperMode === 'a4_two_up' && (
+                {effectivePaperMode === 'a4_two_up' && (
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.32rem', fontSize: '0.76rem', color: '#cbd5e1', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
@@ -2283,26 +3331,6 @@ export default function CertificatePrintModal({
                     <span>បន្ទាត់កាត់កណ្តាល (A5)</span>
                   </label>
                 )}
-
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Link ហត្ថលេខា៖</span>
-                  <input
-                    type="text"
-                    value={signatureUrl}
-                    onChange={(e) => setSignatureUrl(e.target.value)}
-                    placeholder="ទុកទំនេរ = ហត្ថលេខាប៊ិកខៀវ"
-                    style={{
-                      width: '155px',
-                      padding: '0.25rem 0.45rem',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(148, 163, 184, 0.28)',
-                      background: '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.74rem',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
               </div>
 
               {onSaveSettings && (
@@ -2397,10 +3425,13 @@ export default function CertificatePrintModal({
                 fullName: 'ឡៃ ស្រីណាត',
                 englishName: 'Lai Sreynat',
                 gender: 'ស្រី',
+                dob: '2011-07-03',
+                certNumber: String(certStartNumber || 180),
                 level: 'L1',
                 bookName: 'Family & Friend 2',
                 rank: 1,
                 grade: 'A',
+                isPassing: true,
                 averageDisplay: '48.50',
                 photo: '',
               }
@@ -2417,6 +3448,11 @@ export default function CertificatePrintModal({
             examEnglish={examEnglish}
             conductedDate={conductedDate}
             issuedDate={issuedDate}
+            courseNameKh={courseNameKh}
+            courseNameEn={courseNameEn}
+            certPlaceDateText={certPlaceDateText}
+            provinceKh={provinceKh}
+            deptKh={deptKh}
             stampUrl={stampUrl}
             signatureUrl={signatureUrl}
             signatoryName={signatoryName}
@@ -2454,15 +3490,39 @@ export default function CertificatePrintModal({
               border: '1px solid rgba(148, 163, 184, 0.2)',
               color: '#cbd5e1',
               textAlign: 'center',
-              maxWidth: '460px',
+              maxWidth: '500px',
             }}
           >
             <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.45rem' }}>
-              មិនមានទិន្នន័យសិស្សជាប់ចំណាត់ថ្នាក់សម្រាប់ចេញប័ណ្ណ
+              {docType === 'certificate' && !selectedFinalExamId
+                ? 'មិនទាន់មានការប្រឡងបញ្ចប់វគ្គសម្រាប់ចេញវិញ្ញាបនបត្រ'
+                : isLoadingModalScores
+                  ? 'កំពុងទាញយកទិន្នន័យពិន្ទុ...'
+                  : 'មិនមានទិន្នន័យសិស្សជាប់ចំណាត់ថ្នាក់សម្រាប់ចេញប័ណ្ណ'}
             </div>
-            <div style={{ fontSize: '0.84rem', color: '#94a3b8' }}>
-              សូមជ្រើសរើសថ្នាក់រៀនដែលមានពិន្ទុ និងចំណាត់ថ្នាក់រួចរាល់ ឬចុច &quot;សិស្ស&quot; ដើម្បីជ្រើសរើសសិស្ស។
+            <div style={{ fontSize: '0.84rem', color: '#94a3b8', marginBottom: docType === 'certificate' && onCreateFinalExam && !selectedFinalExamId ? '1rem' : 0 }}>
+              {docType === 'certificate'
+                ? 'វិញ្ញាបនបត្រប្រើទិន្នន័យចេញពីការប្រឡងបញ្ចប់វគ្គប៉ុណ្ណោះ (មិនយកពិន្ទុប្រចាំខែទេ)។ សូមជ្រើសរើស ឬបង្កើតការប្រឡងបញ្ចប់វគ្គ។'
+                : 'សូមជ្រើសរើសថ្នាក់រៀនដែលមានពិន្ទុ និងចំណាត់ថ្នាក់រួចរាល់ ឬចុច "សិស្ស" ដើម្បីជ្រើសរើសសិស្ស។'}
             </div>
+            {docType === 'certificate' && onCreateFinalExam && !selectedFinalExamId && (
+              <button
+                type="button"
+                onClick={onCreateFinalExam}
+                style={{
+                  padding: '0.52rem 1rem',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                  color: '#ffffff',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                + បង្កើតការប្រឡងបញ្ចប់វគ្គសិក្សា
+              </button>
+            )}
           </div>
         ) : (
           renderedPrintPages.map((pg, idx) => (
@@ -2500,7 +3560,12 @@ export default function CertificatePrintModal({
                     height: sheetSpec.sheetH,
                   }}
                 >
-                  {paperMode === 'a4_two_up' ? (
+                  {effectivePaperMode === 'a4_landscape' ? (
+                    <CertificateSingleA4LandscapePage
+                      recipient={pg.topRecipient}
+                      sharedCardProps={sharedCardProps}
+                    />
+                  ) : effectivePaperMode === 'a4_two_up' ? (
                     <CertificatePairA4Page
                       topRecipient={pg.topRecipient}
                       bottomRecipient={pg.bottomRecipient}

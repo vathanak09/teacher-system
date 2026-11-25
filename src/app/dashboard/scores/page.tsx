@@ -26,6 +26,19 @@ type ClassCoeffConfig = {
 
 const UNASSIGNED_LEVEL_LABEL = 'មិនទាន់កំណត់វគ្គ';
 
+interface FinalExamSession {
+  id: string;
+  title: string;
+  classId?: string;
+  courseNameKh?: string;
+  courseNameEn?: string;
+  levelName?: string;
+  examDate?: string;
+  createdByUid?: string;
+  createdByName?: string;
+  createdAt?: string;
+}
+
 function getClassMonthCoeffConfig(
   classId: string | null | undefined,
   monthCoeffs: Record<string, any>,
@@ -168,22 +181,48 @@ export default function ScoresPage() {
     return { key: 'fullName', direction: 'asc' };
   });
   
-  const [selectedMonth, setSelectedMonth] = useState(() => {
+  const [monthlyMonthDraft, setMonthlyMonthDraft] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selectedScoreMonth');
-      if (saved) return saved;
+      if (saved && /^\d{4}-\d{2}$/.test(saved)) return saved;
     }
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
     return d.toISOString().slice(0, 7);
   });
 
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('selectedScoreMonth');
+      if (saved && /^\d{4}-\d{2}$/.test(saved)) return saved;
+    }
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 7);
+  });
+
+  const [examMode, setExamMode] = useState<'monthly' | 'final'>('monthly');
+  const [finalExamSessions, setFinalExamSessions] = useState<FinalExamSession[]>([]);
+  const [selectedFinalExamId, setSelectedFinalExamId] = useState<string>('');
+  const [isCreateFinalExamOpen, setIsCreateFinalExamOpen] = useState<boolean>(false);
+  const [newFinalTitle, setNewFinalTitle] = useState<string>('');
+  const [newFinalClassId, setNewFinalClassId] = useState<string>('');
+  const [newFinalCourseKh, setNewFinalCourseKh] = useState<string>('ភាសាអង់គ្លេស');
+  const [newFinalCourseEn, setNewFinalCourseEn] = useState<string>('English Course');
+  const [newFinalLevel, setNewFinalLevel] = useState<string>('');
+  const [newFinalDate, setNewFinalDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [newFinalAutoImport, setNewFinalAutoImport] = useState<boolean>(true);
+  const [isCreatingFinalExam, setIsCreatingFinalExam] = useState<boolean>(false);
+
   useEffect(() => {
     if (scoreSortConfig) localStorage.setItem('scoreSortConfig', JSON.stringify(scoreSortConfig));
   }, [scoreSortConfig]);
 
   useEffect(() => {
-    if (selectedMonth) localStorage.setItem('selectedScoreMonth', selectedMonth);
+    if (selectedMonth && !selectedMonth.startsWith('FINAL_')) {
+      setMonthlyMonthDraft(selectedMonth);
+      localStorage.setItem('selectedScoreMonth', selectedMonth);
+    }
   }, [selectedMonth]);
   
   // Settings
@@ -801,12 +840,31 @@ export default function ScoresPage() {
     const unsubStudents = studentService.subscribeAll((data: any[]) => {
       setAllStudents(data);
     });
+    const unsubFinalCatalog = scoreCoefficientService.subscribeOne('__finalExamCatalog', (doc: any) => {
+      const rawSessions = doc?.sessions && typeof doc.sessions === 'object' ? doc.sessions : {};
+      const parsed: FinalExamSession[] = Object.entries(rawSessions)
+        .map(([k, v]: [string, any]) => ({
+          id: String(v?.id || k),
+          title: String(v?.title || 'ការប្រឡងបញ្ចប់វគ្គសិក្សា'),
+          classId: v?.classId ? String(v.classId) : '',
+          courseNameKh: v?.courseNameKh ? String(v.courseNameKh) : '',
+          courseNameEn: v?.courseNameEn ? String(v.courseNameEn) : '',
+          levelName: v?.levelName ? String(v.levelName) : '',
+          examDate: v?.examDate ? String(v.examDate) : '',
+          createdByUid: v?.createdByUid ? String(v.createdByUid) : '',
+          createdByName: v?.createdByName ? String(v.createdByName) : '',
+          createdAt: v?.createdAt ? String(v.createdAt) : '',
+        }))
+        .sort((a, b) => String(b.createdAt || b.id).localeCompare(String(a.createdAt || a.id)));
+      setFinalExamSessions(parsed);
+    });
 
     return () => {
       unsubSettings();
       unsubClasses();
       unsubStudents();
       unsubTeachers();
+      unsubFinalCatalog();
     };
   }, []);
 
@@ -848,6 +906,262 @@ export default function ScoresPage() {
   const displayClasses = role === 'admin' 
     ? classes 
     : classes.filter(c => c.teacherId === teacherProfileId || c.teacherId === userId || c.teacherName === userName);
+
+  const visibleFinalExamSessions = useMemo(() => {
+    if (role === 'admin') return finalExamSessions;
+    const myClassIds = new Set(displayClasses.map((c) => c.id));
+    return finalExamSessions.filter(
+      (s) =>
+        !s.classId ||
+        myClassIds.has(s.classId) ||
+        (userId && s.createdByUid === userId) ||
+        (teacherProfileId && s.createdByUid === teacherProfileId)
+    );
+  }, [finalExamSessions, role, displayClasses, userId, teacherProfileId]);
+
+  const activeFinalExam = useMemo(() => {
+    const targetId = selectedMonth.startsWith('FINAL_') ? selectedMonth : selectedFinalExamId;
+    return finalExamSessions.find((s) => s.id === targetId) || null;
+  }, [finalExamSessions, selectedMonth, selectedFinalExamId]);
+
+  const openCreateFinalExamModal = () => {
+    const defaultCls = selectedClassId
+      ? classes.find((c) => c.id === selectedClassId)
+      : displayClasses[0];
+    const firstBookLevel =
+      defaultCls && Array.isArray(defaultCls.books) && defaultCls.books[0]?.level
+        ? String(defaultCls.books[0].level)
+        : '';
+    setNewFinalClassId(defaultCls?.id || '');
+    setNewFinalLevel(firstBookLevel);
+    setNewFinalCourseKh('ភាសាអង់គ្លេស');
+    setNewFinalCourseEn('English Course');
+    setNewFinalTitle(
+      defaultCls
+        ? `ប្រឡងបញ្ចប់វគ្គ (${defaultCls.classCode || defaultCls.className})`
+        : 'ការប្រឡងបញ្ចប់វគ្គសិក្សា'
+    );
+    setNewFinalDate(new Date().toISOString().slice(0, 10));
+    setNewFinalAutoImport(true);
+    setIsCreateFinalExamOpen(true);
+  };
+
+  const handleCreateFinalExamSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTitle = newFinalTitle.trim();
+    if (!cleanTitle) return;
+    setIsCreatingFinalExam(true);
+    try {
+      const sessionId = `FINAL_${Date.now()}`;
+      const newSession: FinalExamSession = {
+        id: sessionId,
+        title: cleanTitle,
+        classId: newFinalClassId || '',
+        courseNameKh: newFinalCourseKh.trim() || 'ភាសាអង់គ្លេស',
+        courseNameEn: newFinalCourseEn.trim() || 'English Course',
+        levelName: newFinalLevel.trim(),
+        examDate: newFinalDate || new Date().toISOString().slice(0, 10),
+        createdByUid: teacherProfileId || userId || '',
+        createdByName: userName || role || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      await scoreCoefficientService.update('__finalExamCatalog', {
+        [`sessions/${sessionId}`]: newSession,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setExamMode('final');
+      setSelectedFinalExamId(sessionId);
+      setSelectedMonth(sessionId);
+
+      if (newFinalClassId) {
+        const targetCls = classes.find((c) => c.id === newFinalClassId);
+        if (targetCls && newFinalAutoImport) {
+          const classStudentIds =
+            targetCls.studentIds ||
+            (targetCls.studentsData ? targetCls.studentsData.map((s: any) => s.id) : []);
+          const classStudents = allStudents.filter(
+            (s: any) => classStudentIds.includes(s.id) && s.status !== 'ឈប់រៀន'
+          );
+          await Promise.all(
+            classStudents.map((student: any) =>
+              scoreService.add({
+                classId: targetCls.id,
+                studentId: student.id,
+                month: sessionId,
+                studentIdCode: student.studentId || '',
+                fullName: student.fullName || '',
+                gender: student.gender || '',
+                level: newFinalLevel.trim() || student.level || '',
+                quiz: '',
+                exercise: '',
+                speaking: '',
+                homework: '',
+                test: '',
+                totalScore: '',
+                average: '',
+                rank: '',
+                grade: '',
+                remarks: '',
+              })
+            )
+          );
+        }
+        setSelectedClassId(newFinalClassId);
+      }
+
+      setIsCreateFinalExamOpen(false);
+    } catch (err: any) {
+      console.error('Failed creating final exam session:', err);
+      alert('មានបញ្ហាក្នុងការបង្កើតការប្រឡងបញ្ចប់វគ្គ៖ ' + (err?.message || ''));
+    } finally {
+      setIsCreatingFinalExam(false);
+    }
+  };
+
+  const handleSwitchExamMode = (nextMode: 'monthly' | 'final') => {
+    setExamMode(nextMode);
+    if (nextMode === 'monthly') {
+      setSelectedMonth(monthlyMonthDraft);
+      return;
+    }
+    const targetSession =
+      visibleFinalExamSessions.find((s) => s.id === selectedFinalExamId) ||
+      visibleFinalExamSessions.find((s) => selectedClassId && s.classId === selectedClassId) ||
+      visibleFinalExamSessions[0];
+    if (targetSession) {
+      setSelectedFinalExamId(targetSession.id);
+      setSelectedMonth(targetSession.id);
+    } else {
+      openCreateFinalExamModal();
+    }
+  };
+
+  const examSessionSelectorBar = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'inline-flex',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          padding: '0.16rem',
+          gap: '0.16rem',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => handleSwitchExamMode('monthly')}
+          style={{
+            padding: '0.34rem 0.65rem',
+            borderRadius: '6px',
+            border: 'none',
+            background: examMode === 'monthly' ? 'var(--primary-color, #2563eb)' : 'transparent',
+            color: examMode === 'monthly' ? '#ffffff' : 'var(--text-secondary)',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ប្រឡងប្រចាំខែ
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSwitchExamMode('final')}
+          style={{
+            padding: '0.34rem 0.65rem',
+            borderRadius: '6px',
+            border: 'none',
+            background: examMode === 'final' ? '#7c3aed' : 'transparent',
+            color: examMode === 'final' ? '#ffffff' : 'var(--text-secondary)',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          ប្រឡងបញ្ចប់វគ្គ
+        </button>
+      </div>
+
+      {examMode === 'monthly' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', background: 'var(--card-bg)', padding: '0.45rem 0.55rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <span style={{ fontWeight: 500 }}>ខែ/ឆ្នាំ៖</span>
+          <input
+            type="month"
+            value={selectedMonth.startsWith('FINAL_') ? monthlyMonthDraft : selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '0.96rem' }}
+          />
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <select
+            value={selectedMonth.startsWith('FINAL_') ? selectedMonth : selectedFinalExamId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedFinalExamId(id);
+              setSelectedMonth(id);
+              const found = finalExamSessions.find((s) => s.id === id);
+              if (found?.classId && !selectedClassId) {
+                setSelectedClassId(found.classId);
+              }
+            }}
+            style={{
+              padding: '0.46rem 0.65rem',
+              borderRadius: '8px',
+              border: '1px solid rgba(124, 58, 237, 0.45)',
+              background: 'var(--card-bg)',
+              color: 'var(--text-primary)',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              outline: 'none',
+              maxWidth: '280px',
+            }}
+          >
+            {visibleFinalExamSessions.length === 0 ? (
+              <option value="">មិនទាន់មានវគ្គប្រឡងបញ្ចប់ទេ</option>
+            ) : (
+              visibleFinalExamSessions.map((sess) => {
+                const clsObj = classes.find((c) => c.id === sess.classId);
+                const clsTag = clsObj ? `${clsObj.classCode || clsObj.className} • ` : '';
+                return (
+                  <option key={sess.id} value={sess.id}>
+                    {clsTag}{sess.title}{sess.examDate ? ` (${sess.examDate})` : ''}
+                  </option>
+                );
+              })
+            )}
+          </select>
+          <button
+            type="button"
+            onClick={openCreateFinalExamModal}
+            style={{
+              padding: '0.46rem 0.78rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              color: '#ffffff',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.32rem',
+              boxShadow: '0 2px 8px rgba(124, 58, 237, 0.28)',
+              whiteSpace: 'nowrap',
+            }}
+            title="បង្កើតការបញ្ចូលពិន្ទុដោយឡែកសម្រាប់ប្រឡងបញ្ចប់វគ្គសិក្សា"
+          >
+            <AppIcon name="plus" size={15} strokeWidth={2.4} />
+            <span>បង្កើតប្រឡងបញ្ចប់វគ្គ</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
     const calculateAutoGrade = (average: number) => {
     const avgPercentage = (average / 50) * 100;
@@ -1086,6 +1400,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   const selectedClass = classes.find(c => c.id === selectedClassId);
 
   useEffect(() => {
+    if (!selectedMonth || selectedMonth.startsWith('FINAL_')) return;
     if (selectedClassId && scores.length > 0 && selectedClass) {
       const timer = setTimeout(async () => {
         const totalStudents = scores.length;
@@ -1229,9 +1544,29 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       monthCoeffMap={monthCoeffMap}
       scoreSettings={settings}
       selectedMonth={selectedMonth}
-      onMonthChange={setSelectedMonth}
+      monthlyMonth={monthlyMonthDraft}
+      finalExamSessions={visibleFinalExamSessions}
+      onMonthChange={(m) => {
+        setSelectedMonth(m);
+        if (m.startsWith('FINAL_')) {
+          setExamMode('final');
+          setSelectedFinalExamId(m);
+        } else {
+          setExamMode('monthly');
+          setMonthlyMonthDraft(m);
+        }
+      }}
+      onCreateFinalExam={() => {
+        setIsCertificateModalOpen(false);
+        openCreateFinalExamModal();
+      }}
       monthExtraData={monthExtraData}
       initialClassId={selectedClassId}
+      initialDocType={examMode === 'final' || selectedMonth.startsWith('FINAL_') ? 'certificate' : undefined}
+      finalExamTitle={activeFinalExam?.title}
+      finalExamCourseKh={activeFinalExam?.courseNameKh}
+      finalExamCourseEn={activeFinalExam?.courseNameEn}
+      finalExamDate={activeFinalExam?.examDate}
       onSaveSettings={handleSaveScorePrintSettings}
     />
   ) : null;
@@ -1642,16 +1977,8 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
               )}
             </div>
 
-            {/* Month Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <span style={{ fontWeight: 500 }}>ខែ/ឆ្នាំ៖</span>
-              <input 
-                type="month" 
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
-              />
-            </div>
+            {/* Exam Mode & Month / Final Exam Session Selector */}
+            {examSessionSelectorBar}
 
             {monthlyResultButton}
             {certificateButton}
@@ -1944,15 +2271,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         </div>
         
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--card-bg)', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-            <span style={{ fontWeight: 500 }}>ខែ/ឆ្នាំ៖</span>
-            <input 
-              type="month" 
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontWeight: 'bold', fontSize: '1rem' }}
-            />
-          </div>
+          {examSessionSelectorBar}
           {monthlyResultButton}
           {certificateButton}
           {guideButton}
@@ -2682,6 +3001,185 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         initialSelectedScoreIds={assignInitialScoreIds}
         onAssignLevel={handleAssignStudentsToLevel}
       />
+      {isCreateFinalExamOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '1rem',
+            }}
+          >
+            <form
+              onSubmit={handleCreateFinalExamSubmit}
+              style={{
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '16px',
+                padding: '1.35rem',
+                width: '100%',
+                maxWidth: '470px',
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.9rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                  <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'rgba(124, 58, 237, 0.14)', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AppIcon name="award" size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                      បង្កើតការប្រឡងបញ្ចប់វគ្គសិក្សា
+                    </h3>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                      បញ្ចូលពិន្ទុដោយឡែកសម្រាប់ចេញវិញ្ញាបនបត្រ ១ ថ្នាក់
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateFinalExamOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.25rem' }}
+                >
+                  <AppIcon name="x" size={18} />
+                </button>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                  ឈ្មោះការប្រឡង / វគ្គ *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newFinalTitle}
+                  onChange={(e) => setNewFinalTitle(e.target.value)}
+                  placeholder="ឧ. ប្រឡងបញ្ចប់វគ្គ Team Together 03"
+                  style={{ width: '100%', padding: '0.55rem 0.72rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                    សម្រាប់ថ្នាក់រៀន
+                  </label>
+                  <select
+                    value={newFinalClassId}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      setNewFinalClassId(cid);
+                      const cls = classes.find((c) => c.id === cid);
+                      if (cls) {
+                        setNewFinalTitle(`ប្រឡងបញ្ចប់វគ្គ (${cls.classCode || cls.className})`);
+                        const bLvl = Array.isArray(cls.books) && cls.books[0]?.level ? String(cls.books[0].level) : '';
+                        if (bLvl) setNewFinalLevel(bLvl);
+                      }
+                    }}
+                    style={{ width: '100%', padding: '0.52rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                  >
+                    <option value="">-- គ្រប់ថ្នាក់ --</option>
+                    {displayClasses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.classCode ? `${c.classCode} - ` : ''}{c.className}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                    កាលបរិច្ឆេទប្រឡង / ចេញប័ណ្ណ
+                  </label>
+                  <input
+                    type="date"
+                    value={newFinalDate}
+                    onChange={(e) => setNewFinalDate(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                    វគ្គសិក្សា (ខ្មែរ)
+                  </label>
+                  <input
+                    type="text"
+                    value={newFinalCourseKh}
+                    onChange={(e) => setNewFinalCourseKh(e.target.value)}
+                    placeholder="ភាសាអង់គ្លេស"
+                    style={{ width: '100%', padding: '0.52rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                    Course Name (English)
+                  </label>
+                  <input
+                    type="text"
+                    value={newFinalCourseEn}
+                    onChange={(e) => setNewFinalCourseEn(e.target.value)}
+                    placeholder="English Course"
+                    style={{ width: '100%', padding: '0.52rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.28rem' }}>
+                  កម្រិត / សៀវភៅ (Level - ស្រេចចិត្ត)
+                </label>
+                <input
+                  type="text"
+                  value={newFinalLevel}
+                  onChange={(e) => setNewFinalLevel(e.target.value)}
+                  placeholder="ឧ. Team Together 03"
+                  style={{ width: '100%', padding: '0.52rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+              </div>
+
+              {newFinalClassId && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.84rem', color: 'var(--text-primary)', cursor: 'pointer', background: 'rgba(59, 130, 246, 0.08)', padding: '0.55rem 0.7rem', borderRadius: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={newFinalAutoImport}
+                    onChange={(e) => setNewFinalAutoImport(e.target.checked)}
+                  />
+                  <span>ទាញយកឈ្មោះសិស្សទាំងអស់ក្នុងថ្នាក់នេះចូលដោយស្វ័យប្រវត្តិ</span>
+                </label>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '0.35rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateFinalExamOpen(false)}
+                  style={{ padding: '0.55rem 1rem', borderRadius: '9px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  បោះបង់
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingFinalExam || !newFinalTitle.trim()}
+                  style={{ padding: '0.55rem 1.2rem', borderRadius: '9px', border: 'none', background: isCreatingFinalExam ? '#64748b' : 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#ffffff', fontWeight: 700, cursor: isCreatingFinalExam ? 'wait' : 'pointer' }}
+                >
+                  {isCreatingFinalExam ? 'កំពុងបង្កើត...' : 'បង្កើត & បញ្ចូលពិន្ទុ'}
+                </button>
+              </div>
+            </form>
+          </div>,
+          document.body
+        )}
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {monthlyResultModal}
       {certificateModal}

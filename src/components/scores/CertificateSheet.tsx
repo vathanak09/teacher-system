@@ -12,7 +12,15 @@ import {
 } from './MonthlyResultSheet';
 
 export type CertificateDocType = 'praise' | 'certificate';
-export type CertificatePrintPaperMode = 'a4_two_up' | 'a5_single';
+export type CertificatePrintPaperMode = 'a4_two_up' | 'a5_single' | 'a4_landscape';
+
+export const A4_LANDSCAPE_SPEC = {
+  sheetW: '296.6mm',
+  sheetH: '209.6mm',
+  sheetWPx: 1121,
+  sheetHPx: 792,
+  pageCss: '@page { size: A4 landscape; margin: 0; }',
+};
 
 export interface CertificateFramePreset {
   id: string;
@@ -92,10 +100,13 @@ export interface CertificateRecipient {
   fullName: string;
   englishName: string;
   gender: string;
+  dob?: string;
+  certNumber?: string;
   level: string;
   bookName: string;
   rank: number;
   grade: string;
+  isPassing?: boolean;
   averageDisplay: string;
   photo: string;
 }
@@ -114,6 +125,88 @@ export function formatIssuedDateDefault(date?: Date): string {
   const monFull = ENGLISH_MONTH_NAMES[d.getMonth()] || 'January';
   const yyyy = d.getFullYear();
   return `${dd}-${monFull}-${yyyy}`;
+}
+
+export function formatCertPlaceDateDefault(provinceEn = 'Kandal', date?: Date): string {
+  const d = date || new Date();
+  const day = d.getDate();
+  const suffix =
+    day >= 11 && day <= 13
+      ? 'th'
+      : day % 10 === 1
+        ? 'st'
+        : day % 10 === 2
+          ? 'nd'
+          : day % 10 === 3
+            ? 'rd'
+            : 'th';
+  const dd = String(day).padStart(2, '0');
+  const monFull = ENGLISH_MONTH_NAMES[d.getMonth()] || 'January';
+  const yyyy = d.getFullYear();
+  const place = String(provinceEn || 'Kandal').trim();
+  return place ? `${place}, ${monFull} ${dd}${suffix} ${yyyy}` : `${monFull} ${dd}${suffix} ${yyyy}`;
+}
+
+function parseDobComponents(rawDob?: string): { year: number; monthIdx: number; day: number } | null {
+  const s = String(rawDob || '').trim();
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) {
+    return {
+      year: Number(iso[1]),
+      monthIdx: Math.max(0, Math.min(11, Number(iso[2]) - 1)),
+      day: Number(iso[3]),
+    };
+  }
+  const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (dmy) {
+    return {
+      year: Number(dmy[3]),
+      monthIdx: Math.max(0, Math.min(11, Number(dmy[2]) - 1)),
+      day: Number(dmy[1]),
+    };
+  }
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    return { year: dt.getFullYear(), monthIdx: dt.getMonth(), day: dt.getDate() };
+  }
+  return null;
+}
+
+export function formatDobKhmer(rawDob?: string): string {
+  const parsed = parseDobComponents(rawDob);
+  if (!parsed) return String(rawDob || '').trim() || '-';
+  const dd = toKhmerDigits(String(parsed.day).padStart(2, '0'));
+  const khMonth = KHMER_MONTH_NAMES[parsed.monthIdx] || KHMER_MONTH_NAMES[0];
+  const yyyy = toKhmerDigits(String(parsed.year));
+  return `${dd} ${khMonth} ${yyyy}`;
+}
+
+export function formatDobEnglish(rawDob?: string): string {
+  const parsed = parseDobComponents(rawDob);
+  if (!parsed) return String(rawDob || '').trim() || '-';
+  const dd = String(parsed.day).padStart(2, '0');
+  const enMonth = ENGLISH_MONTH_NAMES[parsed.monthIdx] || ENGLISH_MONTH_NAMES[0];
+  return `${dd}-${enMonth}-${parsed.year}`;
+}
+
+export function toCertificatePassGradeBilingual(grade?: string): { kh: string; en: string } {
+  switch (String(grade || '').trim().toUpperCase()) {
+    case 'A':
+      return { kh: 'ល្អប្រសើរ', en: 'Very Good' };
+    case 'B':
+      return { kh: 'ល្អ', en: 'Good' };
+    case 'C':
+      return { kh: 'ល្អបង្គួរ', en: 'Fairly Good' };
+    case 'D':
+      return { kh: 'មធ្យម', en: 'Fair' };
+    case 'E':
+      return { kh: 'មធ្យម', en: 'Pass' };
+    case 'F':
+      return { kh: 'ធ្លាក់', en: 'Fail' };
+    default:
+      return { kh: '-', en: '-' };
+  }
 }
 
 export function formatExamLabelsFromMonthStr(monthStr: string, customMonthKhmer?: string): {
@@ -426,6 +519,58 @@ function RankRibbonBadgeSVG({
   );
 }
 
+/**
+ * Built-in Cambodian Ministry of Education, Youth and Sport (MoEYS) stylized crest fallback
+ */
+function MoeysVectorEmblemSVG() {
+  return (
+    <svg
+      viewBox="0 0 120 124"
+      aria-label="MoEYS Crest"
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Royal Blue Shield Halo */}
+      <circle cx="60" cy="60" r="49" fill="#1d4ed8" fillOpacity="0.12" stroke="#1d4ed8" strokeWidth="2.5" />
+      <circle cx="60" cy="60" r="42" fill="#eff6ff" stroke="#d97706" strokeWidth="2" />
+      {/* Golden Wreath Rays */}
+      <path
+        d="M 25 78 C 19 56, 25 32, 42 21 M 95 78 C 101 56, 95 32, 78 21"
+        fill="none"
+        stroke="#d97706"
+        strokeWidth="4.2"
+        strokeLinecap="round"
+      />
+      {/* Spire / Lotus Flame at Top */}
+      <polygon points="60,12 52,32 68,32" fill="#f59e0b" stroke="#b45309" strokeWidth="1.2" />
+      <circle cx="60" cy="36" r="5" fill="#1d4ed8" />
+      {/* Sunburst Torch */}
+      <polygon points="44,58 60,34 76,58" fill="#fbbf24" fillOpacity="0.7" />
+      <rect x="57" y="42" width="6" height="24" rx="2" fill="#b45309" />
+      {/* Open Sacred Book */}
+      <path
+        d="M 35 64 C 44 58, 54 60, 60 66 C 66 60, 76 58, 85 64 L 83 84 C 75 79, 65 80, 60 85 C 55 80, 45 79, 37 84 Z"
+        fill="#ffffff"
+        stroke="#1d4ed8"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+      />
+      <line x1="60" y1="66" x2="60" y2="85" stroke="#1d4ed8" strokeWidth="2" />
+      {/* Bottom Banner Ribbon */}
+      <path
+        d="M 24 91 C 44 102, 76 102, 96 91 L 91 103 C 73 111, 47 111, 29 103 Z"
+        fill="#ea580c"
+        stroke="#9a3412"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}
+
 export interface FrameMarginsCm {
   top: number;
   right: number;
@@ -441,6 +586,7 @@ export const DEFAULT_CERTIFICATE_MARGINS_CM: FrameMarginsCm = {
 };
 
 export type CertElementKey =
+  | 'ministryLogo'
   | 'nationalMotto'
   | 'schoolLogo'
   | 'titleBlock'
@@ -459,6 +605,9 @@ export type CertResizeHandleMode =
   | 'logoSize'
   | 'logoWidth'
   | 'logoHeight'
+  | 'ministryLogoSize'
+  | 'ministryLogoWidth'
+  | 'ministryLogoHeight'
   | 'stampSize'
   | 'ribbonSize'
   | 'frameSize'
@@ -466,6 +615,7 @@ export type CertResizeHandleMode =
   | 'frameHeight';
 
 export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
+  ministryLogo: 'ឡូហ្គោក្រសួងអប់រំ & មន្ទីរ',
   nationalMotto: 'បាវចនា (ព្រះរាជាណាចក្រកម្ពុជា)',
   schoolLogo: 'ឡូហ្គោ & ឈ្មោះសាលា',
   titleBlock: 'ចំណងជើងប័ណ្ណ',
@@ -555,6 +705,13 @@ export interface CertificateDesignConfig {
   logoHeightMm: number;
   showLogoSchoolText: boolean;
   schoolLogoSizeMm: number;
+  ministryLogoUrl: string;
+  ministryLogoWidthMm: number;
+  ministryLogoHeightMm: number;
+  certProvinceKh: string;
+  certDeptKh: string;
+  certTitleColor: string;
+  dottedLineColor: string;
   photoWidthMm: number;
   photoHeightMm: number;
   photoRadiusMm: number;
@@ -604,6 +761,13 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
   logoHeightMm: 22,
   showLogoSchoolText: true,
   schoolLogoSizeMm: 12.5,
+  ministryLogoUrl: '',
+  ministryLogoWidthMm: 15,
+  ministryLogoHeightMm: 15.5,
+  certProvinceKh: 'ខេត្តកណ្តាល',
+  certDeptKh: 'មន្ទីរអប់រំ យុវជន និងកីឡា',
+  certTitleColor: '#dc2626',
+  dottedLineColor: '#1f2937',
   photoWidthMm: 22,
   photoHeightMm: 27.5,
   photoRadiusMm: 2.2,
@@ -626,6 +790,7 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
   showHeaderDivider: true,
   showCenterDivider: true,
   elements: {
+    ministryLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
     nationalMotto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     schoolLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     titleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
@@ -638,38 +803,88 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
   },
 };
 
+export const DEFAULT_COURSE_CERTIFICATE_DESIGN: CertificateDesignConfig = {
+  ...DEFAULT_CERTIFICATE_DESIGN,
+  titleFontPt: 14,
+  subtitleFontPt: 9.2,
+  mottoKhFontPt: 7.6,
+  mottoEnFontPt: 5.2,
+  mottoLineHeight: 1.16,
+  studentNameKhPt: 11.2,
+  studentNameEnPt: 10.2,
+  khmerBodyFontPt: 8.7,
+  englishBodyFontPt: 8.7,
+  bodyLineHeight: 1.28,
+  rowGapMm: 1.45,
+  signatoryFontPt: 9.6,
+  logoLayoutMode: 'vertical',
+  logoWidthMm: 13.5,
+  logoHeightMm: 13.5,
+  showLogoSchoolText: true,
+  ministryLogoUrl: '',
+  ministryLogoWidthMm: 14.5,
+  ministryLogoHeightMm: 15,
+  certProvinceKh: 'ខេត្តកណ្តាល',
+  certDeptKh: 'មន្ទីរអប់រំ យុវជន និងកីឡា',
+  certTitleColor: '#dc2626',
+  dottedLineColor: '#1f2937',
+  photoWidthMm: 18.5,
+  photoHeightMm: 23.5,
+  photoRadiusMm: 1.8,
+  watermarkSizeMm: 52,
+  watermarkOpacity: 0.08,
+  showHeaderDivider: false,
+  showCenterDivider: false,
+  elements: {
+    ministryLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    nationalMotto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    schoolLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    titleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    rankBadge: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
+    khmerBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    englishBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
+    stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+  },
+};
+
 export function normalizeCertificateDesign(
-  raw?: Partial<CertificateDesignConfig> | null
+  raw?: Partial<CertificateDesignConfig> | null,
+  baseDefaults: CertificateDesignConfig = DEFAULT_CERTIFICATE_DESIGN
 ): CertificateDesignConfig {
-  const baseEl = DEFAULT_CERTIFICATE_DESIGN.elements;
+  const baseEl = baseDefaults.elements;
   const rawEl = raw?.elements || ({} as Partial<Record<CertElementKey, CertElementLayout>>);
   const mergedElements = {} as Record<CertElementKey, CertElementLayout>;
   (Object.keys(baseEl) as CertElementKey[]).forEach((key) => {
     const src = rawEl[key];
     mergedElements[key] = {
-      dxMm: typeof src?.dxMm === 'number' && Number.isFinite(src.dxMm) ? src.dxMm : 0,
-      dyMm: typeof src?.dyMm === 'number' && Number.isFinite(src.dyMm) ? src.dyMm : 0,
-      scale: typeof src?.scale === 'number' && Number.isFinite(src.scale) && src.scale > 0 ? src.scale : 1,
-      visible: src?.visible !== false,
+      dxMm: typeof src?.dxMm === 'number' && Number.isFinite(src.dxMm) ? src.dxMm : baseEl[key].dxMm,
+      dyMm: typeof src?.dyMm === 'number' && Number.isFinite(src.dyMm) ? src.dyMm : baseEl[key].dyMm,
+      scale: typeof src?.scale === 'number' && Number.isFinite(src.scale) && src.scale > 0 ? src.scale : baseEl[key].scale,
+      visible: src?.visible !== undefined ? src.visible : baseEl[key].visible,
     };
   });
 
   return {
-    ...DEFAULT_CERTIFICATE_DESIGN,
+    ...baseDefaults,
     ...(raw || {}),
     elements: mergedElements,
   };
 }
 
-export function computeCertificateContentMetrics(frameMarginsCm?: FrameMarginsCm) {
+export function computeCertificateContentMetrics(
+  frameMarginsCm?: FrameMarginsCm,
+  sheetSizeMode: 'a5' | 'a4_landscape' = 'a5'
+) {
   const clampCm = (v: number) => Math.max(0.4, Math.min(5.5, Number.isFinite(v) ? v : 4));
   const mTopMm = clampCm(frameMarginsCm?.top ?? 4) * 10;
   const mRightMm = clampCm(frameMarginsCm?.right ?? 4) * 10;
   const mBottomMm = clampCm(frameMarginsCm?.bottom ?? 4) * 10;
   const mLeftMm = clampCm(frameMarginsCm?.left ?? 4) * 10;
 
-  const cardW = 206.6;
-  const cardH = 146.2;
+  const cardW = sheetSizeMode === 'a4_landscape' ? 293.6 : 206.6;
+  const cardH = sheetSizeMode === 'a4_landscape' ? 207.6 : 146.2;
   const safeW = Math.max(40, cardW - mLeftMm - mRightMm);
   const safeH = Math.max(30, cardH - mTopMm - mBottomMm);
 
@@ -701,6 +916,11 @@ export interface CertificateCardProps {
   examEnglish: string;
   conductedDate: string;
   issuedDate: string;
+  courseNameKh?: string;
+  courseNameEn?: string;
+  certPlaceDateText?: string;
+  provinceKh?: string;
+  deptKh?: string;
   showStudentPhoto: boolean;
   stampUrl?: string;
   signatureUrl?: string;
@@ -726,7 +946,7 @@ export interface CertificateCardProps {
 }
 
 /**
- * Single A5 Landscape (209.6mm x 148.2mm) Bilingual Certificate Card
+ * Single A5 Landscape (209.6mm x 148.2mm) Bilingual Certificate / Letter Card
  */
 export function CertificateCardA5({
   recipient,
@@ -739,6 +959,11 @@ export function CertificateCardA5({
   examEnglish,
   conductedDate,
   issuedDate,
+  courseNameKh,
+  courseNameEn,
+  certPlaceDateText,
+  provinceKh,
+  deptKh,
   showStudentPhoto,
   stampUrl,
   signatureUrl,
@@ -755,16 +980,26 @@ export function CertificateCardA5({
   onFramePointerDown,
   onFrameResizePointerDown,
 }: CertificateCardProps) {
+  const isCertDoc = docType === 'certificate';
   const [customFrameFailed, setCustomFrameFailed] = React.useState(false);
   const [photoFailed, setPhotoFailed] = React.useState(false);
   const [topLogoFailed, setTopLogoFailed] = React.useState(false);
+  const [ministryLogoFailed, setMinistryLogoFailed] = React.useState(false);
 
-  const design = React.useMemo(() => normalizeCertificateDesign(designConfig), [designConfig]);
+  const design = React.useMemo(
+    () =>
+      normalizeCertificateDesign(
+        designConfig,
+        isCertDoc ? DEFAULT_COURSE_CERTIFICATE_DESIGN : DEFAULT_CERTIFICATE_DESIGN
+      ),
+    [designConfig, isCertDoc]
+  );
   const isEditing = Boolean(onElementPointerDown);
 
   const frameImgSrc = resolveSheetAssetSrc(customFrameUrl);
   const photoImgSrc = resolveSheetAssetSrc(recipient.photo);
   const customTopLogoSrc = resolveSheetAssetSrc(design.topLogoUrl);
+  const customMinistryLogoSrc = resolveSheetAssetSrc(design.ministryLogoUrl);
 
   React.useEffect(() => {
     setCustomFrameFailed(false);
@@ -778,31 +1013,57 @@ export function CertificateCardA5({
     setTopLogoFailed(false);
   }, [design.topLogoUrl]);
 
+  React.useEffect(() => {
+    setMinistryLogoFailed(false);
+  }, [design.ministryLogoUrl]);
+
   const watermarkLogoSrc = resolveSheetAssetSrc(schoolProfile?.schoolLogoUrl) || '/logo.png';
   const hasCustomTopLogo = Boolean(customTopLogoSrc && !topLogoFailed);
   const topLogoSrc = hasCustomTopLogo ? customTopLogoSrc : watermarkLogoSrc;
+  const hasCustomMinistryLogo = Boolean(customMinistryLogoSrc && !ministryLogoFailed);
   const schoolKhName = schoolProfile?.schoolFullNameKh || schoolProfile?.schoolName || DEFAULT_SCHOOL_PROFILE.schoolFullNameKh;
   const schoolEnName = (schoolProfile?.schoolFullNameEn || DEFAULT_SCHOOL_PROFILE.schoolFullNameEn).toUpperCase();
 
   const bookOrLevelLabel = recipient.bookName || recipient.level || '-';
-  const khHeading = docType === 'certificate' ? 'វិញ្ញាបនបត្រ' : 'ប័ណ្ណសរសើរ';
-  const enHeading =
-    docType === 'certificate' ? 'CERTIFICATE OF ACHIEVEMENT' : 'LETTER OF ADMIRATION';
-  const khLeadText =
-    docType === 'certificate'
-      ? `${schoolProfile?.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម'} សូមផ្តល់វិញ្ញាបនបត្រជូនសិស្ស`
-      : `${schoolProfile?.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម'} សូមសរសើរចំពោះសិស្ស`;
-  const enLeadText =
-    docType === 'certificate'
-      ? 'The Director of BSIS awards this certificate'
-      : 'The Director of BSIS gives this admirable letter';
+  const khHeading = isCertDoc ? 'វិញ្ញាបនបត្របញ្ជាក់ការសិក្សា' : 'ប័ណ្ណសរសើរ';
+  const enHeading = isCertDoc ? 'CERTIFICATE' : 'LETTER OF ADMIRATION';
+  const khLeadText = `${schoolProfile?.schoolName || 'សាលាអន្តរជាតិប្រេនស្តម'} សូមសរសើរចំពោះសិស្ស`;
+  const enLeadText = 'The Director of BSIS gives this admirable letter';
 
   const khRank = recipient.rank > 0 ? toKhmerDigits(recipient.rank) : '-';
   const enRank = recipient.rank > 0 ? String(recipient.rank) : '-';
   const engGender = toEnglishGender(recipient.gender);
+  const dobKh = formatDobKhmer(recipient.dob);
+  const dobEn = formatDobEnglish(recipient.dob);
+  const certGrade = toCertificatePassGradeBilingual(recipient.grade);
+  const resolvedCourseKh = String(courseNameKh || 'ភាសាអង់គ្លេស').trim() || 'ភាសាអង់គ្លេស';
+  const resolvedCourseEn = String(courseNameEn || 'English Course').trim() || 'English Course';
+  const resolvedProvinceKh = String(provinceKh || design.certProvinceKh || 'ខេត្តកណ្តាល').trim();
+  const resolvedDeptKh = String(deptKh || design.certDeptKh || 'មន្ទីរអប់រំ យុវជន និងកីឡា').trim();
+  const resolvedCertPlaceDate = String(certPlaceDateText || '').trim() || formatCertPlaceDateDefault('Kandal');
+
+  const renderDottedVal = (val: React.ReactNode, extraStyle?: React.CSSProperties) => (
+    <span
+      style={{
+        flex: 1,
+        minWidth: '9mm',
+        borderBottom: `0.95px dotted ${design.dottedLineColor || '#1f2937'}`,
+        textAlign: 'center',
+        padding: '0 1.4mm 0.2mm 1.4mm',
+        lineHeight: 1.15,
+        display: 'inline-block',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        ...extraStyle,
+      }}
+    >
+      {val}
+    </span>
+  );
 
   const { mTopMm, mRightMm, mBottomMm, mLeftMm, NATURAL_W, NATURAL_H, contentScale } =
-    computeCertificateContentMetrics(frameMarginsCm);
+    computeCertificateContentMetrics(frameMarginsCm, isCertDoc ? 'a4_landscape' : 'a5');
 
   const getInteractiveProps = (key: CertElementKey, baseStyle?: React.CSSProperties): React.CSSProperties => {
     const el = design.elements[key];
@@ -1069,711 +1330,991 @@ export function CertificateCardA5({
           />
         )}
 
-        {/* Top Header: School Crest / Vertical Logo (Left) + National Motto & Title (Center) + Rank Ribbon Medal (Right) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '2.5mm',
-            borderBottom: design.showHeaderDivider ? `1px solid ${framePreset.innerColor}55` : 'none',
-            paddingBottom: '1.4mm',
-          }}
-        >
-          {design.elements.schoolLogo.visible !== false ? (
-            design.logoLayoutMode !== 'horizontal' ? (
+        {/* Reusable Draggable Element Blocks (Shared cleanly across Praise Letter & Course Certificate) */}
+        {(() => {
+          const schoolLogoNode =
+            design.elements.schoolLogo.visible !== false ? (
+              design.logoLayoutMode !== 'horizontal' ? (
+                <div
+                  className="cert-inherit-font"
+                  onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
+                  style={getInteractiveProps('schoolLogo', {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5mm',
+                    minWidth: '28mm',
+                  })}
+                >
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: `${design.logoWidthMm}mm`,
+                      height: `${design.logoHeightMm}mm`,
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <img
+                      src={topLogoSrc}
+                      alt="School Logo"
+                      draggable={false}
+                      onError={() => {
+                        if (hasCustomTopLogo) setTopLogoFailed(true);
+                      }}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        display: 'block',
+                      }}
+                    />
+                    {renderResizeHandle('schoolLogo', 'logoWidth', 'e', 'ទាញផ្លាស់ប្តូរទទឹង Logo', '#d97706')}
+                    {renderResizeHandle('schoolLogo', 'logoHeight', 's', 'ទាញផ្លាស់ប្តូរកម្ពស់ Logo', '#d97706')}
+                    {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំ Logo', '#d97706')}
+                  </div>
+                  {design.showLogoSchoolText && (
+                    <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
+                      <div
+                        style={{
+                          fontSize: '7.4pt',
+                          fontWeight: 400,
+                          color: isCertDoc ? design.mottoColor : framePreset.titleColor,
+                          fontFamily: design.khmerTitleFont,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {schoolKhName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '4.9pt',
+                          fontWeight: 700,
+                          color: isCertDoc ? design.mottoColor : framePreset.outerColor,
+                          fontFamily: design.englishFont,
+                          letterSpacing: '0.25px',
+                          whiteSpace: 'nowrap',
+                          marginTop: '0.2mm',
+                        }}
+                      >
+                        {schoolEnName}
+                      </div>
+                      {isCertDoc && (
+                        <div style={{ pointerEvents: 'none' }}>
+                          <KhmerMottoOrnamentSVG color={design.mottoColor} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
+                </div>
+              ) : (
+                <div
+                  className="cert-inherit-font"
+                  onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
+                  style={getInteractiveProps('schoolLogo', {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2.2mm',
+                    minWidth: '46mm',
+                  })}
+                >
+                  <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+                    <img
+                      src={topLogoSrc}
+                      alt="School Logo"
+                      draggable={false}
+                      onError={() => {
+                        if (hasCustomTopLogo) setTopLogoFailed(true);
+                      }}
+                      style={{
+                        width: `${design.schoolLogoSizeMm}mm`,
+                        height: `${design.schoolLogoSizeMm}mm`,
+                        objectFit: 'contain',
+                        flexShrink: 0,
+                      }}
+                    />
+                    {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំឡូហ្គោ', '#d97706')}
+                  </div>
+                  {design.showLogoSchoolText && (
+                    <div style={{ lineHeight: 1.2 }}>
+                      <div
+                        style={{
+                          fontSize: '8.4pt',
+                          fontWeight: 400,
+                          color: isCertDoc ? design.mottoColor : framePreset.titleColor,
+                          fontFamily: design.khmerTitleFont,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {schoolKhName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '5.5pt',
+                          fontWeight: 700,
+                          color: isCertDoc ? design.mottoColor : framePreset.outerColor,
+                          fontFamily: design.englishFont,
+                          letterSpacing: '0.3px',
+                          whiteSpace: 'nowrap',
+                          marginTop: '0.25mm',
+                        }}
+                      >
+                        {schoolEnName}
+                      </div>
+                    </div>
+                  )}
+                  {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
+                </div>
+              )
+            ) : (
+              <div style={{ minWidth: '32mm' }} />
+            );
+
+          const ministryLogoNode =
+            design.elements.ministryLogo.visible !== false ? (
               <div
                 className="cert-inherit-font"
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
-                style={getInteractiveProps('schoolLogo', {
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('ministryLogo', e) : undefined}
+                style={getInteractiveProps('ministryLogo', {
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.7mm',
-                  minWidth: '28mm',
+                  gap: '0.5mm',
+                  minWidth: '34mm',
                 })}
               >
                 <div
                   style={{
                     position: 'relative',
-                    width: `${design.logoWidthMm}mm`,
-                    height: `${design.logoHeightMm}mm`,
+                    width: `${design.ministryLogoWidthMm}mm`,
+                    height: `${design.ministryLogoHeightMm}mm`,
                     flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <img
-                    src={topLogoSrc}
-                    alt="School Vertical Logo"
-                    draggable={false}
-                    onError={() => {
-                      if (hasCustomTopLogo) setTopLogoFailed(true);
-                    }}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      display: 'block',
-                    }}
-                  />
-                  {renderResizeHandle('schoolLogo', 'logoWidth', 'e', 'ទាញផ្លាស់ប្តូរទទឹង Logo', '#d97706')}
-                  {renderResizeHandle('schoolLogo', 'logoHeight', 's', 'ទាញផ្លាស់ប្តូរកម្ពស់ Logo', '#d97706')}
-                  {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំ Logo', '#d97706')}
-                </div>
-                {design.showLogoSchoolText && (
-                  <div style={{ textAlign: 'center', lineHeight: 1.15 }}>
-                    <div
-                      style={{
-                        fontSize: '7.4pt',
-                        fontWeight: 400,
-                        color: framePreset.titleColor,
-                        fontFamily: design.khmerTitleFont,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {schoolKhName}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '4.9pt',
-                        fontWeight: 700,
-                        color: framePreset.outerColor,
-                        fontFamily: design.englishFont,
-                        letterSpacing: '0.25px',
-                        whiteSpace: 'nowrap',
-                        marginTop: '0.2mm',
-                      }}
-                    >
-                      {schoolEnName}
-                    </div>
-                  </div>
-                )}
-                {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
-              </div>
-            ) : (
-              <div
-                className="cert-inherit-font"
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
-                style={getInteractiveProps('schoolLogo', {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '2.2mm',
-                  minWidth: '48mm',
-                })}
-              >
-                <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
-                  <img
-                    src={topLogoSrc}
-                    alt="BSIS Logo"
-                    draggable={false}
-                    onError={() => {
-                      if (hasCustomTopLogo) setTopLogoFailed(true);
-                    }}
-                    style={{
-                      width: `${design.schoolLogoSizeMm}mm`,
-                      height: `${design.schoolLogoSizeMm}mm`,
-                      objectFit: 'contain',
-                      flexShrink: 0,
-                    }}
-                  />
-                  {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំឡូហ្គោ', '#d97706')}
-                </div>
-                {design.showLogoSchoolText && (
-                  <div style={{ lineHeight: 1.2 }}>
-                    <div
-                      style={{
-                        fontSize: '8.4pt',
-                        fontWeight: 400,
-                        color: framePreset.titleColor,
-                        fontFamily: design.khmerTitleFont,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {schoolKhName}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '5.5pt',
-                        fontWeight: 700,
-                        color: framePreset.outerColor,
-                        fontFamily: design.englishFont,
-                        letterSpacing: '0.3px',
-                        whiteSpace: 'nowrap',
-                        marginTop: '0.25mm',
-                      }}
-                    >
-                      {schoolEnName}
-                    </div>
-                  </div>
-                )}
-                {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
-              </div>
-            )
-          ) : (
-            <div style={{ minWidth: '32mm' }} />
-          )}
-
-          {/* Center Stack: National Motto + Certificate Title */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5mm',
-              minWidth: 0,
-            }}
-          >
-            {design.elements.nationalMotto.visible !== false && (
-              <div
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('nationalMotto', e) : undefined}
-                style={getInteractiveProps('nationalMotto', {
-                  textAlign: 'center',
-                  lineHeight: design.mottoLineHeight,
-                  color: design.mottoColor,
-                })}
-              >
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${design.mottoKhFontPt}pt`,
-                    fontWeight: 400,
-                    fontFamily: design.khmerTitleFont,
-                    color: design.mottoColor,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  ព្រះរាជាណាចក្រកម្ពុជា
-                </div>
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${design.mottoEnFontPt}pt`,
-                    fontWeight: 700,
-                    fontFamily: design.englishFont,
-                    letterSpacing: '0.5px',
-                    color: design.mottoColor,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  KINGDOM OF CAMBODIA
-                </div>
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${Math.max(5.5, design.mottoKhFontPt - 0.5)}pt`,
-                    fontWeight: 400,
-                    fontFamily: design.khmerTitleFont,
-                    color: design.mottoColor,
-                    whiteSpace: 'nowrap',
-                    marginTop: '0.2mm',
-                  }}
-                >
-                  ជាតិ{'\u00A0\u00A0'}សាសនា{'\u00A0\u00A0'}ព្រះមហាក្សត្រ
-                </div>
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${Math.max(4.5, design.mottoEnFontPt - 0.3)}pt`,
-                    fontWeight: 700,
-                    fontFamily: design.englishFont,
-                    letterSpacing: '0.55px',
-                    color: design.mottoColor,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  NATION{'\u00A0\u00A0\u00A0'}RELIGION{'\u00A0\u00A0\u00A0'}KING
-                </div>
-                <div style={{ pointerEvents: 'none' }}>
-                  <KhmerMottoOrnamentSVG color={design.mottoColor} />
-                </div>
-                {renderResizeHandle('nationalMotto', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមបាវចនា', '#1d4ed8')}
-              </div>
-            )}
-
-            {design.elements.titleBlock.visible !== false && (
-              <div
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
-                style={getInteractiveProps('titleBlock', { textAlign: 'center' })}
-              >
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${design.titleFontPt}pt`,
-                    fontWeight: 400,
-                    color: framePreset.titleColor,
-                    fontFamily: design.khmerTitleFont,
-                    lineHeight: 1.14,
-                  }}
-                >
-                  {khHeading}
-                </div>
-                <div
-                  className="cert-inherit-font"
-                  style={{
-                    fontSize: `${design.subtitleFontPt}pt`,
-                    fontWeight: 700,
-                    letterSpacing: '1.2px',
-                    color: framePreset.innerColor,
-                    fontFamily: design.englishFont,
-                    marginTop: '0.3mm',
-                  }}
-                >
-                  {enHeading}
-                </div>
-                {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
-              </div>
-            )}
-          </div>
-
-          {/* Right corner Rank Ribbon Rosette or Pill Badge */}
-          <div style={{ minWidth: '34mm', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-            {design.elements.rankBadge.visible !== false && (
-              <div
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('rankBadge', e) : undefined}
-                style={getInteractiveProps('rankBadge', {
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                })}
-              >
-                {design.rankBadgeStyle !== 'pill' ? (
-                  <RankRibbonBadgeSVG
-                    khRank={khRank}
-                    enRank={enRank}
-                    color={design.rankRibbonColor}
-                    sizeMm={design.rankRibbonSizeMm}
-                    khFont={design.khmerTitleFont}
-                    enFont={design.englishFont}
-                  />
-                ) : (
-                  <div
-                    className="cert-inherit-font"
-                    style={{
-                      padding: '1mm 2.8mm',
-                      borderRadius: '999px',
-                      border: `1.2px solid ${framePreset.innerColor}`,
-                      background: 'rgba(255, 255, 255, 0.85)',
-                      color: framePreset.titleColor,
-                      fontSize: '8pt',
-                      fontWeight: 700,
-                      fontFamily: design.khmerBodyFont,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    លេខ {khRank} • Rank {enRank}
-                  </div>
-                )}
-                {renderResizeHandle(
-                  'rankBadge',
-                  design.rankBadgeStyle !== 'pill' ? 'ribbonSize' : 'elementScale',
-                  'se',
-                  'ទាញពង្រីក/បង្រួមបូរចំណាត់ថ្នាក់',
-                  design.rankRibbonColor
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bilingual 2-Column Body Matching Reference Image */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            columnGap: '7mm',
-            paddingTop: '1.2mm',
-            paddingBottom: '0.8mm',
-            flex: 1,
-            alignContent: 'center',
-          }}
-        >
-          {/* Left Column: Khmer */}
-          {design.elements.khmerBody.visible !== false ? (
-            <div
-              className="cert-inherit-font"
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('khmerBody', e) : undefined}
-              style={getInteractiveProps('khmerBody', {
-                display: 'flex',
-                flexDirection: 'column',
-                gap: `${design.rowGapMm}mm`,
-                fontSize: `${design.khmerBodyFontPt}pt`,
-                fontFamily: design.khmerBodyFont,
-                lineHeight: design.bodyLineHeight,
-                letterSpacing: `${design.letterSpacingPx}px`,
-                color: design.bodyColor,
-                borderRight: design.showCenterDivider ? '1px dashed rgba(148, 163, 184, 0.45)' : 'none',
-                paddingRight: '4mm',
-              })}
-            >
-              <div style={{ fontWeight: 500 }}>{khLeadText}</div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  justifyContent: 'flex-start',
-                  flexWrap: 'wrap',
-                  columnGap: '4.5mm',
-                  rowGap: '0.4mm',
-                }}
-              >
-                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
-                  <span style={{ whiteSpace: 'nowrap' }}>ឈ្មោះ ៖</span>
-                  <span
-                    style={{
-                      fontSize: `${design.studentNameKhPt}pt`,
-                      fontWeight: 400,
-                      color: design.valueColor,
-                      fontFamily: design.studentNameKhFont,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {recipient.fullName || '-'}
-                  </span>
-                </div>
-                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.8mm', flexShrink: 0 }}>
-                  <span>ភេទ</span>
-                  <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
-                    {recipient.gender || '-'}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3.5mm' }}>
-                <span>
-                  ដែលបានជាប់ចំណាត់ថ្នាក់លេខ ៖{' '}
-                  <strong style={{ color: design.valueColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
-                    {khRank}
-                  </strong>
-                </span>
-                <span>
-                  និទ្ទេស{' '}
-                  <strong style={{ color: design.accentColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
-                    {recipient.grade || '-'}
-                  </strong>
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>នៃការប្រឡង</span>
-                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
-                  {examKhmer}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>វគ្គសិក្សាសៀវភៅ ៖</span>
-                <span
-                  style={{
-                    color: design.valueColor,
-                    fontWeight: 700,
-                    fontSize: `${design.khmerBodyFontPt + 0.3}pt`,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {bookOrLevelLabel}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>ដែលបានប្រព្រឹត្តទៅនៅថ្ងៃទី ៖</span>
-                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.3}pt` }}>
-                  {conductedDate}
-                </span>
-              </div>
-              {renderResizeHandle('khmerBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារខ្មែរ')}
-            </div>
-          ) : (
-            <div />
-          )}
-
-          {/* Right Column: English */}
-          {design.elements.englishBody.visible !== false ? (
-            <div
-              className="cert-inherit-font"
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('englishBody', e) : undefined}
-              style={getInteractiveProps('englishBody', {
-                display: 'flex',
-                flexDirection: 'column',
-                gap: `${design.rowGapMm}mm`,
-                fontSize: `${design.englishBodyFontPt}pt`,
-                lineHeight: design.bodyLineHeight,
-                letterSpacing: `${design.letterSpacingPx}px`,
-                color: design.bodyColor,
-                fontFamily: design.englishFont,
-              })}
-            >
-              <div style={{ fontWeight: 500 }}>{enLeadText}</div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  justifyContent: 'flex-start',
-                  flexWrap: 'wrap',
-                  columnGap: '4.5mm',
-                  rowGap: '0.4mm',
-                }}
-              >
-                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
-                  <span>to</span>
-                  <span
-                    style={{
-                      fontSize: `${design.studentNameEnPt}pt`,
-                      fontWeight: 700,
-                      color: design.valueColor,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {recipient.englishName || recipient.fullName || '-'}
-                  </span>
-                </div>
-                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
-                  <span>Gender:</span>
-                  <span style={{ color: design.valueColor, fontWeight: 700 }}>{engGender}</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
-                <span>
-                  who has successfully got the{' '}
-                  <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
-                    {enRank}
-                  </strong>
-                </span>
-                <span>
-                  grade{' '}
-                  <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
-                    {recipient.grade || '-'}
-                  </strong>
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-                <span>of</span>
-                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.6}pt` }}>
-                  {examEnglish}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>Level</span>
-                <span
-                  style={{
-                    color: design.valueColor,
-                    fontWeight: 700,
-                    fontSize: `${design.englishBodyFontPt + 0.4}pt`,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {bookOrLevelLabel}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-                <span style={{ whiteSpace: 'nowrap' }}>which was conducted on</span>
-                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.4}pt` }}>
-                  {conductedDate}
-                </span>
-              </div>
-              {renderResizeHandle('englishBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារអង់គ្លេស')}
-            </div>
-          ) : (
-            <div />
-          )}
-        </div>
-
-        {/* Bottom Footer: Optional Student Photo & Class Meta (Left) + Stamp & Principal Signature (Right) */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-            paddingTop: '0.6mm',
-          }}
-        >
-          {/* Left: Student Photo + Class/Teacher Meta */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3mm' }}>
-            {showStudentPhoto && design.elements.studentPhoto.visible !== false && (
-              <div
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('studentPhoto', e) : undefined}
-                style={getInteractiveProps('studentPhoto', {
-                  width: `${design.photoWidthMm}mm`,
-                  height: `${design.photoHeightMm}mm`,
-                  overflow: 'visible',
-                  flexShrink: 0,
-                })}
-              >
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: `${design.photoRadiusMm}mm`,
-                    border: `1.5px solid ${framePreset.innerColor}`,
-                    background: '#f8fafc',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
-                  }}
-                >
-                  {photoImgSrc && !photoFailed ? (
+                  {hasCustomMinistryLogo ? (
                     <img
-                      src={photoImgSrc}
-                      alt={recipient.fullName}
+                      src={customMinistryLogoSrc}
+                      alt="Ministry of Education Logo"
                       draggable={false}
-                      onError={() => setPhotoFailed(true)}
+                      onError={() => setMinistryLogoFailed(true)}
                       style={{
                         width: '100%',
                         height: '100%',
-                        objectFit: 'cover',
+                        objectFit: 'contain',
                         display: 'block',
                       }}
                     />
                   ) : (
+                    <MoeysVectorEmblemSVG />
+                  )}
+                  {renderResizeHandle('ministryLogo', 'ministryLogoWidth', 'e', 'ទាញផ្លាស់ប្តូរទទឹង Logo ក្រសួង', '#0284c7')}
+                  {renderResizeHandle('ministryLogo', 'ministryLogoHeight', 's', 'ទាញផ្លាស់ប្តូរកម្ពស់ Logo ក្រសួង', '#0284c7')}
+                  {renderResizeHandle('ministryLogo', 'ministryLogoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំ Logo ក្រសួង', '#0284c7')}
+                </div>
+                <div style={{ textAlign: 'center', lineHeight: 1.18 }}>
+                  {resolvedProvinceKh && (
                     <div
                       style={{
-                        textAlign: 'center',
-                        color: '#94a3b8',
-                        fontSize: '6.8pt',
-                        padding: '1mm',
-                        lineHeight: 1.2,
+                        fontSize: '7.5pt',
+                        fontWeight: 400,
+                        color: design.mottoColor,
+                        fontFamily: design.khmerTitleFont,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      រូបថត
-                      <br />
-                      សិស្ស
+                      {resolvedProvinceKh}
+                    </div>
+                  )}
+                  {resolvedDeptKh && (
+                    <div
+                      style={{
+                        fontSize: '7.4pt',
+                        fontWeight: 400,
+                        color: design.mottoColor,
+                        fontFamily: design.khmerTitleFont,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {resolvedDeptKh}
+                    </div>
+                  )}
+                  <div style={{ pointerEvents: 'none' }}>
+                    <KhmerMottoOrnamentSVG color={design.mottoColor} />
+                  </div>
+                </div>
+                {renderResizeHandle('ministryLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ក្រសួង')}
+              </div>
+            ) : (
+              <div style={{ minWidth: '34mm' }} />
+            );
+
+          return (
+            <>
+              {/* Top Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '2.5mm',
+                  borderBottom: design.showHeaderDivider ? `1px solid ${framePreset.innerColor}55` : 'none',
+                  paddingBottom: '1.1mm',
+                }}
+              >
+                {isCertDoc ? ministryLogoNode : schoolLogoNode}
+
+                {/* Center Stack: National Motto + Heading */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45mm',
+                    minWidth: 0,
+                  }}
+                >
+                  {design.elements.nationalMotto.visible !== false && (
+                    <div
+                      onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('nationalMotto', e) : undefined}
+                      style={getInteractiveProps('nationalMotto', {
+                        textAlign: 'center',
+                        lineHeight: design.mottoLineHeight,
+                        color: design.mottoColor,
+                      })}
+                    >
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${design.mottoKhFontPt}pt`,
+                          fontWeight: 400,
+                          fontFamily: design.khmerTitleFont,
+                          color: design.mottoColor,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        ព្រះរាជាណាចក្រកម្ពុជា
+                      </div>
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${design.mottoEnFontPt}pt`,
+                          fontWeight: 700,
+                          fontFamily: design.englishFont,
+                          letterSpacing: '0.5px',
+                          color: design.mottoColor,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        KINGDOM OF CAMBODIA
+                      </div>
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${Math.max(5.5, design.mottoKhFontPt - 0.5)}pt`,
+                          fontWeight: 400,
+                          fontFamily: design.khmerTitleFont,
+                          color: design.mottoColor,
+                          whiteSpace: 'nowrap',
+                          marginTop: '0.15mm',
+                        }}
+                      >
+                        ជាតិ{'\u00A0\u00A0'}សាសនា{'\u00A0\u00A0'}ព្រះមហាក្សត្រ
+                      </div>
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${Math.max(4.5, design.mottoEnFontPt - 0.3)}pt`,
+                          fontWeight: 700,
+                          fontFamily: design.englishFont,
+                          letterSpacing: '0.55px',
+                          color: design.mottoColor,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        NATION{'\u00A0\u00A0\u00A0'}RELIGION{'\u00A0\u00A0\u00A0'}KING
+                      </div>
+                      {!isCertDoc && (
+                        <div style={{ pointerEvents: 'none' }}>
+                          <KhmerMottoOrnamentSVG color={design.mottoColor} />
+                        </div>
+                      )}
+                      {renderResizeHandle('nationalMotto', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមបាវចនា', '#1d4ed8')}
+                    </div>
+                  )}
+
+                  {design.elements.titleBlock.visible !== false && (
+                    <div
+                      onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
+                      style={getInteractiveProps('titleBlock', { textAlign: 'center', marginTop: isCertDoc ? '0.4mm' : 0 })}
+                    >
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${design.titleFontPt}pt`,
+                          fontWeight: 400,
+                          color: isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.titleColor,
+                          fontFamily: design.khmerTitleFont,
+                          lineHeight: 1.14,
+                          whiteSpace: 'nowrap',
+                          textShadow: isCertDoc
+                            ? '0.6px 0.6px 0 #ffffff, -0.6px -0.6px 0 #ffffff, 0 1px 2px rgba(185, 28, 28, 0.25)'
+                            : undefined,
+                        }}
+                      >
+                        {khHeading}
+                      </div>
+                      <div
+                        className="cert-inherit-font"
+                        style={{
+                          fontSize: `${design.subtitleFontPt}pt`,
+                          fontWeight: 700,
+                          letterSpacing: isCertDoc ? '1.6px' : '1.2px',
+                          color: isCertDoc ? (design.certTitleColor || '#dc2626') : framePreset.innerColor,
+                          fontFamily: design.englishFont,
+                          marginTop: '0.25mm',
+                        }}
+                      >
+                        {enHeading}
+                      </div>
+                      {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
                     </div>
                   )}
                 </div>
-                {renderResizeHandle('studentPhoto', 'photoWidth', 'e', 'ទាញទទឹងប្រអប់រូបថត', '#0284c7')}
-                {renderResizeHandle('studentPhoto', 'photoHeight', 's', 'ទាញកម្ពស់ប្រអប់រូបថត', '#0284c7')}
-                {renderResizeHandle('studentPhoto', 'photoSize', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់រូបថត', '#0284c7')}
-              </div>
-            )}
 
-            {design.elements.classMeta.visible !== false && (
+                {/* Right Slot: School Logo for Course Certificate, OR Rank Ribbon Rosette for Praise Letter */}
+                {isCertDoc ? (
+                  schoolLogoNode
+                ) : (
+                  <div style={{ minWidth: '34mm', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                    {design.elements.rankBadge.visible !== false && (
+                      <div
+                        onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('rankBadge', e) : undefined}
+                        style={getInteractiveProps('rankBadge', {
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        })}
+                      >
+                        {design.rankBadgeStyle !== 'pill' ? (
+                          <RankRibbonBadgeSVG
+                            khRank={khRank}
+                            enRank={enRank}
+                            color={design.rankRibbonColor}
+                            sizeMm={design.rankRibbonSizeMm}
+                            khFont={design.khmerTitleFont}
+                            enFont={design.englishFont}
+                          />
+                        ) : (
+                          <div
+                            className="cert-inherit-font"
+                            style={{
+                              padding: '1mm 2.8mm',
+                              borderRadius: '999px',
+                              border: `1.2px solid ${framePreset.innerColor}`,
+                              background: 'rgba(255, 255, 255, 0.85)',
+                              color: framePreset.titleColor,
+                              fontSize: '8pt',
+                              fontWeight: 700,
+                              fontFamily: design.khmerBodyFont,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            លេខ {khRank} • Rank {enRank}
+                          </div>
+                        )}
+                        {renderResizeHandle(
+                          'rankBadge',
+                          design.rankBadgeStyle !== 'pill' ? 'ribbonSize' : 'elementScale',
+                          'se',
+                          'ទាញពង្រីក/បង្រួមបូរចំណាត់ថ្នាក់',
+                          design.rankRibbonColor
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Bilingual 2-Column Body */}
               <div
-                className="cert-inherit-font"
-                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('classMeta', e) : undefined}
-                style={getInteractiveProps('classMeta', {
-                  fontSize: '7.5pt',
-                  color: '#64748b',
-                  fontFamily: design.khmerBodyFont,
-                  lineHeight: 1.35,
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  columnGap: '6.5mm',
+                  paddingTop: '1mm',
                   paddingBottom: '0.5mm',
-                })}
-              >
-                <div style={{ fontWeight: 700, color: '#475569' }}>
-                  ថ្នាក់ {recipient.classCode || recipient.className}
-                  {recipient.level ? ` (${recipient.level})` : ''}
-                </div>
-                {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
-                {recipient.studentId && <div>ID: {recipient.studentId}</div>}
-                {renderResizeHandle('classMeta', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមព័ត៌មានថ្នាក់')}
-              </div>
-            )}
-          </div>
-
-          {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
-          {design.elements.stampBlock.visible !== false && (
-            <div
-              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('stampBlock', e) : undefined}
-              style={getInteractiveProps('stampBlock', {
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                minWidth: '72mm',
-                position: 'relative',
-              })}
-            >
-              <div
-                className="cert-inherit-font"
-                style={{
-                  fontSize: '8.8pt',
-                  color: design.bodyColor,
-                  fontFamily: design.englishFont,
-                  marginBottom: '0.4mm',
+                  flex: 1,
+                  alignContent: 'center',
                 }}
               >
-                <span>Issued Date</span>
-                <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
+                {/* Left Column: Khmer */}
+                {design.elements.khmerBody.visible !== false ? (
+                  <div
+                    className="cert-inherit-font"
+                    onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('khmerBody', e) : undefined}
+                    style={getInteractiveProps('khmerBody', {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: `${design.rowGapMm}mm`,
+                      fontSize: `${design.khmerBodyFontPt}pt`,
+                      fontFamily: design.khmerBodyFont,
+                      lineHeight: design.bodyLineHeight,
+                      letterSpacing: `${design.letterSpacingPx}px`,
+                      color: design.bodyColor,
+                      borderRight: design.showCenterDivider ? '1px dashed rgba(148, 163, 184, 0.45)' : 'none',
+                      paddingRight: design.showCenterDivider ? '4mm' : '1mm',
+                    })}
+                  >
+                    {isCertDoc ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.8mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>សូមបញ្ជាក់ថា</span>
+                          {renderDottedVal(recipient.fullName || '-', {
+                            fontSize: `${design.studentNameKhPt}pt`,
+                            fontFamily: design.studentNameKhFont,
+                            fontWeight: 400,
+                            color: design.valueColor,
+                          })}
+                          <span style={{ whiteSpace: 'nowrap' }}>ភេទ</span>
+                          {renderDottedVal(recipient.gender || '-', {
+                            flex: '0 0 13mm',
+                            minWidth: '12mm',
+                            color: design.valueColor,
+                            fontWeight: 700,
+                            fontSize: `${design.khmerBodyFontPt + 0.5}pt`,
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>ថ្ងៃខែឆ្នាំកំណើត</span>
+                          {renderDottedVal(dobKh, {
+                            color: design.valueColor,
+                            fontWeight: 700,
+                            fontSize: `${design.khmerBodyFontPt + 0.4}pt`,
+                          })}
+                        </div>
+
+                        <div>បានប្រឡងបញ្ចប់ដោយជោគជ័យនូវវគ្គសិក្សា៖</div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>
+                            <strong>{resolvedCourseKh}</strong> កម្រិត
+                          </span>
+                          {renderDottedVal(bookOrLevelLabel, {
+                            color: design.valueColor,
+                            fontWeight: 700,
+                            fontSize: `${design.khmerBodyFontPt + 0.3}pt`,
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>ទទួលបាននិទ្ទេស</span>
+                          {renderDottedVal(certGrade.kh, {
+                            color: design.valueColor,
+                            fontWeight: 400,
+                            fontFamily: design.studentNameKhFont,
+                            fontSize: `${design.khmerBodyFontPt + 0.6}pt`,
+                          })}
+                        </div>
+
+                        <div style={{ fontSize: `${Math.max(7.2, design.khmerBodyFontPt - 0.3)}pt`, lineHeight: 1.32 }}>
+                          វិញ្ញាបនបត្រនេះត្រូវបានប្រគល់ជូនសាម៉ីខ្លួនដើម្បីប្រើប្រាស់
+                          <br />
+                          តាមការដែលអាចប្រើបាន។
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontWeight: 500 }}>{khLeadText}</div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            justifyContent: 'flex-start',
+                            flexWrap: 'wrap',
+                            columnGap: '4.5mm',
+                            rowGap: '0.4mm',
+                          }}
+                        >
+                          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
+                            <span style={{ whiteSpace: 'nowrap' }}>ឈ្មោះ ៖</span>
+                            <span
+                              style={{
+                                fontSize: `${design.studentNameKhPt}pt`,
+                                fontWeight: 400,
+                                color: design.valueColor,
+                                fontFamily: design.studentNameKhFont,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {recipient.fullName || '-'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.8mm', flexShrink: 0 }}>
+                            <span>ភេទ</span>
+                            <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
+                              {recipient.gender || '-'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3.5mm' }}>
+                          <span>
+                            ដែលបានជាប់ចំណាត់ថ្នាក់លេខ ៖{' '}
+                            <strong style={{ color: design.valueColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
+                              {khRank}
+                            </strong>
+                          </span>
+                          <span>
+                            និទ្ទេស{' '}
+                            <strong style={{ color: design.accentColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
+                              {recipient.grade || '-'}
+                            </strong>
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>នៃការប្រឡង</span>
+                          <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
+                            {examKhmer}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>វគ្គសិក្សាសៀវភៅ ៖</span>
+                          <span
+                            style={{
+                              color: design.valueColor,
+                              fontWeight: 700,
+                              fontSize: `${design.khmerBodyFontPt + 0.3}pt`,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {bookOrLevelLabel}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>ដែលបានប្រព្រឹត្តទៅនៅថ្ងៃទី ៖</span>
+                          <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.3}pt` }}>
+                            {conductedDate}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {renderResizeHandle('khmerBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារខ្មែរ')}
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                {/* Right Column: English */}
+                {design.elements.englishBody.visible !== false ? (
+                  <div
+                    className="cert-inherit-font"
+                    onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('englishBody', e) : undefined}
+                    style={getInteractiveProps('englishBody', {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: `${design.rowGapMm}mm`,
+                      fontSize: `${design.englishBodyFontPt}pt`,
+                      lineHeight: design.bodyLineHeight,
+                      letterSpacing: `${design.letterSpacingPx}px`,
+                      color: design.bodyColor,
+                      fontFamily: design.englishFont,
+                    })}
+                  >
+                    {isCertDoc ? (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.8mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>This is to certify that</span>
+                          {renderDottedVal((recipient.englishName || recipient.fullName || '-').toUpperCase(), {
+                            fontSize: `${design.studentNameEnPt}pt`,
+                            fontWeight: 700,
+                            color: design.valueColor,
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.6mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>Gender</span>
+                          {renderDottedVal(engGender, {
+                            flex: '0 0 14mm',
+                            minWidth: '13mm',
+                            color: design.valueColor,
+                            fontWeight: 700,
+                          })}
+                          <span style={{ whiteSpace: 'nowrap' }}>Date of birth</span>
+                          {renderDottedVal(dobEn, {
+                            color: design.valueColor,
+                            fontWeight: 700,
+                          })}
+                        </div>
+
+                        <div>who has successfully passed in the final exam of</div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>
+                            <strong>{resolvedCourseEn}</strong> level
+                          </span>
+                          {renderDottedVal(bookOrLevelLabel, {
+                            color: design.valueColor,
+                            fontWeight: 700,
+                          })}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>With the grade of</span>
+                          {renderDottedVal(certGrade.en, {
+                            color: design.valueColor,
+                            fontWeight: 700,
+                          })}
+                        </div>
+
+                        <div style={{ fontSize: `${Math.max(7.2, design.englishBodyFontPt - 0.2)}pt` }}>
+                          This Certificate is presented to the bearer for official uses.
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontWeight: 500 }}>{enLeadText}</div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            justifyContent: 'flex-start',
+                            flexWrap: 'wrap',
+                            columnGap: '4.5mm',
+                            rowGap: '0.4mm',
+                          }}
+                        >
+                          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
+                            <span>to</span>
+                            <span
+                              style={{
+                                fontSize: `${design.studentNameEnPt}pt`,
+                                fontWeight: 700,
+                                color: design.valueColor,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {recipient.englishName || recipient.fullName || '-'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
+                            <span>Gender:</span>
+                            <span style={{ color: design.valueColor, fontWeight: 700 }}>{engGender}</span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
+                          <span>
+                            who has successfully got the{' '}
+                            <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
+                              {enRank}
+                            </strong>
+                          </span>
+                          <span>
+                            grade{' '}
+                            <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
+                              {recipient.grade || '-'}
+                            </strong>
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                          <span>of</span>
+                          <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.6}pt` }}>
+                            {examEnglish}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>Level</span>
+                          <span
+                            style={{
+                              color: design.valueColor,
+                              fontWeight: 700,
+                              fontSize: `${design.englishBodyFontPt + 0.4}pt`,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {bookOrLevelLabel}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>which was conducted on</span>
+                          <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.4}pt` }}>
+                            {conductedDate}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    {renderResizeHandle('englishBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារអង់គ្លេស')}
+                  </div>
+                ) : (
+                  <div />
+                )}
               </div>
 
+              {/* Bottom Footer: Serial No / Student Photo / Class Meta (Left) + Stamp & Principal Signature (Right) */}
               <div
-                className="cert-inherit-font"
                 style={{
-                  fontSize: '8.8pt',
-                  fontWeight: 700,
-                  color: '#1e293b',
-                  fontFamily: design.englishFont,
-                  marginBottom: '-2.5mm',
-                  position: 'relative',
-                  zIndex: 2,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-end',
+                  paddingTop: '0.4mm',
                 }}
               >
-                {principalTitle}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3.5mm' }}>
+                  {isCertDoc && (
+                    <div
+                      className="cert-inherit-font"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'baseline',
+                        gap: '1mm',
+                        fontSize: `${design.englishBodyFontPt}pt`,
+                        fontFamily: design.englishFont,
+                        color: design.bodyColor,
+                        paddingBottom: '2mm',
+                      }}
+                    >
+                      <span>No.</span>
+                      {renderDottedVal(
+                        <strong style={{ color: '#0f172a', fontWeight: 700 }}>
+                          {recipient.certNumber || '-'}
+                        </strong>,
+                        { flex: '0 0 18mm', minWidth: '16mm' }
+                      )}
+                    </div>
+                  )}
+
+                  {showStudentPhoto && design.elements.studentPhoto.visible !== false && (
+                    <div
+                      onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('studentPhoto', e) : undefined}
+                      style={getInteractiveProps('studentPhoto', {
+                        width: `${design.photoWidthMm}mm`,
+                        height: `${design.photoHeightMm}mm`,
+                        overflow: 'visible',
+                        flexShrink: 0,
+                      })}
+                    >
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          borderRadius: `${design.photoRadiusMm}mm`,
+                          border: `1.5px solid ${framePreset.innerColor}`,
+                          background: '#f8fafc',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+                        }}
+                      >
+                        {photoImgSrc && !photoFailed ? (
+                          <img
+                            src={photoImgSrc}
+                            alt={recipient.fullName}
+                            draggable={false}
+                            onError={() => setPhotoFailed(true)}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              textAlign: 'center',
+                              color: '#94a3b8',
+                              fontSize: '6.8pt',
+                              padding: '1mm',
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            រូបថត
+                            <br />
+                            សិស្ស
+                          </div>
+                        )}
+                      </div>
+                      {renderResizeHandle('studentPhoto', 'photoWidth', 'e', 'ទាញទទឹងប្រអប់រូបថត', '#0284c7')}
+                      {renderResizeHandle('studentPhoto', 'photoHeight', 's', 'ទាញកម្ពស់ប្រអប់រូបថត', '#0284c7')}
+                      {renderResizeHandle('studentPhoto', 'photoSize', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់រូបថត', '#0284c7')}
+                    </div>
+                  )}
+
+                  {design.elements.classMeta.visible !== false && (
+                    <div
+                      className="cert-inherit-font"
+                      onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('classMeta', e) : undefined}
+                      style={getInteractiveProps('classMeta', {
+                        fontSize: '7.5pt',
+                        color: '#64748b',
+                        fontFamily: design.khmerBodyFont,
+                        lineHeight: design.bodyLineHeight,
+                        paddingBottom: '0.5mm',
+                      })}
+                    >
+                      <div style={{ fontWeight: 700, color: '#475569' }}>
+                        ថ្នាក់ {recipient.classCode || recipient.className}
+                        {recipient.level ? ` (${recipient.level})` : ''}
+                      </div>
+                      {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
+                      {recipient.studentId && <div>ID: {recipient.studentId}</div>}
+                      {renderResizeHandle('classMeta', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមព័ត៌មានថ្នាក់')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
+                {design.elements.stampBlock.visible !== false && (
+                  <div
+                    onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('stampBlock', e) : undefined}
+                    style={getInteractiveProps('stampBlock', {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      minWidth: '72mm',
+                      position: 'relative',
+                    })}
+                  >
+                    {isCertDoc ? (
+                      <>
+                        <div
+                          className="cert-inherit-font"
+                          style={{
+                            fontSize: '8.2pt',
+                            color: design.bodyColor,
+                            fontFamily: design.englishFont,
+                            lineHeight: 1.25,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div>Issued Dated</div>
+                          <div style={{ fontWeight: 600 }}>{resolvedCertPlaceDate}</div>
+                        </div>
+                        <div
+                          className="cert-inherit-font"
+                          style={{
+                            fontSize: '8.3pt',
+                            fontWeight: 700,
+                            color: '#1e293b',
+                            fontFamily: design.englishFont,
+                            marginTop: '0.3mm',
+                            marginBottom: '-2.5mm',
+                            position: 'relative',
+                            zIndex: 2,
+                          }}
+                        >
+                          {principalTitle}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div
+                          className="cert-inherit-font"
+                          style={{
+                            fontSize: '8.8pt',
+                            color: design.bodyColor,
+                            fontFamily: design.englishFont,
+                            marginBottom: '0.4mm',
+                          }}
+                        >
+                          <span>Issued Date</span>
+                          <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
+                        </div>
+
+                        <div
+                          className="cert-inherit-font"
+                          style={{
+                            fontSize: '8.8pt',
+                            fontWeight: 700,
+                            color: '#1e293b',
+                            fontFamily: design.englishFont,
+                            marginBottom: '-2.5mm',
+                            position: 'relative',
+                            zIndex: 2,
+                          }}
+                        >
+                          {principalTitle}
+                        </div>
+                      </>
+                    )}
+
+                    <div style={{ position: 'relative', width: '48mm', height: `${Math.max(16, design.stampSizeMm)}mm` }}>
+                      <div style={{ position: 'absolute', left: '2mm', top: '-1mm' }}>
+                        <OfficialSchoolStamp
+                          stampUrl={stampUrl}
+                          schoolProfile={schoolProfile}
+                          size={`${design.stampSizeMm}mm`}
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          position: 'absolute',
+                          right: '-2mm',
+                          bottom: '0.5mm',
+                          width: '28mm',
+                          zIndex: 3,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <ReceiptSignature
+                          signatureUrl={signatureUrl}
+                          height={`${design.signatureHeightMm}mm`}
+                          color={design.valueColor}
+                        />
+                      </div>
+                      {renderResizeHandle('stampBlock', 'stampSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំត្រា & ហត្ថលេខា', '#e11d48')}
+                    </div>
+
+                    {signatoryName && (
+                      <div
+                        style={{
+                          marginTop: '-0.8mm',
+                          paddingLeft: '14mm',
+                          fontSize: `${design.signatoryFontPt}pt`,
+                          fontWeight: 400,
+                          color: framePreset.signatoryColor,
+                          fontFamily: design.studentNameKhFont,
+                          whiteSpace: 'nowrap',
+                          position: 'relative',
+                          zIndex: 4,
+                        }}
+                      >
+                        {signatoryName}
+                      </div>
+                    )}
+                    {renderResizeHandle('stampBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ហត្ថលេខា')}
+                  </div>
+                )}
               </div>
-
-              <div style={{ position: 'relative', width: '48mm', height: `${Math.max(18, design.stampSizeMm)}mm` }}>
-                <div style={{ position: 'absolute', left: '2mm', top: '-1mm' }}>
-                  <OfficialSchoolStamp
-                    stampUrl={stampUrl}
-                    schoolProfile={schoolProfile}
-                    size={`${design.stampSizeMm}mm`}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: '-2mm',
-                    bottom: '0.5mm',
-                    width: '28mm',
-                    zIndex: 3,
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <ReceiptSignature
-                    signatureUrl={signatureUrl}
-                    height={`${design.signatureHeightMm}mm`}
-                    color={design.valueColor}
-                  />
-                </div>
-                {renderResizeHandle('stampBlock', 'stampSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំត្រា & ហត្ថលេខា', '#e11d48')}
-              </div>
-
-              {signatoryName && (
-                <div
-                  style={{
-                    marginTop: '-0.8mm',
-                    paddingLeft: '14mm',
-                    fontSize: `${design.signatoryFontPt}pt`,
-                    fontWeight: 400,
-                    color: framePreset.signatoryColor,
-                    fontFamily: design.studentNameKhFont,
-                    whiteSpace: 'nowrap',
-                    position: 'relative',
-                    zIndex: 4,
-                  }}
-                >
-                  {signatoryName}
-                </div>
-              )}
-              {renderResizeHandle('stampBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ហត្ថលេខា')}
-            </div>
-          )}
-        </div>
+            </>
+          );
+        })()}
         </div>
       </div>
     </div>
@@ -1854,6 +2395,33 @@ export function CertificateSingleA5Page({
       style={{
         width: A5_LANDSCAPE_SPEC.sheetW,
         height: A5_LANDSCAPE_SPEC.sheetH,
+        backgroundColor: '#ffffff',
+        padding: '1mm 1.5mm',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <CertificateCardA5 recipient={recipient} {...sharedCardProps} />
+    </div>
+  );
+}
+
+/**
+ * Full A4 Landscape Sheet (296.6mm x 209.6mm) for Official Course Completion Certificate.
+ */
+export function CertificateSingleA4LandscapePage({
+  recipient,
+  sharedCardProps,
+}: {
+  recipient: CertificateRecipient;
+  sharedCardProps: Omit<CertificateCardProps, 'recipient'>;
+}) {
+  return (
+    <div
+      className="receipt-a4-sheet"
+      style={{
+        width: A4_LANDSCAPE_SPEC.sheetW,
+        height: A4_LANDSCAPE_SPEC.sheetH,
         backgroundColor: '#ffffff',
         padding: '1mm 1.5mm',
         boxSizing: 'border-box',

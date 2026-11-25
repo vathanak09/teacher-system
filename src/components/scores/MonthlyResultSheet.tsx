@@ -198,6 +198,7 @@ export interface MonthlyResultStudentRow {
   englishName?: string;
   photo?: string;
   gender: string;
+  dob?: string;
   level: string;
   totalScore: number | null;
   totalScoreDisplay: string;
@@ -475,6 +476,7 @@ export function computeMonthlyResultPacket({
     englishName: string;
     photo: string;
     gender: string;
+    dob: string;
     level: string;
   }[] = [];
 
@@ -526,6 +528,7 @@ export function computeMonthlyResultPacket({
       englishName: cleanStr(matchedStudent?.englishName || sr.englishName),
       photo: cleanStr(matchedStudent?.photo || sr.photo),
       gender: cleanStr(matchedStudent?.gender || sr.gender),
+      dob: cleanStr(matchedStudent?.dob || sr.dob),
       level: resolvedLevel,
     });
   });
@@ -561,6 +564,7 @@ export function computeMonthlyResultPacket({
         englishName: cleanStr(st.englishName),
         photo: cleanStr(st.photo),
         gender: cleanStr(st.gender),
+        dob: cleanStr(st.dob),
         level: cleanStr(sr?.level) || cleanStr(st.level),
       });
     });
@@ -704,6 +708,7 @@ export function computeMonthlyResultPacket({
     englishName: r.englishName,
     photo: r.photo,
     gender: r.gender,
+    dob: r.dob,
     level: r.level,
     totalScore: r.totalNum,
     totalScoreDisplay: r.totalScoreDisplay,

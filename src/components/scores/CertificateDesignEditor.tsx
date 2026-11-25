@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SchoolProfileInfo } from '@/components/settings/SchoolInfoSettingsPanel';
 import {
+  A4_LANDSCAPE_SPEC,
   A5_LANDSCAPE_SPEC,
   CERT_ELEMENT_LABELS,
   CertElementKey,
@@ -13,6 +14,7 @@ import {
   CertificateFramePreset,
   CertificateRecipient,
   DEFAULT_CERTIFICATE_DESIGN,
+  DEFAULT_COURSE_CERTIFICATE_DESIGN,
   ENGLISH_FONT_OPTIONS,
   FrameMarginsCm,
   KHMER_BODY_FONT_OPTIONS,
@@ -49,6 +51,11 @@ export interface CertificateDesignEditorProps {
   examEnglish: string;
   conductedDate: string;
   issuedDate: string;
+  courseNameKh?: string;
+  courseNameEn?: string;
+  certPlaceDateText?: string;
+  provinceKh?: string;
+  deptKh?: string;
   stampUrl?: string;
   signatureUrl?: string;
   signatoryName?: string;
@@ -81,6 +88,11 @@ export default function CertificateDesignEditor({
   examEnglish,
   conductedDate,
   issuedDate,
+  courseNameKh,
+  courseNameEn,
+  certPlaceDateText,
+  provinceKh,
+  deptKh,
   stampUrl,
   signatureUrl,
   signatoryName,
@@ -125,6 +137,8 @@ export default function CertificateDesignEditor({
         startLogoSize: number;
         startLogoW: number;
         startLogoH: number;
+        startMinistryW: number;
+        startMinistryH: number;
         startStampSize: number;
         startSigHeight: number;
         startRibbonSize: number;
@@ -147,14 +161,28 @@ export default function CertificateDesignEditor({
 
   const dragStateRef = useRef<DragInteraction | null>(null);
 
+  const defaultDesignForDoc =
+    docType === 'certificate' ? DEFAULT_COURSE_CERTIFICATE_DESIGN : DEFAULT_CERTIFICATE_DESIGN;
+
   const normalizedDesign = useMemo(
-    () => normalizeCertificateDesign(designConfig),
-    [designConfig]
+    () => normalizeCertificateDesign(designConfig, defaultDesignForDoc),
+    [designConfig, defaultDesignForDoc]
   );
 
+  useEffect(() => {
+    setSelectedKey((prev) => {
+      if (docType === 'certificate' && (prev === 'rankBadge' || prev === 'classMeta')) return 'titleBlock';
+      if (docType !== 'certificate' && prev === 'ministryLogo') return 'titleBlock';
+      return prev;
+    });
+  }, [docType]);
+
+  const isA4Landscape = docType === 'certificate';
+  const activeSheetSpec = isA4Landscape ? A4_LANDSCAPE_SPEC : A5_LANDSCAPE_SPEC;
+
   const metrics = useMemo(
-    () => computeCertificateContentMetrics(frameMarginsCm),
-    [frameMarginsCm]
+    () => computeCertificateContentMetrics(frameMarginsCm, isA4Landscape ? 'a4_landscape' : 'a5'),
+    [frameMarginsCm, isA4Landscape]
   );
 
   // Stable refs so mouse/pointer move listeners never tear down mid-drag
@@ -164,22 +192,24 @@ export default function CertificateDesignEditor({
   onChangeDesignRef.current = onChangeDesign;
   const selectedKeyRef = useRef(selectedKey);
   selectedKeyRef.current = selectedKey;
+  const isA4LandscapeRef = useRef(isA4Landscape);
+  isA4LandscapeRef.current = isA4Landscape;
   const denomRef = useRef(1);
   denomRef.current = Math.max(0.15, editorScale * metrics.contentScale * PX_PER_MM);
   const frameDenomRef = useRef(1);
   frameDenomRef.current = Math.max(0.15, editorScale * PX_PER_MM);
 
-  // Measure available stage width to fit crisp interactive A5 card
+  // Measure available stage width to fit crisp interactive A5 / A4 Landscape card
   useEffect(() => {
     const updateZoom = () => {
       const containerW = stageWrapperRef.current?.clientWidth || window.innerWidth - 400;
       const usableW = Math.max(280, containerW - 24);
-      setEditorScale(Math.min(1.08, usableW / A5_LANDSCAPE_SPEC.sheetWPx));
+      setEditorScale(Math.min(1.08, usableW / activeSheetSpec.sheetWPx));
     };
     updateZoom();
     window.addEventListener('resize', updateZoom);
     return () => window.removeEventListener('resize', updateZoom);
-  }, []);
+  }, [activeSheetSpec.sheetWPx]);
 
   // Rock-solid window pointer move/resize loop attached once
   useEffect(() => {
@@ -205,14 +235,16 @@ export default function CertificateDesignEditor({
         const fDenom = frameDenomRef.current;
         const deltaXMm = (e.clientX - st.startClientX) / fDenom;
         const deltaYMm = (e.clientY - st.startClientY) / fDenom;
+        const halfW = isA4LandscapeRef.current ? 148 : 104;
+        const halfH = isA4LandscapeRef.current ? 105 : 74;
         if (st.mode === 'frameWidth') {
-          const frameScaleX = clampVal(roundStep(st.startScaleX + deltaXMm / 104, 0.01), 0.65, 1.35);
+          const frameScaleX = clampVal(roundStep(st.startScaleX + deltaXMm / halfW, 0.01), 0.65, 1.35);
           onChangeDesignRef.current({ ...curDesign, frameScaleX });
         } else if (st.mode === 'frameHeight') {
-          const frameScaleY = clampVal(roundStep(st.startScaleY + deltaYMm / 74, 0.01), 0.65, 1.35);
+          const frameScaleY = clampVal(roundStep(st.startScaleY + deltaYMm / halfH, 0.01), 0.65, 1.35);
           onChangeDesignRef.current({ ...curDesign, frameScaleY });
         } else {
-          const deltaScale = ((deltaXMm / 104) + (deltaYMm / 74)) / 2;
+          const deltaScale = ((deltaXMm / halfW) + (deltaYMm / halfH)) / 2;
           const frameScaleX = clampVal(roundStep(st.startScaleX + deltaScale, 0.01), 0.65, 1.35);
           const frameScaleY = clampVal(roundStep(st.startScaleY + deltaScale, 0.01), 0.65, 1.35);
           onChangeDesignRef.current({ ...curDesign, frameScaleX, frameScaleY });
@@ -293,6 +325,16 @@ export default function CertificateDesignEditor({
         const deltaAvg = (deltaXMm + deltaYMm) / 2;
         const rankRibbonSizeMm = clampVal(roundStep(st.startRibbonSize + deltaAvg / elScale, 0.5), 14, 38);
         onChangeDesignRef.current({ ...curDesign, rankRibbonSizeMm });
+      } else if (st.mode === 'ministryLogoWidth') {
+        const ministryLogoWidthMm = clampVal(roundStep(st.startMinistryW + deltaXMm / elScale, 0.5), 6, 45);
+        onChangeDesignRef.current({ ...curDesign, ministryLogoWidthMm });
+      } else if (st.mode === 'ministryLogoHeight') {
+        const ministryLogoHeightMm = clampVal(roundStep(st.startMinistryH + deltaYMm / elScale, 0.5), 6, 45);
+        onChangeDesignRef.current({ ...curDesign, ministryLogoHeightMm });
+      } else if (st.mode === 'ministryLogoSize') {
+        const ministryLogoWidthMm = clampVal(roundStep(st.startMinistryW + deltaXMm / elScale, 0.5), 6, 45);
+        const ministryLogoHeightMm = clampVal(roundStep(st.startMinistryH + deltaYMm / elScale, 0.5), 6, 45);
+        onChangeDesignRef.current({ ...curDesign, ministryLogoWidthMm, ministryLogoHeightMm });
       }
     };
 
@@ -378,9 +420,9 @@ export default function CertificateDesignEditor({
     setSelectedKey(key);
     setDraggingKey(key);
     document.body.style.cursor =
-      mode === 'photoWidth' || mode === 'logoWidth'
+      mode === 'photoWidth' || mode === 'logoWidth' || mode === 'ministryLogoWidth'
         ? 'ew-resize'
-        : mode === 'photoHeight' || mode === 'logoHeight'
+        : mode === 'photoHeight' || mode === 'logoHeight' || mode === 'ministryLogoHeight'
           ? 'ns-resize'
           : 'nwse-resize';
     const cur = latestDesignRef.current;
@@ -396,6 +438,8 @@ export default function CertificateDesignEditor({
       startLogoSize: cur.schoolLogoSizeMm,
       startLogoW: cur.logoWidthMm,
       startLogoH: cur.logoHeightMm,
+      startMinistryW: cur.ministryLogoWidthMm,
+      startMinistryH: cur.ministryLogoHeightMm,
       startStampSize: cur.stampSizeMm,
       startSigHeight: cur.signatureHeightMm,
       startRibbonSize: cur.rankRibbonSizeMm,
@@ -569,12 +613,12 @@ export default function CertificateDesignEditor({
           </div>
         </div>
 
-        {/* Live A5 Stage */}
+        {/* Live A5 / A4 Landscape Stage */}
         <div
           onDragStart={(e) => e.preventDefault()}
           style={{
-            width: `${A5_LANDSCAPE_SPEC.sheetWPx * editorScale}px`,
-            height: `${A5_LANDSCAPE_SPEC.sheetHPx * editorScale}px`,
+            width: `${activeSheetSpec.sheetWPx * editorScale}px`,
+            height: `${activeSheetSpec.sheetHPx * editorScale}px`,
             position: 'relative',
             borderRadius: '6px',
             boxShadow: '0 20px 55px rgba(0, 0, 0, 0.55)',
@@ -587,8 +631,8 @@ export default function CertificateDesignEditor({
         >
           <div
             style={{
-              width: A5_LANDSCAPE_SPEC.sheetW,
-              height: A5_LANDSCAPE_SPEC.sheetH,
+              width: activeSheetSpec.sheetW,
+              height: activeSheetSpec.sheetH,
               padding: '1mm 1.5mm',
               boxSizing: 'border-box',
               transform: `scale(${editorScale})`,
@@ -606,6 +650,11 @@ export default function CertificateDesignEditor({
               examEnglish={examEnglish}
               conductedDate={conductedDate}
               issuedDate={issuedDate}
+              courseNameKh={courseNameKh}
+              courseNameEn={courseNameEn}
+              certPlaceDateText={certPlaceDateText}
+              provinceKh={provinceKh}
+              deptKh={deptKh}
               showStudentPhoto={showStudentPhoto}
               stampUrl={stampUrl}
               signatureUrl={signatureUrl}
@@ -659,7 +708,7 @@ export default function CertificateDesignEditor({
             </span>
             <button
               type="button"
-              onClick={() => onChangeDesign(DEFAULT_CERTIFICATE_DESIGN)}
+              onClick={() => onChangeDesign(defaultDesignForDoc)}
               style={{
                 padding: '0.16rem 0.48rem',
                 borderRadius: '5px',
@@ -835,7 +884,13 @@ export default function CertificateDesignEditor({
                 ជ្រើសធាតុដើម្បីកែប្រែ៖
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                {(Object.keys(CERT_ELEMENT_LABELS) as CertElementKey[]).map((key) => {
+                {(Object.keys(CERT_ELEMENT_LABELS) as CertElementKey[])
+                  .filter((key) =>
+                    docType === 'certificate'
+                      ? key !== 'rankBadge' && key !== 'classMeta'
+                      : key !== 'ministryLogo'
+                  )
+                  .map((key) => {
                   const active = key === selectedKey;
                   const visible = normalizedDesign.elements[key].visible !== false;
                   return (
@@ -1147,6 +1202,28 @@ export default function CertificateDesignEditor({
                     style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                   />
                 </label>
+                {docType === 'certificate' && (
+                  <>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#fca5a5', gap: '0.2rem' }}>
+                      <span>ពណ៌ចំណងជើងវិញ្ញាបនបត្រ</span>
+                      <input
+                        type="color"
+                        value={normalizedDesign.certTitleColor}
+                        onChange={(e) => updateDesignField('certTitleColor', e.target.value)}
+                        style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                      />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.68rem', color: '#cbd5e1', gap: '0.2rem' }}>
+                      <span>ពណ៌បន្ទាត់ចុចៗ (....)</span>
+                      <input
+                        type="color"
+                        value={normalizedDesign.dottedLineColor}
+                        onChange={(e) => updateDesignField('dottedLineColor', e.target.value)}
+                        style={{ width: '100%', height: '24px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+                      />
+                    </label>
+                  </>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.4rem', fontSize: '0.73rem', color: '#cbd5e1' }}>
@@ -1299,7 +1376,8 @@ export default function CertificateDesignEditor({
               </button>
             </div>
 
-            {/* Rank Ribbon Medal Card */}
+            {/* Rank Ribbon Medal Card (Praise Letter) OR MoEYS Ministry Logo & Dept (Certificate) */}
+            {docType !== 'certificate' ? (
             <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.75rem', color: '#fb923c', fontWeight: 700 }}>
@@ -1378,6 +1456,133 @@ export default function CertificateDesignEditor({
                 </>
               )}
             </div>
+            ) : (
+            <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#7dd3fc', fontWeight: 700 }}>
+                ឡូហ្គោក្រសួងអប់រំ &amp; មន្ទីរ (MoEYS)
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.71rem', color: '#cbd5e1', marginBottom: '0.18rem' }}>
+                  Link ឡូហ្គោក្រសួងអប់រំ (URL / Drive)
+                </label>
+                <div style={{ display: 'flex', gap: '0.28rem' }}>
+                  <input
+                    type="text"
+                    value={normalizedDesign.ministryLogoUrl || ''}
+                    onChange={(e) => updateDesignField('ministryLogoUrl', e.target.value)}
+                    placeholder="ទុកទំនេរ = ប្រើឡូហ្គោក្រសួងដើម..."
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: '0.3rem 0.45rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.73rem',
+                      outline: 'none',
+                    }}
+                  />
+                  {normalizedDesign.ministryLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => updateDesignField('ministryLogoUrl', '')}
+                      title="ប្រើឡូហ្គោក្រសួងដើមវិញ"
+                      style={{
+                        padding: '0 0.42rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(248, 113, 113, 0.35)',
+                        background: 'rgba(248, 113, 113, 0.14)',
+                        color: '#fca5a5',
+                        fontSize: '0.72rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>ទទឹងឡូហ្គោក្រសួង</span>
+                    <strong>{normalizedDesign.ministryLogoWidthMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="6"
+                    max="45"
+                    step="0.5"
+                    value={normalizedDesign.ministryLogoWidthMm}
+                    onChange={(e) => updateDesignField('ministryLogoWidthMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>កម្ពស់ឡូហ្គោក្រសួង</span>
+                    <strong>{normalizedDesign.ministryLogoHeightMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="6"
+                    max="45"
+                    step="0.5"
+                    value={normalizedDesign.ministryLogoHeightMm}
+                    onChange={(e) => updateDesignField('ministryLogoHeightMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                    ខេត្ត / ក្រុង
+                  </label>
+                  <input
+                    type="text"
+                    value={normalizedDesign.certProvinceKh || ''}
+                    onChange={(e) => updateDesignField('certProvinceKh', e.target.value)}
+                    placeholder="ខេត្តកណ្តាល"
+                    style={{
+                      width: '100%',
+                      padding: '0.26rem 0.4rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.28)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.72rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.16rem' }}>
+                    មន្ទីរអប់រំ
+                  </label>
+                  <input
+                    type="text"
+                    value={normalizedDesign.certDeptKh || ''}
+                    onChange={(e) => updateDesignField('certDeptKh', e.target.value)}
+                    placeholder="មន្ទីរអប់រំ យុវជន និងកីឡា"
+                    style={{
+                      width: '100%',
+                      padding: '0.26rem 0.4rem',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(148, 163, 184, 0.28)',
+                      background: '#1e293b',
+                      color: '#f8fafc',
+                      fontSize: '0.72rem',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            )}
 
             {/* Background Watermark Logo */}
             <div style={{ background: '#0f172a', padding: '0.55rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
