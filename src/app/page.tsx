@@ -1,15 +1,31 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { settingsService } from '@/services/db';
+
+const DEFAULT_FALLBACK_USERS = [
+  { id: "1", username: "admin1", password: "123", role: "admin", name: "Admin User" },
+];
+
+function findMatchingUser(users: any[], inputUsername: string) {
+  const clean = inputUsername.trim();
+  if (!clean || !Array.isArray(users)) return null;
+  return (
+    users.find((u: any) => String(u?.username || '').trim() === clean) ||
+    users.find((u: any) => String(u?.username || '').trim().toLowerCase() === clean.toLowerCase()) ||
+    null
+  );
+}
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [schoolName, setSchoolName] = useState('សាលាអន្តរជាតិប្រេនស្តម');
-  const [dbUsers, setDbUsers] = useState<any[]>([{ id: "1", username: "admin1", password: "123", role: "admin", name: "Admin User" }]);
+  const [dbUsers, setDbUsers] = useState<any[]>(DEFAULT_FALLBACK_USERS);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasLoadedUsersRef = useRef(false);
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -20,41 +36,86 @@ export default function LoginPage() {
       return;
     }
 
-    const fetchSettings = async () => {
-      try {
-        const data = await settingsService.getById('global');
-        if (data) {
-          if (data.appUsers) setDbUsers(data.appUsers);
-          if (data.schoolName) setSchoolName(data.schoolName);
-        } else {
-          // Default admin if nothing exists in Firebase
-          setDbUsers([{ id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' }]);
-        }
-      } catch (err: any) {
-        console.error("Failed to load settings:", err);
-        setError("Error loading users: " + err.message);
-        setDbUsers([{ id: '1', username: 'admin1', password: '123', role: 'admin', name: 'Admin User' }]);
+    const applySettingsData = (data: any) => {
+      if (!data) return;
+      if (data.schoolName) setSchoolName(data.schoolName);
+      if (Array.isArray(data.appUsers) && data.appUsers.length > 0) {
+        setDbUsers(data.appUsers);
+        hasLoadedUsersRef.current = true;
       }
     };
-    fetchSettings();
-  }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+    const unsub = settingsService.subscribeOne('global', (data) => {
+      applySettingsData(data);
+    });
+
+    // Ensure fresh server read so recent password changes on another device take effect immediately
+    settingsService.getFreshById('global')
+      .then((freshData) => {
+        if (freshData) {
+          applySettingsData(freshData);
+        } else {
+          hasLoadedUsersRef.current = true;
+        }
+      })
+      .catch((err: any) => {
+        console.error("Failed to load settings:", err);
+      });
+
+    return () => unsub();
+  }, [router]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const userByUsername = dbUsers.find((u: any) => u.username === username);
+    if (isSubmitting) return;
+    setError('');
 
-    if (userByUsername) {
-      if (userByUsername.password === password) {
-        localStorage.setItem('userRole', userByUsername.role);
-        localStorage.setItem('userName', userByUsername.name);
-        localStorage.setItem('userId', userByUsername.id); // store ID for targeted notifications
-        router.push('/dashboard');
-      } else {
-        setError('លេខសម្ងាត់មិនត្រឹមត្រូវទេ!');
+    const cleanUsername = username.trim();
+    if (!cleanUsername || !password) {
+      setError('សូមបញ្ចូលឈ្មោះគណនី និងលេខសម្ងាត់!');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let activeUsers = dbUsers;
+      let userByUsername = findMatchingUser(activeUsers, cleanUsername);
+
+      // Re-fetch directly from Firestore server if users weren't loaded yet or credentials didn't match cached data
+      const cachedMatchInvalid =
+        !userByUsername || String(userByUsername.password ?? '') !== password;
+
+      if (!hasLoadedUsersRef.current || cachedMatchInvalid) {
+        try {
+          const freshData = await settingsService.getFreshById('global');
+          if (freshData) {
+            if (freshData.schoolName) setSchoolName(freshData.schoolName);
+            if (Array.isArray(freshData.appUsers) && freshData.appUsers.length > 0) {
+              activeUsers = freshData.appUsers;
+              setDbUsers(freshData.appUsers);
+              hasLoadedUsersRef.current = true;
+              userByUsername = findMatchingUser(activeUsers, cleanUsername);
+            }
+          }
+        } catch (err: any) {
+          console.error("Error refreshing user accounts during login:", err);
+        }
       }
-    } else {
-      setError('មិនមានឈ្មោះគណនីនេះទេ!');
+
+      if (userByUsername) {
+        if (String(userByUsername.password ?? '') === password) {
+          localStorage.setItem('userRole', userByUsername.role);
+          localStorage.setItem('userName', userByUsername.name);
+          localStorage.setItem('userId', userByUsername.id);
+          router.push('/dashboard');
+          return;
+        }
+        setError('លេខសម្ងាត់មិនត្រឹមត្រូវទេ!');
+      } else {
+        setError('មិនមានឈ្មោះគណនីនេះទេ!');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -82,10 +143,18 @@ export default function LoginPage() {
             </label>
             <input 
               type="text" 
+              name="username"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="input-field" 
-              placeholder="ឧទាហរណ៍: admin1, teacher1" 
+              placeholder="បញ្ចូលឈ្មោះគណនីរបស់អ្នក" 
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (error) setError('');
+              }}
             />
           </div>
           <div>
@@ -95,10 +164,15 @@ export default function LoginPage() {
             <div style={{ position: 'relative' }}>
               <input 
                 type={showPassword ? "text" : "password"} 
+                name="password"
+                autoComplete="current-password"
                 className="input-field" 
                 placeholder="បញ្ចូលលេខសម្ងាត់របស់អ្នក" 
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError('');
+                }}
                 style={{ paddingRight: '2.5rem' }}
               />
               <button 
@@ -133,8 +207,8 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem', width: '100%', fontSize: '1.05rem' }}>
-            ចូលប្រើប្រាស់
+          <button type="submit" disabled={isSubmitting} className="btn btn-primary" style={{ marginTop: '0.5rem', width: '100%', fontSize: '1.05rem', opacity: isSubmitting ? 0.75 : 1 }}>
+            {isSubmitting ? 'កំពុងផ្ទៀងផ្ទាត់...' : 'ចូលប្រើប្រាស់'}
           </button>
         </form>
       </div>

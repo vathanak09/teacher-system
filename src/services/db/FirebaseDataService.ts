@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   setDoc,
   addDoc,
@@ -174,6 +175,26 @@ export class FirebaseDataService<T extends { id?: string }> implements IDataServ
       return { ...docSnap.data(), id: docSnap.id } as unknown as T;
     }
     return null;
+  }
+
+  /**
+   * Fetches the latest document directly from the Firestore server, falling back to cache/getDoc if offline.
+   */
+  async getFreshById(id: string): Promise<T | null> {
+    const docRef = doc(this.dbInstance, this.collectionName, id);
+    try {
+      const docSnap = await getDocFromServer(docRef);
+      if (docSnap.exists()) {
+        return { ...docSnap.data(), id: docSnap.id } as unknown as T;
+      }
+      return null;
+    } catch {
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { ...docSnap.data(), id: docSnap.id } as unknown as T;
+      }
+      return null;
+    }
   }
 
   async getByQuery(field: string, op: WhereFilterOp, value: any): Promise<T[]> {
