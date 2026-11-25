@@ -6,6 +6,7 @@ import {
   A5_LANDSCAPE_SPEC,
   CERT_ELEMENT_LABELS,
   CertElementKey,
+  CertResizeHandleMode,
   CertificateCardA5,
   CertificateDesignConfig,
   CertificateDocType,
@@ -90,19 +91,37 @@ export default function CertificateDesignEditor({
   isSavingTemplate,
 }: CertificateDesignEditorProps) {
   const [selectedKey, setSelectedKey] = useState<CertElementKey>('titleBlock');
+  const [draggingKey, setDraggingKey] = useState<CertElementKey | null>(null);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('element');
   const [showMarginGuide, setShowMarginGuide] = useState<boolean>(true);
   const [newTemplateName, setNewTemplateName] = useState<string>('');
   const [editorScale, setEditorScale] = useState<number>(0.9);
   const stageWrapperRef = useRef<HTMLDivElement>(null);
 
-  const dragStateRef = useRef<{
-    key: CertElementKey;
-    startClientX: number;
-    startClientY: number;
-    startDxMm: number;
-    startDyMm: number;
-  } | null>(null);
+  type DragInteraction =
+    | {
+        kind: 'move';
+        key: CertElementKey;
+        startClientX: number;
+        startClientY: number;
+        startDxMm: number;
+        startDyMm: number;
+      }
+    | {
+        kind: 'resize';
+        key: CertElementKey;
+        mode: CertResizeHandleMode;
+        startClientX: number;
+        startClientY: number;
+        startScale: number;
+        startPhotoW: number;
+        startPhotoH: number;
+        startLogoSize: number;
+        startStampSize: number;
+        startSigHeight: number;
+      };
+
+  const dragStateRef = useRef<DragInteraction | null>(null);
 
   const normalizedDesign = useMemo(
     () => normalizeCertificateDesign(designConfig),
@@ -113,6 +132,16 @@ export default function CertificateDesignEditor({
     () => computeCertificateContentMetrics(frameMarginsCm),
     [frameMarginsCm]
   );
+
+  // Stable refs so mouse/pointer move listeners never tear down mid-drag
+  const latestDesignRef = useRef(normalizedDesign);
+  latestDesignRef.current = normalizedDesign;
+  const onChangeDesignRef = useRef(onChangeDesign);
+  onChangeDesignRef.current = onChangeDesign;
+  const selectedKeyRef = useRef(selectedKey);
+  selectedKeyRef.current = selectedKey;
+  const denomRef = useRef(1);
+  denomRef.current = Math.max(0.15, editorScale * metrics.contentScale * PX_PER_MM);
 
   // Measure available stage width to fit crisp interactive A5 card
   useEffect(() => {
@@ -126,53 +155,170 @@ export default function CertificateDesignEditor({
     return () => window.removeEventListener('resize', updateZoom);
   }, []);
 
-  // Pointer drag loop mapped accurately in natural mm units
+  // Rock-solid window pointer move/resize loop attached once
   useEffect(() => {
+    const clampVal = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+    const roundStep = (v: number, step: number) => Number((Math.round(v / step) * step).toFixed(2));
+
     const handlePointerMove = (e: PointerEvent) => {
       const st = dragStateRef.current;
       if (!st) return;
-      const denom = Math.max(0.15, editorScale * metrics.contentScale * PX_PER_MM);
-      const dxMm = Number((st.startDxMm + (e.clientX - st.startClientX) / denom).toFixed(2));
-      const dyMm = Number((st.startDyMm + (e.clientY - st.startClientY) / denom).toFixed(2));
-      const prevEl = normalizedDesign.elements[st.key];
-      onChangeDesign({
-        ...normalizedDesign,
-        elements: {
-          ...normalizedDesign.elements,
-          [st.key]: {
-            ...prevEl,
-            dxMm,
-            dyMm,
+      const denom = denomRef.current;
+      const curDesign = latestDesignRef.current;
+      const deltaXMm = (e.clientX - st.startClientX) / denom;
+      const deltaYMm = (e.clientY - st.startClientY) / denom;
+
+      if (st.kind === 'move') {
+        const dxMm = clampVal(Number((st.startDxMm + deltaXMm).toFixed(2)), -120, 120);
+        const dyMm = clampVal(Number((st.startDyMm + deltaYMm).toFixed(2)), -80, 80);
+        const prevEl = curDesign.elements[st.key];
+        onChangeDesignRef.current({
+          ...curDesign,
+          elements: {
+            ...curDesign.elements,
+            [st.key]: {
+              ...prevEl,
+              dxMm,
+              dyMm,
+            },
           },
+        });
+        return;
+      }
+
+      // Direct mouse-drag resize handling for image boxes & general elements
+      const elScale = Math.max(0.45, st.startScale || 1);
+      if (st.mode === 'elementScale') {
+        const nextScale = clampVal(roundStep(st.startScale + (deltaXMm + deltaYMm) * 0.014, 0.02), 0.55, 1.85);
+        const prevEl = curDesign.elements[st.key];
+        onChangeDesignRef.current({
+          ...curDesign,
+          elements: {
+            ...curDesign.elements,
+            [st.key]: {
+              ...prevEl,
+              scale: nextScale,
+            },
+          },
+        });
+      } else if (st.mode === 'photoWidth') {
+        const photoWidthMm = clampVal(roundStep(st.startPhotoW + deltaXMm / elScale, 0.5), 10, 55);
+        onChangeDesignRef.current({ ...curDesign, photoWidthMm });
+      } else if (st.mode === 'photoHeight') {
+        const photoHeightMm = clampVal(roundStep(st.startPhotoH + deltaYMm / elScale, 0.5), 12, 65);
+        onChangeDesignRef.current({ ...curDesign, photoHeightMm });
+      } else if (st.mode === 'photoSize') {
+        const photoWidthMm = clampVal(roundStep(st.startPhotoW + deltaXMm / elScale, 0.5), 10, 55);
+        const photoHeightMm = clampVal(roundStep(st.startPhotoH + deltaYMm / elScale, 0.5), 12, 65);
+        onChangeDesignRef.current({ ...curDesign, photoWidthMm, photoHeightMm });
+      } else if (st.mode === 'logoSize') {
+        const deltaAvg = (deltaXMm + deltaYMm) / 2;
+        const schoolLogoSizeMm = clampVal(roundStep(st.startLogoSize + deltaAvg / elScale, 0.5), 6, 32);
+        onChangeDesignRef.current({ ...curDesign, schoolLogoSizeMm });
+      } else if (st.mode === 'stampSize') {
+        const deltaAvg = (deltaXMm + deltaYMm) / 2;
+        const stampSizeMm = clampVal(roundStep(st.startStampSize + deltaAvg / elScale, 0.5), 12, 42);
+        const ratio = st.startStampSize > 0 ? stampSizeMm / st.startStampSize : 1;
+        const signatureHeightMm = clampVal(roundStep(st.startSigHeight * ratio, 0.5), 5, 20);
+        onChangeDesignRef.current({ ...curDesign, stampSizeMm, signatureHeightMm });
+      }
+    };
+
+    const endDrag = () => {
+      if (!dragStateRef.current) return;
+      dragStateRef.current = null;
+      setDraggingKey(null);
+      document.body.style.cursor = '';
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 2 : 0.5;
+      const curDesign = latestDesignRef.current;
+      const key = selectedKeyRef.current;
+      const curEl = curDesign.elements[key];
+      const dxMm =
+        e.key === 'ArrowLeft'
+          ? Number((curEl.dxMm - step).toFixed(2))
+          : e.key === 'ArrowRight'
+            ? Number((curEl.dxMm + step).toFixed(2))
+            : curEl.dxMm;
+      const dyMm =
+        e.key === 'ArrowUp'
+          ? Number((curEl.dyMm - step).toFixed(2))
+          : e.key === 'ArrowDown'
+            ? Number((curEl.dyMm + step).toFixed(2))
+            : curEl.dyMm;
+      onChangeDesignRef.current({
+        ...curDesign,
+        elements: {
+          ...curDesign.elements,
+          [key]: { ...curEl, dxMm, dyMm },
         },
       });
     };
 
-    const handlePointerUp = () => {
-      dragStateRef.current = null;
-    };
-
     window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('blur', endDrag);
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('mouseup', endDrag);
+      window.removeEventListener('blur', endDrag);
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.cursor = '';
     };
-  }, [editorScale, metrics.contentScale, normalizedDesign, onChangeDesign]);
+  }, []);
 
   const handleElementPointerDown = (key: CertElementKey, e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
     e.stopPropagation();
     setSelectedKey(key);
-    const el = normalizedDesign.elements[key];
+    setDraggingKey(key);
+    document.body.style.cursor = 'grabbing';
+    const el = latestDesignRef.current.elements[key];
     dragStateRef.current = {
+      kind: 'move',
       key,
       startClientX: e.clientX,
       startClientY: e.clientY,
       startDxMm: el.dxMm,
       startDyMm: el.dyMm,
+    };
+  };
+
+  const handleResizeHandlePointerDown = (
+    key: CertElementKey,
+    mode: CertResizeHandleMode,
+    e: React.PointerEvent
+  ) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedKey(key);
+    setDraggingKey(key);
+    document.body.style.cursor =
+      mode === 'photoWidth' ? 'ew-resize' : mode === 'photoHeight' ? 'ns-resize' : 'nwse-resize';
+    const cur = latestDesignRef.current;
+    dragStateRef.current = {
+      kind: 'resize',
+      key,
+      mode,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startScale: cur.elements[key].scale,
+      startPhotoW: cur.photoWidthMm,
+      startPhotoH: cur.photoHeightMm,
+      startLogoSize: cur.schoolLogoSizeMm,
+      startStampSize: cur.stampSizeMm,
+      startSigHeight: cur.signatureHeightMm,
     };
   };
 
@@ -240,23 +386,48 @@ export default function CertificateDesignEditor({
             gap: '0.5rem',
           }}
         >
-          <div style={{ fontSize: '0.82rem', color: '#e2e8f0', fontWeight: 600 }}>
-            ចុច និងអូស (Drag) ធាតុនីមួយៗលើប័ណ្ណដើម្បីរំកិលទីតាំង — ធាតុជ្រើស៖{' '}
+          <div style={{ fontSize: '0.8rem', color: '#e2e8f0', fontWeight: 600 }}>
+            អូសប្រអប់ដោយ Mouse ដើម្បីរំកិល • អូសចំណុចការ៉េជ្រុងដើម្បីប្តូរទំហំ —{' '}
             <span style={{ color: '#60a5fa', fontWeight: 700 }}>{CERT_ELEMENT_LABELS[selectedKey]}</span>
           </div>
 
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.76rem', color: '#93c5fd', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={showMarginGuide}
-              onChange={(e) => setShowMarginGuide(e.target.checked)}
-            />
-            <span>បង្ហាញបន្ទាត់ព្រំដែន Margin</span>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.76rem',
+                color: showStudentPhoto ? '#6ee7b7' : '#cbd5e1',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={showStudentPhoto}
+                onChange={(e) => {
+                  onToggleShowStudentPhoto(e.target.checked);
+                  if (e.target.checked) setSelectedKey('studentPhoto');
+                }}
+              />
+              <span>បង្ហាញប្រអប់រូបថតសិស្ស</span>
+            </label>
+
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.76rem', color: '#93c5fd', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={showMarginGuide}
+                onChange={(e) => setShowMarginGuide(e.target.checked)}
+              />
+              <span>បង្ហាញបន្ទាត់ព្រំដែន Margin</span>
+            </label>
+          </div>
         </div>
 
         {/* Live A5 Stage */}
         <div
+          onDragStart={(e) => e.preventDefault()}
           style={{
             width: `${A5_LANDSCAPE_SPEC.sheetWPx * editorScale}px`,
             height: `${A5_LANDSCAPE_SPEC.sheetHPx * editorScale}px`,
@@ -266,6 +437,8 @@ export default function CertificateDesignEditor({
             overflow: 'hidden',
             background: '#ffffff',
             touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           <div
@@ -296,8 +469,10 @@ export default function CertificateDesignEditor({
               principalTitle={principalTitle}
               schoolProfile={schoolProfile}
               editorSelectedKey={selectedKey}
+              editorDraggingKey={draggingKey}
               showMarginGuide={showMarginGuide}
               onElementPointerDown={handleElementPointerDown}
+              onResizeHandlePointerDown={handleResizeHandlePointerDown}
             />
           </div>
         </div>
@@ -564,6 +739,41 @@ export default function CertificateDesignEditor({
                 </label>
               </div>
 
+              {selectedKey === 'studentPhoto' && !showStudentPhoto && (
+                <div
+                  style={{
+                    padding: '0.45rem 0.55rem',
+                    borderRadius: '7px',
+                    background: 'rgba(14, 165, 233, 0.14)',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.72rem', color: '#bae6fd' }}>
+                    ប្រអប់រូបថតកំពុងលាក់
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onToggleShowStudentPhoto(true)}
+                    style={{
+                      padding: '0.22rem 0.55rem',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    បង្ហាញលើប័ណ្ណឥឡូវនេះ
+                  </button>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <div>
                   <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.2rem' }}>
@@ -572,8 +782,8 @@ export default function CertificateDesignEditor({
                   </label>
                   <input
                     type="range"
-                    min="-80"
-                    max="80"
+                    min="-120"
+                    max="120"
                     step="0.5"
                     value={selectedEl.dxMm}
                     onChange={(e) => updateSelectedElement({ dxMm: parseFloat(e.target.value) })}
@@ -587,8 +797,8 @@ export default function CertificateDesignEditor({
                   </label>
                   <input
                     type="range"
-                    min="-55"
-                    max="55"
+                    min="-80"
+                    max="80"
                     step="0.5"
                     value={selectedEl.dyMm}
                     onChange={(e) => updateSelectedElement({ dyMm: parseFloat(e.target.value) })}
@@ -605,8 +815,8 @@ export default function CertificateDesignEditor({
                 <input
                   type="range"
                   min="0.55"
-                  max="1.75"
-                  step="0.05"
+                  max="1.85"
+                  step="0.02"
                   value={selectedEl.scale}
                   onChange={(e) => updateSelectedElement({ scale: parseFloat(e.target.value) })}
                   style={{ width: '100%' }}

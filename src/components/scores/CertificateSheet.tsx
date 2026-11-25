@@ -279,6 +279,14 @@ export type CertElementKey =
   | 'classMeta'
   | 'stampBlock';
 
+export type CertResizeHandleMode =
+  | 'elementScale'
+  | 'photoSize'
+  | 'photoWidth'
+  | 'photoHeight'
+  | 'logoSize'
+  | 'stampSize';
+
 export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
   schoolLogo: 'ឡូហ្គោ & ឈ្មោះសាលា',
   titleBlock: 'ចំណងជើងប័ណ្ណ',
@@ -422,8 +430,14 @@ export interface CertificateCardProps {
   principalTitle?: string;
   schoolProfile?: SchoolProfileInfo;
   editorSelectedKey?: CertElementKey | null;
+  editorDraggingKey?: CertElementKey | null;
   showMarginGuide?: boolean;
   onElementPointerDown?: (key: CertElementKey, e: React.PointerEvent) => void;
+  onResizeHandlePointerDown?: (
+    key: CertElementKey,
+    mode: CertResizeHandleMode,
+    e: React.PointerEvent
+  ) => void;
 }
 
 /**
@@ -447,8 +461,10 @@ export function CertificateCardA5({
   principalTitle = 'The Principal of BSIS',
   schoolProfile,
   editorSelectedKey = null,
+  editorDraggingKey = null,
   showMarginGuide = false,
   onElementPointerDown,
+  onResizeHandlePointerDown,
 }: CertificateCardProps) {
   const [customFrameFailed, setCustomFrameFailed] = React.useState(false);
   const [photoFailed, setPhotoFailed] = React.useState(false);
@@ -494,25 +510,74 @@ export function CertificateCardA5({
   const getInteractiveProps = (key: CertElementKey, baseStyle?: React.CSSProperties): React.CSSProperties => {
     const el = design.elements[key];
     const isSel = isEditing && editorSelectedKey === key;
+    const isDrag = isEditing && editorDraggingKey === key;
     return {
       ...baseStyle,
+      position: baseStyle?.position || 'relative',
+      zIndex: isEditing ? (isSel ? 30 : 12) : baseStyle?.zIndex,
       transform: `translate(${el.dxMm}mm, ${el.dyMm}mm) scale(${el.scale})`,
       transformOrigin: 'center center',
       ...(isEditing
         ? {
-            cursor: 'grab',
-            outline: isSel ? '2px solid #2563eb' : '1px dashed rgba(37, 99, 235, 0.35)',
+            cursor: isDrag ? 'grabbing' : 'grab',
+            outline: isSel ? '2px solid #2563eb' : '1px dashed rgba(37, 99, 235, 0.42)',
             outlineOffset: '1.5mm',
             borderRadius: '2px',
             userSelect: 'none',
-            backgroundColor: isSel ? 'rgba(59, 130, 246, 0.06)' : baseStyle?.backgroundColor,
+            WebkitUserSelect: 'none',
+            touchAction: 'none',
+            backgroundColor: isSel ? 'rgba(59, 130, 246, 0.08)' : baseStyle?.backgroundColor,
           }
         : {}),
     };
   };
 
+  const renderResizeHandle = (
+    key: CertElementKey,
+    mode: CertResizeHandleMode,
+    placement: 'se' | 'e' | 's' | 'inner-se',
+    title: string,
+    accentHex = '#2563eb'
+  ) => {
+    if (!isEditing || editorSelectedKey !== key || !onResizeHandlePointerDown) return null;
+    const cursor =
+      placement === 'e' ? 'ew-resize' : placement === 's' ? 'ns-resize' : 'nwse-resize';
+    const posStyle: React.CSSProperties =
+      placement === 'e'
+        ? { right: '-2.2mm', top: '50%', transform: 'translateY(-50%)', width: '2.6mm', height: '5.5mm', borderRadius: '999px' }
+        : placement === 's'
+          ? { bottom: '-2.2mm', left: '50%', transform: 'translateX(-50%)', width: '5.5mm', height: '2.6mm', borderRadius: '999px' }
+          : placement === 'inner-se'
+            ? { right: '-1.6mm', bottom: '-1.6mm', width: '3.6mm', height: '3.6mm', borderRadius: '999px' }
+            : { right: '-2.8mm', bottom: '-2.8mm', width: '4mm', height: '4mm', borderRadius: '1px' };
+
+    return (
+      <div
+        role="button"
+        aria-label={title}
+        title={title}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onResizeHandlePointerDown(key, mode, e);
+        }}
+        style={{
+          position: 'absolute',
+          ...posStyle,
+          background: '#ffffff',
+          border: `1.5px solid ${accentHex}`,
+          boxShadow: '0 1px 4px rgba(15, 23, 42, 0.45)',
+          cursor,
+          zIndex: 60,
+          touchAction: 'none',
+        }}
+      />
+    );
+  };
+
   return (
     <div
+      onDragStart={isEditing ? (e) => e.preventDefault() : undefined}
       style={{
         width: '100%',
         height: '100%',
@@ -521,6 +586,8 @@ export function CertificateCardA5({
         overflow: 'hidden',
         boxSizing: 'border-box',
         fontFamily: "'Khmer OS Siemreap', 'Noto Sans Khmer', 'Times New Roman', serif",
+        userSelect: isEditing ? 'none' : undefined,
+        WebkitUserSelect: isEditing ? 'none' : undefined,
         WebkitPrintColorAdjust: 'exact',
         printColorAdjust: 'exact',
       }}
@@ -608,24 +675,27 @@ export function CertificateCardA5({
                 minWidth: '52mm',
               })}
             >
-              <img
-                src={logoSrc}
-                alt="BSIS Logo"
-                draggable={false}
-                onError={(e) => {
-                  const img = e.currentTarget as HTMLImageElement;
-                  if (!img.dataset.fallback) {
-                    img.dataset.fallback = '1';
-                    img.src = '/logo.png';
-                  }
-                }}
-                style={{
-                  width: `${design.schoolLogoSizeMm}mm`,
-                  height: `${design.schoolLogoSizeMm}mm`,
-                  objectFit: 'contain',
-                  flexShrink: 0,
-                }}
-              />
+              <div style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+                <img
+                  src={logoSrc}
+                  alt="BSIS Logo"
+                  draggable={false}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (!img.dataset.fallback) {
+                      img.dataset.fallback = '1';
+                      img.src = '/logo.png';
+                    }
+                  }}
+                  style={{
+                    width: `${design.schoolLogoSizeMm}mm`,
+                    height: `${design.schoolLogoSizeMm}mm`,
+                    objectFit: 'contain',
+                    flexShrink: 0,
+                  }}
+                />
+                {renderResizeHandle('schoolLogo', 'logoSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំឡូហ្គោ', '#d97706')}
+              </div>
               <div style={{ lineHeight: 1.2 }}>
                 <div
                   style={{
@@ -651,6 +721,7 @@ export function CertificateCardA5({
                   {schoolEnName}
                 </div>
               </div>
+              {renderResizeHandle('schoolLogo', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ឡូហ្គោ')}
             </div>
           ) : (
             <div style={{ minWidth: '52mm' }} />
@@ -684,6 +755,7 @@ export function CertificateCardA5({
               >
                 {enHeading}
               </div>
+              {renderResizeHandle('titleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមចំណងជើង')}
             </div>
           ) : (
             <div style={{ flex: 1 }} />
@@ -713,6 +785,7 @@ export function CertificateCardA5({
               >
                 លេខ {khRank} • Rank {enRank}
               </div>
+              {renderResizeHandle('rankBadge', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមផ្លាកលេខ')}
             </div>
           ) : (
             <div style={{ minWidth: '30mm' }} />
@@ -748,8 +821,17 @@ export function CertificateCardA5({
             >
               <div style={{ fontWeight: 500 }}>{khLeadText}</div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'flex-start',
+                  flexWrap: 'wrap',
+                  columnGap: '4.5mm',
+                  rowGap: '0.4mm',
+                }}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
                   <span style={{ whiteSpace: 'nowrap' }}>ឈ្មោះ ៖</span>
                   <span
                     style={{
@@ -758,14 +840,12 @@ export function CertificateCardA5({
                       color: design.valueColor,
                       fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
                       whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
                     }}
                   >
                     {recipient.fullName || '-'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', flexShrink: 0 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.8mm', flexShrink: 0 }}>
                   <span>ភេទ</span>
                   <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
                     {recipient.gender || '-'}
@@ -817,6 +897,7 @@ export function CertificateCardA5({
                   {conductedDate}
                 </span>
               </div>
+              {renderResizeHandle('khmerBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារខ្មែរ')}
             </div>
           ) : (
             <div />
@@ -838,8 +919,17 @@ export function CertificateCardA5({
             >
               <div style={{ fontWeight: 500 }}>{enLeadText}</div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'flex-start',
+                  flexWrap: 'wrap',
+                  columnGap: '4.5mm',
+                  rowGap: '0.4mm',
+                }}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '2mm' }}>
                   <span>to</span>
                   <span
                     style={{
@@ -847,14 +937,12 @@ export function CertificateCardA5({
                       fontWeight: 700,
                       color: design.valueColor,
                       whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
                     }}
                   >
                     {recipient.englishName || recipient.fullName || '-'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
                   <span>Gender:</span>
                   <span style={{ color: design.valueColor, fontWeight: 700 }}>{engGender}</span>
                 </div>
@@ -904,6 +992,7 @@ export function CertificateCardA5({
                   {conductedDate}
                 </span>
               </div>
+              {renderResizeHandle('englishBody', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមខ្លឹមសារអង់គ្លេស')}
             </div>
           ) : (
             <div />
@@ -927,45 +1016,56 @@ export function CertificateCardA5({
                 style={getInteractiveProps('studentPhoto', {
                   width: `${design.photoWidthMm}mm`,
                   height: `${design.photoHeightMm}mm`,
-                  borderRadius: `${design.photoRadiusMm}mm`,
-                  border: `1.5px solid ${framePreset.innerColor}`,
-                  background: '#f8fafc',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+                  overflow: 'visible',
                   flexShrink: 0,
                 })}
               >
-                {photoImgSrc && !photoFailed ? (
-                  <img
-                    src={photoImgSrc}
-                    alt={recipient.fullName}
-                    draggable={false}
-                    onError={() => setPhotoFailed(true)}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      color: '#94a3b8',
-                      fontSize: '6.8pt',
-                      padding: '1mm',
-                      lineHeight: 1.2,
-                    }}
-                  >
-                    រូបថត
-                    <br />
-                    សិស្ស
-                  </div>
-                )}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: `${design.photoRadiusMm}mm`,
+                    border: `1.5px solid ${framePreset.innerColor}`,
+                    background: '#f8fafc',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
+                  }}
+                >
+                  {photoImgSrc && !photoFailed ? (
+                    <img
+                      src={photoImgSrc}
+                      alt={recipient.fullName}
+                      draggable={false}
+                      onError={() => setPhotoFailed(true)}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        textAlign: 'center',
+                        color: '#94a3b8',
+                        fontSize: '6.8pt',
+                        padding: '1mm',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      រូបថត
+                      <br />
+                      សិស្ស
+                    </div>
+                  )}
+                </div>
+                {renderResizeHandle('studentPhoto', 'photoWidth', 'e', 'ទាញទទឹងប្រអប់រូបថត', '#0284c7')}
+                {renderResizeHandle('studentPhoto', 'photoHeight', 's', 'ទាញកម្ពស់ប្រអប់រូបថត', '#0284c7')}
+                {renderResizeHandle('studentPhoto', 'photoSize', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់រូបថត', '#0284c7')}
               </div>
             )}
 
@@ -985,6 +1085,7 @@ export function CertificateCardA5({
                 </div>
                 {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
                 {recipient.studentId && <div>ID: {recipient.studentId}</div>}
+                {renderResizeHandle('classMeta', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមព័ត៌មានថ្នាក់')}
               </div>
             )}
           </div>
@@ -1052,6 +1153,7 @@ export function CertificateCardA5({
                     color={design.valueColor}
                   />
                 </div>
+                {renderResizeHandle('stampBlock', 'stampSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំត្រា & ហត្ថលេខា', '#e11d48')}
               </div>
 
               {signatoryName && (
@@ -1071,6 +1173,7 @@ export function CertificateCardA5({
                   {signatoryName}
                 </div>
               )}
+              {renderResizeHandle('stampBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ហត្ថលេខា')}
             </div>
           )}
         </div>

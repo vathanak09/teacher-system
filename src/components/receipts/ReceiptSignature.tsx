@@ -30,6 +30,7 @@ export default function ReceiptSignature({
       <img
         src={src}
         alt="Cashier Signature"
+        draggable={false}
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = 'none';
         }}

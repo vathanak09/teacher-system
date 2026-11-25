@@ -877,6 +877,7 @@ export function OfficialSchoolStamp({
       <img
         src={src}
         alt="School Stamp"
+        draggable={false}
         onError={() => setImgFailed(true)}
         style={{
           width: size,
