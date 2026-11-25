@@ -25,6 +25,7 @@ type ClassCoeffConfig = {
 };
 
 const UNASSIGNED_LEVEL_LABEL = 'មិនទាន់កំណត់វគ្គ';
+const SCORE_SUBJECT_FIELDS = ['quiz', 'exercise', 'speaking', 'homework', 'test'] as const;
 
 interface FinalExamSession {
   id: string;
@@ -153,6 +154,7 @@ export default function ScoresPage() {
   const [allTeachers, setAllTeachers] = useState<any[]>([]); // Global teachers
   const [scores, setScores] = useState<any[]>([]); // Snapshot score records for the selected month/class
   const [allScores, setAllScores] = useState<any[]>([]); // Global scores for computing progress
+  const scoreTableContainerRef = useRef<HTMLDivElement>(null);
   const [selectedClassIdsFilter, setSelectedClassIdsFilter] = useState<string[] | null>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('scoreSelectedClassIdsFilter');
@@ -1270,6 +1272,64 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       if (studentIndex < targetList.length && val !== '') {
         await handleScoreChange(targetList[studentIndex], field, val);
       }
+    }
+  };
+
+  /**
+   * Excel-like keyboard cell navigation (ArrowLeft/Right/Up/Down, Enter/Shift+Enter)
+   * across visible student rows and subject columns (including split-by-level groups).
+   */
+  const handleScoreCellKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    colIndex: number
+  ) => {
+    const key = e.key;
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(key)) {
+      return;
+    }
+
+    const input = e.currentTarget;
+    const val = input.value || '';
+    const selStart = input.selectionStart ?? 0;
+    const selEnd = input.selectionEnd ?? 0;
+    const isAllSelected = val.length === 0 || (selStart === 0 && selEnd === val.length);
+
+    if (key === 'ArrowLeft' && !isAllSelected && selStart > 0) return;
+    if (key === 'ArrowRight' && !isAllSelected && selEnd < val.length) return;
+
+    const currentTr = input.closest('tr');
+    const container = scoreTableContainerRef.current;
+    if (!currentTr || !container) return;
+
+    let targetInput: HTMLInputElement | null = null;
+
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const nextCol = colIndex + (key === 'ArrowRight' ? 1 : -1);
+      targetInput = currentTr.querySelector<HTMLInputElement>(
+        `input[data-score-col="${nextCol}"]`
+      );
+    } else {
+      const allRows = Array.from(
+        container.querySelectorAll<HTMLTableRowElement>('tr[data-score-row="1"]')
+      );
+      const currentRowIdx = allRows.indexOf(currentTr);
+      if (currentRowIdx !== -1) {
+        const goUp = key === 'ArrowUp' || (key === 'Enter' && e.shiftKey);
+        const targetTr = allRows[currentRowIdx + (goUp ? -1 : 1)];
+        if (targetTr) {
+          targetInput = targetTr.querySelector<HTMLInputElement>(
+            `input[data-score-col="${colIndex}"]`
+          );
+        }
+      }
+    }
+
+    if (targetInput) {
+      e.preventDefault();
+      targetInput.focus();
+      targetInput.select();
+    } else if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'Enter') {
+      e.preventDefault();
     }
   };
 
@@ -2690,7 +2750,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                       const displayCode = scoreRec.displayStudentCode || scoreRec.studentIdCode || 'N/A';
                       const effectiveLevel = scoreRec.effectiveLevel || '';
                       return (
-                        <tr key={scoreRec.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
+                        <tr key={scoreRec.id} data-score-row="1" style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
                           <td style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{index + 1}</td>
                           <td style={{ padding: '0.5rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)' }}>{displayCode}</td>
                           <td style={{ padding: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 9, background: 'var(--main-bg)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>{displayFullName}</td>
@@ -2729,52 +2789,41 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                             </button>
                           </td>
                           
-                          {/* Subject Columns */}
-                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                            <input 
-                              type="number" step="any" value={scoreRec.quiz || ""}
-                              onChange={(e) => handleScoreChange(scoreRec, 'quiz', e.target.value)}
-                              onPaste={(e) => handlePaste(e, index, 'quiz', sortedScores)}
-                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                              placeholder=""
-                            />
-                          </td>
-                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                            <input 
-                              type="number" step="any" value={scoreRec.exercise || ""}
-                              onChange={(e) => handleScoreChange(scoreRec, 'exercise', e.target.value)}
-                              onPaste={(e) => handlePaste(e, index, 'exercise', sortedScores)}
-                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                              placeholder=""
-                            />
-                          </td>
-                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                            <input 
-                              type="number" step="any" value={scoreRec.speaking || ""}
-                              onChange={(e) => handleScoreChange(scoreRec, 'speaking', e.target.value)}
-                              onPaste={(e) => handlePaste(e, index, 'speaking', sortedScores)}
-                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                              placeholder=""
-                            />
-                          </td>
-                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                            <input 
-                              type="number" step="any" value={scoreRec.homework || ""}
-                              onChange={(e) => handleScoreChange(scoreRec, 'homework', e.target.value)}
-                              onPaste={(e) => handlePaste(e, index, 'homework', sortedScores)}
-                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                              placeholder=""
-                            />
-                          </td>
-                          <td style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                            <input 
-                              type="number" step="any" value={scoreRec.test || ""}
-                              onChange={(e) => handleScoreChange(scoreRec, 'test', e.target.value)}
-                              onPaste={(e) => handlePaste(e, index, 'test', sortedScores)}
-                              style={{ width: '45px', padding: '0.25rem 0', textAlign: 'center', borderRadius: '4px', border: '1px solid transparent', background: 'var(--main-bg)', color: 'var(--text-primary)' }}
-                              placeholder=""
-                            />
-                          </td>
+                          {/* Subject Columns (Excel-like Keyboard Arrow + Enter Navigation) */}
+                          {SCORE_SUBJECT_FIELDS.map((fieldKey, colIndex) => (
+                            <td key={fieldKey} style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                data-score-col={colIndex}
+                                value={scoreRec[fieldKey] ?? ''}
+                                onChange={(e) => handleScoreChange(scoreRec, fieldKey, e.target.value)}
+                                onPaste={(e) => handlePaste(e, index, fieldKey, sortedScores)}
+                                onKeyDown={(e) => handleScoreCellKeyDown(e, colIndex)}
+                                onFocus={(e) => {
+                                  e.currentTarget.style.borderColor = '#3b82f6';
+                                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.22)';
+                                  e.currentTarget.select();
+                                }}
+                                onBlur={(e) => {
+                                  e.currentTarget.style.borderColor = 'transparent';
+                                  e.currentTarget.style.boxShadow = 'none';
+                                }}
+                                style={{
+                                  width: '45px',
+                                  padding: '0.25rem 0',
+                                  textAlign: 'center',
+                                  borderRadius: '4px',
+                                  border: '1.5px solid transparent',
+                                  background: 'var(--main-bg)',
+                                  color: 'var(--text-primary)',
+                                  outline: 'none',
+                                  transition: 'border-color 0.12s, box-shadow 0.12s',
+                                }}
+                                placeholder=""
+                              />
+                            </td>
+                          ))}
 
                           {/* Total Score */}
                           <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', border: '1px solid var(--border-color)', width: '70px', minWidth: '70px' }}>
@@ -2837,10 +2886,10 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         };
 
         if (computedScores.isSplitByLevel && computedScores.groups.length > 0) {
-          return <div>{computedScores.groups.map((grp) => renderScoreTable(grp))}</div>;
+          return <div ref={scoreTableContainerRef}>{computedScores.groups.map((grp) => renderScoreTable(grp))}</div>;
         }
         if (!computedScores.groups[0]) return null;
-        return renderScoreTable(computedScores.groups[0]);
+        return <div ref={scoreTableContainerRef}>{renderScoreTable(computedScores.groups[0])}</div>;
       })()}
 
       {scores.length > 0 && (
