@@ -4,24 +4,34 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ENGLISH_MONTH_NAMES } from '@/utils/cambodiaHolidays';
 import { photoFrameTemplateService, settingsService } from '@/services/db';
+import { uploadCertificateFrame } from '@/services/db/StorageService';
 import { SchoolProfileInfo, DEFAULT_SCHOOL_PROFILE } from '@/components/settings/SchoolInfoSettingsPanel';
 import {
   A4_PORTRAIT_SPEC,
   MonthlyResultClassPacket,
   computeMonthlyResultPacketsForClass,
+  resolveSheetAssetSrc,
 } from './MonthlyResultSheet';
 import {
   A5_LANDSCAPE_SPEC,
   CERTIFICATE_FRAME_PRESETS,
+  CertificateDesignConfig,
   CertificateDocType,
   CertificatePairA4Page,
   CertificatePrintPaperMode,
   CertificateRecipient,
   CertificateSingleA5Page,
+  DEFAULT_CERTIFICATE_DESIGN,
+  DEFAULT_CERTIFICATE_MARGINS_CM,
+  FrameMarginsCm,
   formatConductedDateDefault,
   formatExamLabelsFromMonthStr,
   formatIssuedDateDefault,
+  normalizeCertificateDesign,
 } from './CertificateSheet';
+import CertificateDesignEditor, {
+  SavedCertificateDesignTemplate,
+} from './CertificateDesignEditor';
 import { AppIcon } from '../AppIcons';
 
 export interface SavedCustomFrameLink {
@@ -35,6 +45,10 @@ export interface CertificateBrandingConfig {
   certFramePresetId?: string;
   certFrameUrl?: string;
   certCustomFrames?: SavedCustomFrameLink[];
+  certFrameMarginsCm?: FrameMarginsCm;
+  certDesignConfig?: CertificateDesignConfig;
+  certDesignTemplates?: SavedCertificateDesignTemplate[];
+  certActiveDesignId?: string | null;
   certShowStudentPhoto?: boolean;
   certPrincipalTitle?: string;
   resultStampUrl?: string;
@@ -116,6 +130,11 @@ export default function CertificatePrintModal({
   const [savedCustomFrames, setSavedCustomFrames] = useState<SavedCustomFrameLink[]>([]);
   const [newFrameLabel, setNewFrameLabel] = useState<string>('');
   const [studioFrameTemplates, setStudioFrameTemplates] = useState<SavedCustomFrameLink[]>([]);
+  const [frameMarginsCm, setFrameMarginsCm] = useState<FrameMarginsCm>(DEFAULT_CERTIFICATE_MARGINS_CM);
+  const [uniformMargins, setUniformMargins] = useState<boolean>(true);
+  const [isUploadingFrames, setIsUploadingFrames] = useState<boolean>(false);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
+  const frameUploadInputRef = useRef<HTMLInputElement>(null);
 
   // Bilingual text & dates & signing
   const defaultExam = useMemo(
@@ -134,6 +153,11 @@ export default function CertificatePrintModal({
   const [principalTitle, setPrincipalTitle] = useState<string>('The Principal of BSIS');
 
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<'preview' | 'design'>('preview');
+  const [designConfig, setDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_CERTIFICATE_DESIGN);
+  const [savedDesignTemplates, setSavedDesignTemplates] = useState<SavedCertificateDesignTemplate[]>([]);
+  const [activeDesignTemplateId, setActiveDesignTemplateId] = useState<string | null>(null);
+  const [isSavingDesignTemplate, setIsSavingDesignTemplate] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveFeedback, setSaveFeedback] = useState<string>('');
   const [previewScale, setPreviewScale] = useState<number>(1);
@@ -146,6 +170,25 @@ export default function CertificatePrintModal({
     setFramePresetId(scoreSettings?.certFramePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
     setCustomFrameUrl(scoreSettings?.certFrameUrl || '');
     setSavedCustomFrames(Array.isArray(scoreSettings?.certCustomFrames) ? scoreSettings.certCustomFrames : []);
+    setDesignConfig(normalizeCertificateDesign(scoreSettings?.certDesignConfig));
+    setSavedDesignTemplates(
+      Array.isArray(scoreSettings?.certDesignTemplates) ? scoreSettings.certDesignTemplates : []
+    );
+    setActiveDesignTemplateId(scoreSettings?.certActiveDesignId || null);
+    const savedMargins = scoreSettings?.certFrameMarginsCm;
+    if (savedMargins && typeof savedMargins === 'object') {
+      const m: FrameMarginsCm = {
+        top: Number(savedMargins.top) > 0 ? Number(savedMargins.top) : DEFAULT_CERTIFICATE_MARGINS_CM.top,
+        right: Number(savedMargins.right) > 0 ? Number(savedMargins.right) : DEFAULT_CERTIFICATE_MARGINS_CM.right,
+        bottom: Number(savedMargins.bottom) > 0 ? Number(savedMargins.bottom) : DEFAULT_CERTIFICATE_MARGINS_CM.bottom,
+        left: Number(savedMargins.left) > 0 ? Number(savedMargins.left) : DEFAULT_CERTIFICATE_MARGINS_CM.left,
+      };
+      setFrameMarginsCm(m);
+      setUniformMargins(m.top === m.right && m.top === m.bottom && m.top === m.left);
+    } else {
+      setFrameMarginsCm(DEFAULT_CERTIFICATE_MARGINS_CM);
+      setUniformMargins(true);
+    }
     setShowStudentPhoto(Boolean(scoreSettings?.certShowStudentPhoto));
     setPrincipalTitle(scoreSettings?.certPrincipalTitle || 'The Principal of BSIS');
     setStampUrl(scoreSettings?.resultStampUrl || '');
@@ -162,6 +205,7 @@ export default function CertificatePrintModal({
       String(monthExtraData?.issueDateEnglish || '').trim() || formatIssuedDateDefault()
     );
     setSaveFeedback('');
+    setUploadStatusText('');
     setExcludedUids([]);
   }, [isOpen, scoreSettings, selectedMonth, monthExtraData]);
 
@@ -407,6 +451,9 @@ export default function CertificatePrintModal({
 
   const handlePrint = () => {
     if (typeof window === 'undefined' || renderedPrintPages.length === 0) return;
+    if (viewMode !== 'preview') {
+      setViewMode('preview');
+    }
     const styleId = 'bsis-a4-landscape-page-rule';
     let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
     if (!styleEl) {
@@ -429,10 +476,65 @@ export default function CertificatePrintModal({
       setTimeout(() => {
         document.body.classList.remove('printing-receipt-a4');
       }, 1200);
-    }, 80);
+    }, 120);
   };
 
-  const handleAddCustomFrameLink = () => {
+  const persistSavedFramesImmediately = async (
+    nextList: SavedCustomFrameLink[],
+    nextActiveUrl?: string
+  ) => {
+    if (!onSaveSettings) return;
+    try {
+      await onSaveSettings({
+        certCustomFrames: nextList,
+        ...(nextActiveUrl !== undefined ? { certFrameUrl: nextActiveUrl } : {}),
+      });
+    } catch (err) {
+      console.error('Failed auto-saving uploaded frame templates:', err);
+    }
+  };
+
+  const handleUploadFrameFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+    setIsUploadingFrames(true);
+    setUploadStatusText(`កំពុង Upload 0 / ${files.length}...`);
+    const uploadedEntries: SavedCustomFrameLink[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatusText(`កំពុង Upload ${i + 1} / ${files.length} (${file.name})...`);
+        const baseName = file.name.replace(/\.[^.]+$/, '');
+        const cleanFileId = `cert_frame_${Date.now()}_${i}`;
+        const url = await uploadCertificateFrame(file, cleanFileId);
+        uploadedEntries.push({
+          id: `${Date.now()}-${i}`,
+          label:
+            files.length === 1 && newFrameLabel.trim()
+              ? newFrameLabel.trim()
+              : baseName.slice(0, 24) || `ស៊ុម ${savedCustomFrames.length + uploadedEntries.length + 1}`,
+          url,
+        });
+      }
+      const nextList = [...savedCustomFrames, ...uploadedEntries];
+      const latestUrl = uploadedEntries[uploadedEntries.length - 1]?.url || customFrameUrl;
+      setSavedCustomFrames(nextList);
+      setCustomFrameUrl(latestUrl);
+      setNewFrameLabel('');
+      await persistSavedFramesImmediately(nextList, latestUrl);
+      setUploadStatusText(`Upload បានជោគជ័យ ${uploadedEntries.length} គំរូ!`);
+      setTimeout(() => setUploadStatusText(''), 3500);
+    } catch (err: any) {
+      console.error('Frame upload failed:', err);
+      alert('មានបញ្ហាក្នុងការ Upload រូបស៊ុម៖ ' + (err?.message || 'Unknown error'));
+      setUploadStatusText('');
+    } finally {
+      setIsUploadingFrames(false);
+      if (frameUploadInputRef.current) frameUploadInputRef.current.value = '';
+    }
+  };
+
+  const handleAddCustomFrameLink = async () => {
     const cleanUrl = customFrameUrl.trim();
     if (!cleanUrl) return;
     const exists = savedCustomFrames.some((f) => f.url === cleanUrl);
@@ -441,10 +543,146 @@ export default function CertificatePrintModal({
     const nextList = [...savedCustomFrames, { id: String(Date.now()), label, url: cleanUrl }];
     setSavedCustomFrames(nextList);
     setNewFrameLabel('');
+    await persistSavedFramesImmediately(nextList, cleanUrl);
   };
 
-  const handleRemoveSavedFrame = (id: string) => {
-    setSavedCustomFrames((prev) => prev.filter((f) => f.id !== id));
+  const handleRemoveSavedFrame = async (id: string) => {
+    const target = savedCustomFrames.find((f) => f.id === id);
+    const nextList = savedCustomFrames.filter((f) => f.id !== id);
+    setSavedCustomFrames(nextList);
+    const nextUrl = target && customFrameUrl.trim() === target.url ? '' : customFrameUrl;
+    if (nextUrl !== customFrameUrl) setCustomFrameUrl(nextUrl);
+    await persistSavedFramesImmediately(nextList, nextUrl);
+  };
+
+  const handleUpdateMarginCm = (side: keyof FrameMarginsCm, rawVal: string) => {
+    const parsed = parseFloat(rawVal);
+    if (isNaN(parsed)) return;
+    const clamped = Math.max(0.4, Math.min(5.5, parsed));
+    if (uniformMargins) {
+      setFrameMarginsCm({ top: clamped, right: clamped, bottom: clamped, left: clamped });
+    } else {
+      setFrameMarginsCm((prev) => ({ ...prev, [side]: clamped }));
+    }
+  };
+
+  const handleApplyUniformCm = (valCm: number) => {
+    setUniformMargins(true);
+    setFrameMarginsCm({ top: valCm, right: valCm, bottom: valCm, left: valCm });
+  };
+
+  const handleApplyDesignTemplate = async (tpl: SavedCertificateDesignTemplate) => {
+    setDocType(tpl.docType || 'praise');
+    setFramePresetId(tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id);
+    setCustomFrameUrl(tpl.customFrameUrl || '');
+    if (tpl.frameMarginsCm) {
+      setFrameMarginsCm(tpl.frameMarginsCm);
+      setUniformMargins(
+        tpl.frameMarginsCm.top === tpl.frameMarginsCm.right &&
+        tpl.frameMarginsCm.top === tpl.frameMarginsCm.bottom &&
+        tpl.frameMarginsCm.top === tpl.frameMarginsCm.left
+      );
+    }
+    setShowStudentPhoto(Boolean(tpl.showStudentPhoto));
+    const norm = normalizeCertificateDesign(tpl.designConfig);
+    setDesignConfig(norm);
+    setActiveDesignTemplateId(tpl.id);
+    if (onSaveSettings) {
+      try {
+        await onSaveSettings({
+          certDocType: tpl.docType || 'praise',
+          certFramePresetId: tpl.framePresetId || CERTIFICATE_FRAME_PRESETS[0].id,
+          certFrameUrl: tpl.customFrameUrl || '',
+          certFrameMarginsCm: tpl.frameMarginsCm,
+          certShowStudentPhoto: Boolean(tpl.showStudentPhoto),
+          certDesignConfig: norm,
+          certActiveDesignId: tpl.id,
+        });
+      } catch (err) {
+        console.error('Failed persisting applied template:', err);
+      }
+    }
+  };
+
+  const handleSaveNewDesignTemplate = async (name: string) => {
+    if (!onSaveSettings) return;
+    setIsSavingDesignTemplate(true);
+    try {
+      const nextTpl: SavedCertificateDesignTemplate = {
+        id: String(Date.now()),
+        name,
+        docType,
+        framePresetId,
+        customFrameUrl: customFrameUrl.trim(),
+        frameMarginsCm,
+        showStudentPhoto,
+        designConfig: normalizeCertificateDesign(designConfig),
+        updatedAt: new Date().toISOString(),
+      };
+      const nextTemplates = [...savedDesignTemplates, nextTpl];
+      setSavedDesignTemplates(nextTemplates);
+      setActiveDesignTemplateId(nextTpl.id);
+      await onSaveSettings({
+        certDesignTemplates: nextTemplates,
+        certActiveDesignId: nextTpl.id,
+        certDesignConfig: nextTpl.designConfig,
+        certDocType: docType,
+        certFramePresetId: framePresetId,
+        certFrameUrl: customFrameUrl.trim(),
+        certFrameMarginsCm: frameMarginsCm,
+        certShowStudentPhoto: showStudentPhoto,
+      });
+    } finally {
+      setIsSavingDesignTemplate(false);
+    }
+  };
+
+  const handleUpdateCurrentDesignTemplate = async () => {
+    if (!onSaveSettings || !activeDesignTemplateId) return;
+    setIsSavingDesignTemplate(true);
+    try {
+      const norm = normalizeCertificateDesign(designConfig);
+      const nextTemplates = savedDesignTemplates.map((t) =>
+        t.id === activeDesignTemplateId
+          ? {
+              ...t,
+              docType,
+              framePresetId,
+              customFrameUrl: customFrameUrl.trim(),
+              frameMarginsCm,
+              showStudentPhoto,
+              designConfig: norm,
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      );
+      setSavedDesignTemplates(nextTemplates);
+      await onSaveSettings({
+        certDesignTemplates: nextTemplates,
+        certActiveDesignId: activeDesignTemplateId,
+        certDesignConfig: norm,
+        certDocType: docType,
+        certFramePresetId: framePresetId,
+        certFrameUrl: customFrameUrl.trim(),
+        certFrameMarginsCm: frameMarginsCm,
+        certShowStudentPhoto: showStudentPhoto,
+      });
+    } finally {
+      setIsSavingDesignTemplate(false);
+    }
+  };
+
+  const handleDeleteDesignTemplate = async (id: string) => {
+    const nextTemplates = savedDesignTemplates.filter((t) => t.id !== id);
+    const nextActive = activeDesignTemplateId === id ? null : activeDesignTemplateId;
+    setSavedDesignTemplates(nextTemplates);
+    setActiveDesignTemplateId(nextActive);
+    if (onSaveSettings) {
+      await onSaveSettings({
+        certDesignTemplates: nextTemplates,
+        certActiveDesignId: nextActive,
+      });
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -452,11 +690,16 @@ export default function CertificatePrintModal({
     setIsSaving(true);
     setSaveFeedback('');
     try {
+      const normDesign = normalizeCertificateDesign(designConfig);
       await onSaveSettings({
         certDocType: docType,
         certFramePresetId: framePresetId,
         certFrameUrl: customFrameUrl.trim(),
         certCustomFrames: savedCustomFrames,
+        certFrameMarginsCm: frameMarginsCm,
+        certDesignConfig: normDesign,
+        certDesignTemplates: savedDesignTemplates,
+        certActiveDesignId: activeDesignTemplateId,
         certShowStudentPhoto: showStudentPhoto,
         certPrincipalTitle: principalTitle.trim() || 'The Principal of BSIS',
         resultStampUrl: stampUrl.trim(),
@@ -520,6 +763,8 @@ export default function CertificatePrintModal({
     docType,
     framePreset: activeFramePreset,
     customFrameUrl,
+    frameMarginsCm,
+    designConfig,
     examKhmer,
     examEnglish,
     conductedDate,
@@ -898,7 +1143,61 @@ export default function CertificatePrintModal({
           </div>
 
           {/* Right Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            {/* Toggle between Print Preview and Interactive Design Studio */}
+            <div
+              style={{
+                display: 'inline-flex',
+                background: '#1e293b',
+                border: '1px solid rgba(148, 163, 184, 0.35)',
+                borderRadius: '8px',
+                padding: '0.14rem',
+                gap: '0.14rem',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('preview')}
+                style={{
+                  padding: '0.28rem 0.62rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: viewMode === 'preview' ? '#2563eb' : 'transparent',
+                  color: viewMode === 'preview' ? '#ffffff' : '#cbd5e1',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                មើលគំរូ A4
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('design');
+                  setIsConfigOpen(false);
+                }}
+                style={{
+                  padding: '0.28rem 0.62rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: viewMode === 'design' ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'transparent',
+                  color: viewMode === 'design' ? '#ffffff' : '#cbd5e1',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <AppIcon name="layers" size={13} />
+                <span>រចនា &amp; រំកិលធាតុ</span>
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => setIsConfigOpen((v) => !v)}
@@ -1061,118 +1360,306 @@ export default function CertificatePrintModal({
               gap: '0.55rem',
             }}
           >
-            {/* Preset Frame Swatches & Saved Custom Frame Chips */}
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24' }}>
-                ស៊ុមក្បាច់ជុំវិញ៖
-              </span>
-              {CERTIFICATE_FRAME_PRESETS.map((preset) => {
-                const active = !customFrameUrl.trim() && framePresetId === preset.id;
-                return (
+            {/* Frame Presets + Upload Multi-Frame Button + Saved Frame Thumbnail Gallery */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.45rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.38rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24' }}>
+                    ស៊ុមក្បាច់ជុំវិញ៖
+                  </span>
+                  {CERTIFICATE_FRAME_PRESETS.map((preset) => {
+                    const active = !customFrameUrl.trim() && framePresetId === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setFramePresetId(preset.id);
+                          setCustomFrameUrl('');
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.28rem',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '6px',
+                          border: active ? '2px solid #fbbf24' : '1px solid rgba(148, 163, 184, 0.3)',
+                          background: active ? 'rgba(251, 191, 36, 0.16)' : '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.74rem',
+                          fontWeight: active ? 700 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: '11px',
+                            height: '11px',
+                            borderRadius: '3px',
+                            background: `linear-gradient(135deg, ${preset.swatch[0]} 55%, ${preset.swatch[1]} 55%)`,
+                          }}
+                        />
+                        <span>{preset.nameKh}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Upload Multiple Frames Directly */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  {uploadStatusText && (
+                    <span style={{ fontSize: '0.74rem', color: '#7dd3fc', fontWeight: 600 }}>
+                      {uploadStatusText}
+                    </span>
+                  )}
+                  <input
+                    ref={frameUploadInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleUploadFrameFiles}
+                    style={{ display: 'none' }}
+                  />
                   <button
-                    key={preset.id}
                     type="button"
-                    onClick={() => {
-                      setFramePresetId(preset.id);
-                      setCustomFrameUrl('');
-                    }}
+                    disabled={isUploadingFrames}
+                    onClick={() => frameUploadInputRef.current?.click()}
                     style={{
+                      padding: '0.28rem 0.72rem',
+                      borderRadius: '7px',
+                      border: '1px solid rgba(56, 189, 248, 0.5)',
+                      background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(37, 99, 235, 0.25))',
+                      color: '#bae6fd',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      cursor: isUploadingFrames ? 'wait' : 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.28rem',
-                      padding: '0.2rem 0.5rem',
-                      borderRadius: '6px',
-                      border: active ? '2px solid #fbbf24' : '1px solid rgba(148, 163, 184, 0.3)',
-                      background: active ? 'rgba(251, 191, 36, 0.16)' : '#0f172a',
-                      color: '#f8fafc',
-                      fontSize: '0.74rem',
-                      fontWeight: active ? 700 : 500,
-                      cursor: 'pointer',
+                      gap: '0.35rem',
                     }}
+                    title="Upload រូបស៊ុម (PNG/JPG) ១ ឬច្រើន ហើយ Save ទុកជាគំរូប្រើប្រាស់"
                   >
-                    <span
+                    <AppIcon name="image" size={14} />
+                    <span>{isUploadingFrames ? 'កំពុង Upload...' : 'Upload ស៊ុម (Save ជាគំរូច្រើន)'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Saved Custom Frame Cards (with Thumbnails) + Studio Templates */}
+              {(savedCustomFrames.length > 0 || studioFrameTemplates.length > 0) && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    overflowX: 'auto',
+                    padding: '0.25rem 0.1rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.72rem', color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    គំរូស៊ុម ({savedCustomFrames.length + studioFrameTemplates.length})៖
+                  </span>
+                  {savedCustomFrames.map((cf) => {
+                    const active = customFrameUrl.trim() === cf.url;
+                    const thumbSrc = resolveSheetAssetSrc(cf.url);
+                    return (
+                      <div
+                        key={cf.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.32rem',
+                          borderRadius: '7px',
+                          border: active ? '2px solid #38bdf8' : '1px solid rgba(56, 189, 248, 0.35)',
+                          background: active ? 'rgba(56, 189, 248, 0.2)' : '#0f172a',
+                          padding: '0.16rem 0.24rem 0.16rem 0.2rem',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setCustomFrameUrl(cf.url)}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#e0f2fe',
+                            fontSize: '0.73rem',
+                            fontWeight: active ? 700 : 500,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.32rem',
+                            padding: 0,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {thumbSrc && (
+                            <img
+                              src={thumbSrc}
+                              alt={cf.label}
+                              style={{
+                                width: '26px',
+                                height: '19px',
+                                objectFit: 'cover',
+                                borderRadius: '3px',
+                                background: '#ffffff',
+                                border: '1px solid rgba(255,255,255,0.2)',
+                              }}
+                            />
+                          )}
+                          <span style={{ maxWidth: '105px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {cf.label}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSavedFrame(cf.id)}
+                          title="លុបគំរូស៊ុមនេះ"
+                          style={{
+                            border: 'none',
+                            borderRadius: '4px',
+                            background: 'rgba(248, 113, 113, 0.18)',
+                            color: '#fca5a5',
+                            padding: '0.08rem 0.32rem',
+                            cursor: 'pointer',
+                            fontSize: '0.7rem',
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {studioFrameTemplates.map((stFrame) => {
+                    const active = customFrameUrl.trim() === stFrame.url;
+                    const thumbSrc = resolveSheetAssetSrc(stFrame.url);
+                    return (
+                      <button
+                        key={stFrame.id}
+                        type="button"
+                        onClick={() => setCustomFrameUrl(stFrame.url)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          padding: '0.16rem 0.42rem',
+                          borderRadius: '7px',
+                          border: active ? '2px solid #a78bfa' : '1px solid rgba(167, 139, 250, 0.35)',
+                          background: active ? 'rgba(167, 139, 250, 0.2)' : '#0f172a',
+                          color: '#ddd6fe',
+                          fontSize: '0.73rem',
+                          fontWeight: active ? 700 : 500,
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {thumbSrc && (
+                          <img
+                            src={thumbSrc}
+                            alt={stFrame.label}
+                            style={{
+                              width: '26px',
+                              height: '19px',
+                              objectFit: 'cover',
+                              borderRadius: '3px',
+                              background: '#ffffff',
+                            }}
+                          />
+                        )}
+                        <span>{stFrame.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* 4-Side Frame Safety Margin Controls (Default 4 cm Top / Bottom / Left / Right) */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.45rem',
+                  padding: '0.35rem 0.55rem',
+                  borderRadius: '8px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(148, 163, 184, 0.2)',
+                }}
+              >
+                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#a5b4fc' }}>
+                  គន្លាត Margin ជុំវិញសម្រាប់ស៊ុម (cm)៖
+                </span>
+
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.72rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={uniformMargins}
+                    onChange={(e) => setUniformMargins(e.target.checked)}
+                  />
+                  <span>៤ ជ្រុងស្មើគ្នា</span>
+                </label>
+
+                {[
+                  { side: 'top' as const, label: 'លើ' },
+                  { side: 'bottom' as const, label: 'ក្រោម' },
+                  { side: 'left' as const, label: 'ឆ្វេង' },
+                  { side: 'right' as const, label: 'ស្តាំ' },
+                ].map((item) => (
+                  <div key={item.side} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.22rem' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{item.label}:</span>
+                    <input
+                      type="number"
+                      step="0.2"
+                      min="0.4"
+                      max="5.5"
+                      value={frameMarginsCm[item.side]}
+                      onChange={(e) => handleUpdateMarginCm(item.side, e.target.value)}
                       style={{
-                        width: '11px',
-                        height: '11px',
-                        borderRadius: '3px',
-                        background: `linear-gradient(135deg, ${preset.swatch[0]} 55%, ${preset.swatch[1]} 55%)`,
+                        width: '50px',
+                        padding: '0.18rem 0.3rem',
+                        borderRadius: '5px',
+                        border: '1px solid rgba(148, 163, 184, 0.35)',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        outline: 'none',
                       }}
                     />
-                    <span>{preset.nameKh}</span>
-                  </button>
-                );
-              })}
-
-              {savedCustomFrames.map((cf) => {
-                const active = customFrameUrl.trim() === cf.url;
-                return (
-                  <div
-                    key={cf.id}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      borderRadius: '6px',
-                      border: active ? '2px solid #38bdf8' : '1px solid rgba(56, 189, 248, 0.35)',
-                      background: active ? 'rgba(56, 189, 248, 0.18)' : '#0f172a',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setCustomFrameUrl(cf.url)}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: '#bae6fd',
-                        fontSize: '0.73rem',
-                        fontWeight: 600,
-                        padding: '0.2rem 0.45rem',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {cf.label}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSavedFrame(cf.id)}
-                      title="លុបគំរូស៊ុមនេះ"
-                      style={{
-                        border: 'none',
-                        background: 'rgba(248, 113, 113, 0.14)',
-                        color: '#fca5a5',
-                        padding: '0.2rem 0.35rem',
-                        cursor: 'pointer',
-                        fontSize: '0.7rem',
-                      }}
-                    >
-                      ×
-                    </button>
                   </div>
-                );
-              })}
+                ))}
 
-              {studioFrameTemplates.map((stFrame) => {
-                const active = customFrameUrl.trim() === stFrame.url;
-                return (
-                  <button
-                    key={stFrame.id}
-                    type="button"
-                    onClick={() => setCustomFrameUrl(stFrame.url)}
-                    style={{
-                      padding: '0.2rem 0.48rem',
-                      borderRadius: '6px',
-                      border: active ? '2px solid #a78bfa' : '1px solid rgba(167, 139, 250, 0.35)',
-                      background: active ? 'rgba(167, 139, 250, 0.2)' : '#0f172a',
-                      color: '#ddd6fe',
-                      fontSize: '0.73rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {stFrame.label}
-                  </button>
-                );
-              })}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', marginLeft: '0.2rem' }}>
+                  {[1.2, 2, 3, 4].map((presetCm) => {
+                    const isMatch =
+                      frameMarginsCm.top === presetCm &&
+                      frameMarginsCm.bottom === presetCm &&
+                      frameMarginsCm.left === presetCm &&
+                      frameMarginsCm.right === presetCm;
+                    return (
+                      <button
+                        key={presetCm}
+                        type="button"
+                        onClick={() => handleApplyUniformCm(presetCm)}
+                        style={{
+                          padding: '0.16rem 0.42rem',
+                          borderRadius: '5px',
+                          border: isMatch ? '1px solid #818cf8' : '1px solid rgba(148, 163, 184, 0.25)',
+                          background: isMatch ? 'rgba(99, 102, 241, 0.28)' : '#1e293b',
+                          color: isMatch ? '#e0e7ff' : '#94a3b8',
+                          fontSize: '0.71rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {presetCm} cm
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Frame Link Input + Dates + Bilingual Exam Names + Signing */}
@@ -1193,7 +1680,7 @@ export default function CertificatePrintModal({
                     type="text"
                     value={customFrameUrl}
                     onChange={(e) => setCustomFrameUrl(e.target.value)}
-                    placeholder="ទុកទំនេរដើម្បីប្រើស៊ុមក្បាច់ខ្មែរខាងលើ..."
+                    placeholder="បិទភ្ជាប់ Link ឬចុច Upload ស៊ុមខាងលើ..."
                     style={{
                       flex: 1,
                       minWidth: 0,
@@ -1227,7 +1714,7 @@ export default function CertificatePrintModal({
                       <button
                         type="button"
                         onClick={handleAddCustomFrameLink}
-                        title="បន្ថែមស៊ុមនេះចូលបញ្ជីគំរូរហ័ស"
+                        title="បន្ថែមស៊ុមនេះចូលបញ្ជីគំរូរហ័ស និងរក្សាទុក"
                         style={{
                           padding: '0 0.45rem',
                           borderRadius: '6px',
@@ -1240,7 +1727,7 @@ export default function CertificatePrintModal({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        + ទុក
+                        + រក្សាទុក
                       </button>
                       <button
                         type="button"
@@ -1539,11 +2026,102 @@ export default function CertificatePrintModal({
                 </div>
               )}
             </div>
+
+            {/* Quick Saved Design Template Selector Strip */}
+            {savedDesignTemplates.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '0.35rem',
+                  paddingTop: '0.25rem',
+                  borderTop: '1px solid rgba(148, 163, 184, 0.14)',
+                }}
+              >
+                <span style={{ fontSize: '0.73rem', fontWeight: 700, color: '#fbbf24' }}>
+                  គំរូរចនាដែលបាន Save៖
+                </span>
+                {savedDesignTemplates.map((tpl) => {
+                  const active = tpl.id === activeDesignTemplateId;
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => handleApplyDesignTemplate(tpl)}
+                      style={{
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '6px',
+                        border: active ? '1.5px solid #fbbf24' : '1px solid rgba(148, 163, 184, 0.28)',
+                        background: active ? 'rgba(251, 191, 36, 0.18)' : '#0f172a',
+                        color: active ? '#fde68a' : '#cbd5e1',
+                        fontSize: '0.73rem',
+                        fontWeight: active ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {tpl.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Preview Canvas */}
+      {/* Main Workspace: Interactive Design Studio OR A4/A5 Print Preview */}
+      {viewMode === 'design' ? (
+        <div style={{ flex: 1, padding: '1rem' }}>
+          <CertificateDesignEditor
+            recipient={
+              selectedRecipients[0] ||
+              allCandidateRecipients[0] || {
+                uid: 'sample',
+                classId: 'sample',
+                classCode: 'L1AF',
+                className: 'Level 1',
+                shiftLabel: 'ពេញម៉ោង',
+                teacherName: 'ណាន សៀវអ៊ី',
+                studentId: 'BS0001',
+                fullName: 'ឡៃ ស្រីណាត',
+                englishName: 'Lai Sreynat',
+                gender: 'ស្រី',
+                level: 'L1',
+                bookName: 'Family & Friend 2',
+                rank: 1,
+                grade: 'A',
+                averageDisplay: '48.50',
+                photo: '',
+              }
+            }
+            docType={docType}
+            framePreset={activeFramePreset}
+            customFrameUrl={customFrameUrl}
+            frameMarginsCm={frameMarginsCm}
+            designConfig={designConfig}
+            onChangeDesign={setDesignConfig}
+            showStudentPhoto={showStudentPhoto}
+            onToggleShowStudentPhoto={setShowStudentPhoto}
+            examKhmer={examKhmer}
+            examEnglish={examEnglish}
+            conductedDate={conductedDate}
+            issuedDate={issuedDate}
+            stampUrl={stampUrl}
+            signatureUrl={signatureUrl}
+            signatoryName={signatoryName}
+            principalTitle={principalTitle}
+            schoolProfile={schoolProfile}
+            savedDesignTemplates={savedDesignTemplates}
+            activeDesignTemplateId={activeDesignTemplateId}
+            onApplyDesignTemplate={handleApplyDesignTemplate}
+            onSaveNewDesignTemplate={handleSaveNewDesignTemplate}
+            onUpdateCurrentDesignTemplate={handleUpdateCurrentDesignTemplate}
+            onDeleteDesignTemplate={handleDeleteDesignTemplate}
+            isSavingTemplate={isSavingDesignTemplate}
+          />
+        </div>
+      ) : (
       <div
         className="receipt-a4-sheets-container"
         style={{
@@ -1631,6 +2209,7 @@ export default function CertificatePrintModal({
           ))
         )}
       </div>
+      )}
     </div>,
     document.body
   );

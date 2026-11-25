@@ -255,11 +255,162 @@ function OrnateVectorCertificateFrame({ preset }: { preset: CertificateFramePres
   );
 }
 
+export interface FrameMarginsCm {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export const DEFAULT_CERTIFICATE_MARGINS_CM: FrameMarginsCm = {
+  top: 4,
+  right: 4,
+  bottom: 4,
+  left: 4,
+};
+
+export type CertElementKey =
+  | 'schoolLogo'
+  | 'titleBlock'
+  | 'rankBadge'
+  | 'khmerBody'
+  | 'englishBody'
+  | 'studentPhoto'
+  | 'classMeta'
+  | 'stampBlock';
+
+export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
+  schoolLogo: 'ឡូហ្គោ & ឈ្មោះសាលា',
+  titleBlock: 'ចំណងជើងប័ណ្ណ',
+  rankBadge: 'ផ្លាកលេខចំណាត់ថ្នាក់',
+  khmerBody: 'ខ្លឹមសារខ្មែរ (ឆ្វេង)',
+  englishBody: 'ខ្លឹមសារអង់គ្លេស (ស្តាំ)',
+  studentPhoto: 'ប្រអប់រូបថតសិស្ស',
+  classMeta: 'ព័ត៌មានថ្នាក់ & គ្រូ',
+  stampBlock: 'ថ្ងៃចុះហត្ថលេខា, ត្រា & ហត្ថលេខា',
+};
+
+export interface CertElementLayout {
+  dxMm: number;
+  dyMm: number;
+  scale: number;
+  visible?: boolean;
+}
+
+export interface CertificateDesignConfig {
+  titleFontPt: number;
+  subtitleFontPt: number;
+  studentNameKhPt: number;
+  studentNameEnPt: number;
+  khmerBodyFontPt: number;
+  englishBodyFontPt: number;
+  rowGapMm: number;
+  signatoryFontPt: number;
+  schoolLogoSizeMm: number;
+  photoWidthMm: number;
+  photoHeightMm: number;
+  photoRadiusMm: number;
+  stampSizeMm: number;
+  signatureHeightMm: number;
+  valueColor: string;
+  accentColor: string;
+  bodyColor: string;
+  showHeaderDivider: boolean;
+  showCenterDivider: boolean;
+  elements: Record<CertElementKey, CertElementLayout>;
+}
+
+export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
+  titleFontPt: 16.5,
+  subtitleFontPt: 8,
+  studentNameKhPt: 13.5,
+  studentNameEnPt: 11.8,
+  khmerBodyFontPt: 9.5,
+  englishBodyFontPt: 9.3,
+  rowGapMm: 2.1,
+  signatoryFontPt: 9.8,
+  schoolLogoSizeMm: 12.5,
+  photoWidthMm: 23,
+  photoHeightMm: 29,
+  photoRadiusMm: 2.2,
+  stampSizeMm: 22.5,
+  signatureHeightMm: 8.5,
+  valueColor: '#1d4ed8',
+  accentColor: '#dc2626',
+  bodyColor: '#111827',
+  showHeaderDivider: true,
+  showCenterDivider: true,
+  elements: {
+    schoolLogo: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    titleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    rankBadge: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    khmerBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    englishBody: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+  },
+};
+
+export function normalizeCertificateDesign(
+  raw?: Partial<CertificateDesignConfig> | null
+): CertificateDesignConfig {
+  const baseEl = DEFAULT_CERTIFICATE_DESIGN.elements;
+  const rawEl = raw?.elements || ({} as Partial<Record<CertElementKey, CertElementLayout>>);
+  const mergedElements = {} as Record<CertElementKey, CertElementLayout>;
+  (Object.keys(baseEl) as CertElementKey[]).forEach((key) => {
+    const src = rawEl[key];
+    mergedElements[key] = {
+      dxMm: typeof src?.dxMm === 'number' && Number.isFinite(src.dxMm) ? src.dxMm : 0,
+      dyMm: typeof src?.dyMm === 'number' && Number.isFinite(src.dyMm) ? src.dyMm : 0,
+      scale: typeof src?.scale === 'number' && Number.isFinite(src.scale) && src.scale > 0 ? src.scale : 1,
+      visible: src?.visible !== false,
+    };
+  });
+
+  return {
+    ...DEFAULT_CERTIFICATE_DESIGN,
+    ...(raw || {}),
+    elements: mergedElements,
+  };
+}
+
+export function computeCertificateContentMetrics(frameMarginsCm?: FrameMarginsCm) {
+  const clampCm = (v: number) => Math.max(0.4, Math.min(5.5, Number.isFinite(v) ? v : 4));
+  const mTopMm = clampCm(frameMarginsCm?.top ?? 4) * 10;
+  const mRightMm = clampCm(frameMarginsCm?.right ?? 4) * 10;
+  const mBottomMm = clampCm(frameMarginsCm?.bottom ?? 4) * 10;
+  const mLeftMm = clampCm(frameMarginsCm?.left ?? 4) * 10;
+
+  const cardW = 206.6;
+  const cardH = 146.2;
+  const safeW = Math.max(40, cardW - mLeftMm - mRightMm);
+  const safeH = Math.max(30, cardH - mTopMm - mBottomMm);
+
+  const NATURAL_W = 208;
+  const NATURAL_H = 109;
+  const contentScale = Math.min(safeW / NATURAL_W, safeH / NATURAL_H);
+
+  return {
+    mTopMm,
+    mRightMm,
+    mBottomMm,
+    mLeftMm,
+    safeW,
+    safeH,
+    NATURAL_W,
+    NATURAL_H,
+    contentScale,
+  };
+}
+
 export interface CertificateCardProps {
   recipient: CertificateRecipient;
   docType: CertificateDocType;
   framePreset: CertificateFramePreset;
   customFrameUrl?: string;
+  frameMarginsCm?: FrameMarginsCm;
+  designConfig?: CertificateDesignConfig;
   examKhmer: string;
   examEnglish: string;
   conductedDate: string;
@@ -270,6 +421,9 @@ export interface CertificateCardProps {
   signatoryName?: string;
   principalTitle?: string;
   schoolProfile?: SchoolProfileInfo;
+  editorSelectedKey?: CertElementKey | null;
+  showMarginGuide?: boolean;
+  onElementPointerDown?: (key: CertElementKey, e: React.PointerEvent) => void;
 }
 
 /**
@@ -280,6 +434,8 @@ export function CertificateCardA5({
   docType,
   framePreset,
   customFrameUrl,
+  frameMarginsCm = DEFAULT_CERTIFICATE_MARGINS_CM,
+  designConfig,
   examKhmer,
   examEnglish,
   conductedDate,
@@ -290,9 +446,15 @@ export function CertificateCardA5({
   signatoryName = 'សំរិត វឌ្ឍនៈ',
   principalTitle = 'The Principal of BSIS',
   schoolProfile,
+  editorSelectedKey = null,
+  showMarginGuide = false,
+  onElementPointerDown,
 }: CertificateCardProps) {
   const [customFrameFailed, setCustomFrameFailed] = React.useState(false);
   const [photoFailed, setPhotoFailed] = React.useState(false);
+
+  const design = React.useMemo(() => normalizeCertificateDesign(designConfig), [designConfig]);
+  const isEditing = Boolean(onElementPointerDown);
 
   const frameImgSrc = resolveSheetAssetSrc(customFrameUrl);
   const photoImgSrc = resolveSheetAssetSrc(recipient.photo);
@@ -326,6 +488,29 @@ export function CertificateCardA5({
   const enRank = recipient.rank > 0 ? String(recipient.rank) : '-';
   const engGender = toEnglishGender(recipient.gender);
 
+  const { mTopMm, mRightMm, mBottomMm, mLeftMm, NATURAL_W, NATURAL_H, contentScale } =
+    computeCertificateContentMetrics(frameMarginsCm);
+
+  const getInteractiveProps = (key: CertElementKey, baseStyle?: React.CSSProperties): React.CSSProperties => {
+    const el = design.elements[key];
+    const isSel = isEditing && editorSelectedKey === key;
+    return {
+      ...baseStyle,
+      transform: `translate(${el.dxMm}mm, ${el.dyMm}mm) scale(${el.scale})`,
+      transformOrigin: 'center center',
+      ...(isEditing
+        ? {
+            cursor: 'grab',
+            outline: isSel ? '2px solid #2563eb' : '1px dashed rgba(37, 99, 235, 0.35)',
+            outlineOffset: '1.5mm',
+            borderRadius: '2px',
+            userSelect: 'none',
+            backgroundColor: isSel ? 'rgba(59, 130, 246, 0.06)' : baseStyle?.backgroundColor,
+          }
+        : {}),
+    };
+  };
+
   return (
     <div
       style={{
@@ -340,7 +525,7 @@ export function CertificateCardA5({
         printColorAdjust: 'exact',
       }}
     >
-      {/* Ornate Background Border Frame (Custom Image Link or Built-in Vector Frame) */}
+      {/* Ornate Background Border Frame (Uploaded / Linked Image or Built-in Vector Frame) */}
       {frameImgSrc && !customFrameFailed ? (
         <img
           src={frameImgSrc}
@@ -360,124 +545,178 @@ export function CertificateCardA5({
         <OrnateVectorCertificateFrame preset={framePreset} />
       )}
 
-      {/* Safe Content Area Inside Ornate Frame */}
+      {/* Safe Content Area Respecting Top/Right/Bottom/Left Frame Margins */}
       <div
         style={{
           position: 'relative',
           zIndex: 2,
           width: '100%',
           height: '100%',
-          padding: '9.5mm 12.5mm 8.5mm 12.5mm',
+          padding: `${mTopMm}mm ${mRightMm}mm ${mBottomMm}mm ${mLeftMm}mm`,
           boxSizing: 'border-box',
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: isEditing ? 'visible' : 'hidden',
         }}
       >
-        {/* Top Header: School Crest + Bilingual School Name + Certificate Heading */}
+        {/* Optional Editor-only 4-side Margin Guide Rectangle */}
+        {showMarginGuide && (
+          <div
+            style={{
+              position: 'absolute',
+              top: `${mTopMm}mm`,
+              right: `${mRightMm}mm`,
+              bottom: `${mBottomMm}mm`,
+              left: `${mLeftMm}mm`,
+              border: '1px dashed rgba(14, 165, 233, 0.7)',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        <div
+          style={{
+            width: `${NATURAL_W}mm`,
+            height: `${NATURAL_H}mm`,
+            flexShrink: 0,
+            transform: `scale(${contentScale})`,
+            transformOrigin: 'center center',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+        {/* Top Header: School Crest + Title Block + Rank Medal Badge */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: `1px solid ${framePreset.innerColor}55`,
+            borderBottom: design.showHeaderDivider ? `1px solid ${framePreset.innerColor}55` : 'none',
             paddingBottom: '2.2mm',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2.5mm', minWidth: '52mm' }}>
-            <img
-              src={logoSrc}
-              alt="BSIS Logo"
-              onError={(e) => {
-                const img = e.currentTarget as HTMLImageElement;
-                if (!img.dataset.fallback) {
-                  img.dataset.fallback = '1';
-                  img.src = '/logo.png';
-                }
-              }}
-              style={{
-                width: '12.5mm',
-                height: '12.5mm',
-                objectFit: 'contain',
-                flexShrink: 0,
-              }}
-            />
-            <div style={{ lineHeight: 1.2 }}>
+          {design.elements.schoolLogo.visible !== false ? (
+            <div
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('schoolLogo', e) : undefined}
+              style={getInteractiveProps('schoolLogo', {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2.5mm',
+                minWidth: '52mm',
+              })}
+            >
+              <img
+                src={logoSrc}
+                alt="BSIS Logo"
+                draggable={false}
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  if (!img.dataset.fallback) {
+                    img.dataset.fallback = '1';
+                    img.src = '/logo.png';
+                  }
+                }}
+                style={{
+                  width: `${design.schoolLogoSizeMm}mm`,
+                  height: `${design.schoolLogoSizeMm}mm`,
+                  objectFit: 'contain',
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ lineHeight: 1.2 }}>
+                <div
+                  style={{
+                    fontSize: '8.8pt',
+                    fontWeight: 400,
+                    color: framePreset.titleColor,
+                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {schoolKhName}
+                </div>
+                <div
+                  style={{
+                    fontSize: '5.8pt',
+                    fontWeight: 700,
+                    color: framePreset.outerColor,
+                    letterSpacing: '0.35px',
+                    whiteSpace: 'nowrap',
+                    marginTop: '0.3mm',
+                  }}
+                >
+                  {schoolEnName}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ minWidth: '52mm' }} />
+          )}
+
+          {design.elements.titleBlock.visible !== false ? (
+            <div
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('titleBlock', e) : undefined}
+              style={getInteractiveProps('titleBlock', { textAlign: 'center', flex: 1 })}
+            >
               <div
                 style={{
-                  fontSize: '8.8pt',
+                  fontSize: `${design.titleFontPt}pt`,
                   fontWeight: 400,
                   color: framePreset.titleColor,
                   fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                  whiteSpace: 'nowrap',
+                  lineHeight: 1.15,
                 }}
               >
-                {schoolKhName}
+                {khHeading}
               </div>
               <div
                 style={{
-                  fontSize: '5.8pt',
+                  fontSize: `${design.subtitleFontPt}pt`,
                   fontWeight: 700,
-                  color: framePreset.outerColor,
-                  letterSpacing: '0.35px',
-                  whiteSpace: 'nowrap',
-                  marginTop: '0.3mm',
+                  letterSpacing: '1.3px',
+                  color: framePreset.innerColor,
+                  fontFamily: "'Georgia', 'Times New Roman', serif",
+                  marginTop: '0.4mm',
                 }}
               >
-                {schoolEnName}
+                {enHeading}
               </div>
             </div>
-          </div>
-
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div
-              style={{
-                fontSize: '16.5pt',
-                fontWeight: 400,
-                color: framePreset.titleColor,
-                fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                lineHeight: 1.15,
-              }}
-            >
-              {khHeading}
-            </div>
-            <div
-              style={{
-                fontSize: '8pt',
-                fontWeight: 700,
-                letterSpacing: '1.3px',
-                color: framePreset.innerColor,
-                fontFamily: "'Georgia', 'Times New Roman', serif",
-                marginTop: '0.4mm',
-              }}
-            >
-              {enHeading}
-            </div>
-          </div>
+          ) : (
+            <div style={{ flex: 1 }} />
+          )}
 
           {/* Right corner Rank Medal Badge */}
-          <div
-            style={{
-              minWidth: '30mm',
-              display: 'flex',
-              justifyContent: 'flex-end',
-            }}
-          >
+          {design.elements.rankBadge.visible !== false ? (
             <div
-              style={{
-                padding: '1mm 2.8mm',
-                borderRadius: '999px',
-                border: `1.2px solid ${framePreset.innerColor}`,
-                background: 'rgba(255, 255, 255, 0.85)',
-                color: framePreset.titleColor,
-                fontSize: '8pt',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('rankBadge', e) : undefined}
+              style={getInteractiveProps('rankBadge', {
+                minWidth: '30mm',
+                display: 'flex',
+                justifyContent: 'flex-end',
+              })}
             >
-              លេខ {khRank} • Rank {enRank}
+              <div
+                style={{
+                  padding: '1mm 2.8mm',
+                  borderRadius: '999px',
+                  border: `1.2px solid ${framePreset.innerColor}`,
+                  background: 'rgba(255, 255, 255, 0.85)',
+                  color: framePreset.titleColor,
+                  fontSize: '8pt',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                លេខ {khRank} • Rank {enRank}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ minWidth: '30mm' }} />
+          )}
         </div>
 
         {/* Bilingual 2-Column Body Matching Reference Image */}
@@ -493,175 +732,185 @@ export function CertificateCardA5({
           }}
         >
           {/* Left Column: Khmer */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2.1mm',
-              fontSize: '9.5pt',
-              lineHeight: 1.35,
-              color: '#111827',
-              borderRight: '1px dashed rgba(148, 163, 184, 0.45)',
-              paddingRight: '4mm',
-            }}
-          >
-            <div style={{ fontWeight: 500 }}>{khLeadText}</div>
+          {design.elements.khmerBody.visible !== false ? (
+            <div
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('khmerBody', e) : undefined}
+              style={getInteractiveProps('khmerBody', {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: `${design.rowGapMm}mm`,
+                fontSize: `${design.khmerBodyFontPt}pt`,
+                lineHeight: 1.35,
+                color: design.bodyColor,
+                borderRight: design.showCenterDivider ? '1px dashed rgba(148, 163, 184, 0.45)' : 'none',
+                paddingRight: '4mm',
+              })}
+            >
+              <div style={{ fontWeight: 500 }}>{khLeadText}</div>
 
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
-                <span style={{ whiteSpace: 'nowrap' }}>ឈ្មោះ ៖</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>ឈ្មោះ ៖</span>
+                  <span
+                    style={{
+                      fontSize: `${design.studentNameKhPt}pt`,
+                      fontWeight: 400,
+                      color: design.valueColor,
+                      fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {recipient.fullName || '-'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', flexShrink: 0 }}>
+                  <span>ភេទ</span>
+                  <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
+                    {recipient.gender || '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3.5mm' }}>
+                <span>
+                  ដែលបានជាប់ចំណាត់ថ្នាក់លេខ ៖{' '}
+                  <strong style={{ color: design.valueColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
+                    {khRank}
+                  </strong>
+                </span>
+                <span>
+                  និទ្ទេស{' '}
+                  <strong style={{ color: design.accentColor, fontSize: `${design.khmerBodyFontPt + 1.8}pt`, marginLeft: '1.5mm' }}>
+                    {recipient.grade || '-'}
+                  </strong>
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>នៃការប្រឡង</span>
+                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.8}pt` }}>
+                  {examKhmer}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>វគ្គសិក្សាសៀវភៅ ៖</span>
                 <span
                   style={{
-                    fontSize: '13.5pt',
-                    fontWeight: 400,
-                    color: '#1d4ed8',
-                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                    whiteSpace: 'nowrap',
+                    color: design.valueColor,
+                    fontWeight: 700,
+                    fontSize: `${design.khmerBodyFontPt + 0.3}pt`,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {recipient.fullName || '-'}
+                  {bookOrLevelLabel}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2mm', flexShrink: 0 }}>
-                <span>ភេទ</span>
-                <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '10.5pt' }}>
-                  {recipient.gender || '-'}
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>ដែលបានប្រព្រឹត្តទៅនៅថ្ងៃទី ៖</span>
+                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.khmerBodyFontPt + 0.3}pt` }}>
+                  {conductedDate}
                 </span>
               </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '3.5mm' }}>
-              <span>
-                ដែលបានជាប់ចំណាត់ថ្នាក់លេខ ៖{' '}
-                <strong style={{ color: '#1d4ed8', fontSize: '11.5pt', marginLeft: '1.5mm' }}>
-                  {khRank}
-                </strong>
-              </span>
-              <span>
-                និទ្ទេស{' '}
-                <strong style={{ color: '#dc2626', fontSize: '11.5pt', marginLeft: '1.5mm' }}>
-                  {recipient.grade || '-'}
-                </strong>
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>នៃការប្រឡង</span>
-              <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '10.5pt' }}>
-                {examKhmer}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>វគ្គសិក្សាសៀវភៅ ៖</span>
-              <span
-                style={{
-                  color: '#1d4ed8',
-                  fontWeight: 700,
-                  fontSize: '9.8pt',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {bookOrLevelLabel}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>ដែលបានប្រព្រឹត្តទៅនៅថ្ងៃទី ៖</span>
-              <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '9.8pt' }}>
-                {conductedDate}
-              </span>
-            </div>
-          </div>
+          ) : (
+            <div />
+          )}
 
           {/* Right Column: English */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2.1mm',
-              fontSize: '9.3pt',
-              lineHeight: 1.35,
-              color: '#111827',
-              fontFamily: "'Georgia', 'Times New Roman', serif",
-            }}
-          >
-            <div style={{ fontWeight: 500 }}>{enLeadText}</div>
+          {design.elements.englishBody.visible !== false ? (
+            <div
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('englishBody', e) : undefined}
+              style={getInteractiveProps('englishBody', {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: `${design.rowGapMm}mm`,
+                fontSize: `${design.englishBodyFontPt}pt`,
+                lineHeight: 1.35,
+                color: design.bodyColor,
+                fontFamily: "'Georgia', 'Times New Roman', serif",
+              })}
+            >
+              <div style={{ fontWeight: 500 }}>{enLeadText}</div>
 
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
-                <span>to</span>
-                <span
-                  style={{
-                    fontSize: '11.8pt',
-                    fontWeight: 700,
-                    color: '#1d4ed8',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {recipient.englishName || recipient.fullName || '-'}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '2mm' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm', minWidth: 0 }}>
+                  <span>to</span>
+                  <span
+                    style={{
+                      fontSize: `${design.studentNameEnPt}pt`,
+                      fontWeight: 700,
+                      color: design.valueColor,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {recipient.englishName || recipient.fullName || '-'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
+                  <span>Gender:</span>
+                  <span style={{ color: design.valueColor, fontWeight: 700 }}>{engGender}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
+                <span>
+                  who has successfully got the{' '}
+                  <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
+                    {enRank}
+                  </strong>
+                </span>
+                <span>
+                  grade{' '}
+                  <strong style={{ color: design.accentColor, fontSize: `${design.englishBodyFontPt + 2}pt`, marginLeft: '1.5mm' }}>
+                    {recipient.grade || '-'}
+                  </strong>
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5mm', flexShrink: 0 }}>
-                <span>Gender:</span>
-                <span style={{ color: '#1d4ed8', fontWeight: 700 }}>{engGender}</span>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                <span>of</span>
+                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.6}pt` }}>
+                  {examEnglish}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>Level</span>
+                <span
+                  style={{
+                    color: design.valueColor,
+                    fontWeight: 700,
+                    fontSize: `${design.englishBodyFontPt + 0.4}pt`,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {bookOrLevelLabel}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>which was conducted on</span>
+                <span style={{ color: design.valueColor, fontWeight: 700, fontSize: `${design.englishBodyFontPt + 0.4}pt` }}>
+                  {conductedDate}
+                </span>
               </div>
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '3mm' }}>
-              <span>
-                who has successfully got the{' '}
-                <strong style={{ color: '#dc2626', fontSize: '11.5pt', marginLeft: '1.5mm' }}>
-                  {enRank}
-                </strong>
-              </span>
-              <span>
-                grade{' '}
-                <strong style={{ color: '#dc2626', fontSize: '11.5pt', marginLeft: '1.5mm' }}>
-                  {recipient.grade || '-'}
-                </strong>
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-              <span>of</span>
-              <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '10pt' }}>
-                {examEnglish}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>Level</span>
-              <span
-                style={{
-                  color: '#1d4ed8',
-                  fontWeight: 700,
-                  fontSize: '9.8pt',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {bookOrLevelLabel}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '2.5mm' }}>
-              <span style={{ whiteSpace: 'nowrap' }}>which was conducted on</span>
-              <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '9.8pt' }}>
-                {conductedDate}
-              </span>
-            </div>
-          </div>
+          ) : (
+            <div />
+          )}
         </div>
 
-        {/* Bottom Footer: Optional Student Photo (Left) + Issued Date, Stamp & Principal Signature (Right) */}
+        {/* Bottom Footer: Optional Student Photo & Class Meta (Left) + Stamp & Principal Signature (Right) */}
         <div
           style={{
             display: 'flex',
@@ -670,14 +919,15 @@ export function CertificateCardA5({
             paddingTop: '1mm',
           }}
         >
-          {/* Left: Student Photo (toggleable) + Subtle Class/Teacher Meta */}
+          {/* Left: Student Photo + Class/Teacher Meta */}
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3mm' }}>
-            {showStudentPhoto && (
+            {showStudentPhoto && design.elements.studentPhoto.visible !== false && (
               <div
-                style={{
-                  width: '23mm',
-                  height: '29mm',
-                  borderRadius: '2.2mm',
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('studentPhoto', e) : undefined}
+                style={getInteractiveProps('studentPhoto', {
+                  width: `${design.photoWidthMm}mm`,
+                  height: `${design.photoHeightMm}mm`,
+                  borderRadius: `${design.photoRadiusMm}mm`,
                   border: `1.5px solid ${framePreset.innerColor}`,
                   background: '#f8fafc',
                   overflow: 'hidden',
@@ -686,12 +936,13 @@ export function CertificateCardA5({
                   justifyContent: 'center',
                   boxShadow: '0 1px 4px rgba(0, 0, 0, 0.12)',
                   flexShrink: 0,
-                }}
+                })}
               >
                 {photoImgSrc && !photoFailed ? (
                   <img
                     src={photoImgSrc}
                     alt={recipient.fullName}
+                    draggable={false}
                     onError={() => setPhotoFailed(true)}
                     style={{
                       width: '100%',
@@ -718,97 +969,111 @@ export function CertificateCardA5({
               </div>
             )}
 
-            <div style={{ fontSize: '7.5pt', color: '#64748b', lineHeight: 1.35, paddingBottom: '0.5mm' }}>
-              <div style={{ fontWeight: 700, color: '#475569' }}>
-                ថ្នាក់ {recipient.classCode || recipient.className}
-                {recipient.level ? ` (${recipient.level})` : ''}
-              </div>
-              {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
-              {recipient.studentId && <div>ID: {recipient.studentId}</div>}
-            </div>
-          </div>
-
-          {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              minWidth: '72mm',
-              position: 'relative',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '8.8pt',
-                color: '#0f172a',
-                fontFamily: "'Georgia', 'Times New Roman', serif",
-                marginBottom: '0.4mm',
-              }}
-            >
-              <span>Issued Date</span>
-              <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
-            </div>
-
-            <div
-              style={{
-                fontSize: '8.8pt',
-                fontWeight: 700,
-                color: '#1e293b',
-                fontFamily: "'Georgia', 'Times New Roman', serif",
-                marginBottom: '-2.5mm',
-                position: 'relative',
-                zIndex: 2,
-              }}
-            >
-              {principalTitle}
-            </div>
-
-            <div style={{ position: 'relative', width: '48mm', height: '21.5mm' }}>
-              <div style={{ position: 'absolute', left: '2mm', top: '-1mm' }}>
-                <OfficialSchoolStamp
-                  stampUrl={stampUrl}
-                  schoolProfile={schoolProfile}
-                  size="22.5mm"
-                />
-              </div>
-
+            {design.elements.classMeta.visible !== false && (
               <div
-                style={{
-                  position: 'absolute',
-                  right: '-2mm',
-                  bottom: '0.5mm',
-                  width: '28mm',
-                  zIndex: 3,
-                  pointerEvents: 'none',
-                }}
+                onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('classMeta', e) : undefined}
+                style={getInteractiveProps('classMeta', {
+                  fontSize: '7.5pt',
+                  color: '#64748b',
+                  lineHeight: 1.35,
+                  paddingBottom: '0.5mm',
+                })}
               >
-                <ReceiptSignature
-                  signatureUrl={signatureUrl}
-                  height="8.5mm"
-                  color="#1d4ed8"
-                />
-              </div>
-            </div>
-
-            {signatoryName && (
-              <div
-                style={{
-                  marginTop: '-0.8mm',
-                  paddingLeft: '14mm',
-                  fontSize: '9.8pt',
-                  fontWeight: 400,
-                  color: framePreset.signatoryColor,
-                  fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                  whiteSpace: 'nowrap',
-                  position: 'relative',
-                  zIndex: 4,
-                }}
-              >
-                {signatoryName}
+                <div style={{ fontWeight: 700, color: '#475569' }}>
+                  ថ្នាក់ {recipient.classCode || recipient.className}
+                  {recipient.level ? ` (${recipient.level})` : ''}
+                </div>
+                {recipient.teacherName && <div>គ្រូ៖ {recipient.teacherName}</div>}
+                {recipient.studentId && <div>ID: {recipient.studentId}</div>}
               </div>
             )}
           </div>
+
+          {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
+          {design.elements.stampBlock.visible !== false && (
+            <div
+              onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('stampBlock', e) : undefined}
+              style={getInteractiveProps('stampBlock', {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                minWidth: '72mm',
+                position: 'relative',
+              })}
+            >
+              <div
+                style={{
+                  fontSize: '8.8pt',
+                  color: design.bodyColor,
+                  fontFamily: "'Georgia', 'Times New Roman', serif",
+                  marginBottom: '0.4mm',
+                }}
+              >
+                <span>Issued Date</span>
+                <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
+              </div>
+
+              <div
+                style={{
+                  fontSize: '8.8pt',
+                  fontWeight: 700,
+                  color: '#1e293b',
+                  fontFamily: "'Georgia', 'Times New Roman', serif",
+                  marginBottom: '-2.5mm',
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              >
+                {principalTitle}
+              </div>
+
+              <div style={{ position: 'relative', width: '48mm', height: `${Math.max(18, design.stampSizeMm)}mm` }}>
+                <div style={{ position: 'absolute', left: '2mm', top: '-1mm' }}>
+                  <OfficialSchoolStamp
+                    stampUrl={stampUrl}
+                    schoolProfile={schoolProfile}
+                    size={`${design.stampSizeMm}mm`}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '-2mm',
+                    bottom: '0.5mm',
+                    width: '28mm',
+                    zIndex: 3,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <ReceiptSignature
+                    signatureUrl={signatureUrl}
+                    height={`${design.signatureHeightMm}mm`}
+                    color={design.valueColor}
+                  />
+                </div>
+              </div>
+
+              {signatoryName && (
+                <div
+                  style={{
+                    marginTop: '-0.8mm',
+                    paddingLeft: '14mm',
+                    fontSize: `${design.signatoryFontPt}pt`,
+                    fontWeight: 400,
+                    color: framePreset.signatoryColor,
+                    fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
+                    whiteSpace: 'nowrap',
+                    position: 'relative',
+                    zIndex: 4,
+                  }}
+                >
+                  {signatoryName}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         </div>
       </div>
     </div>
@@ -849,7 +1114,7 @@ export function CertificatePairA4Page({
         style={{
           width: '100%',
           height: A5_LANDSCAPE_SPEC.sheetH,
-          padding: '2.5mm 3.5mm',
+          padding: '1mm 1.5mm',
           boxSizing: 'border-box',
           borderBottom: showCutGuide ? '1px dashed rgba(148, 163, 184, 0.55)' : 'none',
           overflow: 'hidden',
@@ -863,7 +1128,7 @@ export function CertificatePairA4Page({
         style={{
           width: '100%',
           height: A5_LANDSCAPE_SPEC.sheetH,
-          padding: '2.5mm 3.5mm',
+          padding: '1mm 1.5mm',
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}
@@ -890,7 +1155,7 @@ export function CertificateSingleA5Page({
         width: A5_LANDSCAPE_SPEC.sheetW,
         height: A5_LANDSCAPE_SPEC.sheetH,
         backgroundColor: '#ffffff',
-        padding: '2.5mm 3.5mm',
+        padding: '1mm 1.5mm',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
