@@ -374,6 +374,48 @@ function cleanStr(val: any): string {
   return String(val || '').trim();
 }
 
+function hasEnteredScore(sr: any): boolean {
+  if (!sr) return false;
+  const rawTotal = sr.totalScore;
+  if (rawTotal === '' || rawTotal === undefined || rawTotal === null) return false;
+  const trimmed = String(rawTotal).trim();
+  if (!trimmed) return false;
+  const num = Number(trimmed);
+  return !isNaN(num) && isFinite(num);
+}
+
+function isInactiveOrDroppedStudent(st: any): boolean {
+  if (!st || st.isDeleted) return true;
+  const status = cleanStr(st.status);
+  if (!status || status === 'កំពុងសិក្សា') return false;
+  const lower = status.toLowerCase();
+  if (lower === 'active' || lower === 'studying') return false;
+
+  if (
+    status.includes('ឈប់') ||
+    status.includes('បោះបង់') ||
+    status.includes('ព្យួរ') ||
+    status.includes('ផ្អាក') ||
+    status.includes('បញ្ចប់') ||
+    status.includes('លុប')
+  ) {
+    return true;
+  }
+
+  return (
+    lower === 'dropped' ||
+    lower === 'dropout' ||
+    lower === 'drop out' ||
+    lower === 'inactive' ||
+    lower === 'suspended' ||
+    lower === 'paused' ||
+    lower === 'graduated' ||
+    lower === 'deleted' ||
+    lower === 'removed' ||
+    lower === 'left'
+  );
+}
+
 function resolveShiftLabel(rawShift: string): string {
   const upper = cleanStr(rawShift).toUpperCase();
   if (!upper) return '';

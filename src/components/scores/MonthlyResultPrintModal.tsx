@@ -902,7 +902,10 @@ export default function MonthlyResultPrintModal({
                 </div>
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}>
+              <label
+                title="បន្ថែមសិស្សដែលកំពុងសិក្សាក្នុងថ្នាក់នេះដែលមិនទាន់មានពិន្ទុ (មិនរាប់បញ្ចូលសិស្សឈប់រៀន/ព្យួរ ឬថ្នាក់ផ្សេង)"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: '#e2e8f0', cursor: 'pointer' }}
+              >
                 <input
                   type="checkbox"
                   checked={includeUnscored}
