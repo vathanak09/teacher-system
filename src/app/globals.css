@@ -1542,6 +1542,190 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   }
 }
 
+/* Classes Page: Compact Student List Table + Mobile Edge-to-Edge Layout */
+.class-detail-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.class-tab-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.class-tab-controls-pad {
+  padding: 0;
+}
+
+.class-student-search-wrap {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 340px;
+}
+
+.class-student-search-input {
+  width: 100%;
+  padding: 0.46rem 2rem 0.46rem 2.15rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary, var(--card-bg));
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.class-student-search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.table-responsive table.class-student-table {
+  width: 100%;
+  min-width: max-content !important;
+  border-collapse: collapse;
+}
+
+.table-responsive table.class-student-table thead th {
+  padding: 0.34rem 0.36rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.table-responsive table.class-student-table tbody td {
+  padding: 0.24rem 0.36rem !important;
+  font-size: 0.8rem !important;
+  line-height: 1.25;
+  white-space: nowrap;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.table-responsive table.class-student-table th.col-tight,
+.table-responsive table.class-student-table td.col-tight {
+  padding-left: 0.22rem !important;
+  padding-right: 0.22rem !important;
+}
+
+.table-responsive table.class-student-table .student-row-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 0.76rem;
+}
+
+.table-responsive table.class-student-table .student-name-text {
+  font-size: 0.85rem !important;
+  font-weight: 700;
+}
+
+.table-responsive table.class-student-table .student-eng-name {
+  font-size: 0.78rem !important;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.table-responsive table.class-student-table td.col-address {
+  max-width: 190px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+@media (max-width: 768px) {
+  .class-detail-panel.glass-panel {
+    padding: 0 !important;
+    margin-left: -0.75rem !important;
+    margin-right: -0.75rem !important;
+    width: calc(100% + 1.5rem) !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  .class-detail-header {
+    padding: 0.85rem 0.75rem !important;
+    border-radius: 0 !important;
+  }
+
+  .class-tab-body {
+    padding: 0.7rem 0.65rem 0.75rem 0.65rem !important;
+  }
+
+  .class-tab-body.class-tab-body-students {
+    padding: 0.65rem 0 0.75rem 0 !important;
+  }
+
+  .class-tab-controls-pad {
+    padding: 0 0.6rem !important;
+  }
+
+  .class-student-search-wrap {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .class-student-table-edge {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  .table-responsive table.class-student-table thead th {
+    padding: 0.28rem 0.2rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .table-responsive table.class-student-table tbody td {
+    padding: 0.2rem 0.2rem !important;
+    font-size: 0.74rem !important;
+    line-height: 1.22;
+  }
+
+  .table-responsive table.class-student-table th.col-tight,
+  .table-responsive table.class-student-table td.col-tight {
+    padding-left: 0.14rem !important;
+    padding-right: 0.14rem !important;
+  }
+
+  .table-responsive table.class-student-table thead th:first-child,
+  .table-responsive table.class-student-table tbody td:first-child {
+    padding-left: 0.32rem !important;
+  }
+
+  .table-responsive table.class-student-table thead th:last-child,
+  .table-responsive table.class-student-table tbody td:last-child {
+    padding-right: 0.32rem !important;
+  }
+
+  .table-responsive table.class-student-table .student-row-avatar {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.7rem;
+  }
+
+  .table-responsive table.class-student-table .student-name-text {
+    font-size: 0.77rem !important;
+  }
+
+  .table-responsive table.class-student-table .student-eng-name {
+    font-size: 0.71rem !important;
+  }
+}
+
 /* Photo Frame Studio (Twibbonize-style Tool) */
 .photo-frame-checkerboard {
   background-color: #f1f5f9;
