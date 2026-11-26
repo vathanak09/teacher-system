@@ -487,23 +487,38 @@ export function computeMonthlyResultPacket({
   // Merge active class students + any score rows for this class
   const studentByKey = new Map<string, any>();
   allStudents.forEach((st) => {
-    if (st?.id) studentByKey.set(`id:${cleanStr(st.id)}`, st);
-    if (st?.studentId) studentByKey.set(`sid:${cleanStr(st.studentId)}`, st);
+    const stId = cleanStr(st?.id);
+    const stCode = cleanStr(st?.studentId);
+    if (stId) studentByKey.set(`id:${stId}`, st);
+    if (stCode) studentByKey.set(`sid:${stCode}`, st);
   });
 
+  // Authoritative class roster: only students explicitly enrolled in this class (studentIds / legacy studentsData).
+  // Never fall back to st.className because st.className can remain stale after removing or moving students across classes.
   const memberIds = new Set<string>(
-    Array.isArray(classObj?.studentIds)
-      ? classObj.studentIds.map((x: any) => cleanStr(x))
-      : Array.isArray(classObj?.studentsData)
-        ? classObj.studentsData.map((x: any) => cleanStr(x?.id))
+    Array.isArray(classObj?.studentIds) && classObj.studentIds.length > 0
+      ? classObj.studentIds.map((x: any) => cleanStr(x)).filter(Boolean)
+      : Array.isArray(classObj?.studentsData) && classObj.studentsData.length > 0
+        ? classObj.studentsData.map((x: any) => cleanStr(x?.id)).filter(Boolean)
         : []
   );
 
   const scoreByStudentKey = new Map<string, any>();
   classScoreRows.forEach((sr) => {
-    if (sr?.studentId) scoreByStudentKey.set(`id:${cleanStr(sr.studentId)}`, sr);
-    if (sr?.studentIdCode) scoreByStudentKey.set(`sid:${cleanStr(sr.studentIdCode)}`, sr);
-    if (sr?.id) scoreByStudentKey.set(`rid:${cleanStr(sr.id)}`, sr);
+    const sid = cleanStr(sr?.studentId);
+    const sdoc = cleanStr(sr?.studentDocId);
+    const scode = cleanStr(sr?.studentIdCode);
+    const rid = cleanStr(sr?.id);
+    const setIfBetter = (key: string) => {
+      const existing = scoreByStudentKey.get(key);
+      if (!existing || (!cleanStr(existing.level) && cleanStr(sr?.level))) {
+        scoreByStudentKey.set(key, sr);
+      }
+    };
+    if (sid) setIfBetter(`id:${sid}`);
+    if (sdoc) setIfBetter(`id:${sdoc}`);
+    if (scode) setIfBetter(`sid:${scode}`);
+    if (rid) setIfBetter(`rid:${rid}`);
   });
 
   const looksLikeFirestoreDocId = (val: string) => /^[A-Za-z0-9]{18,}$/.test(val);
@@ -522,8 +537,13 @@ export function computeMonthlyResultPacket({
     level: string;
   }[] = [];
 
-  // 1. Add scored rows first so every entered score is guaranteed to appear
+  // 1. Add scored rows first so every entered score is guaranteed to appear.
+  // Blank/unscored rows are skipped here so:
+  // - When includeUnscored is unchecked, only students with actual entered scores appear.
+  // - When includeUnscored is checked, stale blank rows of dropped-out or transferred students do not leak in.
   classScoreRows.forEach((sr, idx) => {
+    if (!hasEnteredScore(sr)) return;
+
     const rawSrStudentId = cleanStr(sr.studentId);
     const rawSrDocId = cleanStr(sr.studentDocId);
     const rawSrCode = cleanStr(sr.studentIdCode);
@@ -575,17 +595,13 @@ export function computeMonthlyResultPacket({
     });
   });
 
-  // 2. Add remaining active students in this class if includeUnscored is enabled
+  // 2. Add remaining active students strictly enrolled in this class if includeUnscored is enabled
   if (includeUnscored) {
     allStudents.forEach((st) => {
-      if (!st || st.status === 'ឈប់រៀន') return;
+      if (isInactiveOrDroppedStudent(st)) return;
       const stDocId = cleanStr(st.id);
       const stCode = cleanStr(st.studentId);
-      const stCls = cleanStr(st.className);
-      const inClass =
-        (stDocId && memberIds.has(stDocId)) ||
-        (stCls && (stCls === className || (classCode && stCls === classCode)));
-      if (!inClass) return;
+      if (!stDocId || !memberIds.has(stDocId)) return;
 
       if ((stDocId && seenStudentIdentity.has(stDocId)) || (stCode && seenStudentIdentity.has(stCode))) {
         return;
@@ -665,9 +681,8 @@ export function computeMonthlyResultPacket({
 
   // Compute score, average, grade, remarks
   const enriched = rawEntries.map((entry) => {
-    const rawTotal = entry.scoreRow?.totalScore;
-    const hasScore = rawTotal !== '' && rawTotal !== undefined && rawTotal !== null && !isNaN(Number(rawTotal));
-    const totalNum = hasScore ? Number(rawTotal) : null;
+    const hasScore = hasEnteredScore(entry.scoreRow);
+    const totalNum = hasScore ? Number(String(entry.scoreRow.totalScore).trim()) : null;
     const avg = totalNum !== null ? totalNum / (currentCoeff > 0 ? currentCoeff : 1) : null;
     const avgPercentage = avg !== null ? (avg / 50) * 100 : null;
 
