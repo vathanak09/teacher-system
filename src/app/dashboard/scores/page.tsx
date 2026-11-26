@@ -10,7 +10,31 @@ import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/componen
 import CertificatePrintModal, { CertificateBrandingConfig } from '@/components/scores/CertificatePrintModal';
 import HonorRollPrintModal from '@/components/scores/HonorRollPrintModal';
 import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
+import ScoreEvalDropdown from '@/components/scores/ScoreEvalDropdown';
 import { AppIcon } from '@/components/AppIcons';
+import {
+  ActiveScoreSubjectColumn,
+  ClassScoreColumnsConfig,
+  LOCKED_SUBJECT_KEY_SET,
+  ScoreColumnInputMode,
+  TRAIT_EVALUATION_COLUMNS,
+  TraitFieldKey,
+  buildStudentTraitLookup,
+  computeNumericTotalForColumns,
+  findStudentTraitSnapshot,
+  getActiveSubjectColumns,
+  getAllAvailableSubjectColumns,
+  getCheckboxSubjectColumns,
+  getColumnEvalValue,
+  getColumnNumericValue,
+  getDefaultClassColumnsConfig,
+  getPreviousMonthCandidates,
+  isStandardYearMonth,
+  makeCustomColumnKey,
+  normalizeEvaluationValue,
+  resolveClassColumnsConfig,
+  shiftYearMonth,
+} from '@/components/scores/scoreColumns';
 
 type LevelCoeffEntry = {
   coefficientType: 'auto' | 'custom';
@@ -26,7 +50,6 @@ type ClassCoeffConfig = {
 };
 
 const UNASSIGNED_LEVEL_LABEL = 'មិនទាន់កំណត់វគ្គ';
-const SCORE_SUBJECT_FIELDS = ['quiz', 'exercise', 'speaking', 'homework', 'test'] as const;
 
 interface FinalExamSession {
   id: string;
@@ -242,6 +265,11 @@ export default function ScoresPage() {
   const [monthCoeffMap, setMonthCoeffMap] = useState<Record<string, any>>({});
   const [loadedCoeffMonth, setLoadedCoeffMonth] = useState<string>('');
   const [loadedScoresMonth, setLoadedScoresMonth] = useState<string>('');
+  const [isColumnsDropdownOpen, setIsColumnsDropdownOpen] = useState(false);
+  const [newCustomColLabel, setNewCustomColLabel] = useState('');
+  const [newCustomColMode, setNewCustomColMode] = useState<ScoreColumnInputMode>('number');
+  const [isSavingColumns, setIsSavingColumns] = useState(false);
+  const autoHydratedTraitsRef = useRef<Set<string>>(new Set());
   const [isSavingCoeff, setIsSavingCoeff] = useState(false);
   const [coeffTypeDraft, setCoeffTypeDraft] = useState<'auto' | 'custom'>('auto');
   const [customMaxDraft, setCustomMaxDraft] = useState<string>('250');
@@ -436,6 +464,7 @@ export default function ScoresPage() {
   const [isClearDropdownOpen, setIsClearDropdownOpen] = useState(false);
   const closeClearDropdown = useCallback(() => setIsClearDropdownOpen(false), []);
   const closeClassFilter = useCallback(() => setIsClassFilterOpen(false), []);
+  const closeColumnsDropdown = useCallback(() => setIsColumnsDropdownOpen(false), []);
   const clearPortal = usePortalMenuPosition({
     isOpen: isClearDropdownOpen,
     onClose: closeClearDropdown,
@@ -450,10 +479,37 @@ export default function ScoresPage() {
     maxPreferredHeight: 380,
     preferAlignRight: true,
   });
+  const columnsPortal = usePortalMenuPosition({
+    isOpen: isColumnsDropdownOpen,
+    onClose: closeColumnsDropdown,
+    minWidth: 320,
+    maxPreferredHeight: 470,
+    preferAlignRight: true,
+  });
 
   const activeClassCoeff = useMemo(
     () => getClassMonthCoeffConfig(selectedClassId, monthCoeffMap, settings),
     [selectedClassId, monthCoeffMap, settings]
+  );
+
+  const activeColumnsConfig: ClassScoreColumnsConfig = useMemo(
+    () => resolveClassColumnsConfig(selectedClassId ? monthCoeffMap?.[selectedClassId] : null),
+    [selectedClassId, monthCoeffMap]
+  );
+
+  const checkboxSubjectColumns: ActiveScoreSubjectColumn[] = useMemo(
+    () => getCheckboxSubjectColumns(activeColumnsConfig),
+    [activeColumnsConfig]
+  );
+
+  const allAvailableSubjectColumns: ActiveScoreSubjectColumn[] = useMemo(
+    () => getAllAvailableSubjectColumns(activeColumnsConfig),
+    [activeColumnsConfig]
+  );
+
+  const activeSubjectColumns: ActiveScoreSubjectColumn[] = useMemo(
+    () => getActiveSubjectColumns(activeColumnsConfig),
+    [activeColumnsConfig]
   );
 
   const studentMasterMaps = useMemo(() => {
@@ -735,34 +791,67 @@ export default function ScoresPage() {
 
       const headers = rows[0];
       const idIndex = headers.findIndex(h => h.includes('អត្តលេខ'));
-      const quizIndex = headers.findIndex(h => h.toLowerCase().includes('quiz'));
-      const exerciseIndex = headers.findIndex(h => h.toLowerCase().includes('exercise'));
-      const speakingIndex = headers.findIndex(h => h.toLowerCase().includes('speaking'));
-      const homeworkIndex = headers.findIndex(h => h.toLowerCase().includes('homework'));
-      const testIndex = headers.findIndex(h => h.toLowerCase().includes('test'));
-
       if (idIndex === -1) {
         alert('រកមិនឃើញជួរឈរ អត្តលេខ នៅក្នុងឯកសារ Excel ទេ!');
         return;
       }
 
+      const subjectHeaderIndexes = activeSubjectColumns.map((col) => {
+        const keyLower = col.key.toLowerCase();
+        const labelLower = col.label.toLowerCase();
+        const idx = headers.findIndex((h) => {
+          const hl = h.trim().toLowerCase();
+          return hl === labelLower || hl === keyLower || hl.includes(labelLower);
+        });
+        return { col, idx };
+      });
+
+      const traitHeaderIndexes = TRAIT_EVALUATION_COLUMNS.map((t) => {
+        const idx = headers.findIndex((h) => {
+          const hl = h.trim().toLowerCase();
+          return hl.includes(t.labelEn.toLowerCase()) || h.includes(t.labelKh) || hl === t.key;
+        });
+        return { trait: t, idx };
+      });
+
       let updatedCount = 0;
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
-        if (!row || row.length < 5) continue;
+        if (!row || row.length < 2) continue;
 
         const studentId = row[idIndex];
         if (!studentId) continue;
 
         const existingScore = scores.find(s => s.studentIdCode === studentId);
         if (existingScore) {
-          const updatedScore = { ...existingScore };
-          if (quizIndex !== -1 && row[quizIndex] !== undefined) updatedScore.quiz = row[quizIndex];
-          if (exerciseIndex !== -1 && row[exerciseIndex] !== undefined) updatedScore.exercise = row[exerciseIndex];
-          if (speakingIndex !== -1 && row[speakingIndex] !== undefined) updatedScore.speaking = row[speakingIndex];
-          if (homeworkIndex !== -1 && row[homeworkIndex] !== undefined) updatedScore.homework = row[homeworkIndex];
-          if (testIndex !== -1 && row[testIndex] !== undefined) updatedScore.test = row[testIndex];
-          
+          const updatedScore: any = {
+            ...existingScore,
+            evalValues: { ...(existingScore.evalValues || {}) },
+            traitsEdited: { ...(existingScore.traitsEdited || {}) },
+          };
+
+          subjectHeaderIndexes.forEach(({ col, idx }) => {
+            if (idx === -1 || row[idx] === undefined) return;
+            const rawVal = row[idx];
+            if (col.inputMode === 'evaluation') {
+              updatedScore.evalValues[col.key] = normalizeEvaluationValue(rawVal);
+            } else {
+              updatedScore[col.key] = rawVal;
+            }
+          });
+
+          traitHeaderIndexes.forEach(({ trait, idx }) => {
+            if (idx === -1 || row[idx] === undefined) return;
+            const norm = normalizeEvaluationValue(row[idx]);
+            if (norm) {
+              updatedScore[trait.key] = norm;
+              updatedScore.traitsEdited[trait.key] = true;
+            }
+          });
+
+          const { totalScore } = computeNumericTotalForColumns(updatedScore, activeSubjectColumns);
+          updatedScore.totalScore = totalScore;
+
           await scoreService.update(updatedScore.id, updatedScore);
           updatedCount++;
         }
@@ -776,23 +865,51 @@ export default function ScoresPage() {
 
 
 
-  const handleClearColumn = async (columnKey: string, columnName: string) => {
-    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុ ${columnName} ទាំងអស់មែនទេ?`))) return;
+  const handleClearColumn = async (
+    columnKey: string,
+    columnName: string,
+    columnKind: 'number' | 'evaluation' | 'trait' = 'number'
+  ) => {
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបទិន្នន័យ ${columnName} ទាំងអស់មែនទេ?`))) return;
     setIsClearDropdownOpen(false);
-    
-    const draftRows = scores.map(s => {
-      let currentRec = { ...s, [columnKey]: '' };
-      const SCORE_FIELDS = ['quiz', 'exercise', 'speaking', 'homework', 'test'];
-      let total = 0;
-      let hasAnyValue = false;
-      SCORE_FIELDS.forEach(sub => {
-        const val = currentRec[sub];
-        if (val && !isNaN(parseFloat(val))) {
-          total += parseFloat(val);
-          hasAnyValue = true;
-        }
-      });
-      currentRec.totalScore = hasAnyValue ? total.toString() : '';
+
+    if (columnKind === 'trait') {
+      const traitKey = columnKey as TraitFieldKey;
+      const updatedScores = scores.map((s) => ({
+        ...s,
+        [traitKey]: '',
+        traitsEdited: { ...(s.traitsEdited || {}), [traitKey]: true },
+      }));
+      setScores(updatedScores);
+      await Promise.all(
+        updatedScores.map((s) =>
+          scoreService.update(s.id, {
+            [traitKey]: '',
+            traitsEdited: s.traitsEdited,
+          })
+        )
+      );
+      return;
+    }
+
+    if (columnKind === 'evaluation') {
+      const updatedScores = scores.map((s) => ({
+        ...s,
+        evalValues: { ...(s.evalValues || {}), [columnKey]: '' },
+      }));
+      setScores(updatedScores);
+      await Promise.all(
+        updatedScores.map((s) =>
+          scoreService.update(s.id, { evalValues: s.evalValues })
+        )
+      );
+      return;
+    }
+
+    const draftRows = scores.map((s) => {
+      const currentRec = { ...s, [columnKey]: '' };
+      const { totalScore } = computeNumericTotalForColumns(currentRec, activeSubjectColumns);
+      currentRec.totalScore = totalScore;
       return currentRec;
     });
 
@@ -818,22 +935,29 @@ export default function ScoresPage() {
   };
 
   const handleClearAllScores = async () => {
-    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុគ្រប់ជួរឈរទាំងអស់មែនទេ? (ឈ្មោះសិស្សនឹងត្រូវរក្សាទុកនៅដដែល)`))) return;
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបពិន្ទុគ្រប់ជួរឈរទាំងអស់មែនទេ? (ឈ្មោះសិស្ស និងជួរឈរវាយតម្លៃសីលធម៌ ៣ នឹងត្រូវរក្សាទុក)`))) return;
     setIsClearDropdownOpen(false);
 
-    const updatedScores = scores.map(s => ({
-      ...s,
-      quiz: '',
-      exercise: '',
-      speaking: '',
-      homework: '',
-      test: '',
-      totalScore: '',
-      average: '',
-      grade: '',
-      remarks: '',
-      rank: ''
-    }));
+    const updatedScores = scores.map(s => {
+      const next: any = {
+        ...s,
+        quiz: '',
+        exercise: '',
+        speaking: '',
+        homework: '',
+        test: '',
+        evalValues: {},
+        totalScore: '',
+        average: '',
+        grade: '',
+        remarks: '',
+        rank: ''
+      };
+      allAvailableSubjectColumns.forEach((col) => {
+        next[col.key] = '';
+      });
+      return next;
+    });
 
     setScores(updatedScores);
     await Promise.all(updatedScores.map(s => scoreService.update(s.id, s)));
@@ -952,6 +1076,63 @@ export default function ScoresPage() {
     return finalExamSessions.find((s) => s.id === targetId) || null;
   }, [finalExamSessions, selectedMonth, selectedFinalExamId]);
 
+  const fetchLatestPriorTraitsForClass = useCallback(
+    async (classId: string, targetMonth: string) => {
+      const candidates = isStandardYearMonth(targetMonth)
+        ? getPreviousMonthCandidates(targetMonth, 6)
+        : [
+            ...(isStandardYearMonth(monthlyMonthDraft) ? [monthlyMonthDraft] : []),
+            ...getPreviousMonthCandidates(monthlyMonthDraft, 4),
+          ];
+
+      const mergedByStudentId = new Map<string, Partial<Record<TraitFieldKey, string>>>();
+      const mergedByStudentCode = new Map<string, Partial<Record<TraitFieldKey, string>>>();
+      let primarySourceMonth = '';
+
+      for (const candMonth of candidates) {
+        try {
+          const monthRows = await scoreService.getByQuery('month', '==', candMonth);
+          const classRows = monthRows.filter((r: any) => r?.classId === classId);
+          if (classRows.length === 0) continue;
+
+          const lookup = buildStudentTraitLookup(classRows);
+          if (lookup.byStudentId.size === 0 && lookup.byStudentCode.size === 0) continue;
+
+          if (!primarySourceMonth) primarySourceMonth = candMonth;
+
+          lookup.byStudentId.forEach((snap, sid) => {
+            const cur = mergedByStudentId.get(sid) || {};
+            mergedByStudentId.set(sid, {
+              morality: cur.morality || snap.morality,
+              punctuality: cur.punctuality || snap.punctuality,
+              hygiene: cur.hygiene || snap.hygiene,
+            });
+          });
+          lookup.byStudentCode.forEach((snap, code) => {
+            const cur = mergedByStudentCode.get(code) || {};
+            mergedByStudentCode.set(code, {
+              morality: cur.morality || snap.morality,
+              punctuality: cur.punctuality || snap.punctuality,
+              hygiene: cur.hygiene || snap.hygiene,
+            });
+          });
+
+          if (mergedByStudentId.size > 0 || mergedByStudentCode.size > 0) {
+            break;
+          }
+        } catch (err) {
+          console.warn('Could not query previous month traits for', candMonth, err);
+        }
+      }
+
+      return {
+        lookup: { byStudentId: mergedByStudentId, byStudentCode: mergedByStudentCode },
+        sourceMonth: primarySourceMonth,
+      };
+    },
+    [monthlyMonthDraft]
+  );
+
   const openCreateFinalExamModal = () => {
     const defaultCls = selectedClassId
       ? classes.find((c) => c.id === selectedClassId)
@@ -1012,9 +1193,12 @@ export default function ScoresPage() {
           const classStudents = allStudents.filter(
             (s: any) => classStudentIds.includes(s.id) && s.status !== 'ឈប់រៀន'
           );
+          const { lookup: prevTraitLookup, sourceMonth: prevTraitMonth } =
+            await fetchLatestPriorTraitsForClass(targetCls.id, sessionId);
           await Promise.all(
-            classStudents.map((student: any) =>
-              scoreService.add({
+            classStudents.map((student: any) => {
+              const prevSnap = findStudentTraitSnapshot(prevTraitLookup, student.id, student.studentId);
+              return scoreService.add({
                 classId: targetCls.id,
                 studentId: student.id,
                 month: sessionId,
@@ -1022,6 +1206,10 @@ export default function ScoresPage() {
                 fullName: student.fullName || '',
                 gender: student.gender || '',
                 level: newFinalLevel.trim() || student.level || '',
+                morality: prevSnap?.morality || '',
+                punctuality: prevSnap?.punctuality || '',
+                hygiene: prevSnap?.hygiene || '',
+                ...(prevSnap && prevTraitMonth ? { traitsCopiedFrom: prevTraitMonth } : {}),
                 quiz: '',
                 exercise: '',
                 speaking: '',
@@ -1032,8 +1220,8 @@ export default function ScoresPage() {
                 rank: '',
                 grade: '',
                 remarks: '',
-              })
-            )
+              });
+            })
           );
         }
         setSelectedClassId(newFinalClassId);
@@ -1228,25 +1416,23 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       return { cohortRows, coeffCfg: getLevelCoeffConfig(activeClassCoeff, targetLevelKey) };
     };
     
-    // Auto calculate if a subject changes
-    const subjects = ['quiz', 'exercise', 'speaking', 'homework', 'test'];
-    if (subjects.includes(field)) {
-      let total = 0;
-      let hasAnyValue = false;
-      subjects.forEach(sub => {
-        const val = updatedScore[sub];
-        if (val && !isNaN(parseFloat(val))) {
-          total += parseFloat(val);
-          hasAnyValue = true;
-        }
-      });
-      
-      if (hasAnyValue) {
-        updatedScore.totalScore = total.toString();
+    // Auto calculate if an active numeric subject column changes
+    const activeNumericKeys = activeSubjectColumns
+      .filter((col) => col.inputMode === 'number')
+      .map((col) => col.key);
+
+    if (activeNumericKeys.includes(field)) {
+      const { totalScore, hasNumericValue } = computeNumericTotalForColumns(
+        updatedScore,
+        activeSubjectColumns
+      );
+
+      if (hasNumericValue) {
+        updatedScore.totalScore = totalScore;
         const nextRows = scores.map((s) => (s.id === updatedScore.id ? updatedScore : s));
         const { cohortRows, coeffCfg } = getCohortForCalc(nextRows);
         const { currentCoeff } = computeClassCoeffValue(cohortRows, coeffCfg);
-        const avgNum = total / currentCoeff;
+        const avgNum = parseFloat(totalScore) / currentCoeff;
         updatedScore.average = avgNum.toFixed(2).replace(/\.00$/, '');
         updatedScore.grade = calculateAutoGrade(avgNum);
         updatedScore.remarks = calculateRemarks(updatedScore.grade);
@@ -1279,6 +1465,360 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     if (updatedScore.id) {
       await scoreService.update(updatedScore.id, updatedScore);
     }
+  };
+
+  const handleSubjectEvalChange = async (scoreRec: any, colKey: string, value: string) => {
+    const baseRecord = scores.find((s) => s.id === scoreRec.id) || scoreRec;
+    if (!baseRecord?.id) return;
+    const normVal = normalizeEvaluationValue(value);
+    const nextEvalValues = { ...(baseRecord.evalValues || {}), [colKey]: normVal };
+    setScores((prev) =>
+      prev.map((s) => (s.id === baseRecord.id ? { ...s, evalValues: nextEvalValues } : s))
+    );
+    await scoreService.update(baseRecord.id, { evalValues: nextEvalValues });
+  };
+
+  const handleTraitChange = async (scoreRec: any, traitKey: TraitFieldKey, value: string) => {
+    const baseRecord = scores.find((s) => s.id === scoreRec.id) || scoreRec;
+    if (!baseRecord?.id) return;
+    const normVal = normalizeEvaluationValue(value);
+    const nextTraitsEdited = { ...(baseRecord.traitsEdited || {}), [traitKey]: true };
+
+    setScores((prev) =>
+      prev.map((s) =>
+        s.id === baseRecord.id
+          ? { ...s, [traitKey]: normVal, traitsEdited: nextTraitsEdited }
+          : s
+      )
+    );
+
+    await scoreService.update(baseRecord.id, {
+      [traitKey]: normVal,
+      traitsEdited: nextTraitsEdited,
+    });
+
+    // Forward-copy immediately to next month if next month's row already exists & hasn't been manually edited
+    if (isStandardYearMonth(selectedMonth) && selectedClassId) {
+      const nextMonth = shiftYearMonth(selectedMonth, 1);
+      if (nextMonth) {
+        try {
+          const nextRows = await scoreService.getByQuery('month', '==', nextMonth);
+          const sid = String(baseRecord.studentId || '').trim().toLowerCase();
+          const code = String(baseRecord.studentIdCode || '').trim().toLowerCase();
+          const nextMatch = nextRows.find((r: any) => {
+            if (r?.classId !== selectedClassId) return false;
+            const rSid = String(r?.studentId || '').trim().toLowerCase();
+            const rCode = String(r?.studentIdCode || '').trim().toLowerCase();
+            return (sid && rSid === sid) || (code && rCode === code);
+          });
+          if (nextMatch?.id && !nextMatch?.traitsEdited?.[traitKey]) {
+            await scoreService.update(nextMatch.id, {
+              [traitKey]: normVal,
+              traitsCopiedFrom: selectedMonth,
+            });
+          }
+        } catch (err) {
+          console.warn('Could not forward-copy trait to next month:', err);
+        }
+      }
+    }
+  };
+
+  // Clear hydration cache whenever class or month switches so updates made in a prior month always sync forward automatically
+  useEffect(() => {
+    autoHydratedTraitsRef.current.clear();
+  }, [selectedClassId, selectedMonth]);
+
+  // Auto-copy Morality, Punctuality, Hygiene from previous month into any unedited blank cells for the active month
+  useEffect(() => {
+    if (
+      !selectedClassId ||
+      !isStandardYearMonth(selectedMonth) ||
+      loadedScoresMonth !== selectedMonth ||
+      scores.length === 0
+    ) {
+      return;
+    }
+
+    const hydrateKey = `${selectedClassId}::${selectedMonth}::${scores.length}`;
+    if (autoHydratedTraitsRef.current.has(hydrateKey)) return;
+
+    const rowsNeedingTraits = scores.filter((row) =>
+      TRAIT_EVALUATION_COLUMNS.some(
+        (t) => !normalizeEvaluationValue(row?.[t.key]) && !row?.traitsEdited?.[t.key]
+      )
+    );
+    if (rowsNeedingTraits.length === 0) {
+      autoHydratedTraitsRef.current.add(hydrateKey);
+      return;
+    }
+
+    let cancelled = false;
+    autoHydratedTraitsRef.current.add(hydrateKey);
+
+    (async () => {
+      const { lookup, sourceMonth } = await fetchLatestPriorTraitsForClass(
+        selectedClassId,
+        selectedMonth
+      );
+      if (cancelled || !sourceMonth) return;
+
+      const patches: Array<{ id: string; patch: Record<string, any> }> = [];
+      for (const row of rowsNeedingTraits) {
+        if (!row?.id) continue;
+        const prevSnap = findStudentTraitSnapshot(lookup, row.studentId, row.studentIdCode);
+        if (!prevSnap) continue;
+        const patch: Record<string, any> = {};
+        for (const t of TRAIT_EVALUATION_COLUMNS) {
+          if (
+            !normalizeEvaluationValue(row?.[t.key]) &&
+            !row?.traitsEdited?.[t.key] &&
+            prevSnap[t.key]
+          ) {
+            patch[t.key] = prevSnap[t.key];
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          patch.traitsCopiedFrom = sourceMonth;
+          patches.push({ id: row.id, patch });
+        }
+      }
+
+      if (cancelled || patches.length === 0) return;
+
+      const patchMap = new Map(patches.map((p) => [p.id, p.patch]));
+      setScores((prev) =>
+        prev.map((row) =>
+          patchMap.has(row.id) ? { ...row, ...patchMap.get(row.id) } : row
+        )
+      );
+      await Promise.all(patches.map((p) => scoreService.update(p.id, p.patch)));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClassId, selectedMonth, loadedScoresMonth, scores, fetchLatestPriorTraitsForClass]);
+
+  const persistClassColumnsConfig = async (
+    nextConfig: ClassScoreColumnsConfig,
+    shouldRecalcTotals = true
+  ) => {
+    if (!selectedClassId || !selectedMonth) return;
+    const payload = {
+      enabledKeys: nextConfig.enabledKeys,
+      columnModes: nextConfig.columnModes,
+      customColumns: nextConfig.customColumns,
+      hasExplicitEmptyEnabled: nextConfig.enabledKeys.length === 0,
+    };
+
+    const existingClassEntry = monthCoeffMap?.[selectedClassId] || {};
+    const nextClassEntry = {
+      ...existingClassEntry,
+      coefficientType: existingClassEntry.coefficientType || activeClassCoeff.coefficientType,
+      customMaxScore: existingClassEntry.customMaxScore || activeClassCoeff.customMaxScore,
+      splitByLevel: Boolean(existingClassEntry.splitByLevel ?? activeClassCoeff.splitByLevel),
+      levelCoefficients: existingClassEntry.levelCoefficients || {},
+      columnsConfig: payload,
+      updatedByName: userName || role || '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIsSavingColumns(true);
+    try {
+      setMonthCoeffMap((prev) => ({
+        ...prev,
+        [selectedClassId]: nextClassEntry,
+      }));
+
+      await scoreCoefficientService.update(selectedMonth, {
+        [`classes/${selectedClassId}`]: nextClassEntry,
+        month: selectedMonth,
+      });
+
+      if (shouldRecalcTotals && scores.length > 0) {
+        const nextActiveCols = getActiveSubjectColumns(nextConfig);
+        const draftRows = scores.map((row) => {
+          const { totalScore } = computeNumericTotalForColumns(row, nextActiveCols);
+          return { ...row, totalScore };
+        });
+
+        const updatedRows = draftRows.map((row) => {
+          const targetLevelKey =
+            resolveScoreStudentMeta(row).effectiveLevel || UNASSIGNED_LEVEL_LABEL;
+          const cohortRows = activeClassCoeff.splitByLevel
+            ? draftRows.filter(
+                (r) =>
+                  (resolveScoreStudentMeta(r).effectiveLevel || UNASSIGNED_LEVEL_LABEL) ===
+                  targetLevelKey
+              )
+            : draftRows;
+          const coeffCfg = activeClassCoeff.splitByLevel
+            ? getLevelCoeffConfig(activeClassCoeff, targetLevelKey)
+            : activeClassCoeff;
+          const { currentCoeff } = computeClassCoeffValue(cohortRows, coeffCfg);
+
+          if (row.totalScore !== '') {
+            const avgNum = parseFloat(row.totalScore) / currentCoeff;
+            const g = calculateAutoGrade(avgNum);
+            return {
+              ...row,
+              average: avgNum.toFixed(2).replace(/\.00$/, ''),
+              grade: g,
+              remarks: calculateRemarks(g),
+            };
+          }
+          return {
+            ...row,
+            average: '',
+            grade: '',
+            remarks: '',
+            rank: '',
+          };
+        });
+
+        const changedPatches: Array<{ id: string; patch: Record<string, any> }> = [];
+        updatedRows.forEach((nextRow, idx) => {
+          const prevRow = scores[idx];
+          if (
+            nextRow.id &&
+            (prevRow.totalScore !== nextRow.totalScore ||
+              prevRow.average !== nextRow.average ||
+              prevRow.grade !== nextRow.grade ||
+              prevRow.remarks !== nextRow.remarks)
+          ) {
+            changedPatches.push({
+              id: nextRow.id,
+              patch: {
+                totalScore: nextRow.totalScore,
+                average: nextRow.average,
+                grade: nextRow.grade,
+                remarks: nextRow.remarks,
+                ...(nextRow.totalScore === '' ? { rank: '' } : {}),
+              },
+            });
+          }
+        });
+
+        if (changedPatches.length > 0) {
+          setScores(updatedRows);
+          await Promise.all(changedPatches.map((p) => scoreService.update(p.id, p.patch)));
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed saving class score columns config:', err);
+      alert('មានបញ្ហាក្នុងការរក្សាទុកការកំណត់ជួរឈរ៖ ' + (err?.message || ''));
+    } finally {
+      setIsSavingColumns(false);
+    }
+  };
+
+  const handleToggleSubjectColumn = async (colKey: string) => {
+    if (LOCKED_SUBJECT_KEY_SET.has(colKey)) return;
+    const exists = activeColumnsConfig.enabledKeys.includes(colKey);
+    const nextEnabled = exists
+      ? activeColumnsConfig.enabledKeys.filter((k) => k !== colKey)
+      : [...activeColumnsConfig.enabledKeys, colKey];
+    await persistClassColumnsConfig(
+      {
+        ...activeColumnsConfig,
+        enabledKeys: nextEnabled,
+      },
+      true
+    );
+  };
+
+  const handleToggleColumnInputMode = async (colKey: string) => {
+    const curMode: ScoreColumnInputMode =
+      activeColumnsConfig.columnModes[colKey] === 'evaluation' ? 'evaluation' : 'number';
+    const nextMode: ScoreColumnInputMode = curMode === 'number' ? 'evaluation' : 'number';
+    await persistClassColumnsConfig(
+      {
+        ...activeColumnsConfig,
+        columnModes: {
+          ...activeColumnsConfig.columnModes,
+          [colKey]: nextMode,
+        },
+      },
+      true
+    );
+  };
+
+  const handleAddCustomColumn = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanLabel = newCustomColLabel.trim();
+    if (!cleanLabel) return;
+
+    const existingMatch = allAvailableSubjectColumns.find(
+      (c) => c.label.trim().toLowerCase() === cleanLabel.toLowerCase()
+    );
+    if (existingMatch) {
+      const nextEnabled = existingMatch.isLocked
+        ? activeColumnsConfig.enabledKeys
+        : activeColumnsConfig.enabledKeys.includes(existingMatch.key)
+          ? activeColumnsConfig.enabledKeys
+          : [...activeColumnsConfig.enabledKeys, existingMatch.key];
+      setNewCustomColLabel('');
+      await persistClassColumnsConfig(
+        {
+          ...activeColumnsConfig,
+          enabledKeys: nextEnabled,
+          columnModes: {
+            ...activeColumnsConfig.columnModes,
+            [existingMatch.key]: newCustomColMode,
+          },
+        },
+        true
+      );
+      return;
+    }
+
+    const newKey = makeCustomColumnKey(
+      cleanLabel,
+      allAvailableSubjectColumns.map((c) => c.key)
+    );
+    setNewCustomColLabel('');
+    await persistClassColumnsConfig(
+      {
+        enabledKeys: [...activeColumnsConfig.enabledKeys, newKey],
+        columnModes: {
+          ...activeColumnsConfig.columnModes,
+          [newKey]: newCustomColMode,
+        },
+        customColumns: [
+          ...activeColumnsConfig.customColumns,
+          { key: newKey, label: cleanLabel },
+        ],
+      },
+      false
+    );
+  };
+
+  const handleDeleteCustomColumn = async (colKey: string, label: string) => {
+    if (!(await confirmDialog(`តើអ្នកពិតជាចង់លុបជួរឈរថ្មី "${label}" ចេញពីបញ្ជីជួរឈរមែនទេ?`))) {
+      return;
+    }
+    const nextModes = { ...activeColumnsConfig.columnModes };
+    delete nextModes[colKey];
+    await persistClassColumnsConfig(
+      {
+        enabledKeys: activeColumnsConfig.enabledKeys.filter((k) => k !== colKey),
+        columnModes: nextModes,
+        customColumns: activeColumnsConfig.customColumns.filter((c) => c.key !== colKey),
+      },
+      true
+    );
+  };
+
+  const handleResetDefaultColumns = async () => {
+    const def = getDefaultClassColumnsConfig();
+    await persistClassColumnsConfig(
+      {
+        ...def,
+        customColumns: activeColumnsConfig.customColumns,
+      },
+      true
+    );
   };
 
   const handlePaste = async (
@@ -1330,10 +1870,13 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     let targetInput: HTMLInputElement | null = null;
 
     if (key === 'ArrowLeft' || key === 'ArrowRight') {
-      const nextCol = colIndex + (key === 'ArrowRight' ? 1 : -1);
-      targetInput = currentTr.querySelector<HTMLInputElement>(
-        `input[data-score-col="${nextCol}"]`
+      const rowInputs = Array.from(
+        currentTr.querySelectorAll<HTMLInputElement>('input[data-score-col]')
       );
+      const curIdx = rowInputs.indexOf(input);
+      if (curIdx !== -1) {
+        targetInput = rowInputs[curIdx + (key === 'ArrowRight' ? 1 : -1)] || null;
+      }
     } else {
       const allRows = Array.from(
         container.querySelectorAll<HTMLTableRowElement>('tr[data-score-row="1"]')
@@ -1516,14 +2059,24 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     // Find all live students that belong to this class
     const classStudentIds = selectedClass.studentIds || (selectedClass.studentsData ? selectedClass.studentsData.map((s: any) => s.id) : []);
     const classStudents = allStudents.filter((s: any) => classStudentIds.includes(s.id) && s.status !== 'ឈប់រៀន');
-    
+
+    // Fetch previous month's Morality, Punctuality, Hygiene evaluations to auto-copy forward
+    const { lookup: prevTraitLookup, sourceMonth: prevTraitMonth } =
+      await fetchLatestPriorTraitsForClass(selectedClass.id, selectedMonth);
+
     let importedCount = 0;
+    let copiedTraitsCount = 0;
     
     for (const student of classStudents) {
       // Check if they already exist in this month's score snapshot
       const exists = scores.some(scoreRec => scoreRec.studentId === student.id);
       
       if (!exists) {
+        const prevSnap = findStudentTraitSnapshot(prevTraitLookup, student.id, student.studentId);
+        if (prevSnap && (prevSnap.morality || prevSnap.punctuality || prevSnap.hygiene)) {
+          copiedTraitsCount++;
+        }
+
         await scoreService.add({
           classId: selectedClass.id,
           studentId: student.id, // Reference to original student
@@ -1533,6 +2086,12 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
           studentIdCode: student.studentId || '',
           fullName: student.fullName || '',
           gender: student.gender || '',
+
+          // 3 Conduct Evaluation Columns (auto-copied from previous month)
+          morality: prevSnap?.morality || '',
+          punctuality: prevSnap?.punctuality || '',
+          hygiene: prevSnap?.hygiene || '',
+          ...(prevSnap && prevTraitMonth ? { traitsCopiedFrom: prevTraitMonth } : {}),
           
           // Subject Scores
           quiz: '',
@@ -1553,7 +2112,11 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     }
     
     if (importedCount > 0) {
-      alert(`បានទាញយកសិស្សចំនួន ${importedCount} នាក់ដោយជោគជ័យ!`);
+      const traitNote =
+        copiedTraitsCount > 0 && prevTraitMonth
+          ? ` (បានចម្លងការវាយតម្លៃសីលធម៌ ៣ ជួរឈរពីខែ ${prevTraitMonth} សម្រាប់ ${copiedTraitsCount} នាក់)`
+          : '';
+      alert(`បានទាញយកសិស្សចំនួន ${importedCount} នាក់ដោយជោគជ័យ!${traitNote}`);
     } else {
       alert('មិនមានសិស្សថ្មីសម្រាប់ទាញយកទេ!');
     }
@@ -1567,25 +2130,40 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
 
   const exportToCSV = () => {
     if (computedScores.rows.length === 0) return;
-    const headers = ['អត្តលេខ', 'ឈ្មោះសិស្ស', 'ភេទ', 'វគ្គ', 'Quiz', 'Exercise', 'Speaking', 'Homework', 'Test', 'ពិន្ទុសរុប', 'មធ្យមភាគ', 'និទ្ទេស', 'ចំណាត់ថ្នាក់', 'មូលវិចារណ៍'];
+    const headers = [
+      'អត្តលេខ',
+      'ឈ្មោះសិស្ស',
+      'ភេទ',
+      'វគ្គ',
+      ...TRAIT_EVALUATION_COLUMNS.map((t) => `${t.labelKh} (${t.labelEn})`),
+      ...activeSubjectColumns.map((col) => col.label),
+      'ពិន្ទុសរុប',
+      'មធ្យមភាគ',
+      'និទ្ទេស',
+      'ចំណាត់ថ្នាក់',
+      'មូលវិចារណ៍',
+    ];
     const csvContent = [
       headers.join(','),
-      ...computedScores.rows.map((s: any) => [
-        `"${s.displayStudentCode || s.studentIdCode || ''}"`,
-        `"${s.displayFullName || s.fullName || ''}"`,
-        `"${s.displayGender || s.gender || ''}"`,
-        `"${s.effectiveLevel || ''}"`,
-        `"${s.quiz || ''}"`,
-        `"${s.exercise || ''}"`,
-        `"${s.speaking || ''}"`,
-        `"${s.homework || ''}"`,
-        `"${s.test || ''}"`,
-        `"${s.totalScore || ''}"`,
-        `"${s.dynAverage || s.average || ''}"`,
-        `"${s.dynGrade || s.grade || ''}"`,
-        `"${s.dynRank || s.rank || ''}"`,
-        `"${s.dynRemarks || s.remarks || ''}"`
-      ].join(','))
+      ...computedScores.rows.map((s: any) =>
+        [
+          `"${s.displayStudentCode || s.studentIdCode || ''}"`,
+          `"${s.displayFullName || s.fullName || ''}"`,
+          `"${s.displayGender || s.gender || ''}"`,
+          `"${s.effectiveLevel || ''}"`,
+          ...TRAIT_EVALUATION_COLUMNS.map((t) => `"${normalizeEvaluationValue(s[t.key]) || ''}"`),
+          ...activeSubjectColumns.map((col) =>
+            col.inputMode === 'evaluation'
+              ? `"${getColumnEvalValue(s, col.key)}"`
+              : `"${getColumnNumericValue(s, col.key)}"`
+          ),
+          `"${s.totalScore || ''}"`,
+          `"${s.dynAverage || s.average || ''}"`,
+          `"${s.dynGrade || s.grade || ''}"`,
+          `"${s.dynRank || s.rank || ''}"`,
+          `"${s.dynRemarks || s.remarks || ''}"`,
+        ].join(',')
+      ),
     ].join('\n');
     
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2493,6 +3071,344 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             <span>ជ្រើសសិស្សចូលវគ្គ</span>
           </button>
 
+          {/* Subject Columns Checkbox Dropdown + Add Custom Column */}
+          <div style={{ position: 'relative' }} ref={columnsPortal.containerRef}>
+            <button
+              ref={columnsPortal.triggerRef}
+              type="button"
+              onClick={() => setIsColumnsDropdownOpen(!isColumnsDropdownOpen)}
+              className="btn"
+              style={{
+                padding: '0.5rem 0.95rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                background: isColumnsDropdownOpen ? 'rgba(16, 185, 129, 0.14)' : 'rgba(16, 185, 129, 0.09)',
+                border: '1px solid rgba(16, 185, 129, 0.38)',
+                borderRadius: '8px',
+                color: '#047857',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              title="ជ្រើសរើស ឬបន្ថែមជួរឈរពិន្ទុ / វាយតម្លៃ (Reading, Writing, Speaking, Listening, Spelling, Dictation, Presentation, Homework...)"
+            >
+              <AppIcon name="sliders" size={16} />
+              <span>ជួរឈរពិន្ទុ ({activeColumnsConfig.enabledKeys.length})</span>
+              <AppIcon
+                name="chevron-down"
+                size={14}
+                style={{
+                  transform: isColumnsDropdownOpen ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.18s',
+                }}
+              />
+            </button>
+
+            {isColumnsDropdownOpen &&
+              typeof document !== 'undefined' &&
+              createPortal(
+                <div
+                  ref={columnsPortal.menuRef}
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{
+                    ...columnsPortal.menuStyle,
+                    background: 'var(--modal-bg, var(--main-bg))',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    boxShadow: '0 14px 36px rgba(15, 23, 42, 0.25)',
+                    maxHeight: `${columnsPortal.maxListHeight}px`,
+                    padding: '0.8rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem',
+                    animation: 'fadeIn 0.15s ease-out',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingBottom: '0.45rem',
+                      borderBottom: '1px solid var(--border-color)',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                        ជ្រើសរើស និងបន្ថែម Col ពិន្ទុ
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.1rem' }}>
+                        រក្សាទុកដាច់ដោយឡែកសម្រាប់ខែ <b>{selectedMonth}</b>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSavingColumns}
+                      onClick={handleResetDefaultColumns}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary-color, #2563eb)',
+                        fontSize: '0.76rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '0.15rem 0.25rem',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title="ត្រឡប់ទៅជួរឈរលំនាំដើម (Homework, Reading, Dictation, Presentation)"
+                    >
+                      លំនាំដើម
+                    </button>
+                  </div>
+
+                  {/* Checkbox List (Optional + Custom columns only; Quiz, Exercise, Test are locked at far right) */}
+                  <div
+                    style={{
+                      overflowY: 'auto',
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.24rem',
+                      paddingRight: '0.15rem',
+                    }}
+                  >
+                    {checkboxSubjectColumns.map((col) => {
+                      const isChecked = activeColumnsConfig.enabledKeys.includes(col.key);
+                      const isEval = col.inputMode === 'evaluation';
+                      return (
+                        <div
+                          key={col.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.45rem',
+                            padding: '0.32rem 0.45rem',
+                            borderRadius: '8px',
+                            background: isChecked ? 'var(--bg-secondary)' : 'transparent',
+                            border: isChecked
+                              ? '1px solid var(--border-color)'
+                              : '1px solid transparent',
+                          }}
+                        >
+                          <label
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              flex: 1,
+                              minWidth: 0,
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              color: 'var(--text-primary)',
+                              fontWeight: isChecked ? 600 : 400,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isSavingColumns}
+                              onChange={() => handleToggleSubjectColumn(col.key)}
+                              style={{
+                                width: '15px',
+                                height: '15px',
+                                accentColor: '#10b981',
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {col.label}
+                            </span>
+                            {col.isCustom && (
+                              <span
+                                style={{
+                                  fontSize: '0.66rem',
+                                  padding: '0.06rem 0.34rem',
+                                  borderRadius: '999px',
+                                  background: 'rgba(139, 92, 246, 0.14)',
+                                  color: '#7c3aed',
+                                  fontWeight: 700,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                ថ្មី
+                              </span>
+                            )}
+                          </label>
+
+                          {isChecked && (
+                            <button
+                              type="button"
+                              disabled={isSavingColumns}
+                              onClick={() => handleToggleColumnInputMode(col.key)}
+                              style={{
+                                padding: '0.14rem 0.42rem',
+                                borderRadius: '999px',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: isEval
+                                  ? '1px solid rgba(16, 185, 129, 0.42)'
+                                  : '1px solid rgba(59, 130, 246, 0.36)',
+                                background: isEval
+                                  ? 'rgba(16, 185, 129, 0.14)'
+                                  : 'rgba(59, 130, 246, 0.12)',
+                                color: isEval ? '#047857' : '#2563eb',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="ចុចដើម្បីប្តូររវាង ការវាយលេខពិន្ទុ ↔ ការវាយតម្លៃ"
+                            >
+                              {isEval ? 'វាយតម្លៃ' : 'លេខ'}
+                            </button>
+                          )}
+
+                          {col.isCustom && (
+                            <button
+                              type="button"
+                              disabled={isSavingColumns}
+                              onClick={() => handleDeleteCustomColumn(col.key, col.label)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--danger, #ef4444)',
+                                cursor: 'pointer',
+                                padding: '0.15rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: 0.78,
+                              }}
+                              title={`លុបជួរឈរ "${col.label}"`}
+                            >
+                              <AppIcon name="trash" size={13} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Custom Column Form */}
+                  <form
+                    onSubmit={handleAddCustomColumn}
+                    style={{
+                      paddingTop: '0.55rem',
+                      borderTop: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      + បន្ថែមជួរឈរថ្មី (Add New Column)
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <input
+                        type="text"
+                        value={newCustomColLabel}
+                        onChange={(e) => setNewCustomColLabel(e.target.value)}
+                        placeholder="ឧ. Grammar, Project..."
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          padding: '0.38rem 0.55rem',
+                          borderRadius: '7px',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-secondary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.82rem',
+                          outline: 'none',
+                        }}
+                      />
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '7px',
+                          padding: '2px',
+                          gap: '2px',
+                          flexShrink: 0,
+                        }}
+                        title="ប្រភេទការបញ្ចូលដំបូង"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setNewCustomColMode('number')}
+                          style={{
+                            padding: '0.26rem 0.42rem',
+                            borderRadius: '5px',
+                            border: 'none',
+                            background:
+                              newCustomColMode === 'number'
+                                ? 'var(--primary-color, #2563eb)'
+                                : 'transparent',
+                            color:
+                              newCustomColMode === 'number'
+                                ? '#ffffff'
+                                : 'var(--text-secondary)',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          លេខ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewCustomColMode('evaluation')}
+                          style={{
+                            padding: '0.26rem 0.42rem',
+                            borderRadius: '5px',
+                            border: 'none',
+                            background:
+                              newCustomColMode === 'evaluation' ? '#10b981' : 'transparent',
+                            color:
+                              newCustomColMode === 'evaluation'
+                                ? '#ffffff'
+                                : 'var(--text-secondary)',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          វាយតម្លៃ
+                        </button>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isSavingColumns || !newCustomColLabel.trim()}
+                        style={{
+                          padding: '0.38rem 0.65rem',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: !newCustomColLabel.trim() ? '#94a3b8' : '#10b981',
+                          color: '#ffffff',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: !newCustomColLabel.trim() ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        បន្ថែម
+                      </button>
+                    </div>
+                  </form>
+                </div>,
+                document.body
+              )}
+          </div>
+
           <SortDropdown 
             options={[
               { value: 'studentIdCode', label: 'អត្តលេខ' },
@@ -2531,25 +3447,42 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                 animation: 'fadeIn 0.15s ease-out'
               }}>
                 <div style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ជ្រើសរើសជួរឈរត្រូវលុប</div>
-                {[
-                  { key: 'quiz', label: 'Quiz' },
-                  { key: 'exercise', label: 'Exercise' },
-                  { key: 'speaking', label: 'Speaking' },
-                  { key: 'homework', label: 'Homework' },
-                  { key: 'test', label: 'Test' }
-                ].map(col => (
+                {activeSubjectColumns.map(col => (
                   <div 
                     key={col.key}
-                    onClick={() => handleClearColumn(col.key, col.label)}
+                    onClick={() => handleClearColumn(col.key, col.label, col.inputMode)}
                     style={{
-                      padding: '0.5rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
-                      color: 'var(--danger)', transition: 'background 0.2s'
+                      padding: '0.45rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem',
+                      color: 'var(--danger)', transition: 'background 0.2s', fontSize: '0.86rem'
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-                    លុប {col.label}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                      លុប {col.label}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', opacity: 0.75 }}>
+                      {col.inputMode === 'evaluation' ? 'វាយតម្លៃ' : 'លេខ'}
+                    </span>
+                  </div>
+                ))}
+
+                <div style={{ height: '1px', background: 'var(--border-color)', margin: '0.4rem 0' }}></div>
+                <div style={{ padding: '0.3rem 1rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ជួរឈរវាយតម្លៃ ៣ (ខែនេះ)</div>
+                {TRAIT_EVALUATION_COLUMNS.map(trait => (
+                  <div
+                    key={trait.key}
+                    onClick={() => handleClearColumn(trait.key, `${trait.labelKh} (${trait.labelEn})`, 'trait')}
+                    style={{
+                      padding: '0.42rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.45rem',
+                      color: '#d97706', transition: 'background 0.2s', fontSize: '0.83rem'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                    លុប {trait.labelKh}
                   </div>
                 ))}
 
@@ -2757,22 +3690,112 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                       <th style={{ padding: '0.5rem', textAlign: 'left', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', position: 'sticky', left: 0, zIndex: 10, background: 'var(--bg-secondary)', boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>ឈ្មោះសិស្ស</th>
                       <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>ភេទ</th>
                       <th style={{ padding: '0.5rem', textAlign: 'center', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', minWidth: '72px' }}>វគ្គ</th>
-                      
-                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Quiz</div>
-                      </th>
-                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Exercise</div>
-                      </th>
-                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Speaking</div>
-                      </th>
-                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Homework</div>
-                      </th>
-                      <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '45px', border: '1px solid var(--border-color)' }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto' }}>Test</div>
-                      </th>
+
+                      {/* 3 Monthly Trait Evaluation Columns (Vertical upward Khmer-only header, same width as numeric score columns) */}
+                      {TRAIT_EVALUATION_COLUMNS.map((trait) => (
+                        <th
+                          key={trait.key}
+                          style={{
+                            padding: '0.2rem 0.16rem',
+                            textAlign: 'center',
+                            color: '#0369a1',
+                            background: 'rgba(14, 165, 233, 0.08)',
+                            verticalAlign: 'bottom',
+                            height: '118px',
+                            width: '54px',
+                            minWidth: '54px',
+                            border: '1px solid var(--border-color)',
+                          }}
+                          title={`${trait.labelKh} • ចម្លងស្វ័យប្រវត្តិទៅខែបន្ទាប់ និងអាចកែប្រែតាមខែនីមួយៗ`}
+                        >
+                          <div
+                            style={{
+                              writingMode: 'vertical-rl',
+                              transform: 'rotate(180deg)',
+                              margin: '0 auto',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              lineHeight: 1.2,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {trait.labelKh}
+                          </div>
+                        </th>
+                      ))}
+
+                      {/* Dynamic Subject Columns with Per-Header Mode Toggle (Optional/Custom first, locked Quiz/Exercise/Test at far right) */}
+                      {activeSubjectColumns.map((col, idx) => {
+                        const isEval = col.inputMode === 'evaluation';
+                        const isFirstLocked =
+                          col.isLocked && (idx === 0 || !activeSubjectColumns[idx - 1]?.isLocked);
+                        return (
+                          <th
+                            key={col.key}
+                            style={{
+                              padding: '0.22rem 0.14rem',
+                              textAlign: 'center',
+                              color: isEval
+                                ? '#047857'
+                                : col.isLocked
+                                  ? '#4338ca'
+                                  : 'var(--text-secondary)',
+                              background: isEval
+                                ? 'rgba(16, 185, 129, 0.07)'
+                                : col.isLocked
+                                  ? 'rgba(99, 102, 241, 0.06)'
+                                  : undefined,
+                              verticalAlign: 'bottom',
+                              height: '118px',
+                              width: '54px',
+                              minWidth: '54px',
+                              border: '1px solid var(--border-color)',
+                              borderLeft: isFirstLocked
+                                ? '2px solid rgba(99, 102, 241, 0.35)'
+                                : '1px solid var(--border-color)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                height: '100%',
+                                gap: '0.26rem',
+                              }}
+                            >
+                              <button
+                                type="button"
+                                disabled={isSavingColumns}
+                                onClick={() => handleToggleColumnInputMode(col.key)}
+                                className={`score-col-mode-btn${isEval ? ' is-eval' : ' is-num'}`}
+                                title={
+                                  isEval
+                                    ? `${col.label}: កំពុងប្រើ ការវាយតម្លៃ — ចុចដើម្បីប្តូរទៅវាយលេខពិន្ទុ`
+                                    : `${col.label}: កំពុងប្រើ ការវាយលេខពិន្ទុ — ចុចដើម្បីប្តូរទៅការវាយតម្លៃ`
+                                }
+                              >
+                                {isEval ? 'វាយតម្លៃ' : '123'}
+                              </button>
+
+                              <div
+                                style={{
+                                  writingMode: 'vertical-rl',
+                                  transform: 'rotate(180deg)',
+                                  margin: '0 auto',
+                                  fontSize: '0.8rem',
+                                  fontWeight: isEval ? 700 : 600,
+                                  maxHeight: '82px',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {col.label}
+                              </div>
+                            </div>
+                          </th>
+                        );
+                      })}
 
                       <th style={{ padding: '0.2rem', textAlign: 'center', color: 'var(--text-secondary)', verticalAlign: 'bottom', height: '100px', minWidth: '50px', border: '1px solid var(--border-color)' }}>
                         <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', margin: '0 auto', fontWeight: 'bold' }}>ពិន្ទុសរុប</div>
@@ -2838,41 +3861,113 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                             </button>
                           </td>
                           
-                          {/* Subject Columns (Excel-like Keyboard Arrow + Enter Navigation) */}
-                          {SCORE_SUBJECT_FIELDS.map((fieldKey, colIndex) => (
-                            <td key={fieldKey} style={{ padding: '0.2rem', border: '1px solid var(--border-color)' }}>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                data-score-col={colIndex}
-                                value={scoreRec[fieldKey] ?? ''}
-                                onChange={(e) => handleScoreChange(scoreRec, fieldKey, e.target.value)}
-                                onPaste={(e) => handlePaste(e, index, fieldKey, sortedScores)}
-                                onKeyDown={(e) => handleScoreCellKeyDown(e, colIndex)}
-                                onFocus={(e) => {
-                                  e.currentTarget.style.borderColor = '#3b82f6';
-                                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.22)';
-                                  e.currentTarget.select();
-                                }}
-                                onBlur={(e) => {
-                                  e.currentTarget.style.borderColor = 'transparent';
-                                  e.currentTarget.style.boxShadow = 'none';
-                                }}
+                          {/* 3 Trait Evaluation Columns (Morality, Punctuality, Hygiene) */}
+                          {TRAIT_EVALUATION_COLUMNS.map((trait) => {
+                            const traitVal = normalizeEvaluationValue(scoreRec[trait.key]);
+                            return (
+                              <td
+                                key={trait.key}
                                 style={{
-                                  width: '45px',
-                                  padding: '0.25rem 0',
+                                  padding: '0.2rem',
                                   textAlign: 'center',
-                                  borderRadius: '4px',
-                                  border: '1.5px solid transparent',
-                                  background: 'var(--main-bg)',
-                                  color: 'var(--text-primary)',
-                                  outline: 'none',
-                                  transition: 'border-color 0.12s, box-shadow 0.12s',
+                                  border: '1px solid var(--border-color)',
+                                  background: 'rgba(14, 165, 233, 0.025)',
                                 }}
-                                placeholder=""
-                              />
-                            </td>
-                          ))}
+                              >
+                                <ScoreEvalDropdown
+                                  value={traitVal}
+                                  onChange={(nextVal) =>
+                                    handleTraitChange(scoreRec, trait.key, nextVal)
+                                  }
+                                  title={
+                                    scoreRec.traitsCopiedFrom && !scoreRec.traitsEdited?.[trait.key]
+                                      ? `${trait.labelKh}${traitVal ? `: ${traitVal}` : ''} • ចម្លងស្វ័យប្រវត្តិពីខែ ${scoreRec.traitsCopiedFrom}`
+                                      : `${trait.labelKh}${traitVal ? `: ${traitVal}` : ''}`
+                                  }
+                                />
+                              </td>
+                            );
+                          })}
+
+                          {/* Dynamic Subject Columns (Numeric Input OR System Evaluation Dropdown - Uniform Compact Width) */}
+                          {activeSubjectColumns.map((col, colIndex) => {
+                            const isFirstLocked =
+                              col.isLocked &&
+                              (colIndex === 0 || !activeSubjectColumns[colIndex - 1]?.isLocked);
+                            const cellBorderLeft = isFirstLocked
+                              ? '2px solid rgba(99, 102, 241, 0.3)'
+                              : '1px solid var(--border-color)';
+
+                            if (col.inputMode === 'evaluation') {
+                              const evalVal = getColumnEvalValue(scoreRec, col.key);
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={{
+                                    padding: '0.2rem',
+                                    textAlign: 'center',
+                                    border: '1px solid var(--border-color)',
+                                    borderLeft: cellBorderLeft,
+                                    background: 'rgba(16, 185, 129, 0.025)',
+                                  }}
+                                >
+                                  <ScoreEvalDropdown
+                                    value={evalVal}
+                                    onChange={(nextVal) =>
+                                      handleSubjectEvalChange(scoreRec, col.key, nextVal)
+                                    }
+                                    title={`${col.label}${evalVal ? `: ${evalVal}` : ''}`}
+                                  />
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td
+                                key={col.key}
+                                style={{
+                                  padding: '0.2rem',
+                                  textAlign: 'center',
+                                  border: '1px solid var(--border-color)',
+                                  borderLeft: cellBorderLeft,
+                                  background: col.isLocked
+                                    ? 'rgba(99, 102, 241, 0.02)'
+                                    : undefined,
+                                }}
+                              >
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  data-score-col={colIndex}
+                                  value={getColumnNumericValue(scoreRec, col.key)}
+                                  onChange={(e) => handleScoreChange(scoreRec, col.key, e.target.value)}
+                                  onPaste={(e) => handlePaste(e, index, col.key, sortedScores)}
+                                  onKeyDown={(e) => handleScoreCellKeyDown(e, colIndex)}
+                                  onFocus={(e) => {
+                                    e.currentTarget.style.borderColor = '#3b82f6';
+                                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.22)';
+                                    e.currentTarget.select();
+                                  }}
+                                  onBlur={(e) => {
+                                    e.currentTarget.style.borderColor = 'transparent';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                  }}
+                                  style={{
+                                    width: '50px',
+                                    padding: '0.25rem 0',
+                                    textAlign: 'center',
+                                    borderRadius: '4px',
+                                    border: '1.5px solid transparent',
+                                    background: 'var(--main-bg)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                    transition: 'border-color 0.12s, box-shadow 0.12s',
+                                  }}
+                                  placeholder=""
+                                />
+                              </td>
+                            );
+                          })}
 
                           {/* Total Score */}
                           <td style={{ padding: '0.2rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)', border: '1px solid var(--border-color)', width: '70px', minWidth: '70px' }}>
@@ -2921,7 +4016,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                     })}
                     {sortedScores.length === 0 && (
                       <tr>
-                        <td colSpan={16} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <td colSpan={14 + activeSubjectColumns.length} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                           មិនមានសិស្សក្នុងខែនេះទេ។ <br/><br/>
                           សូមចុចប៊ូតុង <b>"+"</b> នៅខាងលើដើម្បីទាញយកបញ្ជីឈ្មោះពីថ្នាក់រៀន។
                         </td>

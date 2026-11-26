@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import {
@@ -50,6 +50,8 @@ import {
 } from '@/utils/paymentBilling';
 
 type ActiveTab = 'due_overdue' | 'print_queue' | 'printed_archive' | 'all_students';
+
+const PAYMENT_STUDENT_COL_WIDTHS_STORAGE_KEY = 'bsis_payment_student_col_widths_v1';
 
 const PAYMENT_SORT_OPTIONS: MultiSortOption[] = [
   { value: 'classCode', label: 'ថ្នាក់រៀន / បន្ទប់' },
@@ -182,6 +184,139 @@ export default function PaymentsPage() {
     title?: string;
   } | null>(null);
   const [historyStudentBilling, setHistoryStudentBilling] = useState<StudentBillingInfo | null>(null);
+
+  // Sticky & auto-compact / manually resizable Student Name column across all payment tabs
+  const [scrolledRightTabs, setScrolledRightTabs] = useState<Partial<Record<ActiveTab, boolean>>>({});
+  const [customStudentColWidths, setCustomStudentColWidths] = useState<Partial<Record<ActiveTab, number>>>({});
+  const [resizingTab, setResizingTab] = useState<ActiveTab | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PAYMENT_STUDENT_COL_WIDTHS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        const sanitized: Partial<Record<ActiveTab, number>> = {};
+        (['due_overdue', 'print_queue', 'printed_archive', 'all_students'] as ActiveTab[]).forEach((tab) => {
+          const val = Number(parsed[tab]);
+          if (Number.isFinite(val) && val >= 84 && val <= 360) {
+            sanitized[tab] = Math.round(val);
+          }
+        });
+        setCustomStudentColWidths(sanitized);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const persistStudentColWidths = (next: Partial<Record<ActiveTab, number>>) => {
+    try {
+      window.localStorage.setItem(PAYMENT_STUDENT_COL_WIDTHS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  useEffect(() => {
+    setScrolledRightTabs({});
+  }, [activeTab]);
+
+  const handleTableHorizontalScroll =
+    (tab: ActiveTab) => (e: React.UIEvent<HTMLDivElement>) => {
+      const nextScrolled = e.currentTarget.scrollLeft > 12;
+      setScrolledRightTabs((prev) =>
+        Boolean(prev[tab]) === nextScrolled ? prev : { ...prev, [tab]: nextScrolled }
+      );
+    };
+
+  const startResizeStudentCol =
+    (tab: ActiveTab) => (e: React.PointerEvent<HTMLSpanElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const thEl = e.currentTarget.closest('th');
+      if (!thEl) return;
+      const startWidth = thEl.getBoundingClientRect().width;
+      const startX = e.clientX;
+      setResizingTab(tab);
+
+      let latestWidths: Partial<Record<ActiveTab, number>> = { ...customStudentColWidths };
+
+      const onMove = (ev: PointerEvent) => {
+        const nextWidth = Math.round(
+          Math.min(360, Math.max(84, startWidth + (ev.clientX - startX)))
+        );
+        latestWidths = { ...latestWidths, [tab]: nextWidth };
+        setCustomStudentColWidths(latestWidths);
+      };
+
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        setResizingTab(null);
+        persistStudentColWidths(latestWidths);
+      };
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    };
+
+  const resetStudentColWidth = (tab: ActiveTab) => {
+    setCustomStudentColWidths((prev) => {
+      const next = { ...prev };
+      delete next[tab];
+      persistStudentColWidths(next);
+      return next;
+    });
+  };
+
+  const getPaymentsTableProps = (tab: ActiveTab, minWidth: string) => {
+    const customW = customStudentColWidths[tab];
+    const isScrolledRight = Boolean(scrolledRightTabs[tab]);
+    const isResizing = resizingTab === tab;
+    const classes = [
+      'payments-sticky-table',
+      isScrolledRight ? 'is-scrolled-right' : '',
+      isScrolledRight && !customW ? 'is-auto-compact' : '',
+      customW ? 'has-custom-width' : '',
+      isResizing ? 'is-resizing' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const style: React.CSSProperties & { '--pay-student-col-w'?: string } = {
+      width: '100%',
+      borderCollapse: 'collapse',
+      minWidth,
+      textAlign: 'left',
+      ...(customW ? { '--pay-student-col-w': `${customW}px` } : {}),
+    };
+    return { className: classes, style };
+  };
+
+  const renderStudentNameTh = (tab: ActiveTab, label: string, headerBg: string) => (
+    <th
+      className="pay-student-col"
+      style={{
+        background: headerBg,
+        paddingRight: '1.05rem',
+      }}
+    >
+      <span>{label}</span>
+      <span
+        role="separator"
+        aria-orientation="vertical"
+        className={`pay-col-resize-handle${resizingTab === tab ? ' is-resizing' : ''}`}
+        onPointerDown={startResizeStudentCol(tab)}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          resetStudentColWidth(tab);
+        }}
+        title="អូសគែមស្តាំដើម្បី Resize ទទឹង • ចុចពីរដងដើម្បីប្ដូរស្វ័យប្រវត្តិពេលអូសទៅស្តាំ"
+      />
+    </th>
+  );
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMsg({ text, type });
@@ -2150,8 +2285,8 @@ export default function PaymentsPage() {
           )}
 
           <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1440px', textAlign: 'left' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }} onScroll={handleTableHorizontalScroll('due_overdue')}>
+              <table {...getPaymentsTableProps('due_overdue', '1440px')}>
                 <thead>
                   <tr style={{ background: 'rgba(239, 68, 68, 0.06)', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ width: '40px', textAlign: 'center' }}>
@@ -2173,7 +2308,7 @@ export default function PaymentsPage() {
                     </th>
                     <th>លេខរៀង</th>
                     <th>អត្តលេខសិស្ស</th>
-                    <th>ឈ្មោះសិស្ស</th>
+                    {renderStudentNameTh('due_overdue', 'ឈ្មោះសិស្ស', 'color-mix(in srgb, #ef4444 7%, var(--modal-bg))')}
                     <th>ភេទ</th>
                     <th>វេនសិក្សា</th>
                     <th>វគ្គ</th>
@@ -2216,7 +2351,18 @@ export default function PaymentsPage() {
                       <td>
                         <code>{item.student.studentId || '-'}</code>
                       </td>
-                      <td style={{ fontWeight: 700 }}>{item.student.fullName}</td>
+                      <td
+                        className="pay-student-col"
+                        title={item.student.fullName || ''}
+                        style={{
+                          fontWeight: 700,
+                          background: isChecked
+                            ? 'color-mix(in srgb, #f59e0b 9%, var(--modal-bg))'
+                            : 'var(--modal-bg)',
+                        }}
+                      >
+                        <span className="pay-student-name">{item.student.fullName}</span>
+                      </td>
                       <td>{item.student.gender || '-'}</td>
                       <td>{item.student.shift || '-'}</td>
                       <td>{item.student.level || '-'}</td>
@@ -2616,8 +2762,8 @@ export default function PaymentsPage() {
           </div>
 
           <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1150px', textAlign: 'left' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }} onScroll={handleTableHorizontalScroll('print_queue')}>
+              <table {...getPaymentsTableProps('print_queue', '1150px')}>
                 <thead>
                   <tr style={{ background: 'rgba(79, 70, 229, 0.08)', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ width: '42px', textAlign: 'center' }}>
@@ -2638,7 +2784,7 @@ export default function PaymentsPage() {
                     </th>
                     <th>លេខវិក្កយបត្រ</th>
                     <th>ថ្ងៃបង់ប្រាក់</th>
-                    <th>អត្តលេខ & ឈ្មោះសិស្ស</th>
+                    {renderStudentNameTh('print_queue', 'អត្តលេខ & ឈ្មោះសិស្ស', 'color-mix(in srgb, #4f46e5 9%, var(--modal-bg))')}
                     <th>ភេទ</th>
                     <th>វគ្គ & វេន</th>
                     <th>សុពលភាព</th>
@@ -2677,9 +2823,17 @@ export default function PaymentsPage() {
                           <strong style={{ color: '#b91c1c' }}>{row.receiptNo}</strong>
                         </td>
                         <td>{formatDMYSlash(row.paymentDate) || '-'}</td>
-                        <td>
-                          <div style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                        <td
+                          className="pay-student-col"
+                          title={row.studentName || ''}
+                          style={{
+                            background: isChecked
+                              ? 'color-mix(in srgb, #4f46e5 7%, var(--modal-bg))'
+                              : 'var(--modal-bg)',
+                          }}
+                        >
+                          <div className="pay-student-name" style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
+                          <div className="pay-student-id-sub" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                             <code>{row.studentIdCode || '-'}</code>
                           </div>
                         </td>
@@ -2869,8 +3023,8 @@ export default function PaymentsPage() {
           </div>
 
           <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-            <div className="table-responsive" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1200px', textAlign: 'left' }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }} onScroll={handleTableHorizontalScroll('printed_archive')}>
+              <table {...getPaymentsTableProps('printed_archive', '1200px')}>
                 <thead>
                   <tr style={{ background: 'rgba(16, 185, 129, 0.08)', borderBottom: '1px solid var(--border-color)' }}>
                     <th style={{ width: '42px', textAlign: 'center' }}>
@@ -2891,7 +3045,7 @@ export default function PaymentsPage() {
                     </th>
                     <th>លេខវិក្កយបត្រ</th>
                     <th>ថ្ងៃ Print រួច</th>
-                    <th>អត្តលេខ & ឈ្មោះសិស្ស</th>
+                    {renderStudentNameTh('printed_archive', 'អត្តលេខ & ឈ្មោះសិស្ស', 'color-mix(in srgb, #10b981 9%, var(--modal-bg))')}
                     <th>ភេទ</th>
                     <th>វគ្គ & វេន</th>
                     <th>សុពលភាព</th>
@@ -2944,9 +3098,17 @@ export default function PaymentsPage() {
                             {row.printedDateKey ? formatDMYSlash(row.printedDateKey) : 'Print រួច'}
                           </span>
                         </td>
-                        <td>
-                          <div style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                        <td
+                          className="pay-student-col"
+                          title={row.studentName || ''}
+                          style={{
+                            background: isChecked
+                              ? 'color-mix(in srgb, #10b981 7%, var(--modal-bg))'
+                              : 'var(--modal-bg)',
+                          }}
+                        >
+                          <div className="pay-student-name" style={{ fontWeight: 700 }}>{row.studentName || '-'}</div>
+                          <div className="pay-student-id-sub" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                             <code>{row.studentIdCode || '-'}</code>
                           </div>
                         </td>
@@ -3069,13 +3231,13 @@ export default function PaymentsPage() {
       {/* TAB 3: All Students Overview */}
       {activeTab === 'all_students' && (
         <div className="glass-panel" style={{ overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1050px', textAlign: 'left' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto' }} onScroll={handleTableHorizontalScroll('all_students')}>
+            <table {...getPaymentsTableProps('all_students', '1050px')}>
               <thead>
                 <tr style={{ background: 'rgba(0, 0, 0, 0.03)', borderBottom: '1px solid var(--border-color)' }}>
                   <th>លេខរៀង</th>
                   <th>អត្តលេខសិស្ស</th>
-                  <th>ឈ្មោះសិស្ស</th>
+                  {renderStudentNameTh('all_students', 'ឈ្មោះសិស្ស', 'color-mix(in srgb, var(--text-primary) 4%, var(--modal-bg))')}
                   <th>វគ្គ & វេន</th>
                   <th>លេខបន្ទប់និងគ្រូ</th>
                   <th>ថ្លៃសិក្សា</th>
@@ -3092,7 +3254,13 @@ export default function PaymentsPage() {
                     <td>
                       <code>{b.student.studentId || '-'}</code>
                     </td>
-                    <td style={{ fontWeight: 700 }}>{b.student.fullName}</td>
+                    <td
+                      className="pay-student-col"
+                      title={b.student.fullName || ''}
+                      style={{ fontWeight: 700, background: 'var(--modal-bg)' }}
+                    >
+                      <span className="pay-student-name">{b.student.fullName}</span>
+                    </td>
                     <td>
                       {[b.student.level, b.student.shift].filter(Boolean).join(' / ') || '-'}
                     </td>

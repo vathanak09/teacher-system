@@ -1621,7 +1621,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 
   .dashboard-main input[type="text"]:not(.input-field):not(.class-student-search-input):not([data-score-col]):not(.no-spinner),
   .dashboard-main input[type="search"]:not(.input-field),
-  .dashboard-main select:not(.input-field) {
+  .dashboard-main select:not(.input-field):not(.score-eval-select) {
     padding-top: 0.34rem !important;
     padding-bottom: 0.34rem !important;
     font-size: 0.82rem !important;
@@ -1652,7 +1652,8 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 
   /* Keep narrow matrix cells (scores & attendance day grids) ultra-tight */
   .dashboard-main table thead th:has([style*="vertical-rl"]),
-  .dashboard-main table tbody td:has(input[data-score-col]) {
+  .dashboard-main table tbody td:has(input[data-score-col]),
+  .dashboard-main table tbody td:has(.score-eval-trigger) {
     padding: 0.16rem 0.14rem !important;
   }
 
@@ -1855,6 +1856,200 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 
   .dashboard-main .table-responsive table.class-student-table .student-eng-name {
     font-size: 0.71rem !important;
+  }
+}
+
+/* Payments Page: Sticky & Auto-Compact / Resizable Student Name Column */
+.table-responsive table.payments-sticky-table th.pay-student-col,
+.table-responsive table.payments-sticky-table td.pay-student-col {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  transition: width 0.16s ease, min-width 0.16s ease, max-width 0.16s ease, box-shadow 0.16s ease;
+}
+
+.table-responsive table.payments-sticky-table.is-resizing th.pay-student-col,
+.table-responsive table.payments-sticky-table.is-resizing td.pay-student-col {
+  transition: none !important;
+}
+
+.table-responsive table.payments-sticky-table thead th.pay-student-col {
+  z-index: 12;
+  position: sticky;
+  padding-right: 1.15rem !important;
+}
+
+.table-responsive table.payments-sticky-table.is-scrolled-right th.pay-student-col,
+.table-responsive table.payments-sticky-table.is-scrolled-right td.pay-student-col {
+  border-right: 1px solid var(--border-color);
+  box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.14);
+}
+
+.table-responsive table.payments-sticky-table.is-auto-compact th.pay-student-col,
+.table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col {
+  width: 148px !important;
+  min-width: 148px !important;
+  max-width: 148px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.table-responsive table.payments-sticky-table.has-custom-width th.pay-student-col,
+.table-responsive table.payments-sticky-table.has-custom-width td.pay-student-col {
+  width: var(--pay-student-col-w) !important;
+  min-width: var(--pay-student-col-w) !important;
+  max-width: var(--pay-student-col-w) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col .pay-student-name,
+.table-responsive table.payments-sticky-table.has-custom-width td.pay-student-col .pay-student-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col .pay-student-name {
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
+.table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col .pay-student-id-sub {
+  font-size: 0.7rem !important;
+}
+
+.pay-col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: col-resize;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.pay-col-resize-handle::after {
+  content: '';
+  width: 2px;
+  height: 55%;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.35);
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+
+.pay-col-resize-handle:hover::after,
+.pay-col-resize-handle.is-resizing::after {
+  width: 3px;
+  background: var(--accent-primary);
+}
+
+@media screen and (max-width: 768px) {
+  .dashboard-main .table-responsive table.payments-sticky-table.is-auto-compact th.pay-student-col,
+  .dashboard-main .table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col {
+    width: 112px !important;
+    min-width: 112px !important;
+    max-width: 112px !important;
+  }
+
+  .dashboard-main .table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col .pay-student-name {
+    font-size: 0.74rem !important;
+  }
+
+  .dashboard-main .table-responsive table.payments-sticky-table.is-auto-compact td.pay-student-col .pay-student-id-sub {
+    font-size: 0.66rem !important;
+  }
+}
+
+/* Scores Table: Per-Header Score/Evaluation Mode Toggle & Evaluation Dropdown */
+.score-col-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.36rem !important;
+  border-radius: 999px !important;
+  font-size: 0.64rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.score-col-mode-btn.is-num {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.score-col-mode-btn.is-eval {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.42);
+}
+
+.score-col-mode-btn:hover {
+  transform: translateY(-1px);
+}
+
+.score-eval-trigger {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  height: 28px;
+  padding: 0 2px !important;
+  border-radius: 5px !important;
+  border: 1.5px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+}
+
+.score-eval-trigger:hover {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+.score-eval-trigger.is-open,
+.score-eval-trigger:focus-visible {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+}
+
+.score-eval-trigger-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media screen and (max-width: 768px) {
+  .dashboard-main table td button.score-eval-trigger {
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 25px !important;
+    padding: 0 2px !important;
+    font-size: 0.68rem !important;
+  }
+
+  .dashboard-main table th .score-col-mode-btn {
+    padding: 0.1rem 0.26rem !important;
+    font-size: 0.58rem !important;
   }
 }
 
