@@ -1695,6 +1695,10 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
     padding: 8mm !important;
   }
 
+  body.printing-payment-doc .print-custom-scope.print-ov-page-pad#printable-payment-doc {
+    padding: var(--pr-page-pad) !important;
+  }
+
   body.printing-receipt-a4 > *:not(#payment-print-portal-root) {
     display: none !important;
   }
@@ -1760,6 +1764,11 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
     page-break-after: always !important;
     break-after: page !important;
     overflow: hidden !important;
+  }
+
+  body.printing-receipt-a4 .print-custom-scope.print-ov-page-pad .receipt-a4-sheet:not([data-print-grid="true"]):not(:has([data-print-page-pad="true"])),
+  body.printing-receipt-a4 .print-custom-scope.print-ov-page-pad.receipt-a4-sheet:not([data-print-grid="true"]):not(:has([data-print-page-pad="true"])) {
+    padding: var(--pr-page-pad) !important;
   }
 
   body.printing-receipt-a4 .receipt-a4-sheets-container > div:last-child .receipt-a4-sheet {
@@ -1877,7 +1886,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
    Applied ONLY when user customizes settings via PrintStyleSidebar
    ========================================================================== */
 .print-custom-scope.print-ov-font,
-.print-custom-scope.print-ov-font *:not(svg):not(path):not(circle):not(rect):not(line) {
+.print-custom-scope.print-ov-font *:not(svg):not(path):not(circle):not(rect):not(line):not(polygon):not(text):not(tspan) {
   font-family: var(--pr-font) !important;
 }
 
@@ -1885,49 +1894,61 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 .print-custom-scope.print-ov-heading-font h2,
 .print-custom-scope.print-ov-heading-font h3,
 .print-custom-scope.print-ov-heading-font [data-print-heading="true"],
+.print-custom-scope.print-ov-heading-font [data-print-heading="true"] *,
 .print-custom-scope.print-ov-heading-font [style*="Moul"],
 .print-custom-scope.print-ov-heading-font [style*="Muol"] {
   font-family: var(--pr-heading-font) !important;
 }
 
-.print-custom-scope.print-ov-body-size,
-.print-custom-scope.print-ov-body-size p,
-.print-custom-scope.print-ov-body-size span,
-.print-custom-scope.print-ov-body-size div,
-.print-custom-scope.print-ov-body-size li {
+/* Body Size applies to document prose/metadata ONLY, never clobbering tables or headings */
+.print-custom-scope.print-ov-body-size p:not([data-print-heading="true"]):not([data-print-heading="true"] *):not([data-print-no-scale="true"]):not(table *),
+.print-custom-scope.print-ov-body-size span:not([data-print-heading="true"]):not([data-print-heading="true"] *):not([data-print-no-scale="true"]):not([data-print-no-scale="true"] *):not(table *),
+.print-custom-scope.print-ov-body-size div:not(.receipt-a4-sheet):not([data-print-page-pad="true"]):not([data-print-heading="true"]):not([data-print-heading="true"] *):not([data-print-no-scale="true"]):not([data-print-no-scale="true"] *):not(table):not(table *),
+.print-custom-scope.print-ov-body-size li:not(table *) {
   font-size: var(--pr-body-size) !important;
 }
 
-.print-custom-scope.print-ov-font-weight,
-.print-custom-scope.print-ov-font-weight p,
-.print-custom-scope.print-ov-font-weight span,
-.print-custom-scope.print-ov-font-weight div,
-.print-custom-scope.print-ov-font-weight td {
+.print-custom-scope.print-ov-font-weight p:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight span:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight div:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight strong:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight b:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight table td,
+.print-custom-scope.print-ov-font-weight table td *,
+.print-custom-scope.print-ov-font-weight table th,
+.print-custom-scope.print-ov-font-weight table th * {
   font-weight: var(--pr-font-weight) !important;
 }
 
-.print-custom-scope.print-ov-line-height,
-.print-custom-scope.print-ov-line-height * {
+.print-custom-scope.print-ov-line-height *:not(svg):not(svg *):not(.no-print):not(.no-print *) {
   line-height: var(--pr-line-height) !important;
 }
 
-.print-custom-scope.print-ov-letter-spacing,
-.print-custom-scope.print-ov-letter-spacing * {
+.print-custom-scope.print-ov-letter-spacing *:not(svg):not(svg *):not(.no-print):not(.no-print *) {
   letter-spacing: var(--pr-letter-spacing) !important;
 }
 
-.print-custom-scope.print-ov-word-spacing,
-.print-custom-scope.print-ov-word-spacing * {
+.print-custom-scope.print-ov-word-spacing *:not(svg):not(svg *):not(.no-print):not(.no-print *) {
   word-spacing: var(--pr-word-spacing) !important;
 }
 
 .print-custom-scope.print-ov-text-color,
-.print-custom-scope.print-ov-text-color *:not(thead th):not(thead th *) {
+.print-custom-scope.print-ov-text-color *:not(thead th):not(thead th *):not(svg):not(svg *) {
   color: var(--pr-text-color) !important;
 }
 
-.print-custom-scope.print-ov-page-pad .receipt-a4-sheet,
-.print-custom-scope.print-ov-page-pad.receipt-a4-sheet {
+.print-custom-scope.print-ov-page-pad [data-print-page-pad="true"] {
+  padding: var(--pr-page-pad) !important;
+}
+
+.print-custom-scope.print-ov-page-pad .official-receipt-slot,
+.print-custom-scope.print-ov-page-pad .due-notice-slot {
+  padding: var(--pr-page-pad) !important;
+}
+
+.print-custom-scope.print-ov-page-pad .receipt-a4-sheet:not([data-print-grid="true"]):not(:has([data-print-page-pad="true"])),
+.print-custom-scope.print-ov-page-pad.receipt-a4-sheet:not([data-print-grid="true"]):not(:has([data-print-page-pad="true"])),
+.print-custom-scope.print-ov-page-pad#printable-payment-doc {
   padding: var(--pr-page-pad) !important;
 }
 
@@ -1936,9 +1957,10 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 }
 
 /* Table Overrides */
-.print-custom-scope.print-ov-tbl-font table,
-.print-custom-scope.print-ov-tbl-font table td,
-.print-custom-scope.print-ov-tbl-font table td * {
+.print-custom-scope.print-ov-tbl-font table tbody td,
+.print-custom-scope.print-ov-tbl-font table tbody td *,
+.print-custom-scope.print-ov-tbl-font table tfoot td,
+.print-custom-scope.print-ov-tbl-font table tfoot td * {
   font-size: var(--pr-tbl-font-size) !important;
 }
 
@@ -1997,8 +2019,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 .print-custom-scope.print-ov-title-size h2,
 .print-custom-scope.print-ov-title-size h3,
 .print-custom-scope.print-ov-title-size [data-print-heading="true"],
-.print-custom-scope.print-ov-title-size [style*="Moul"],
-.print-custom-scope.print-ov-title-size [style*="Muol"] {
+.print-custom-scope.print-ov-title-size [data-print-heading="true"] * {
   font-size: var(--pr-title-size) !important;
 }
 

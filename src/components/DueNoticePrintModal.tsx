@@ -1134,6 +1134,7 @@ export default function DueNoticePrintModal({
                     tableSelection={tableSelection}
                     onCellSelected={() => setIsSidebarOpen(true)}
                     className="receipt-a4-sheet"
+                    data-print-grid="true"
                     style={{
                       width: '21cm',
                       height: '296.6mm',

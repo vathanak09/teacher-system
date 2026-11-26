@@ -16,9 +16,11 @@ export type TableSectionName = 'thead' | 'tbody' | 'tfoot';
 export interface TableCellCoord {
   pageIdx: number;
   tableIdx: number;
+  tableKey?: string;
   section: TableSectionName;
   rowIdx: number;
   colIdx: number;
+  colSpan?: number;
   textPreview?: string;
 }
 
@@ -36,6 +38,8 @@ export interface TableCellStyleOverride {
   lineHeight?: number | null;
   paddingYPx?: number | null;
   paddingXPx?: number | null;
+  widthMm?: number | null;
+  heightMm?: number | null;
 }
 
 export interface PrintDocumentStyleConfig {
@@ -150,7 +154,7 @@ export function normalizeCellOverride(
   if (typeof src.fontFamily === 'string' && src.fontFamily.trim()) {
     out.fontFamily = sanitizeCssVal(src.fontFamily);
   }
-  const fSize = clampOptNum(src.fontSizePt, 4.5, 32);
+  const fSize = clampOptNum(src.fontSizePt, 2, 32);
   if (fSize !== null) out.fontSizePt = fSize;
 
   if (
@@ -196,6 +200,12 @@ export function normalizeCellOverride(
   const px = clampOptNum(src.paddingXPx, 0, 28);
   if (px !== null) out.paddingXPx = px;
 
+  const wm = clampOptNum(src.widthMm, 3, 120);
+  if (wm !== null) out.widthMm = wm;
+
+  const hm = clampOptNum(src.heightMm, 2.5, 40);
+  if (hm !== null) out.heightMm = hm;
+
   return out;
 }
 
@@ -237,8 +247,8 @@ export function normalizePrintStyleConfig(
     fontFamily: typeof src.fontFamily === 'string' ? src.fontFamily.trim() : '',
     headingFontFamily:
       typeof src.headingFontFamily === 'string' ? src.headingFontFamily.trim() : '',
-    bodyFontSizePt: clampOptNum(src.bodyFontSizePt, 5.5, 22),
-    titleFontSizePt: clampOptNum(src.titleFontSizePt, 8, 28),
+    bodyFontSizePt: clampOptNum(src.bodyFontSizePt, 3, 22),
+    titleFontSizePt: clampOptNum(src.titleFontSizePt, 5, 28),
     fontWeight: fw,
     lineHeight: clampOptNum(src.lineHeight, 0.85, 2.4),
     letterSpacingPx: clampOptNum(src.letterSpacingPx, -1, 6),
@@ -247,8 +257,8 @@ export function normalizePrintStyleConfig(
     pagePaddingMm: clampOptNum(src.pagePaddingMm, 0, 25),
     grayscalePrint: Boolean(src.grayscalePrint),
 
-    tableFontSizePt: clampOptNum(src.tableFontSizePt, 5, 16),
-    tableHeaderFontSizePt: clampOptNum(src.tableHeaderFontSizePt, 5, 16),
+    tableFontSizePt: clampOptNum(src.tableFontSizePt, 2.5, 18),
+    tableHeaderFontSizePt: clampOptNum(src.tableHeaderFontSizePt, 2.5, 18),
     tableCellPadYPx: clampOptNum(src.tableCellPadYPx, 0, 16),
     tableCellPadXPx: clampOptNum(src.tableCellPadXPx, 0, 18),
     tableRowHeightMm: clampOptNum(src.tableRowHeightMm, 3, 16),
@@ -297,63 +307,87 @@ export function hasCustomPrintStyle(cfg: PrintDocumentStyleConfig): boolean {
 /**
  * Deterministic key builder for per-cell / per-row / per-column table overrides.
  * Format:
- *  - cell:p{page|*}:t{t}:{sec}:r{r}:c{c}
- *  - row:p{page|*}:t{t}:{sec}:r{r}
- *  - col:p{page|*}:t{t}:{sec}:c{c}
+ *  - cell:p{page|*}:{tN|tk_KEY}:{sec}:r{r}:c{c}
+ *  - row:p{page|*}:{tN|tk_KEY}:{sec}:r{r}
+ *  - col:p{page|*}:{tN|tk_KEY}:{all|sec}:c{c}
  */
+function formatTablePart(coord: Pick<TableCellCoord, 'tableIdx' | 'tableKey'>): string {
+  const cleanKey = (coord.tableKey || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return cleanKey ? `tk_${cleanKey}` : `t${coord.tableIdx}`;
+}
+
 export function makeTableOverrideKey(
   mode: TableSelectionMode,
   coord: TableCellCoord,
   applyAllPages: boolean
 ): string {
   const pPart = applyAllPages ? 'p*' : `p${coord.pageIdx}`;
+  const tPart = formatTablePart(coord);
   if (mode === 'row') {
-    return `row:${pPart}:t${coord.tableIdx}:${coord.section}:r${coord.rowIdx}`;
+    return `row:${pPart}:${tPart}:${coord.section}:r${coord.rowIdx}`;
   }
   if (mode === 'col') {
-    return `col:${pPart}:t${coord.tableIdx}:${coord.section}:c${coord.colIdx}`;
+    return `col:${pPart}:${tPart}:all:c${coord.colIdx}`;
   }
-  return `cell:${pPart}:t${coord.tableIdx}:${coord.section}:r${coord.rowIdx}:c${coord.colIdx}`;
+  return `cell:${pPart}:${tPart}:${coord.section}:r${coord.rowIdx}:c${coord.colIdx}`;
 }
 
 interface ParsedOverrideKey {
   kind: TableSelectionMode;
   pageSpec: string; // '*' or number string
-  tableIdx: number;
-  section: TableSectionName;
+  tableIdx?: number;
+  tableKey?: string;
+  section: TableSectionName | 'all';
   rowIdx?: number;
   colIdx?: number;
 }
 
+function parseTablePart(raw: string): { tableIdx?: number; tableKey?: string } | null {
+  if (raw.startsWith('tk_')) {
+    const tk = raw.slice(3);
+    return tk ? { tableKey: tk } : null;
+  }
+  if (/^t\d+$/.test(raw)) {
+    return { tableIdx: Number(raw.slice(1)) };
+  }
+  return null;
+}
+
 function parseTableOverrideKey(key: string): ParsedOverrideKey | null {
-  const mCell = /^cell:p(\*|\d+):t(\d+):(thead|tbody|tfoot):r(\d+):c(\d+)$/.exec(key);
+  const mCell = /^cell:p(\*|\d+):(tk_[a-zA-Z0-9_-]+|t\d+):(thead|tbody|tfoot):r(\d+):c(\d+)$/.exec(key);
   if (mCell) {
+    const tp = parseTablePart(mCell[2]);
+    if (!tp) return null;
     return {
       kind: 'cell',
       pageSpec: mCell[1],
-      tableIdx: Number(mCell[2]),
+      ...tp,
       section: mCell[3] as TableSectionName,
       rowIdx: Number(mCell[4]),
       colIdx: Number(mCell[5]),
     };
   }
-  const mRow = /^row:p(\*|\d+):t(\d+):(thead|tbody|tfoot):r(\d+)$/.exec(key);
+  const mRow = /^row:p(\*|\d+):(tk_[a-zA-Z0-9_-]+|t\d+):(thead|tbody|tfoot):r(\d+)$/.exec(key);
   if (mRow) {
+    const tp = parseTablePart(mRow[2]);
+    if (!tp) return null;
     return {
       kind: 'row',
       pageSpec: mRow[1],
-      tableIdx: Number(mRow[2]),
+      ...tp,
       section: mRow[3] as TableSectionName,
       rowIdx: Number(mRow[4]),
     };
   }
-  const mCol = /^col:p(\*|\d+):t(\d+):(thead|tbody|tfoot):c(\d+)$/.exec(key);
+  const mCol = /^col:p(\*|\d+):(tk_[a-zA-Z0-9_-]+|t\d+):(all|thead|tbody|tfoot):c(\d+)$/.exec(key);
   if (mCol) {
+    const tp = parseTablePart(mCol[2]);
+    if (!tp) return null;
     return {
       kind: 'col',
       pageSpec: mCol[1],
-      tableIdx: Number(mCol[2]),
-      section: mCol[3] as TableSectionName,
+      ...tp,
+      section: mCol[3] as TableSectionName | 'all',
       colIdx: Number(mCol[4]),
     };
   }
@@ -362,23 +396,45 @@ function parseTableOverrideKey(key: string): ParsedOverrideKey | null {
 
 function overridePriority(parsed: ParsedOverrideKey): number {
   const kindWeight = parsed.kind === 'col' ? 0 : parsed.kind === 'row' ? 10 : 20;
+  const secWeight = parsed.section === 'all' ? 0 : 2;
   const pageWeight = parsed.pageSpec === '*' ? 0 : 1;
-  return kindWeight + pageWeight;
+  return kindWeight + secWeight + pageWeight;
 }
 
-function buildCellSelectorForKey(scopeId: string, parsed: ParsedOverrideKey): string {
+function buildScopeAndTableAttr(scopeId: string, parsed: ParsedOverrideKey): { scopePrefix: string; tableAttr: string } {
   const scopePrefix =
     parsed.pageSpec === '*'
       ? `[data-print-scope="${scopeId}"]`
       : `[data-print-scope="${scopeId}"][data-pt-p="${parsed.pageSpec}"]`;
+  const tableAttr = parsed.tableKey
+    ? `[data-pt-tk="${parsed.tableKey}"]`
+    : `[data-pt-t="${parsed.tableIdx}"]`;
+  return { scopePrefix, tableAttr };
+}
+
+function buildCellSelectorForKey(scopeId: string, parsed: ParsedOverrideKey): string {
+  const { scopePrefix, tableAttr } = buildScopeAndTableAttr(scopeId, parsed);
 
   if (parsed.kind === 'col') {
-    return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-c="${parsed.colIdx}"]`;
+    if (parsed.section === 'all') {
+      return `${scopePrefix} [data-pt-cell="1"]${tableAttr}[data-pt-c="${parsed.colIdx}"]:not([data-pt-spanned="1"])`;
+    }
+    return `${scopePrefix} [data-pt-cell="1"]${tableAttr}[data-pt-sec="${parsed.section}"][data-pt-c="${parsed.colIdx}"]`;
   }
   if (parsed.kind === 'row') {
-    return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"]`;
+    return `${scopePrefix} [data-pt-cell="1"]${tableAttr}[data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"]`;
   }
-  return `${scopePrefix} [data-pt-cell="1"][data-pt-t="${parsed.tableIdx}"][data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"][data-pt-c="${parsed.colIdx}"]`;
+  return `${scopePrefix} [data-pt-cell="1"]${tableAttr}[data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"][data-pt-c="${parsed.colIdx}"]`;
+}
+
+function buildColTagSelectorForKey(scopeId: string, parsed: ParsedOverrideKey): string {
+  const { scopePrefix, tableAttr } = buildScopeAndTableAttr(scopeId, parsed);
+  return `${scopePrefix} [data-pt-col="1"]${tableAttr}[data-pt-c="${parsed.colIdx}"]`;
+}
+
+function buildRowTagSelectorForKey(scopeId: string, parsed: ParsedOverrideKey): string {
+  const { scopePrefix, tableAttr } = buildScopeAndTableAttr(scopeId, parsed);
+  return `${scopePrefix} [data-pt-row="1"]${tableAttr}[data-pt-sec="${parsed.section}"][data-pt-r="${parsed.rowIdx}"]`;
 }
 
 /**
@@ -412,6 +468,10 @@ export function buildTableCellOverridesCss(
     if (ov.fontSizePt !== undefined && ov.fontSizePt !== null) {
       cellRules.push(`font-size: ${ov.fontSizePt}pt !important;`);
       textRules.push(`font-size: ${ov.fontSizePt}pt !important;`);
+      if (ov.lineHeight === undefined || ov.lineHeight === null) {
+        cellRules.push(`line-height: 1.2 !important;`);
+        textRules.push(`line-height: 1.2 !important;`);
+      }
     }
     if (ov.fontWeight && ov.fontWeight !== 'default') {
       cellRules.push(`font-weight: ${ov.fontWeight} !important;`);
@@ -454,6 +514,26 @@ export function buildTableCellOverridesCss(
     }
     if (ov.paddingXPx !== undefined && ov.paddingXPx !== null) {
       cellRules.push(`padding-left: ${ov.paddingXPx}px !important; padding-right: ${ov.paddingXPx}px !important;`);
+    }
+    if (ov.widthMm !== undefined && ov.widthMm !== null && parsed.colIdx !== undefined) {
+      cellRules.push(`width: ${ov.widthMm}mm !important; min-width: ${ov.widthMm}mm !important;`);
+      const colSel = buildColTagSelectorForKey(scopeId, parsed);
+      chunks.push(`${colSel} { width: ${ov.widthMm}mm !important; }`);
+    }
+    if (ov.heightMm !== undefined && ov.heightMm !== null) {
+      cellRules.push(`height: ${ov.heightMm}mm !important; min-height: ${ov.heightMm}mm !important;`);
+      if (parsed.kind === 'row' && parsed.section !== 'all') {
+        const rowSel = buildRowTagSelectorForKey(scopeId, parsed);
+        chunks.push(`${rowSel} { height: ${ov.heightMm}mm !important; }`);
+      }
+    } else if (
+      parsed.kind === 'row' &&
+      parsed.section !== 'all' &&
+      ((ov.fontSizePt !== undefined && ov.fontSizePt !== null) ||
+        (ov.paddingYPx !== undefined && ov.paddingYPx !== null))
+    ) {
+      const rowSel = buildRowTagSelectorForKey(scopeId, parsed);
+      chunks.push(`${rowSel} { height: auto !important; }`);
     }
 
     if (cellRules.length > 0) {
@@ -580,7 +660,20 @@ export function useTableSelection(isOpen: boolean): TableSelectionController {
   const activeKeys = useMemo(() => {
     const set = new Set<string>();
     for (const c of selectedCoords) {
-      set.add(makeTableOverrideKey(selectionMode, c, applyAllPages));
+      if (selectionMode === 'col' && (c.colSpan || 1) > 1) {
+        const span = Math.max(1, c.colSpan || 1);
+        for (let offset = 0; offset < span; offset++) {
+          set.add(
+            makeTableOverrideKey(
+              'col',
+              { ...c, colIdx: c.colIdx + offset, colSpan: 1 },
+              applyAllPages
+            )
+          );
+        }
+      } else {
+        set.add(makeTableOverrideKey(selectionMode, c, applyAllPages));
+      }
     }
     return Array.from(set);
   }, [selectedCoords, selectionMode, applyAllPages]);
@@ -590,6 +683,13 @@ export function useTableSelection(isOpen: boolean): TableSelectionController {
       if (activeKeys.length === 0) return {};
       const first = overrides[activeKeys[0]];
       if (first) return normalizeCellOverride(first);
+      if (selectionMode === 'col' && selectedCoords.length > 0) {
+        const c = selectedCoords[0];
+        const pPart = applyAllPages ? 'p*' : `p${c.pageIdx}`;
+        const tPart = formatTablePart(c);
+        const legacyBody = overrides[`col:${pPart}:${tPart}:${c.section}:c${c.colIdx}`];
+        if (legacyBody) return normalizeCellOverride(legacyBody);
+      }
       // Fallback: if viewing a cell, show row/col override if present so UI feels helpful
       if (selectionMode === 'cell' && selectedCoords.length > 0) {
         const c = selectedCoords[0];
@@ -613,9 +713,53 @@ export function useTableSelection(isOpen: boolean): TableSelectionController {
       ) => void
     ) => {
       if (activeKeys.length === 0) return;
+      const patchProps = Object.keys(patch) as (keyof TableCellStyleOverride)[];
       setStyleConfig((prev) => {
         const nextMap = { ...(prev.cellOverrides || {}) };
         for (const key of activeKeys) {
+          const parsedTarget = parseTableOverrideKey(key);
+          // Clear conflicting finer-grained overrides on covered cells/rows when editing a col or row
+          if (parsedTarget && (parsedTarget.kind === 'col' || parsedTarget.kind === 'row')) {
+            for (const existingKey of Object.keys(nextMap)) {
+              if (existingKey === key) continue;
+              const pExist = parseTableOverrideKey(existingKey);
+              if (!pExist) continue;
+              const sameTable =
+                (parsedTarget.tableKey && pExist.tableKey === parsedTarget.tableKey) ||
+                (!parsedTarget.tableKey && pExist.tableIdx === parsedTarget.tableIdx);
+              if (!sameTable) continue;
+              const pageCovers =
+                parsedTarget.pageSpec === '*' ||
+                pExist.pageSpec === parsedTarget.pageSpec;
+              if (!pageCovers) continue;
+
+              const shouldStripProp =
+                (parsedTarget.kind === 'col' &&
+                  pExist.kind === 'cell' &&
+                  pExist.colIdx === parsedTarget.colIdx) ||
+                (parsedTarget.kind === 'col' &&
+                  pExist.kind === 'col' &&
+                  pExist.colIdx === parsedTarget.colIdx) ||
+                (parsedTarget.kind === 'row' &&
+                  pExist.kind === 'cell' &&
+                  pExist.section === parsedTarget.section &&
+                  pExist.rowIdx === parsedTarget.rowIdx);
+
+              if (shouldStripProp) {
+                const updatedOv = { ...nextMap[existingKey] };
+                for (const propName of patchProps) {
+                  delete updatedOv[propName];
+                }
+                const normExist = normalizeCellOverride(updatedOv);
+                if (Object.keys(normExist).length === 0) {
+                  delete nextMap[existingKey];
+                } else {
+                  nextMap[existingKey] = normExist;
+                }
+              }
+            }
+          }
+
           const merged: TableCellStyleOverride = {
             ...(nextMap[key] || {}),
             ...patch,
@@ -645,7 +789,37 @@ export function useTableSelection(isOpen: boolean): TableSelectionController {
       setStyleConfig((prev) => {
         const nextMap = { ...(prev.cellOverrides || {}) };
         for (const key of activeKeys) {
+          const parsedTarget = parseTableOverrideKey(key);
           delete nextMap[key];
+          if (parsedTarget && (parsedTarget.kind === 'col' || parsedTarget.kind === 'row')) {
+            for (const existingKey of Object.keys(nextMap)) {
+              const pExist = parseTableOverrideKey(existingKey);
+              if (!pExist) continue;
+              const sameTable =
+                (parsedTarget.tableKey && pExist.tableKey === parsedTarget.tableKey) ||
+                (!parsedTarget.tableKey && pExist.tableIdx === parsedTarget.tableIdx);
+              if (!sameTable) continue;
+              const pageCovers =
+                parsedTarget.pageSpec === '*' ||
+                pExist.pageSpec === parsedTarget.pageSpec;
+              if (!pageCovers) continue;
+
+              if (
+                parsedTarget.kind === 'col' &&
+                pExist.colIdx === parsedTarget.colIdx &&
+                (pExist.kind === 'cell' || pExist.kind === 'col')
+              ) {
+                delete nextMap[existingKey];
+              } else if (
+                parsedTarget.kind === 'row' &&
+                pExist.kind === 'cell' &&
+                pExist.section === parsedTarget.section &&
+                pExist.rowIdx === parsedTarget.rowIdx
+              ) {
+                delete nextMap[existingKey];
+              }
+            }
+          }
         }
         return { ...prev, cellOverrides: nextMap };
       });

@@ -264,6 +264,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
             }}
           >
             <div
+              data-print-heading="true"
               style={{
                 fontFamily: "'Moul', 'Kantumruy Pro', serif",
                 fontSize: isPortrait ? '13pt' : '14.2pt',
@@ -275,6 +276,7 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
               បង្កាន់ដៃទទួលប្រាក់
             </div>
             <div
+              data-print-heading="true"
               style={{
                 fontFamily: "'Inter', 'Roboto', sans-serif",
                 fontWeight: 900,

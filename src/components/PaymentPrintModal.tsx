@@ -537,6 +537,7 @@ export default function PaymentPrintModal({
                 tableSelection={tableSelection}
                 onCellSelected={() => setIsSidebarOpen(true)}
                 className="receipt-a4-sheet"
+                data-print-grid="true"
                 style={{
                   width: activeSpec.sheetW,
                   height: activeSpec.sheetH,
@@ -664,7 +665,7 @@ export default function PaymentPrintModal({
             marginBottom: '1.35rem',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#1e3a8a' }}>
+          <h2 data-print-heading="true" style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#1e3a8a' }}>
             {schoolName}
           </h2>
           {(schoolAddress || schoolPhone) && (
@@ -673,6 +674,7 @@ export default function PaymentPrintModal({
             </div>
           )}
           <div
+            data-print-heading="true"
             style={{
               marginTop: '0.75rem',
               display: 'inline-block',

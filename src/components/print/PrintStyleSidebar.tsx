@@ -124,6 +124,7 @@ export default function PrintStyleSidebar({
   const [pcFontStatus, setPcFontStatus] = useState('');
   const [customFontInput, setCustomFontInput] = useState('');
   const [customCellFontInput, setCustomCellFontInput] = useState('');
+  const [cellFontSizeDraft, setCellFontSizeDraft] = useState<string>('');
 
   const prevSelectedCountRef = useRef<number>(0);
 
@@ -146,6 +147,14 @@ export default function PrintStyleSidebar({
     if (!tableSelection || tableSelection.selectedCoords.length === 0) return {};
     return tableSelection.getSelectedMergedOverride(styleConfig.cellOverrides || {});
   }, [tableSelection, styleConfig.cellOverrides]);
+
+  useEffect(() => {
+    setCellFontSizeDraft(
+      selectedCellOverride.fontSizePt !== undefined && selectedCellOverride.fontSizePt !== null
+        ? String(selectedCellOverride.fontSizePt)
+        : ''
+    );
+  }, [selectedCellOverride.fontSizePt, tableSelection?.activeKeys.join('|')]);
 
   const patchStyle = (partial: Partial<PrintDocumentStyleConfig>) => {
     onChangeStyle((prev) => ({ ...prev, ...partial }));
@@ -302,9 +311,9 @@ export default function PrintStyleSidebar({
       return `បានជ្រើស ${uniqueRows.size} ជួរដេក`;
     }
     if (mode === 'col') {
-      const uniqueCols = new Set(coords.map((c) => `${c.tableIdx}:${c.section}:${c.colIdx}`));
+      const uniqueCols = new Set(coords.map((c) => `${c.tableKey || c.tableIdx}:${c.colIdx}`));
       if (uniqueCols.size === 1) {
-        return `${secLabel} • ជួរឈរទី ${first.colIdx + 1}`;
+        return `ជួរឈរទាំងមូល • ជួរឈរទី ${first.colIdx + 1}`;
       }
       return `បានជ្រើស ${uniqueCols.size} ជួរឈរ`;
     }
@@ -755,7 +764,7 @@ export default function PrintStyleSidebar({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <input
                   type="range"
-                  min={8}
+                  min={5}
                   max={24}
                   step={0.5}
                   value={styleConfig.titleFontSizePt ?? 12}
@@ -794,9 +803,9 @@ export default function PrintStyleSidebar({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <input
                   type="range"
-                  min={6}
+                  min={3}
                   max={16}
-                  step={0.5}
+                  step={0.25}
                   value={styleConfig.bodyFontSizePt ?? 9.5}
                   onChange={(e) => patchStyle({ bodyFontSizePt: Number(e.target.value) })}
                   style={{ flex: 1 }}
@@ -1396,7 +1405,7 @@ export default function PrintStyleSidebar({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <input
                         type="range"
-                        min={5}
+                        min={2.5}
                         max={22}
                         step={0.25}
                         value={selectedCellOverride.fontSizePt ?? 9}
@@ -1407,17 +1416,42 @@ export default function PrintStyleSidebar({
                       />
                       <input
                         type="number"
-                        min={4.5}
+                        min={2}
                         max={32}
-                        step={0.5}
-                        value={selectedCellOverride.fontSizePt ?? ''}
+                        step={0.1}
+                        value={cellFontSizeDraft}
                         placeholder="pt"
-                        onChange={(e) =>
-                          patchSelectedCell({
-                            fontSizePt:
-                              e.target.value.trim() === '' ? null : Number(e.target.value),
-                          })
-                        }
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          setCellFontSizeDraft(raw);
+                          if (raw.trim() === '') {
+                            patchSelectedCell({ fontSizePt: null });
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          if (Number.isFinite(parsed) && parsed >= 2 && parsed <= 32) {
+                            patchSelectedCell({ fontSizePt: parsed });
+                          }
+                        }}
+                        onBlur={() => {
+                          const raw = cellFontSizeDraft.trim();
+                          if (raw === '') {
+                            patchSelectedCell({ fontSizePt: null });
+                            return;
+                          }
+                          const parsed = Number(raw);
+                          if (Number.isFinite(parsed)) {
+                            const clamped = Math.max(2, Math.min(32, parsed));
+                            setCellFontSizeDraft(String(clamped));
+                            patchSelectedCell({ fontSizePt: clamped });
+                          } else {
+                            setCellFontSizeDraft(
+                              selectedCellOverride.fontSizePt != null
+                                ? String(selectedCellOverride.fontSizePt)
+                                : ''
+                            );
+                          }
+                        }}
                         style={{
                           width: '50px',
                           padding: '0.18rem 0.28rem',
@@ -1791,6 +1825,92 @@ export default function PrintStyleSidebar({
                         style={{ width: '100%' }}
                       />
                     </div>
+                    {(tableSelection.selectionMode === 'col' ||
+                      tableSelection.selectionMode === 'cell') && (
+                      <div>
+                        <label style={labelStyle}>
+                          <span>ទទឹងជួរឈរ (Width)</span>
+                          <span style={{ color: '#fbbf24' }}>
+                            {selectedCellOverride.widthMm != null
+                              ? `${selectedCellOverride.widthMm}mm`
+                              : 'Auto'}
+                          </span>
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <input
+                            type="range"
+                            min={3}
+                            max={60}
+                            step={0.5}
+                            value={selectedCellOverride.widthMm ?? 12}
+                            onChange={(e) =>
+                              patchSelectedCell({ widthMm: Number(e.target.value) })
+                            }
+                            style={{ flex: 1, minWidth: 0 }}
+                          />
+                          {selectedCellOverride.widthMm != null && (
+                            <button
+                              type="button"
+                              onClick={() => patchSelectedCell({ widthMm: null })}
+                              style={{
+                                padding: '0.1rem 0.3rem',
+                                borderRadius: '4px',
+                                border: '1px solid #475569',
+                                background: '#0f172a',
+                                color: '#cbd5e1',
+                                fontSize: '0.64rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(tableSelection.selectionMode === 'row' ||
+                      tableSelection.selectionMode === 'cell') && (
+                      <div>
+                        <label style={labelStyle}>
+                          <span>កម្ពស់ជួរដេក (Height)</span>
+                          <span style={{ color: '#fbbf24' }}>
+                            {selectedCellOverride.heightMm != null
+                              ? `${selectedCellOverride.heightMm}mm`
+                              : 'Auto'}
+                          </span>
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <input
+                            type="range"
+                            min={3}
+                            max={20}
+                            step={0.25}
+                            value={selectedCellOverride.heightMm ?? 6}
+                            onChange={(e) =>
+                              patchSelectedCell({ heightMm: Number(e.target.value) })
+                            }
+                            style={{ flex: 1, minWidth: 0 }}
+                          />
+                          {selectedCellOverride.heightMm != null && (
+                            <button
+                              type="button"
+                              onClick={() => patchSelectedCell({ heightMm: null })}
+                              style={{
+                                padding: '0.1rem 0.3rem',
+                                borderRadius: '4px',
+                                border: '1px solid #475569',
+                                background: '#0f172a',
+                                color: '#cbd5e1',
+                                fontSize: '0.64rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1815,8 +1935,8 @@ export default function PrintStyleSidebar({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <input
                   type="range"
-                  min={5.5}
-                  max={14}
+                  min={2.5}
+                  max={16}
                   step={0.25}
                   value={styleConfig.tableFontSizePt ?? 8.5}
                   onChange={(e) => patchStyle({ tableFontSizePt: Number(e.target.value) })}
@@ -1854,8 +1974,8 @@ export default function PrintStyleSidebar({
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <input
                   type="range"
-                  min={5.5}
-                  max={15}
+                  min={2.5}
+                  max={16}
                   step={0.25}
                   value={styleConfig.tableHeaderFontSizePt ?? 9}
                   onChange={(e) =>

@@ -312,6 +312,7 @@ export default function DueNoticeCard({
             }}
           />
           <div
+            data-print-heading="true"
             style={{
               fontFamily: "'Moul', 'Kantumruy Pro', serif",
               fontSize: '10.2pt',

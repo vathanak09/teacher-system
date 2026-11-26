@@ -166,6 +166,7 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
 
           <div style={{ textAlign: 'right', flexShrink: 0, lineHeight: 1.18 }}>
             <div
+              data-print-heading="true"
               style={{
                 fontSize: isPortrait ? '8pt' : '8.8pt',
                 fontWeight: 800,
@@ -610,7 +611,7 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '7.2pt', color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <div data-print-heading="true" style={{ fontSize: '7.2pt', color: '#0f766e', fontWeight: 700, whiteSpace: 'nowrap' }}>
               បង្កាន់ដៃទទួលប្រាក់ • STUDENT RECEIPT
             </div>
             <div
@@ -960,6 +961,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
               </span>
 
               <span
+                data-print-heading="true"
                 style={{
                   padding: '0.5mm 3.5mm',
                   borderRadius: '999px',
@@ -981,6 +983,7 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
 
           {/* Crisp Academic Table (Larger Fonts, No Student ID, Always Shows Months Paid) */}
           <table
+            data-pt-tk="modern-royal"
             style={{
               width: '100%',
               borderCollapse: 'collapse',

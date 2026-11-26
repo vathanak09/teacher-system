@@ -362,6 +362,7 @@ export default function PrintableAttendanceSheet({
       {/* Center Official Title */}
       <div style={{ textAlign: 'center', flex: 1, minWidth: 0, lineHeight: 1.12 }}>
         <div
+          data-print-heading="true"
           style={{
             fontFamily: "'Inter', sans-serif",
             fontWeight: 900,
@@ -374,6 +375,7 @@ export default function PrintableAttendanceSheet({
           {subtitleLabel ? 'Score List' : 'Attendance List'}
         </div>
         <div
+          data-print-heading="true"
           style={{
             fontFamily: "'Moul', 'Kantumruy Pro', serif",
             fontWeight: 400,
@@ -461,6 +463,7 @@ export default function PrintableAttendanceSheet({
   const renderPart1Table = () => (
     <div>
       <table
+        data-pt-tk="p1"
         style={{
           width: '100%',
           borderCollapse: 'collapse',
@@ -910,6 +913,7 @@ export default function PrintableAttendanceSheet({
     return (
       <div>
         <table
+          data-pt-tk="p2"
           style={{
             width: '100%',
             borderCollapse: 'collapse',
@@ -1259,7 +1263,7 @@ export default function PrintableAttendanceSheet({
   if (effectiveRenderPart === 'combined') {
     return (
       <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-        <div style={innerPageStyle}>
+        <div data-print-page-pad="true" style={innerPageStyle}>
           {renderHeaderBanner()}
           {renderPart1Table()}
           <div style={{ marginTop: '0.4mm' }}>{renderPart2ScoreTable()}</div>
@@ -1272,7 +1276,7 @@ export default function PrintableAttendanceSheet({
   if (effectiveRenderPart === 'part1_only') {
     return (
       <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-        <div style={innerPageStyle}>
+        <div data-print-page-pad="true" style={innerPageStyle}>
           {renderHeaderBanner()}
           {renderPart1Table()}
         </div>
@@ -1282,7 +1286,7 @@ export default function PrintableAttendanceSheet({
 
   return (
     <div className="receipt-a4-sheet" style={sheetBaseStyle}>
-      <div style={innerPageStyle}>
+      <div data-print-page-pad="true" style={innerPageStyle}>
         {renderHeaderBanner('បញ្ជីពិន្ទុ')}
         {renderPart2ScoreTable()}
       </div>

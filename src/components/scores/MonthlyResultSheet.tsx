@@ -1162,6 +1162,7 @@ export default function MonthlyResultSheet({
     >
       {/* Inner margin wrapper so .receipt-a4-sheet's print padding:0 override leaves exact margins intact */}
       <div
+        data-print-page-pad="true"
         style={{
           width: '100%',
           height: '100%',
@@ -1244,6 +1245,7 @@ export default function MonthlyResultSheet({
               }}
             >
               <div
+                data-print-heading="true"
                 style={{
                   fontSize: '15.5pt',
                   fontWeight: 400,
@@ -1304,6 +1306,7 @@ export default function MonthlyResultSheet({
             }}
           >
             <div
+              data-print-heading="true"
               style={{
                 fontSize: '12pt',
                 fontWeight: 400,
@@ -1321,6 +1324,7 @@ export default function MonthlyResultSheet({
 
         {/* Ranking Table: exact rows matching students in class */}
         <table
+          data-pt-tk="monthly-result"
           style={{
             width: '100%',
             borderCollapse: 'collapse',

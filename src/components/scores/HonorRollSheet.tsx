@@ -741,6 +741,7 @@ export default function HonorRollSheet({
       {showWatermarkPattern && (
         <div
           aria-hidden="true"
+          data-print-no-scale="true"
           style={{
             position: 'absolute',
             inset: 0,
@@ -944,6 +945,7 @@ export default function HonorRollSheet({
             {congratsKhmer}
           </div>
           <div
+            data-print-heading="true"
             style={{
               fontFamily: "'News706 BT', 'Georgia', 'Playfair Display', serif",
               fontSize: `${cfg.congratsEnPt}pt`,
