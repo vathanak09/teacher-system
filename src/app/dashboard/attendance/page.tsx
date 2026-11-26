@@ -857,6 +857,7 @@ export default function AttendancePage() {
                   return (
                     <th
                       key={day}
+                      className="att-day-col"
                       ref={(el) => {
                         dayHeaderRefs.current[day] = el;
                       }}
@@ -1062,6 +1063,7 @@ export default function AttendancePage() {
                     return (
                       <td
                         key={day}
+                        className="att-day-col"
                         style={{
                           padding: '0.16rem 0.12rem',
                           textAlign: 'center',
