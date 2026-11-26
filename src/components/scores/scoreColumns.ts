@@ -61,6 +61,11 @@ export const DEFAULT_ENABLED_SUBJECT_KEYS: string[] = OPTIONAL_PRESET_SUBJECT_CO
   .filter((c) => c.defaultEnabled)
   .map((c) => c.key);
 
+export const DEFAULT_COLUMN_ORDER: string[] = [
+  ...OPTIONAL_PRESET_SUBJECT_COLUMNS.map((c) => c.key),
+  ...LOCKED_SUBJECT_COLUMNS.map((c) => c.key),
+];
+
 export interface CustomScoreColumnDef {
   key: string;
   label: string;
@@ -70,6 +75,8 @@ export interface ClassScoreColumnsConfig {
   enabledKeys: string[];
   columnModes: Record<string, ScoreColumnInputMode>;
   customColumns: CustomScoreColumnDef[];
+  /** Ordered sequence of ALL column keys (optional, custom, and locked) */
+  columnOrder?: string[];
 }
 
 export interface ActiveScoreSubjectColumn {
@@ -212,6 +219,38 @@ export function sanitizeColumnsConfig(raw: any): ClassScoreColumnsConfig | null 
     });
   }
 
+  const rawOrder = toSafeArray<unknown>(raw.columnOrder)
+    .map((k) => String(k ?? '').trim())
+    .filter((k) => validAllKeySet.has(k));
+
+  const seenOrder = new Set<string>();
+  const columnOrder: string[] = [];
+  rawOrder.forEach((k) => {
+    if (!seenOrder.has(k)) {
+      seenOrder.add(k);
+      columnOrder.push(k);
+    }
+  });
+  // Append any remaining known optional/custom keys before locked keys, then locked keys at the end
+  OPTIONAL_PRESET_SUBJECT_COLUMNS.forEach((p) => {
+    if (!seenOrder.has(p.key)) {
+      seenOrder.add(p.key);
+      columnOrder.push(p.key);
+    }
+  });
+  customColumns.forEach((c) => {
+    if (!seenOrder.has(c.key)) {
+      seenOrder.add(c.key);
+      columnOrder.push(c.key);
+    }
+  });
+  LOCKED_SUBJECT_COLUMNS.forEach((c) => {
+    if (!seenOrder.has(c.key)) {
+      seenOrder.add(c.key);
+      columnOrder.push(c.key);
+    }
+  });
+
   return {
     enabledKeys:
       raw.hasExplicitEmptyEnabled === true
@@ -221,6 +260,7 @@ export function sanitizeColumnsConfig(raw: any): ClassScoreColumnsConfig | null 
           : [...DEFAULT_ENABLED_SUBJECT_KEYS],
     columnModes,
     customColumns,
+    columnOrder,
   };
 }
 
@@ -229,14 +269,80 @@ export function getDefaultClassColumnsConfig(): ClassScoreColumnsConfig {
     enabledKeys: [...DEFAULT_ENABLED_SUBJECT_KEYS],
     columnModes: {},
     customColumns: [],
+    columnOrder: [...DEFAULT_COLUMN_ORDER],
   };
 }
 
-/** Resolves column settings strictly for the given class + month snapshot (no cross-month leaking) */
-export function resolveClassColumnsConfig(monthClassEntry: any): ClassScoreColumnsConfig {
-  const fromMonth = sanitizeColumnsConfig(monthClassEntry?.columnsConfig);
-  if (fromMonth) return fromMonth;
+export function sanitizeGlobalDefaultColumnsConfig(raw: any): ClassScoreColumnsConfig {
+  const sanitized = sanitizeColumnsConfig(raw);
+  if (sanitized) return sanitized;
   return getDefaultClassColumnsConfig();
+}
+
+/**
+ * Resolves column settings strictly for the given class + month snapshot,
+ * inheriting Admin's global default columns & global column ordering when not overridden.
+ */
+export function resolveClassColumnsConfig(
+  monthClassEntry: any,
+  globalDefaultRaw?: any
+): ClassScoreColumnsConfig {
+  const globalDefault = sanitizeGlobalDefaultColumnsConfig(globalDefaultRaw);
+  const fromMonth = sanitizeColumnsConfig(monthClassEntry?.columnsConfig);
+  if (!fromMonth) {
+    return {
+      enabledKeys: [...globalDefault.enabledKeys],
+      columnModes: { ...globalDefault.columnModes },
+      customColumns: globalDefault.customColumns.map((c) => ({ ...c })),
+      columnOrder: [...(globalDefault.columnOrder || DEFAULT_COLUMN_ORDER)],
+    };
+  }
+
+  // Merge Admin's global custom columns with class/month custom columns (deduped by key)
+  const mergedCustomMap = new Map<string, CustomScoreColumnDef>();
+  globalDefault.customColumns.forEach((c) => mergedCustomMap.set(c.key, c));
+  fromMonth.customColumns.forEach((c) => mergedCustomMap.set(c.key, c));
+  const mergedCustomColumns = Array.from(mergedCustomMap.values());
+
+  // Always follow Admin's master column order for known columns; insert any class-only custom columns right before the first locked column
+  const baseOrder = [...(globalDefault.columnOrder || DEFAULT_COLUMN_ORDER)];
+  const orderSet = new Set(baseOrder);
+  const firstLockedIdx = baseOrder.findIndex((k) => LOCKED_SUBJECT_KEY_SET.has(k));
+  const extraClassCustomKeys = mergedCustomColumns
+    .map((c) => c.key)
+    .filter((k) => !orderSet.has(k));
+
+  if (extraClassCustomKeys.length > 0) {
+    if (firstLockedIdx >= 0) {
+      baseOrder.splice(firstLockedIdx, 0, ...extraClassCustomKeys);
+    } else {
+      baseOrder.push(...extraClassCustomKeys);
+    }
+  }
+
+  return {
+    enabledKeys: fromMonth.enabledKeys,
+    columnModes: {
+      ...globalDefault.columnModes,
+      ...fromMonth.columnModes,
+    },
+    customColumns: mergedCustomColumns,
+    columnOrder: baseOrder,
+  };
+}
+
+function sortColumnsByOrder(
+  columns: ActiveScoreSubjectColumn[],
+  columnOrder?: string[]
+): ActiveScoreSubjectColumn[] {
+  if (!columnOrder || columnOrder.length === 0) return columns;
+  const rankMap = new Map<string, number>();
+  columnOrder.forEach((k, idx) => rankMap.set(k, idx));
+  return [...columns].sort((a, b) => {
+    const ra = rankMap.has(a.key) ? rankMap.get(a.key)! : Number.MAX_SAFE_INTEGER;
+    const rb = rankMap.has(b.key) ? rankMap.get(b.key)! : Number.MAX_SAFE_INTEGER;
+    return ra - rb;
+  });
 }
 
 /** Toggleable columns displayed in the Checkbox dropdown (excludes locked Quiz, Exercise, Test) */
@@ -257,28 +363,32 @@ export function getCheckboxSubjectColumns(
     isCustom: true,
     isLocked: false,
   }));
-  return [...optionalPresets, ...customs];
+  return sortColumnsByOrder([...optionalPresets, ...customs], cfg.columnOrder);
 }
 
 export function getLockedSubjectColumns(
   cfg: ClassScoreColumnsConfig
 ): ActiveScoreSubjectColumn[] {
-  return LOCKED_SUBJECT_COLUMNS.map((c) => ({
+  const locked = LOCKED_SUBJECT_COLUMNS.map((c) => ({
     key: c.key,
     label: c.label,
-    inputMode: cfg.columnModes[c.key] === 'evaluation' ? 'evaluation' : 'number',
+    inputMode: (cfg.columnModes[c.key] === 'evaluation' ? 'evaluation' : 'number') as ScoreColumnInputMode,
     isCustom: false,
     isLocked: true,
   }));
+  return sortColumnsByOrder(locked, cfg.columnOrder);
 }
 
 export function getAllAvailableSubjectColumns(
   cfg: ClassScoreColumnsConfig
 ): ActiveScoreSubjectColumn[] {
-  return [...getCheckboxSubjectColumns(cfg), ...getLockedSubjectColumns(cfg)];
+  return sortColumnsByOrder(
+    [...getCheckboxSubjectColumns(cfg), ...getLockedSubjectColumns(cfg)],
+    cfg.columnOrder
+  );
 }
 
-/** Active columns rendered in the score table: enabled optional + custom columns first, then locked Quiz, Exercise, Test at far right */
+/** Active columns rendered in the score table, strictly sorted by Admin's columnOrder (default puts Quiz, Exercise, Test at far right) */
 export function getActiveSubjectColumns(
   cfg: ClassScoreColumnsConfig
 ): ActiveScoreSubjectColumn[] {
@@ -286,7 +396,10 @@ export function getActiveSubjectColumns(
   const activeOptionalAndCustom = getCheckboxSubjectColumns(cfg).filter((c) =>
     enabledSet.has(c.key)
   );
-  return [...activeOptionalAndCustom, ...getLockedSubjectColumns(cfg)];
+  return sortColumnsByOrder(
+    [...activeOptionalAndCustom, ...getLockedSubjectColumns(cfg)],
+    cfg.columnOrder
+  );
 }
 
 export function makeCustomColumnKey(label: string, existingKeys: string[]): string {

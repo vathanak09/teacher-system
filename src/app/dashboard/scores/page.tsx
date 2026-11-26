@@ -11,6 +11,7 @@ import CertificatePrintModal, { CertificateBrandingConfig } from '@/components/s
 import HonorRollPrintModal from '@/components/scores/HonorRollPrintModal';
 import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
 import ScoreEvalDropdown from '@/components/scores/ScoreEvalDropdown';
+import AdminDefaultColumnsModal from '@/components/scores/AdminDefaultColumnsModal';
 import { AppIcon } from '@/components/AppIcons';
 import {
   ActiveScoreSubjectColumn,
@@ -27,12 +28,12 @@ import {
   getCheckboxSubjectColumns,
   getColumnEvalValue,
   getColumnNumericValue,
-  getDefaultClassColumnsConfig,
   getPreviousMonthCandidates,
   isStandardYearMonth,
   makeCustomColumnKey,
   normalizeEvaluationValue,
   resolveClassColumnsConfig,
+  sanitizeGlobalDefaultColumnsConfig,
   shiftYearMonth,
 } from '@/components/scores/scoreColumns';
 
@@ -274,6 +275,7 @@ export default function ScoresPage() {
   const [coeffTypeDraft, setCoeffTypeDraft] = useState<'auto' | 'custom'>('auto');
   const [customMaxDraft, setCustomMaxDraft] = useState<string>('250');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isAdminDefaultColsOpen, setIsAdminDefaultColsOpen] = useState(false);
   const [isExtraDataModalOpen, setIsExtraDataModalOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isMonthlyResultOpen, setIsMonthlyResultOpen] = useState(false);
@@ -492,9 +494,18 @@ export default function ScoresPage() {
     [selectedClassId, monthCoeffMap, settings]
   );
 
+  const globalDefaultColumnsConfig: ClassScoreColumnsConfig = useMemo(
+    () => sanitizeGlobalDefaultColumnsConfig(settings?.defaultColumnsConfig),
+    [settings?.defaultColumnsConfig]
+  );
+
   const activeColumnsConfig: ClassScoreColumnsConfig = useMemo(
-    () => resolveClassColumnsConfig(selectedClassId ? monthCoeffMap?.[selectedClassId] : null),
-    [selectedClassId, monthCoeffMap]
+    () =>
+      resolveClassColumnsConfig(
+        selectedClassId ? monthCoeffMap?.[selectedClassId] : null,
+        globalDefaultColumnsConfig
+      ),
+    [selectedClassId, monthCoeffMap, globalDefaultColumnsConfig]
   );
 
   const checkboxSubjectColumns: ActiveScoreSubjectColumn[] = useMemo(
@@ -1811,14 +1822,35 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
   };
 
   const handleResetDefaultColumns = async () => {
-    const def = getDefaultClassColumnsConfig();
+    const globalCustomKeys = new Set(globalDefaultColumnsConfig.customColumns.map((c) => c.key));
+    const classOnlyCustom = activeColumnsConfig.customColumns.filter(
+      (c) => !globalCustomKeys.has(c.key)
+    );
     await persistClassColumnsConfig(
       {
-        ...def,
-        customColumns: activeColumnsConfig.customColumns,
+        enabledKeys: [...globalDefaultColumnsConfig.enabledKeys],
+        columnModes: { ...globalDefaultColumnsConfig.columnModes },
+        customColumns: [...globalDefaultColumnsConfig.customColumns, ...classOnlyCustom],
+        columnOrder: globalDefaultColumnsConfig.columnOrder,
       },
       true
     );
+  };
+
+  const handleSaveAdminDefaultColumns = async (nextConfig: ClassScoreColumnsConfig) => {
+    const payload = {
+      enabledKeys: nextConfig.enabledKeys,
+      columnModes: nextConfig.columnModes,
+      customColumns: nextConfig.customColumns,
+      columnOrder: nextConfig.columnOrder || [],
+      hasExplicitEmptyEnabled: nextConfig.enabledKeys.length === 0,
+    };
+    const nextSettings = {
+      ...settings,
+      defaultColumnsConfig: payload,
+    };
+    setSettings(nextSettings);
+    await settingsService.add(nextSettings, 'scoreSettings');
   };
 
   const handlePaste = async (
@@ -2254,6 +2286,16 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       initialClassId={selectedClassId}
     />
   ) : null;
+
+  const adminDefaultColsModal =
+    role === 'admin' && isAdminDefaultColsOpen ? (
+      <AdminDefaultColumnsModal
+        isOpen={isAdminDefaultColsOpen}
+        onClose={() => setIsAdminDefaultColsOpen(false)}
+        initialConfig={globalDefaultColumnsConfig}
+        onSave={handleSaveAdminDefaultColumns}
+      />
+    ) : null;
 
   if (!selectedClassId) {
     return (
@@ -2821,6 +2863,39 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                   <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.75rem', color: '#ec4899' }}>*សូមអញ្ជើញ Share ឯកសាររបស់អ្នកមកអ៊ីមែល <b>bsis-936@high-magpie-503702-t0.iam.gserviceaccount.com</b> ជាមុនសិន</p>
                 </div>
 
+                <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(79, 70, 229, 0.06)', border: '1px solid rgba(79, 70, 229, 0.25)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                    ជួរឈរពិន្ទុលំនាំដើម និងលេខរៀង Col ទាំងអស់
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                    កំណត់ជួរឈរលំនាំដើម របៀបបញ្ចូល (លេខ/វាយតម្លៃ) និងរៀបលេខរៀង Col ទាំងអស់សម្រាប់ថ្នាក់ និងខែទាំងអស់។
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsModalOpen(false);
+                      setIsAdminDefaultColsOpen(true);
+                    }}
+                    style={{
+                      alignSelf: 'flex-start',
+                      padding: '0.48rem 0.9rem',
+                      borderRadius: '9px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #4f46e5, #2563eb)',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                    }}
+                  >
+                    <AppIcon name="sliders" size={14} />
+                    <span>កំណត់ Default & លេខរៀង Col</span>
+                  </button>
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                   <button type="button" className="btn" onClick={() => setIsSettingsModalOpen(false)} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>បោះបង់</button>
                   <button type="submit" className="btn btn-primary">រក្សាទុក</button>
@@ -2938,6 +3013,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         {monthlyResultModal}
         {honorRollModal}
         {certificateModal}
+        {adminDefaultColsModal}
       </div>
     );
   }
@@ -3270,7 +3346,10 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                             </button>
                           )}
 
-                          {col.isCustom && (
+                          {col.isCustom &&
+                            !globalDefaultColumnsConfig.customColumns.some(
+                              (gc) => gc.key === col.key
+                            ) && (
                             <button
                               type="button"
                               disabled={isSavingColumns}
@@ -3404,6 +3483,34 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                       </button>
                     </div>
                   </form>
+
+                  {role === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsColumnsDropdownOpen(false);
+                        setIsAdminDefaultColsOpen(true);
+                      }}
+                      style={{
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(79, 70, 229, 0.35)',
+                        background: 'rgba(79, 70, 229, 0.08)',
+                        color: '#4338ca',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.38rem',
+                      }}
+                      title="Admin កំណត់ Default និងលេខរៀង Col ទាំងអស់"
+                    >
+                      <AppIcon name="sliders" size={14} />
+                      <span>កំណត់ Default & លេខរៀង Col (Admin)</span>
+                    </button>
+                  )}
                 </div>,
                 document.body
               )}
@@ -4377,6 +4484,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
       {monthlyResultModal}
       {honorRollModal}
       {certificateModal}
+      {adminDefaultColsModal}
     </div>
   );
 }
