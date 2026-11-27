@@ -1,6 +1,38 @@
 export type TemplateCategory = 'frame' | 'element';
 
-export type AspectRatioMode = 'auto' | 'photo' | '1:1' | '4:5' | '3:4' | '16:9' | '9:16';
+export type AspectRatioMode =
+  | 'auto'
+  | 'photo'
+  | '1:1'
+  | '4:5'
+  | '5:4'
+  | '3:4'
+  | '4:3'
+  | '2:3'
+  | '3:2'
+  | '16:9'
+  | '9:16'
+  | '21:9'
+  | 'a4-portrait'
+  | 'a4-landscape'
+  | 'fb-cover'
+  | 'id-3x4'
+  | 'id-4x6';
+
+export type AlignScope = 'canvas' | 'selection';
+
+export type AlignAction =
+  | 'left'
+  | 'center-x'
+  | 'right'
+  | 'top'
+  | 'center-y'
+  | 'bottom'
+  | 'center-both'
+  | 'distribute-x'
+  | 'distribute-y'
+  | 'match-width'
+  | 'match-height';
 
 export type ExportFormat = 'png' | 'jpeg';
 
@@ -86,15 +118,68 @@ export interface BatchPhotoItem {
 
 export const QUALITY_MULTIPLIERS = [1, 2, 3, 4, 5, 6] as const;
 
-export const ASPECT_RATIO_OPTIONS: { value: AspectRatioMode; label: string; shortLabel: string }[] = [
+export const ASPECT_RATIO_OPTIONS: {
+  value: AspectRatioMode;
+  label: string;
+  shortLabel: string;
+  swappedShortLabel?: string;
+}[] = [
   { value: 'auto', label: 'តាមស៊ុម (Auto Frame)', shortLabel: 'តាមស៊ុម' },
   { value: 'photo', label: 'តាមរូបដើម (Original Photo)', shortLabel: 'តាមរូបដើម' },
   { value: '1:1', label: 'ការ៉េ 1:1 (Square)', shortLabel: '1:1' },
-  { value: '4:5', label: 'បញ្ឈរ 4:5 (FB / IG)', shortLabel: '4:5' },
-  { value: '3:4', label: 'បញ្ឈរ 3:4 (Portrait)', shortLabel: '3:4' },
-  { value: '16:9', label: 'ផ្តេក 16:9 (Landscape)', shortLabel: '16:9' },
-  { value: '9:16', label: 'Story 9:16 (Vertical)', shortLabel: '9:16' },
+  { value: '4:5', label: '4:5 / 5:4 (FB / IG)', shortLabel: '4:5', swappedShortLabel: '5:4' },
+  { value: '3:4', label: '3:4 / 4:3 (Photo / ID)', shortLabel: '3:4', swappedShortLabel: '4:3' },
+  { value: '2:3', label: '2:3 / 3:2 (DSLR / 4×6)', shortLabel: '2:3', swappedShortLabel: '3:2' },
+  { value: '16:9', label: '16:9 / 9:16 (HD / Story)', shortLabel: '16:9', swappedShortLabel: '9:16' },
+  { value: '21:9', label: '21:9 / 9:21 (Banner)', shortLabel: '21:9', swappedShortLabel: '9:21' },
+  { value: 'a4-portrait', label: 'ក្រដាស A4 (ឈរ / ដេក)', shortLabel: 'A4', swappedShortLabel: 'A4' },
+  { value: 'fb-cover', label: 'Facebook Cover (820×312)', shortLabel: 'FB Cover' },
 ];
+
+export const ALL_VALID_ASPECT_MODES: AspectRatioMode[] = [
+  'auto',
+  'photo',
+  '1:1',
+  '4:5',
+  '5:4',
+  '3:4',
+  '4:3',
+  '2:3',
+  '3:2',
+  '16:9',
+  '9:16',
+  '21:9',
+  'a4-portrait',
+  'a4-landscape',
+  'fb-cover',
+  'id-3x4',
+  'id-4x6',
+];
+
+/** Maps legacy rotated/duplicate template aspect ratios onto canonical option + swapOrientation */
+export function toCanonicalAspect(mode: AspectRatioMode): {
+  mode: AspectRatioMode;
+  swapOrientation: boolean;
+} {
+  switch (mode) {
+    case '5:4':
+      return { mode: '4:5', swapOrientation: true };
+    case '4:3':
+      return { mode: '3:4', swapOrientation: true };
+    case '3:2':
+      return { mode: '2:3', swapOrientation: true };
+    case '9:16':
+      return { mode: '16:9', swapOrientation: true };
+    case 'a4-landscape':
+      return { mode: 'a4-portrait', swapOrientation: true };
+    case 'id-3x4':
+      return { mode: '3:4', swapOrientation: false };
+    case 'id-4x6':
+      return { mode: '2:3', swapOrientation: false };
+    default:
+      return { mode, swapOrientation: false };
+  }
+}
 
 export const DEFAULT_PHOTO_TRANSFORM: PhotoTransform = {
   x: 0,
@@ -210,8 +295,7 @@ export function buildProxyImageUrl(rawUrl: string): string {
 
 export function normalizeTemplateRecord(raw: any): FrameTemplate {
   const category: TemplateCategory = raw?.category === 'element' ? 'element' : 'frame';
-  const validAspects: AspectRatioMode[] = ['auto', 'photo', '1:1', '4:5', '3:4', '16:9', '9:16'];
-  const defaultAspect: AspectRatioMode = validAspects.includes(raw?.defaultAspect)
+  const defaultAspect: AspectRatioMode = ALL_VALID_ASPECT_MODES.includes(raw?.defaultAspect)
     ? raw.defaultAspect
     : category === 'element'
       ? 'photo'
@@ -296,30 +380,53 @@ function parseAspectRatio(
   primaryFrameImg?: { naturalWidth: number; naturalHeight: number } | null,
   photoImg?: { naturalWidth: number; naturalHeight: number } | null
 ): number {
-  if (aspectMode === '1:1') return 1;
-  if (aspectMode === '4:5') return 4 / 5;
-  if (aspectMode === '3:4') return 3 / 4;
-  if (aspectMode === '16:9') return 16 / 9;
-  if (aspectMode === '9:16') return 9 / 16;
-
-  if (aspectMode === 'photo') {
-    if (photoImg && photoImg.naturalWidth > 0 && photoImg.naturalHeight > 0) {
-      return photoImg.naturalWidth / photoImg.naturalHeight;
-    }
-    if (primaryFrameImg && primaryFrameImg.naturalWidth > 0 && primaryFrameImg.naturalHeight > 0) {
-      return primaryFrameImg.naturalWidth / primaryFrameImg.naturalHeight;
-    }
-    return 1;
+  switch (aspectMode) {
+    case '1:1':
+      return 1;
+    case '4:5':
+      return 4 / 5;
+    case '5:4':
+      return 5 / 4;
+    case '3:4':
+    case 'id-3x4':
+      return 3 / 4;
+    case '4:3':
+      return 4 / 3;
+    case '2:3':
+    case 'id-4x6':
+      return 2 / 3;
+    case '3:2':
+      return 3 / 2;
+    case '16:9':
+      return 16 / 9;
+    case '9:16':
+      return 9 / 16;
+    case '21:9':
+      return 21 / 9;
+    case 'fb-cover':
+      return 820 / 312;
+    case 'a4-portrait':
+      return 210 / 297;
+    case 'a4-landscape':
+      return 297 / 210;
+    case 'photo':
+      if (photoImg && photoImg.naturalWidth > 0 && photoImg.naturalHeight > 0) {
+        return photoImg.naturalWidth / photoImg.naturalHeight;
+      }
+      if (primaryFrameImg && primaryFrameImg.naturalWidth > 0 && primaryFrameImg.naturalHeight > 0) {
+        return primaryFrameImg.naturalWidth / primaryFrameImg.naturalHeight;
+      }
+      return 1;
+    case 'auto':
+    default:
+      if (primaryFrameImg && primaryFrameImg.naturalWidth > 0 && primaryFrameImg.naturalHeight > 0) {
+        return primaryFrameImg.naturalWidth / primaryFrameImg.naturalHeight;
+      }
+      if (photoImg && photoImg.naturalWidth > 0 && photoImg.naturalHeight > 0) {
+        return photoImg.naturalWidth / photoImg.naturalHeight;
+      }
+      return 1;
   }
-
-  // 'auto': match primary frame aspect ratio first, fallback to photo, then 1:1
-  if (primaryFrameImg && primaryFrameImg.naturalWidth > 0 && primaryFrameImg.naturalHeight > 0) {
-    return primaryFrameImg.naturalWidth / primaryFrameImg.naturalHeight;
-  }
-  if (photoImg && photoImg.naturalWidth > 0 && photoImg.naturalHeight > 0) {
-    return photoImg.naturalWidth / photoImg.naturalHeight;
-  }
-  return 1;
 }
 
 export interface CanvasDimensions {
@@ -335,8 +442,13 @@ export function resolveCanvasDimensions(params: {
   primaryFrameImg?: { naturalWidth: number; naturalHeight: number } | null;
   photoImg?: { naturalWidth: number; naturalHeight: number } | null;
   qualityMultiplier: number;
+  swapOrientation?: boolean;
 }): CanvasDimensions {
-  const ratio = Math.max(0.25, Math.min(4, parseAspectRatio(params.aspectMode, params.primaryFrameImg, params.photoImg)));
+  let rawRatio = parseAspectRatio(params.aspectMode, params.primaryFrameImg, params.photoImg);
+  if (params.swapOrientation && rawRatio > 0) {
+    rawRatio = 1 / rawRatio;
+  }
+  const ratio = Math.max(0.25, Math.min(4, rawRatio));
   const multiplier = Math.max(1, Math.min(8, Math.round(params.qualityMultiplier || 1)));
 
   // Standard base: shorter side = 1080px so 1:1 -> 1080x1080, 4:5 -> 1080x1350, 16:9 -> 1920x1080
@@ -434,6 +546,216 @@ export function computeSnappedOverlayPosition(
   }
 }
 
+export interface OverlayBoundsPx {
+  id: string;
+  cx: number;
+  cy: number;
+  drawW: number;
+  drawH: number;
+  bboxW: number;
+  bboxH: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Computes exact rotated Axis-Aligned Bounding Box (AABB) of an overlay layer in canvas pixels */
+export function computeOverlayBoundsPx(
+  layer: OverlayLayer,
+  img: { naturalWidth: number; naturalHeight: number } | null | undefined,
+  canvasW: number,
+  canvasH: number
+): OverlayBoundsPx {
+  const safeImg =
+    img && img.naturalWidth > 0 && img.naturalHeight > 0
+      ? img
+      : { naturalWidth: 1000, naturalHeight: 1000 };
+  const { drawW, drawH } = computeOverlayDrawSize(layer, safeImg, canvasW, canvasH);
+  const rad = ((layer.rotation || 0) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const bboxW = drawW * cos + drawH * sin;
+  const bboxH = drawW * sin + drawH * cos;
+  const cx = canvasW / 2 + layer.x * canvasW;
+  const cy = canvasH / 2 + layer.y * canvasH;
+  return {
+    id: layer.id,
+    cx,
+    cy,
+    drawW,
+    drawH,
+    bboxW,
+    bboxH,
+    left: cx - bboxW / 2,
+    right: cx + bboxW / 2,
+    top: cy - bboxH / 2,
+    bottom: cy + bboxH / 2,
+  };
+}
+
+/**
+ * Applies Canva/Figma-grade alignment, distribution, or size matching across one or multiple selected overlays.
+ * Works cleanly for both `scope='canvas'` (with optional marginRatio 0..0.15) and `scope='selection'` (2+ layers).
+ */
+export function applyAlignmentToOverlays(params: {
+  overlays: OverlayLayer[];
+  selectedIds: string[];
+  overlayImages: Record<string, { naturalWidth: number; naturalHeight: number } | undefined>;
+  canvasW: number;
+  canvasH: number;
+  action: AlignAction;
+  scope: AlignScope;
+  marginRatio?: number;
+}): OverlayLayer[] {
+  const { overlays, selectedIds, overlayImages, canvasW, canvasH, action, scope } = params;
+  const selectedSet = new Set(selectedIds);
+  const targets = overlays.filter((ov) => selectedSet.has(ov.id));
+  if (targets.length === 0 || canvasW <= 0 || canvasH <= 0) return overlays;
+
+  const boundsList = targets.map((ov) =>
+    computeOverlayBoundsPx(ov, overlayImages[ov.proxySrc], canvasW, canvasH)
+  );
+  const boundsById = new Map(boundsList.map((b) => [b.id, b]));
+
+  const marginPx =
+    scope === 'canvas'
+      ? Math.max(0, Math.min(0.2, params.marginRatio ?? 0.04)) * Math.min(canvasW, canvasH)
+      : 0;
+
+  // Target reference rectangle (either Canvas bounds with margin, or combined Selection AABB)
+  const useSelectionBox = scope === 'selection' && targets.length >= 2;
+  const refLeft = useSelectionBox
+    ? Math.min(...boundsList.map((b) => b.left))
+    : marginPx;
+  const refRight = useSelectionBox
+    ? Math.max(...boundsList.map((b) => b.right))
+    : canvasW - marginPx;
+  const refTop = useSelectionBox
+    ? Math.min(...boundsList.map((b) => b.top))
+    : marginPx;
+  const refBottom = useSelectionBox
+    ? Math.max(...boundsList.map((b) => b.bottom))
+    : canvasH - marginPx;
+  const refCenterX = useSelectionBox ? (refLeft + refRight) / 2 : canvasW / 2;
+  const refCenterY = useSelectionBox ? (refTop + refBottom) / 2 : canvasH / 2;
+
+  const patchById = new Map<string, Partial<OverlayLayer>>();
+
+  if (action === 'distribute-x') {
+    const sorted = [...boundsList].sort((a, b) => a.cx - b.cx);
+    if (scope === 'canvas' && sorted.length >= 2) {
+      const totalItemW = sorted.reduce((acc, b) => acc + b.bboxW, 0);
+      const availW = Math.max(0, refRight - refLeft);
+      const gap = (availW - totalItemW) / (sorted.length - 1);
+      let cursor = refLeft;
+      for (const b of sorted) {
+        const nextCx = cursor + b.bboxW / 2;
+        patchById.set(b.id, { x: (nextCx - canvasW / 2) / canvasW });
+        cursor += b.bboxW + gap;
+      }
+    } else if (sorted.length >= 3) {
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const totalInnerW = sorted.slice(1, -1).reduce((acc, b) => acc + b.bboxW, 0);
+      const span = last.left - first.right;
+      const gap = (span - totalInnerW) / (sorted.length - 1);
+      let cursor = first.right + gap;
+      for (let i = 1; i < sorted.length - 1; i++) {
+        const b = sorted[i];
+        const nextCx = cursor + b.bboxW / 2;
+        patchById.set(b.id, { x: (nextCx - canvasW / 2) / canvasW });
+        cursor += b.bboxW + gap;
+      }
+    }
+  } else if (action === 'distribute-y') {
+    const sorted = [...boundsList].sort((a, b) => a.cy - b.cy);
+    if (scope === 'canvas' && sorted.length >= 2) {
+      const totalItemH = sorted.reduce((acc, b) => acc + b.bboxH, 0);
+      const availH = Math.max(0, refBottom - refTop);
+      const gap = (availH - totalItemH) / (sorted.length - 1);
+      let cursor = refTop;
+      for (const b of sorted) {
+        const nextCy = cursor + b.bboxH / 2;
+        patchById.set(b.id, { y: (nextCy - canvasH / 2) / canvasH });
+        cursor += b.bboxH + gap;
+      }
+    } else if (sorted.length >= 3) {
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      const totalInnerH = sorted.slice(1, -1).reduce((acc, b) => acc + b.bboxH, 0);
+      const span = last.top - first.bottom;
+      const gap = (span - totalInnerH) / (sorted.length - 1);
+      let cursor = first.bottom + gap;
+      for (let i = 1; i < sorted.length - 1; i++) {
+        const b = sorted[i];
+        const nextCy = cursor + b.bboxH / 2;
+        patchById.set(b.id, { y: (nextCy - canvasH / 2) / canvasH });
+        cursor += b.bboxH + gap;
+      }
+    }
+  } else if (action === 'match-width' || action === 'match-height') {
+    const primaryId = selectedIds[selectedIds.length - 1];
+    const primaryBounds = boundsById.get(primaryId) || boundsList[0];
+    if (primaryBounds) {
+      for (const ov of targets) {
+        const b = boundsById.get(ov.id);
+        if (!b) continue;
+        const currentDim = action === 'match-width' ? b.bboxW : b.bboxH;
+        const targetDim = action === 'match-width' ? primaryBounds.bboxW : primaryBounds.bboxH;
+        if (currentDim > 1 && targetDim > 1) {
+          const factor = targetDim / currentDim;
+          patchById.set(ov.id, {
+            scale: Math.max(0.05, Math.min(3.5, Number((ov.scale * factor).toFixed(3)))),
+          });
+        }
+      }
+    }
+  } else {
+    for (const ov of targets) {
+      const b = boundsById.get(ov.id);
+      if (!b) continue;
+      let nextCx = b.cx;
+      let nextCy = b.cy;
+
+      switch (action) {
+        case 'left':
+          nextCx = refLeft + b.bboxW / 2;
+          break;
+        case 'center-x':
+          nextCx = refCenterX;
+          break;
+        case 'right':
+          nextCx = refRight - b.bboxW / 2;
+          break;
+        case 'top':
+          nextCy = refTop + b.bboxH / 2;
+          break;
+        case 'center-y':
+          nextCy = refCenterY;
+          break;
+        case 'bottom':
+          nextCy = refBottom - b.bboxH / 2;
+          break;
+        case 'center-both':
+          nextCx = refCenterX;
+          nextCy = refCenterY;
+          break;
+      }
+
+      patchById.set(ov.id, {
+        x: (nextCx - canvasW / 2) / canvasW,
+        y: (nextCy - canvasH / 2) / canvasH,
+      });
+    }
+  }
+
+  return overlays.map((ov) => {
+    const patch = patchById.get(ov.id);
+    return patch ? { ...ov, ...patch } : ov;
+  });
+}
+
 export interface RenderCompositionOptions {
   photoImg?: HTMLImageElement | null;
   photoTransform: PhotoTransform;
@@ -442,6 +764,7 @@ export interface RenderCompositionOptions {
   overlayImages: Record<string, HTMLImageElement | undefined>;
   backgroundColor: string; // 'transparent' or hex color
   activeOverlayIdForGuide?: string | null;
+  selectedOverlayIdsForGuide?: string[];
   showGridGuides?: boolean;
 }
 
@@ -580,6 +903,15 @@ export function renderCompositionToCanvas(
   }
 
   // 3. Overlay Layers (Frames & Elements in stack order)
+  const guideSelectedSet = new Set<string>(
+    options.selectedOverlayIdsForGuide && options.selectedOverlayIdsForGuide.length > 0
+      ? options.selectedOverlayIdsForGuide
+      : options.activeOverlayIdForGuide
+        ? [options.activeOverlayIdForGuide]
+        : []
+  );
+  const selectedBoundsForGroupGuide: OverlayBoundsPx[] = [];
+
   for (const layer of options.overlays) {
     if (!layer.visible) continue;
     const ovImg = options.overlayImages[layer.proxySrc];
@@ -598,17 +930,20 @@ export function renderCompositionToCanvas(
     ctx.drawImage(ovImg, -drawW / 2, -drawH / 2, drawW, drawH);
 
     // Optional live preview selection guide (never drawn during export)
-    if (options.activeOverlayIdForGuide && options.activeOverlayIdForGuide === layer.id) {
+    if (guideSelectedSet.has(layer.id)) {
+      selectedBoundsForGroupGuide.push(computeOverlayBoundsPx(layer, ovImg, width, height));
+      const isPrimary =
+        !options.activeOverlayIdForGuide || options.activeOverlayIdForGuide === layer.id;
       ctx.globalAlpha = 1;
-      const lineW = Math.max(1.5, Math.min(width, height) * 0.0035);
-      ctx.strokeStyle = '#3b82f6';
+      const lineW = Math.max(1.5, Math.min(width, height) * 0.0032);
+      ctx.strokeStyle = isPrimary ? '#3b82f6' : '#8b5cf6';
       ctx.lineWidth = lineW;
       ctx.setLineDash([lineW * 4, lineW * 2.5]);
       ctx.strokeRect(-drawW / 2, -drawH / 2, drawW, drawH);
       ctx.setLineDash([]);
 
       // Corner handle accents
-      const handleSize = Math.max(7, Math.min(width, height) * 0.018);
+      const handleSize = Math.max(6, Math.min(width, height) * (isPrimary ? 0.018 : 0.013));
       const corners = [
         [-drawW / 2, -drawH / 2],
         [drawW / 2, -drawH / 2],
@@ -618,11 +953,25 @@ export function renderCompositionToCanvas(
       for (const [hx, hy] of corners) {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
-        ctx.strokeStyle = '#2563eb';
+        ctx.strokeStyle = isPrimary ? '#2563eb' : '#7c3aed';
         ctx.lineWidth = Math.max(1.5, lineW * 0.9);
         ctx.strokeRect(hx - handleSize / 2, hy - handleSize / 2, handleSize, handleSize);
       }
     }
+    ctx.restore();
+  }
+
+  // Combined multi-layer group bounding box when 2+ layers are selected in preview
+  if (selectedBoundsForGroupGuide.length >= 2) {
+    const gLeft = Math.min(...selectedBoundsForGroupGuide.map((b) => b.left));
+    const gRight = Math.max(...selectedBoundsForGroupGuide.map((b) => b.right));
+    const gTop = Math.min(...selectedBoundsForGroupGuide.map((b) => b.top));
+    const gBottom = Math.max(...selectedBoundsForGroupGuide.map((b) => b.bottom));
+    ctx.save();
+    const lineW = Math.max(1.8, Math.min(width, height) * 0.0036);
+    ctx.strokeStyle = '#7c3aed';
+    ctx.lineWidth = lineW;
+    ctx.strokeRect(gLeft, gTop, gRight - gLeft, gBottom - gTop);
     ctx.restore();
   }
 

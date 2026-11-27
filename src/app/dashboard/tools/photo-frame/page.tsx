@@ -9,9 +9,12 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import TemplateFormModal from '@/components/photo-frame/TemplateFormModal';
 import DriveUploadSetupModal from '@/components/photo-frame/DriveUploadSetupModal';
 import SaveDesignAsFrameModal from '@/components/photo-frame/SaveDesignAsFrameModal';
+import AlignmentPanel from '@/components/photo-frame/AlignmentPanel';
 import { createZipBlob, ZipInputFile } from '@/utils/zipBuilder';
 import {
   ASPECT_RATIO_OPTIONS,
+  AlignAction,
+  AlignScope,
   AspectRatioMode,
   BatchPhotoItem,
   DEFAULT_PHOTO_ADJUSTMENTS,
@@ -26,6 +29,7 @@ import {
   QUALITY_MULTIPLIERS,
   RETOUCH_PRESETS,
   RetouchPreset,
+  applyAlignmentToOverlays,
   buildExportFileName,
   buildProxyImageUrl,
   canvasToBlob,
@@ -39,9 +43,37 @@ import {
   normalizeTemplateRecord,
   renderCompositionToCanvas,
   resolveCanvasDimensions,
+  toCanonicalAspect,
 } from '@/components/photo-frame/frameModel';
 
-type EditTargetMode = 'photo' | 'overlay';
+type EditTargetMode = 'photo' | 'overlay' | 'align';
+
+interface StudioSnapshot {
+  photos: BatchPhotoItem[];
+  blueprintOverlays: OverlayLayer[];
+  blueprintAdjustments: PhotoAdjustments;
+  aspectMode: AspectRatioMode;
+  swapOrientation: boolean;
+  backgroundColor: string;
+}
+
+const MAX_UNDO_STEPS = 50;
+
+function cloneStudioSnapshot(state: StudioSnapshot): StudioSnapshot {
+  return {
+    photos: state.photos.map((p) => ({
+      ...p,
+      photoTransform: { ...p.photoTransform },
+      photoAdjustments: { ...p.photoAdjustments },
+      overlays: p.overlays.map((o) => ({ ...o })),
+    })),
+    blueprintOverlays: state.blueprintOverlays.map((o) => ({ ...o })),
+    blueprintAdjustments: { ...state.blueprintAdjustments },
+    aspectMode: state.aspectMode,
+    swapOrientation: state.swapOrientation,
+    backgroundColor: state.backgroundColor,
+  };
+}
 
 interface PointerSample {
   x: number;
@@ -84,12 +116,135 @@ export default function PhotoFrameStudioPage() {
   const [photoSubTab, setPhotoSubTab] = useState<'transform' | 'retouch'>('transform');
   const [comparingOriginal, setComparingOriginal] = useState(false);
   const [activeOverlayId, setActiveOverlayId] = useState<string | null>(null);
+  const [selectedOverlayIds, setSelectedOverlayIds] = useState<string[]>([]);
+  const [alignScope, setAlignScope] = useState<AlignScope>('canvas');
+  const [alignPhotoSelected, setAlignPhotoSelected] = useState(false);
+  const [canvasMarginPct, setCanvasMarginPct] = useState<number>(4);
   const [showGridGuides, setShowGridGuides] = useState(false);
   const [aspectMode, setAspectMode] = useState<AspectRatioMode>('auto');
+  const [swapOrientation, setSwapOrientation] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState<string>('transparent');
   const [qualityMultiplier, setQualityMultiplier] = useState<number>(2);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
   const [exportApprovedOnly, setExportApprovedOnly] = useState(false);
+
+  // Undo / Redo History Engine (supports buttons + Ctrl+Z / Ctrl+Y + coalesced drag/slider gestures)
+  const historyRef = useRef<{ past: StudioSnapshot[]; future: StudioSnapshot[] }>({
+    past: [],
+    future: [],
+  });
+  const [historyMeta, setHistoryMeta] = useState({
+    canUndo: false,
+    canRedo: false,
+    undoCount: 0,
+    redoCount: 0,
+  });
+  const pendingGestureSnapshotRef = useRef<StudioSnapshot | null>(null);
+  const wheelUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestStudioStateRef = useRef<StudioSnapshot>({
+    photos,
+    blueprintOverlays,
+    blueprintAdjustments,
+    aspectMode,
+    swapOrientation,
+    backgroundColor,
+  });
+  latestStudioStateRef.current = {
+    photos,
+    blueprintOverlays,
+    blueprintAdjustments,
+    aspectMode,
+    swapOrientation,
+    backgroundColor,
+  };
+
+  const syncHistoryMeta = useCallback(() => {
+    setHistoryMeta({
+      canUndo: historyRef.current.past.length > 0,
+      canRedo: historyRef.current.future.length > 0,
+      undoCount: historyRef.current.past.length,
+      redoCount: historyRef.current.future.length,
+    });
+  }, []);
+
+  const commitUndoCheckpoint = useCallback(
+    (explicitSnapshot?: StudioSnapshot) => {
+      const snap = cloneStudioSnapshot(explicitSnapshot || latestStudioStateRef.current);
+      const past = historyRef.current.past;
+      if (past.length > 0) {
+        try {
+          if (JSON.stringify(past[past.length - 1]) === JSON.stringify(snap)) {
+            return;
+          }
+        } catch {
+          // fall through
+        }
+      }
+      past.push(snap);
+      if (past.length > MAX_UNDO_STEPS) {
+        past.shift();
+      }
+      historyRef.current.future = [];
+      syncHistoryMeta();
+    },
+    [syncHistoryMeta]
+  );
+
+  const beginContinuousGesture = useCallback(() => {
+    if (!pendingGestureSnapshotRef.current) {
+      pendingGestureSnapshotRef.current = cloneStudioSnapshot(latestStudioStateRef.current);
+    }
+  }, []);
+
+  const flushPendingGestureCheckpoint = useCallback(() => {
+    if (pendingGestureSnapshotRef.current) {
+      const snap = pendingGestureSnapshotRef.current;
+      pendingGestureSnapshotRef.current = null;
+      commitUndoCheckpoint(snap);
+    }
+  }, [commitUndoCheckpoint]);
+
+  const clearPendingGestureCheckpoint = useCallback(() => {
+    pendingGestureSnapshotRef.current = null;
+  }, []);
+
+  const restoreStudioSnapshot = useCallback((snap: StudioSnapshot) => {
+    const clean = cloneStudioSnapshot(snap);
+    setPhotos(clean.photos);
+    setBlueprintOverlays(clean.blueprintOverlays);
+    setBlueprintAdjustments(clean.blueprintAdjustments);
+    setAspectMode(clean.aspectMode);
+    setSwapOrientation(clean.swapOrientation);
+    setBackgroundColor(clean.backgroundColor);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    const past = historyRef.current.past;
+    if (past.length === 0) return;
+    pendingGestureSnapshotRef.current = null;
+    const prevSnap = past.pop()!;
+    const currentSnap = cloneStudioSnapshot(latestStudioStateRef.current);
+    historyRef.current.future.push(currentSnap);
+    if (historyRef.current.future.length > MAX_UNDO_STEPS) {
+      historyRef.current.future.shift();
+    }
+    restoreStudioSnapshot(prevSnap);
+    syncHistoryMeta();
+  }, [restoreStudioSnapshot, syncHistoryMeta]);
+
+  const handleRedo = useCallback(() => {
+    const future = historyRef.current.future;
+    if (future.length === 0) return;
+    pendingGestureSnapshotRef.current = null;
+    const nextSnap = future.pop()!;
+    const currentSnap = cloneStudioSnapshot(latestStudioStateRef.current);
+    historyRef.current.past.push(currentSnap);
+    if (historyRef.current.past.length > MAX_UNDO_STEPS) {
+      historyRef.current.past.shift();
+    }
+    restoreStudioSnapshot(nextSnap);
+    syncHistoryMeta();
+  }, [restoreStudioSnapshot, syncHistoryMeta]);
 
   // Loaded HTMLImageElement map (keyed by src)
   const [loadedImages, setLoadedImages] = useState<Record<string, HTMLImageElement>>({});
@@ -127,6 +282,7 @@ export default function PhotoFrameStudioPage() {
     initialScale: number;
     initialX: number;
     initialY: number;
+    initialMultiOverlays?: Record<string, { scale: number; x: number; y: number }>;
   } | null>(null);
 
   const showToast = useCallback((type: 'success' | 'error' | 'info', text: string) => {
@@ -264,17 +420,72 @@ export default function PhotoFrameStudioPage() {
     [currentOverlays, activeOverlayId]
   );
 
-  // Keep activeOverlayId synced when switching photos or adding/removing overlays
+  // Keyboard shortcuts: Ctrl+Z / Cmd+Z (Undo) & Ctrl+Y / Cmd+Shift+Z (Redo)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (anyModalOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [anyModalOpen, handleUndo, handleRedo]);
+
+  // Cleanup wheel undo debounce timer
+  useEffect(() => {
+    return () => {
+      if (wheelUndoTimerRef.current) clearTimeout(wheelUndoTimerRef.current);
+    };
+  }, []);
+
+  // Keep activeOverlayId & selectedOverlayIds synced when switching photos or adding/removing overlays
   useEffect(() => {
     if (currentOverlays.length === 0) {
       setActiveOverlayId(null);
+      setSelectedOverlayIds([]);
       if (editMode === 'overlay') setEditMode('photo');
       return;
     }
-    if (!activeOverlayId || !currentOverlays.some((o) => o.id === activeOverlayId)) {
-      setActiveOverlayId(currentOverlays[currentOverlays.length - 1].id);
+    const validIds = new Set(currentOverlays.map((o) => o.id));
+    const fallbackId = currentOverlays[currentOverlays.length - 1].id;
+    const nextActive = activeOverlayId && validIds.has(activeOverlayId) ? activeOverlayId : fallbackId;
+    if (nextActive !== activeOverlayId) {
+      setActiveOverlayId(nextActive);
     }
+    setSelectedOverlayIds((prev) => {
+      const kept = prev.filter((id) => validIds.has(id));
+      if (kept.length === 0) return [nextActive];
+      return kept.length === prev.length ? prev : kept;
+    });
   }, [currentOverlays, activeOverlayId, editMode]);
+
+  const effectiveSelectedOverlayIds = useMemo(() => {
+    const valid = new Set(currentOverlays.map((o) => o.id));
+    const filtered = selectedOverlayIds.filter((id) => valid.has(id));
+    if (filtered.length > 0) return filtered;
+    return activeOverlay ? [activeOverlay.id] : [];
+  }, [currentOverlays, selectedOverlayIds, activeOverlay]);
+
+  const isOverlayEditContext =
+    editMode === 'overlay' || (editMode === 'align' && !alignPhotoSelected && effectiveSelectedOverlayIds.length > 0);
 
   // Preload active photo + all current overlay images into loadedImages state
   useEffect(() => {
@@ -324,7 +535,7 @@ export default function PhotoFrameStudioPage() {
     [activePhoto, loadedImages]
   );
 
-  // Live output resolution based on selected quality multiplier (x1..x6)
+  // Live output resolution based on selected quality multiplier (x1..x6) & orientation
   const exportDims = useMemo(
     () =>
       resolveCanvasDimensions({
@@ -332,9 +543,17 @@ export default function PhotoFrameStudioPage() {
         primaryFrameImg,
         photoImg: activePhotoImg,
         qualityMultiplier,
+        swapOrientation,
       }),
-    [aspectMode, primaryFrameImg, activePhotoImg, qualityMultiplier]
+    [aspectMode, primaryFrameImg, activePhotoImg, qualityMultiplier, swapOrientation]
   );
+
+  const canvasOrientationKind: 'landscape' | 'portrait' | 'square' =
+    exportDims.width > exportDims.height
+      ? 'landscape'
+      : exportDims.height > exportDims.width
+        ? 'portrait'
+        : 'square';
 
   // Preview canvas logical aspect ratio
   const previewDims = useMemo(() => {
@@ -387,6 +606,7 @@ export default function PhotoFrameStudioPage() {
 
   const handleSelectRetouchPreset = useCallback(
     (preset: RetouchPreset) => {
+      commitUndoCheckpoint();
       const nextAdj: PhotoAdjustments = {
         presetId: preset.id,
         ...preset.values,
@@ -396,19 +616,21 @@ export default function PhotoFrameStudioPage() {
         setBlueprintAdjustments(nextAdj);
       }
     },
-    [activePhoto, updateActivePhotoAdjustments]
+    [activePhoto, updateActivePhotoAdjustments, commitUndoCheckpoint]
   );
 
   const handleResetPhotoAdjustments = useCallback(() => {
+    commitUndoCheckpoint();
     const resetAdj: PhotoAdjustments = { ...DEFAULT_PHOTO_ADJUSTMENTS };
     updateActivePhotoAdjustments(() => resetAdj);
     if (!activePhoto) {
       setBlueprintAdjustments(resetAdj);
     }
-  }, [activePhoto, updateActivePhotoAdjustments]);
+  }, [activePhoto, updateActivePhotoAdjustments, commitUndoCheckpoint]);
 
   const handleApplyAdjustmentsToAllPhotos = useCallback(() => {
     if (!activePhoto || photos.length <= 1) return;
+    commitUndoCheckpoint();
     const sourceAdj = { ...activePhoto.photoAdjustments };
     setBlueprintAdjustments(sourceAdj);
     setPhotos((prev) =>
@@ -419,7 +641,7 @@ export default function PhotoFrameStudioPage() {
       )
     );
     showToast('success', `បានអនុវត្តការកំណត់ពន្លឺ & Retouch ទៅគ្រប់ ${photos.length} រូបរួចរាល់!`);
-  }, [activePhoto, photos.length, showToast]);
+  }, [activePhoto, photos.length, showToast, commitUndoCheckpoint]);
 
   const updateCurrentOverlays = useCallback(
     (updater: (prev: OverlayLayer[]) => OverlayLayer[]) => {
@@ -450,6 +672,181 @@ export default function PhotoFrameStudioPage() {
     [activeOverlay, updateCurrentOverlays]
   );
 
+  const updateSelectedOverlays = useCallback(
+    (updater: (prev: OverlayLayer) => OverlayLayer) => {
+      const targetSet = new Set(effectiveSelectedOverlayIds);
+      if (targetSet.size === 0) return;
+      updateCurrentOverlays((list) =>
+        list.map((ov) => (targetSet.has(ov.id) ? updater(ov) : ov))
+      );
+    },
+    [effectiveSelectedOverlayIds, updateCurrentOverlays]
+  );
+
+  const handleToggleOverlaySelection = useCallback(
+    (layerId: string) => {
+      setAlignPhotoSelected(false);
+      setSelectedOverlayIds((prev) => {
+        const exists = prev.includes(layerId);
+        if (exists) {
+          const remaining = prev.filter((id) => id !== layerId);
+          if (remaining.length === 0) return [layerId];
+          if (activeOverlayId === layerId) {
+            setActiveOverlayId(remaining[remaining.length - 1]);
+          }
+          return remaining;
+        }
+        setActiveOverlayId(layerId);
+        return [...prev, layerId];
+      });
+    },
+    [activeOverlayId]
+  );
+
+  const handleSelectSingleOverlay = useCallback((layerId: string) => {
+    setAlignPhotoSelected(false);
+    setActiveOverlayId(layerId);
+    setSelectedOverlayIds([layerId]);
+  }, []);
+
+  const handleSelectAllOverlays = useCallback(() => {
+    if (currentOverlays.length === 0) return;
+    setAlignPhotoSelected(false);
+    const allIds = currentOverlays.map((o) => o.id);
+    setSelectedOverlayIds(allIds);
+    setActiveOverlayId(allIds[allIds.length - 1]);
+  }, [currentOverlays]);
+
+  const handleSelectAspectMode = useCallback(
+    (nextMode: AspectRatioMode) => {
+      if (nextMode === aspectMode && !swapOrientation) return;
+      commitUndoCheckpoint();
+      setAspectMode(nextMode);
+      setSwapOrientation(false);
+    },
+    [aspectMode, swapOrientation, commitUndoCheckpoint]
+  );
+
+  const handleRotateCanvasOrientation = useCallback(
+    (target: 'toggle' | 'landscape' | 'portrait' = 'toggle') => {
+      if (target === 'landscape' && canvasOrientationKind === 'landscape') return;
+      if (target === 'portrait' && canvasOrientationKind === 'portrait') return;
+
+      commitUndoCheckpoint();
+
+      if (canvasOrientationKind === 'square') {
+        setAspectMode('3:4');
+        setSwapOrientation(target !== 'portrait');
+        showToast(
+          'info',
+          target === 'portrait' ? 'បានប្តូរ Canvas ជាបញ្ឈរ (3:4)' : 'បានប្តូរ Canvas ជាផ្តេក (4:3)'
+        );
+        return;
+      }
+
+      setSwapOrientation((prev) => !prev);
+    },
+    [canvasOrientationKind, commitUndoCheckpoint, showToast]
+  );
+
+  const handleAlignAction = useCallback(
+    (action: AlignAction) => {
+      commitUndoCheckpoint();
+
+      if (alignPhotoSelected && activePhoto) {
+        const pt = activePhoto.photoTransform;
+        const pImg = activePhotoImg;
+        const cw = exportDims.baseWidth;
+        const ch = exportDims.baseHeight;
+        let maxDx = 0;
+        let maxDy = 0;
+        if (pImg && pImg.naturalWidth > 0 && pImg.naturalHeight > 0 && cw > 0 && ch > 0) {
+          const baseScale =
+            pt.fitMode === 'contain'
+              ? Math.min(cw / pImg.naturalWidth, ch / pImg.naturalHeight)
+              : Math.max(cw / pImg.naturalWidth, ch / pImg.naturalHeight);
+          const drawW = pImg.naturalWidth * baseScale * pt.scale;
+          const drawH = pImg.naturalHeight * baseScale * pt.scale;
+          maxDx = (cw - drawW) / 2 / cw;
+          maxDy = (ch - drawH) / 2 / ch;
+        }
+        updateActivePhotoTransform((prev) => {
+          switch (action) {
+            case 'left':
+              return { ...prev, x: -Math.abs(maxDx) };
+            case 'right':
+              return { ...prev, x: Math.abs(maxDx) };
+            case 'center-x':
+              return { ...prev, x: 0 };
+            case 'top':
+              return { ...prev, y: -Math.abs(maxDy) };
+            case 'bottom':
+              return { ...prev, y: Math.abs(maxDy) };
+            case 'center-y':
+              return { ...prev, y: 0 };
+            case 'center-both':
+              return { ...prev, x: 0, y: 0 };
+            default:
+              return prev;
+          }
+        });
+        return;
+      }
+
+      if (effectiveSelectedOverlayIds.length === 0) return;
+      const effectiveScope: AlignScope =
+        alignScope === 'selection' && effectiveSelectedOverlayIds.length >= 2
+          ? 'selection'
+          : 'canvas';
+      updateCurrentOverlays((list) =>
+        applyAlignmentToOverlays({
+          overlays: list,
+          selectedIds: effectiveSelectedOverlayIds,
+          overlayImages: loadedImages,
+          canvasW: exportDims.baseWidth,
+          canvasH: exportDims.baseHeight,
+          action,
+          scope: effectiveScope,
+          marginRatio: canvasMarginPct / 100,
+        })
+      );
+    },
+    [
+      commitUndoCheckpoint,
+      alignPhotoSelected,
+      activePhoto,
+      activePhotoImg,
+      exportDims.baseWidth,
+      exportDims.baseHeight,
+      updateActivePhotoTransform,
+      effectiveSelectedOverlayIds,
+      alignScope,
+      updateCurrentOverlays,
+      loadedImages,
+      canvasMarginPct,
+    ]
+  );
+
+  const handleNudgeSelected = useCallback(
+    (dxNorm: number, dyNorm: number) => {
+      commitUndoCheckpoint();
+      if (alignPhotoSelected && activePhoto) {
+        updateActivePhotoTransform((pt) => ({
+          ...pt,
+          x: Math.max(-1.5, Math.min(1.5, Number((pt.x + dxNorm).toFixed(4)))),
+          y: Math.max(-1.5, Math.min(1.5, Number((pt.y + dyNorm).toFixed(4)))),
+        }));
+        return;
+      }
+      updateSelectedOverlays((ov) => ({
+        ...ov,
+        x: Math.max(-1.2, Math.min(1.2, Number((ov.x + dxNorm).toFixed(4)))),
+        y: Math.max(-1.2, Math.min(1.2, Number((ov.y + dyNorm).toFixed(4)))),
+      }));
+    },
+    [commitUndoCheckpoint, alignPhotoSelected, activePhoto, updateActivePhotoTransform, updateSelectedOverlays]
+  );
+
   // Compute compact/expanded dimensions for mobile floating preview canvas
   const floatingCanvasDims = useMemo(() => {
     const ratio = exportDims.width / Math.max(1, exportDims.height);
@@ -474,7 +871,8 @@ export default function PhotoFrameStudioPage() {
       overlays: currentOverlays,
       overlayImages: loadedImages,
       backgroundColor,
-      activeOverlayIdForGuide: editMode === 'overlay' ? activeOverlay?.id || null : null,
+      activeOverlayIdForGuide: isOverlayEditContext ? activeOverlay?.id || null : null,
+      selectedOverlayIdsForGuide: isOverlayEditContext ? effectiveSelectedOverlayIds : [],
       showGridGuides,
     };
 
@@ -512,7 +910,9 @@ export default function PhotoFrameStudioPage() {
     loadedImages,
     backgroundColor,
     editMode,
+    isOverlayEditContext,
     activeOverlay?.id,
+    effectiveSelectedOverlayIds,
     showGridGuides,
   ]);
 
@@ -525,8 +925,18 @@ export default function PhotoFrameStudioPage() {
       e.preventDefault();
       const factor = e.deltaY < 0 ? 1.06 : 1 / 1.06;
 
-      if (editMode === 'overlay' && activeOverlay) {
-        updateActiveOverlay((ov) => ({
+      // Coalesce wheel burst into 1 Undo checkpoint
+      if (!wheelUndoTimerRef.current) {
+        commitUndoCheckpoint();
+      } else {
+        clearTimeout(wheelUndoTimerRef.current);
+      }
+      wheelUndoTimerRef.current = setTimeout(() => {
+        wheelUndoTimerRef.current = null;
+      }, 450);
+
+      if (isOverlayEditContext && effectiveSelectedOverlayIds.length > 0) {
+        updateSelectedOverlays((ov) => ({
           ...ov,
           scale: Math.max(0.05, Math.min(3.5, Number((ov.scale * factor).toFixed(3)))),
         }));
@@ -540,11 +950,21 @@ export default function PhotoFrameStudioPage() {
 
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
-  }, [editMode, activeOverlay, activePhoto, updateActiveOverlay, updateActivePhotoTransform]);
+  }, [
+    isOverlayEditContext,
+    effectiveSelectedOverlayIds,
+    activePhoto,
+    updateSelectedOverlays,
+    updateActivePhotoTransform,
+    commitUndoCheckpoint,
+  ]);
 
-  // Pointer & 2-finger pinch gestures on canvas
+  // Pointer & 2-finger pinch gestures on canvas (supports single AND multi-layer group dragging/pinching)
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (activePointersRef.current.size === 0) {
+      beginContinuousGesture();
+    }
     activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (activePointersRef.current.size === 2) {
@@ -553,7 +973,14 @@ export default function PhotoFrameStudioPage() {
       const midX = (pts[0].x + pts[1].x) / 2;
       const midY = (pts[0].y + pts[1].y) / 2;
 
-      if (editMode === 'overlay' && activeOverlay) {
+      if (isOverlayEditContext && activeOverlay) {
+        const selectedSet = new Set(effectiveSelectedOverlayIds);
+        const initialMultiOverlays: Record<string, { scale: number; x: number; y: number }> = {};
+        currentOverlays.forEach((ov) => {
+          if (selectedSet.has(ov.id)) {
+            initialMultiOverlays[ov.id] = { scale: ov.scale, x: ov.x, y: ov.y };
+          }
+        });
         pinchStartRef.current = {
           distance: dist,
           midX,
@@ -561,6 +988,7 @@ export default function PhotoFrameStudioPage() {
           initialScale: activeOverlay.scale,
           initialX: activeOverlay.x,
           initialY: activeOverlay.y,
+          initialMultiOverlays,
         };
       } else if (activePhoto) {
         pinchStartRef.current = {
@@ -586,6 +1014,7 @@ export default function PhotoFrameStudioPage() {
 
     // 2-finger pinch zoom + pan
     if (activePointersRef.current.size === 2 && pinchStartRef.current) {
+      flushPendingGestureCheckpoint();
       const pts = Array.from(activePointersRef.current.values());
       const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
       const midX = (pts[0].x + pts[1].x) / 2;
@@ -594,11 +1023,20 @@ export default function PhotoFrameStudioPage() {
       const dxNorm = (midX - pinchStartRef.current.midX) / rect.width;
       const dyNorm = (midY - pinchStartRef.current.midY) / rect.height;
 
-      if (editMode === 'overlay' && activeOverlay) {
-        const nextScale = Math.max(0.05, Math.min(3.5, pinchStartRef.current.initialScale * ratio));
-        const nextX = pinchStartRef.current.initialX + dxNorm;
-        const nextY = pinchStartRef.current.initialY + dyNorm;
-        updateActiveOverlay((ov) => ({ ...ov, scale: nextScale, x: nextX, y: nextY }));
+      if (isOverlayEditContext && pinchStartRef.current.initialMultiOverlays) {
+        const initMap = pinchStartRef.current.initialMultiOverlays;
+        updateCurrentOverlays((list) =>
+          list.map((ov) => {
+            const init = initMap[ov.id];
+            if (!init) return ov;
+            return {
+              ...ov,
+              scale: Math.max(0.05, Math.min(3.5, init.scale * ratio)),
+              x: init.x + dxNorm,
+              y: init.y + dyNorm,
+            };
+          })
+        );
       } else if (activePhoto) {
         const nextScale = Math.max(0.2, Math.min(4, pinchStartRef.current.initialScale * ratio));
         const nextX = pinchStartRef.current.initialX + dxNorm;
@@ -608,14 +1046,15 @@ export default function PhotoFrameStudioPage() {
       return;
     }
 
-    // 1-finger / mouse drag pan
+    // 1-finger / mouse drag pan (moves all selected layers together when multi-selected!)
     if (activePointersRef.current.size === 1) {
       const dxNorm = (nextPt.x - prevPt.x) / rect.width;
       const dyNorm = (nextPt.y - prevPt.y) / rect.height;
       if (dxNorm === 0 && dyNorm === 0) return;
+      flushPendingGestureCheckpoint();
 
-      if (editMode === 'overlay' && activeOverlay) {
-        updateActiveOverlay((ov) => ({
+      if (isOverlayEditContext && effectiveSelectedOverlayIds.length > 0) {
+        updateSelectedOverlays((ov) => ({
           ...ov,
           x: Math.max(-1.2, Math.min(1.2, ov.x + dxNorm)),
           y: Math.max(-1.2, Math.min(1.2, ov.y + dyNorm)),
@@ -634,6 +1073,9 @@ export default function PhotoFrameStudioPage() {
     activePointersRef.current.delete(e.pointerId);
     if (activePointersRef.current.size < 2) {
       pinchStartRef.current = null;
+    }
+    if (activePointersRef.current.size === 0) {
+      clearPendingGestureCheckpoint();
     }
   };
 
@@ -724,6 +1166,7 @@ export default function PhotoFrameStudioPage() {
       return [...list, layerCopy];
     };
 
+    commitUndoCheckpoint();
     setBlueprintOverlays((prev) => buildMerged(prev, activeId ? createUid('ovl') : activeLayerId));
     if (photos.length > 0) {
       setPhotos((prev) =>
@@ -734,6 +1177,8 @@ export default function PhotoFrameStudioPage() {
       );
     }
     setActiveOverlayId(activeLayerId);
+    setSelectedOverlayIds([activeLayerId]);
+    setAlignPhotoSelected(false);
     setEditMode('overlay');
     showToast('success', `បានបន្ថែម PNG ពីម៉ាស៊ីន (${category === 'frame' ? 'ស៊ុម' : 'Element'})`);
   };
@@ -741,6 +1186,7 @@ export default function PhotoFrameStudioPage() {
   // Apply a shared template (mode: 'apply' replaces main frame / adds element; 'stack' always appends a layer)
   const applyTemplateToStudio = useCallback(
     (template: FrameTemplate, mode: 'apply' | 'stack' = 'apply') => {
+      commitUndoCheckpoint();
       const layer = createOverlayFromTemplate(template);
       const activeId = activePhoto?.id || null;
       const activeLayerId = createUid('ovl');
@@ -771,9 +1217,13 @@ export default function PhotoFrameStudioPage() {
       }
 
       setActiveOverlayId(activeLayerId);
+      setSelectedOverlayIds([activeLayerId]);
+      setAlignPhotoSelected(false);
 
       if (mode === 'apply' && template.defaultAspect && template.category === 'frame') {
-        setAspectMode(template.defaultAspect);
+        const canonical = toCanonicalAspect(template.defaultAspect);
+        setAspectMode(canonical.mode);
+        setSwapOrientation(canonical.swapOrientation);
       }
 
       if (template.category === 'element' || mode === 'stack') {
@@ -787,12 +1237,13 @@ export default function PhotoFrameStudioPage() {
           : `បានប្រើ Template "${template.name}" លើរូបថតទាំងអស់`
       );
     },
-    [activePhoto?.id, photos.length, showToast]
+    [activePhoto?.id, photos.length, showToast, commitUndoCheckpoint]
   );
 
   // Copy active photo's exact overlays (sizes, positions, opacity, visibility) to all photos
   const handleApplyOverlaysToAllPhotos = () => {
     if (!activePhoto || photos.length <= 1) return;
+    commitUndoCheckpoint();
     const sourceOverlays = activePhoto.overlays;
     setBlueprintOverlays(cloneOverlays(sourceOverlays));
     setPhotos((prev) =>
@@ -890,28 +1341,76 @@ export default function PhotoFrameStudioPage() {
     showToast('success', `បានយល់ព្រមរូបថតទាំង ${photos.length} រួចរាល់!`);
   };
 
-  // Snap active overlay layer
-  const handleSnapOverlay = (preset: OverlaySnapPreset) => {
-    if (!activeOverlay) return;
-    const img = loadedImages[activeOverlay.proxySrc];
-    const snapped = computeSnappedOverlayPosition(
-      activeOverlay,
-      img,
-      exportDims.baseWidth,
-      exportDims.baseHeight,
-      preset
+  // Snap selected overlay layer(s) (or Base Photo when alignPhotoSelected)
+  const handleSnapOverlay = (preset: OverlaySnapPreset, allowPhoto = false) => {
+    commitUndoCheckpoint();
+    if (allowPhoto && alignPhotoSelected && activePhoto) {
+      if (preset === 'full') {
+        updateActivePhotoTransform(() => ({ ...DEFAULT_PHOTO_TRANSFORM }));
+        return;
+      }
+      if (preset === 'center') {
+        updateActivePhotoTransform((pt) => ({ ...pt, x: 0, y: 0 }));
+        return;
+      }
+      const pt = activePhoto.photoTransform;
+      const pImg = activePhotoImg;
+      const cw = exportDims.baseWidth;
+      const ch = exportDims.baseHeight;
+      let maxDx = 0;
+      let maxDy = 0;
+      if (pImg && pImg.naturalWidth > 0 && pImg.naturalHeight > 0 && cw > 0 && ch > 0) {
+        const baseScale =
+          pt.fitMode === 'contain'
+            ? Math.min(cw / pImg.naturalWidth, ch / pImg.naturalHeight)
+            : Math.max(cw / pImg.naturalWidth, ch / pImg.naturalHeight);
+        const drawW = pImg.naturalWidth * baseScale * pt.scale;
+        const drawH = pImg.naturalHeight * baseScale * pt.scale;
+        maxDx = Math.abs((cw - drawW) / 2 / cw);
+        maxDy = Math.abs((ch - drawH) / 2 / ch);
+      }
+      updateActivePhotoTransform((prev) => ({
+        ...prev,
+        x: preset.includes('left') ? -maxDx : preset.includes('right') ? maxDx : 0,
+        y: preset.includes('top') ? -maxDy : preset.includes('bottom') ? maxDy : 0,
+      }));
+      return;
+    }
+
+    const targetIds =
+      effectiveSelectedOverlayIds.length > 0
+        ? effectiveSelectedOverlayIds
+        : activeOverlay
+          ? [activeOverlay.id]
+          : [];
+    if (targetIds.length === 0) return;
+
+    const targetSet = new Set(targetIds);
+    updateCurrentOverlays((list) =>
+      list.map((ov) => {
+        if (!targetSet.has(ov.id)) return ov;
+        const img = loadedImages[ov.proxySrc];
+        const snapped = computeSnappedOverlayPosition(
+          ov,
+          img,
+          exportDims.baseWidth,
+          exportDims.baseHeight,
+          preset
+        );
+        return {
+          ...ov,
+          x: snapped.x,
+          y: snapped.y,
+          scale: snapped.scale ?? ov.scale,
+          rotation: snapped.rotation ?? ov.rotation,
+        };
+      })
     );
-    updateActiveOverlay((ov) => ({
-      ...ov,
-      x: snapped.x,
-      y: snapped.y,
-      scale: snapped.scale ?? ov.scale,
-      rotation: snapped.rotation ?? ov.rotation,
-    }));
   };
 
   // Reorder / remove overlay layers
   const handleMoveOverlayOrder = (layerId: string, dir: -1 | 1) => {
+    commitUndoCheckpoint();
     updateCurrentOverlays((list) => {
       const idx = list.findIndex((l) => l.id === layerId);
       const nextIdx = idx + dir;
@@ -924,6 +1423,7 @@ export default function PhotoFrameStudioPage() {
   };
 
   const handleRemoveOverlayLayer = (layerId: string) => {
+    commitUndoCheckpoint();
     updateCurrentOverlays((list) => list.filter((l) => l.id !== layerId));
   };
 
@@ -952,6 +1452,7 @@ export default function PhotoFrameStudioPage() {
         primaryFrameImg: frameImg,
         photoImg,
         qualityMultiplier,
+        swapOrientation,
       });
 
       const offscreen = document.createElement('canvas');
@@ -985,7 +1486,7 @@ export default function PhotoFrameStudioPage() {
         fileName: buildExportFileName(item.fileName, exportFormat, qualityMultiplier),
       };
     },
-    [aspectMode, qualityMultiplier, exportFormat, backgroundColor]
+    [aspectMode, swapOrientation, qualityMultiplier, exportFormat, backgroundColor]
   );
 
   const triggerBlobDownload = (blob: Blob, fileName: string) => {
@@ -1787,26 +2288,161 @@ export default function PhotoFrameStudioPage() {
                   <AppIcon name="move" size={15} />
                   សារ៉េ Frame / Element
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditMode('align');
+                    if (currentOverlays.length === 0 && activePhoto) {
+                      setAlignPhotoSelected(true);
+                    }
+                    if (window.innerWidth <= 980) {
+                      controlsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  disabled={!activePhoto && currentOverlays.length === 0}
+                  style={{
+                    padding: '0.44rem 0.85rem',
+                    borderRadius: '10px',
+                    border: `1.5px solid ${editMode === 'align' ? '#0ea5e9' : 'var(--border-color)'}`,
+                    background: editMode === 'align' ? '#0ea5e9' : 'var(--main-bg)',
+                    color: editMode === 'align' ? '#ffffff' : 'var(--text-primary)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: !activePhoto && currentOverlays.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: !activePhoto && currentOverlays.length === 0 ? 0.5 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.38rem',
+                  }}
+                  title="តម្រឹមទៅនឹង Canvas ឬជ្រើស Layer ច្រើនព្រមគ្នា"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="3" x2="12" y2="21" />
+                    <rect x="4" y="6" width="16" height="4" rx="1" />
+                    <rect x="7" y="14" width="10" height="4" rx="1" />
+                  </svg>
+                  តម្រឹម (Align)
+                  {effectiveSelectedOverlayIds.length >= 2 && (
+                    <span
+                      style={{
+                        fontSize: '0.67rem',
+                        fontWeight: 800,
+                        padding: '0.05rem 0.36rem',
+                        borderRadius: '999px',
+                        background: editMode === 'align' ? 'rgba(255,255,255,0.24)' : 'rgba(139,92,246,0.16)',
+                        color: editMode === 'align' ? '#ffffff' : '#7c3aed',
+                      }}
+                    >
+                      {effectiveSelectedOverlayIds.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.38rem', flexWrap: 'wrap' }}>
+                {/* Undo & Redo Buttons */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.24rem' }}>
+                  <button
+                    type="button"
+                    disabled={!historyMeta.canUndo}
+                    onClick={handleUndo}
+                    style={{
+                      padding: '0.36rem 0.55rem',
+                      borderRadius: '9px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--main-bg)',
+                      color: historyMeta.canUndo ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      opacity: historyMeta.canUndo ? 1 : 0.42,
+                      cursor: historyMeta.canUndo ? 'pointer' : 'not-allowed',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.26rem',
+                    }}
+                    title={`ត្រឡប់ក្រោយ / Undo (Ctrl+Z)${historyMeta.undoCount > 0 ? ` • ${historyMeta.undoCount} ជំហាន` : ''}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 14 4 9l5-5" />
+                      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+                    </svg>
+                    Undo
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!historyMeta.canRedo}
+                    onClick={handleRedo}
+                    style={{
+                      padding: '0.36rem 0.55rem',
+                      borderRadius: '9px',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--main-bg)',
+                      color: historyMeta.canRedo ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      opacity: historyMeta.canRedo ? 1 : 0.42,
+                      cursor: historyMeta.canRedo ? 'pointer' : 'not-allowed',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.26rem',
+                    }}
+                    title={`ធ្វើឡើងវិញ / Redo (Ctrl+Y)${historyMeta.redoCount > 0 ? ` • ${historyMeta.redoCount} ជំហាន` : ''}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m15 14 5-5-5-5" />
+                      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+                    </svg>
+                    Redo
+                  </button>
+                </div>
+
+                {/* Quick Rotate Canvas (Landscape / Portrait) */}
+                <button
+                  type="button"
+                  onClick={() => handleRotateCanvasOrientation('toggle')}
+                  style={{
+                    padding: '0.36rem 0.6rem',
+                    borderRadius: '9px',
+                    border: `1px solid ${swapOrientation ? 'var(--accent-primary)' : 'var(--border-color)'}`,
+                    background: swapOrientation
+                      ? 'color-mix(in srgb, var(--accent-primary) 12%, var(--main-bg))'
+                      : 'var(--main-bg)',
+                    color: swapOrientation ? 'var(--accent-primary)' : 'var(--text-primary)',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.28rem',
+                  }}
+                  title="បង្វិល Canvas ប្តូររវាង ដេក (Landscape) ↔ ឈរ (Portrait)"
+                >
+                  <AppIcon name="rotate-cw" size={13} />
+                  {canvasOrientationKind === 'landscape'
+                    ? 'ដេក → ឈរ'
+                    : canvasOrientationKind === 'portrait'
+                      ? 'ឈរ → ដេក'
+                      : 'ដេក / ឈរ'}
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowGridGuides((g) => !g)}
                   style={{
-                    padding: '0.38rem 0.65rem',
+                    padding: '0.36rem 0.62rem',
                     borderRadius: '9px',
                     border: `1px solid ${showGridGuides ? 'var(--accent-primary)' : 'var(--border-color)'}`,
                     background: showGridGuides
                       ? 'color-mix(in srgb, var(--accent-primary) 12%, var(--main-bg))'
                       : 'var(--main-bg)',
                     color: showGridGuides ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                    fontSize: '0.75rem',
+                    fontSize: '0.74rem',
                     fontWeight: 600,
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.3rem',
+                    gap: '0.28rem',
                   }}
                 >
                   <AppIcon name="maximize" size={13} />
@@ -1814,12 +2450,12 @@ export default function PhotoFrameStudioPage() {
                 </button>
                 <span
                   style={{
-                    fontSize: '0.74rem',
+                    fontSize: '0.73rem',
                     fontWeight: 700,
                     color: 'var(--text-secondary)',
                     background: 'var(--main-bg)',
                     border: '1px solid var(--border-color)',
-                    padding: '0.32rem 0.6rem',
+                    padding: '0.3rem 0.55rem',
                     borderRadius: '9px',
                   }}
                 >
@@ -1992,8 +2628,12 @@ export default function PhotoFrameStudioPage() {
                 <AppIcon name="move" size={14} style={{ color: 'var(--accent-primary)' }} />
                 <span>
                   អូសលើរូបដើម្បីរំកិល • បង្វិល Mouse ឬប្រើម្រាមដៃ ២ ដើម្បីពង្រីក/ពង្រួម — កំពុងសារ៉េ៖{' '}
-                  <strong style={{ color: editMode === 'overlay' ? '#8b5cf6' : 'var(--accent-primary)' }}>
-                    {editMode === 'overlay' ? activeOverlay?.name || 'Frame/Element' : 'រូបថត'}
+                  <strong style={{ color: isOverlayEditContext ? '#8b5cf6' : 'var(--accent-primary)' }}>
+                    {isOverlayEditContext
+                      ? effectiveSelectedOverlayIds.length >= 2
+                        ? `${effectiveSelectedOverlayIds.length} Layers រួមគ្នា`
+                        : activeOverlay?.name || 'Frame/Element'
+                      : 'រូបថត'}
                   </strong>
                 </span>
               </div>
@@ -2359,23 +2999,35 @@ export default function PhotoFrameStudioPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <AppIcon
-                  name={editMode === 'overlay' ? 'sliders' : photoSubTab === 'retouch' ? 'sun' : 'sliders'}
+                  name={
+                    editMode === 'align'
+                      ? 'layers'
+                      : editMode === 'overlay'
+                        ? 'sliders'
+                        : photoSubTab === 'retouch'
+                          ? 'sun'
+                          : 'sliders'
+                  }
                   size={17}
                   style={{
                     color:
-                      editMode === 'overlay'
-                        ? '#8b5cf6'
-                        : photoSubTab === 'retouch'
-                          ? '#f59e0b'
-                          : 'var(--accent-primary)',
+                      editMode === 'align'
+                        ? '#0ea5e9'
+                        : editMode === 'overlay'
+                          ? '#8b5cf6'
+                          : photoSubTab === 'retouch'
+                            ? '#f59e0b'
+                            : 'var(--accent-primary)',
                   }}
                 />
                 <h3 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {editMode === 'overlay'
-                    ? 'សារ៉េទំហំ & ទីតាំង Frame / Element'
-                    : photoSubTab === 'retouch'
-                      ? 'ពន្លឺ & Retouch រូបភាព'
-                      : 'សារ៉េទំហំ & ទីតាំងរូបថត'}
+                  {editMode === 'align'
+                    ? 'តម្រឹម Canvas & ជ្រើស Layer ច្រើន'
+                    : editMode === 'overlay'
+                      ? 'សារ៉េទំហំ & ទីតាំង Frame / Element'
+                      : photoSubTab === 'retouch'
+                        ? 'ពន្លឺ & Retouch រូបភាព'
+                        : 'សារ៉េទំហំ & ទីតាំងរូបថត'}
                 </h3>
               </div>
 
@@ -2552,13 +3204,14 @@ export default function PhotoFrameStudioPage() {
                             </span>
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                commitUndoCheckpoint();
                                 updateActivePhotoAdjustments((adj) => ({
                                   ...adj,
                                   presetId: 'custom',
                                   [slider.key]: 0,
-                                }))
-                              }
+                                }));
+                              }}
                               style={{
                                 border: 'none',
                                 background: val !== 0 ? 'rgba(245, 158, 11, 0.14)' : 'transparent',
@@ -2580,7 +3233,10 @@ export default function PhotoFrameStudioPage() {
                             max={slider.max}
                             step={slider.step}
                             value={val}
+                            onPointerDown={beginContinuousGesture}
+                            onPointerUp={clearPendingGestureCheckpoint}
                             onChange={(e) => {
+                              flushPendingGestureCheckpoint();
                               const nextVal = Number(e.target.value);
                               updateActivePhotoAdjustments((adj) => ({
                                 ...adj,
@@ -2659,7 +3315,10 @@ export default function PhotoFrameStudioPage() {
                         <button
                           key={opt.val}
                           type="button"
-                          onClick={() => updateActivePhotoTransform((pt) => ({ ...pt, fitMode: opt.val, scale: 1, x: 0, y: 0 }))}
+                          onClick={() => {
+                            commitUndoCheckpoint();
+                            updateActivePhotoTransform((pt) => ({ ...pt, fitMode: opt.val, scale: 1, x: 0, y: 0 }));
+                          }}
                           style={{
                             padding: '0.42rem 0.55rem',
                             borderRadius: '9px',
@@ -2692,12 +3351,13 @@ export default function PhotoFrameStudioPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          commitUndoCheckpoint();
                           updateActivePhotoTransform((pt) => ({
                             ...pt,
                             scale: Math.max(0.2, Number((pt.scale - 0.1).toFixed(2))),
-                          }))
-                        }
+                          }));
+                        }}
                         style={{
                           width: '30px',
                           height: '30px',
@@ -2719,19 +3379,23 @@ export default function PhotoFrameStudioPage() {
                         max={4}
                         step={0.02}
                         value={activePhoto.photoTransform.scale}
-                        onChange={(e) =>
-                          updateActivePhotoTransform((pt) => ({ ...pt, scale: Number(e.target.value) }))
-                        }
+                        onPointerDown={beginContinuousGesture}
+                        onPointerUp={clearPendingGestureCheckpoint}
+                        onChange={(e) => {
+                          flushPendingGestureCheckpoint();
+                          updateActivePhotoTransform((pt) => ({ ...pt, scale: Number(e.target.value) }));
+                        }}
                         style={{ flex: 1, accentColor: 'var(--accent-primary)' }}
                       />
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          commitUndoCheckpoint();
                           updateActivePhotoTransform((pt) => ({
                             ...pt,
                             scale: Math.min(4, Number((pt.scale + 0.1).toFixed(2))),
-                          }))
-                        }
+                          }));
+                        }}
                         style={{
                           width: '30px',
                           height: '30px',
@@ -2762,13 +3426,14 @@ export default function PhotoFrameStudioPage() {
                         </span>
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            commitUndoCheckpoint();
                             updateActivePhotoTransform((pt) => {
                               let next = pt.rotation + 90;
                               if (next > 180) next -= 360;
                               return { ...pt, rotation: next };
-                            })
-                          }
+                            });
+                          }}
                           style={{
                             padding: '0.18rem 0.48rem',
                             borderRadius: '7px',
@@ -2794,16 +3459,22 @@ export default function PhotoFrameStudioPage() {
                       max={180}
                       step={1}
                       value={activePhoto.photoTransform.rotation}
-                      onChange={(e) =>
-                        updateActivePhotoTransform((pt) => ({ ...pt, rotation: Number(e.target.value) }))
-                      }
+                      onPointerDown={beginContinuousGesture}
+                      onPointerUp={clearPendingGestureCheckpoint}
+                      onChange={(e) => {
+                        flushPendingGestureCheckpoint();
+                        updateActivePhotoTransform((pt) => ({ ...pt, rotation: Number(e.target.value) }));
+                      }}
                       style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
                     />
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => updateActivePhotoTransform(() => ({ ...DEFAULT_PHOTO_TRANSFORM }))}
+                    onClick={() => {
+                      commitUndoCheckpoint();
+                      updateActivePhotoTransform(() => ({ ...DEFAULT_PHOTO_TRANSFORM }));
+                    }}
                     style={{
                       padding: '0.42rem 0.7rem',
                       borderRadius: '9px',
@@ -2828,24 +3499,93 @@ export default function PhotoFrameStudioPage() {
                   សូមបញ្ចូលរូបថតយ៉ាងតិច ១ រូប ដើម្បីចាប់ផ្តើមសារ៉េទំហំ និងទីតាំងរូបថត។
                 </div>
               )
+            ) : editMode === 'align' ? (
+              <AlignmentPanel
+                hasPhoto={Boolean(activePhoto)}
+                alignPhotoSelected={alignPhotoSelected}
+                onSelectPhotoForAlign={() => {
+                  setAlignPhotoSelected(true);
+                  setAlignScope('canvas');
+                }}
+                overlays={currentOverlays}
+                selectedOverlayIds={effectiveSelectedOverlayIds}
+                onToggleOverlaySelect={handleToggleOverlaySelection}
+                onSelectAllOverlays={handleSelectAllOverlays}
+                onSelectSingleOverlay={handleSelectSingleOverlay}
+                alignScope={alignScope}
+                onAlignScopeChange={setAlignScope}
+                canvasMarginPct={canvasMarginPct}
+                onCanvasMarginPctChange={setCanvasMarginPct}
+                onAlignAction={handleAlignAction}
+                onQuickSnap={(preset) => handleSnapOverlay(preset, true)}
+                onNudgeSelected={handleNudgeSelected}
+                onApplyOverlaysToAllPhotos={handleApplyOverlaysToAllPhotos}
+                photoCount={photos.length}
+              />
             ) : (
               /* OVERLAY (FRAME / ELEMENT) CONTROLS */
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.78rem' }}>
-                {/* Layer Stack List */}
+                {/* Layer Stack List (supports Multi-Select via Checkbox or Ctrl/Cmd+Click) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    ជ្រើស Layer ដែលត្រូវសារ៉េ ({currentOverlays.length})
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      ជ្រើស Layer ដែលត្រូវសារ៉េ ({effectiveSelectedOverlayIds.length}/{currentOverlays.length})
+                    </span>
+                    {currentOverlays.length > 1 && (
+                      <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllOverlays}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#7c3aed',
+                            fontSize: '0.71rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            padding: '0.08rem 0.25rem',
+                          }}
+                        >
+                          ជ្រើសទាំងអស់
+                        </button>
+                        {effectiveSelectedOverlayIds.length >= 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setEditMode('align')}
+                            style={{
+                              border: '1px solid rgba(14, 165, 233, 0.35)',
+                              background: 'rgba(14, 165, 233, 0.1)',
+                              color: '#0284c7',
+                              borderRadius: '6px',
+                              fontSize: '0.69rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: '0.08rem 0.38rem',
+                            }}
+                          >
+                            តម្រឹមរួម
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {currentOverlays.map((ov, i) => {
-                    const isSelected = activeOverlay?.id === ov.id;
+                    const isSelected = effectiveSelectedOverlayIds.includes(ov.id);
+                    const isPrimary = activeOverlay?.id === ov.id;
                     return (
                       <div
                         key={ov.id}
-                        onClick={() => setActiveOverlayId(ov.id)}
+                        onClick={(e) => {
+                          if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                            handleToggleOverlaySelection(ov.id);
+                          } else {
+                            handleSelectSingleOverlay(ov.id);
+                          }
+                        }}
                         style={{
                           padding: '0.42rem 0.55rem',
                           borderRadius: '10px',
-                          border: `1.5px solid ${isSelected ? '#8b5cf6' : 'var(--border-color)'}`,
+                          border: `1.5px solid ${isPrimary ? '#3b82f6' : isSelected ? '#8b5cf6' : 'var(--border-color)'}`,
                           background: isSelected ? 'rgba(139, 92, 246, 0.1)' : 'var(--main-bg)',
                           display: 'flex',
                           alignItems: 'center',
@@ -2854,7 +3594,23 @@ export default function PhotoFrameStudioPage() {
                           cursor: 'pointer',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.42rem', minWidth: 0 }}>
+                          {currentOverlays.length > 1 && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => handleToggleOverlaySelection(ov.id)}
+                              style={{
+                                width: '14px',
+                                height: '14px',
+                                accentColor: '#8b5cf6',
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                              }}
+                              title="ធីកដើម្បីជ្រើស Layer ច្រើនព្រមគ្នា"
+                            />
+                          )}
                           <span
                             style={{
                               fontSize: '0.65rem',
@@ -2888,6 +3644,7 @@ export default function PhotoFrameStudioPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              commitUndoCheckpoint();
                               updateCurrentOverlays((list) =>
                                 list.map((l) => (l.id === ov.id ? { ...l, visible: !l.visible } : l))
                               );
@@ -3000,12 +3757,13 @@ export default function PhotoFrameStudioPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                         <button
                           type="button"
-                          onClick={() =>
-                            updateActiveOverlay((ov) => ({
+                          onClick={() => {
+                            commitUndoCheckpoint();
+                            updateSelectedOverlays((ov) => ({
                               ...ov,
                               scale: Math.max(0.05, Number((ov.scale - 0.05).toFixed(2))),
-                            }))
-                          }
+                            }));
+                          }}
                           style={{
                             width: '30px',
                             height: '30px',
@@ -3027,17 +3785,32 @@ export default function PhotoFrameStudioPage() {
                           max={3}
                           step={0.01}
                           value={activeOverlay.scale}
-                          onChange={(e) => updateActiveOverlay((ov) => ({ ...ov, scale: Number(e.target.value) }))}
+                          onPointerDown={beginContinuousGesture}
+                          onPointerUp={clearPendingGestureCheckpoint}
+                          onChange={(e) => {
+                            flushPendingGestureCheckpoint();
+                            const nextScale = Number(e.target.value);
+                            if (effectiveSelectedOverlayIds.length >= 2) {
+                              const ratio = nextScale / Math.max(0.01, activeOverlay.scale);
+                              updateSelectedOverlays((ov) => ({
+                                ...ov,
+                                scale: Math.max(0.05, Math.min(3.5, Number((ov.scale * ratio).toFixed(3)))),
+                              }));
+                            } else {
+                              updateActiveOverlay((ov) => ({ ...ov, scale: nextScale }));
+                            }
+                          }}
                           style={{ flex: 1, accentColor: '#8b5cf6' }}
                         />
                         <button
                           type="button"
-                          onClick={() =>
-                            updateActiveOverlay((ov) => ({
+                          onClick={() => {
+                            commitUndoCheckpoint();
+                            updateSelectedOverlays((ov) => ({
                               ...ov,
                               scale: Math.min(3, Number((ov.scale + 0.05).toFixed(2))),
-                            }))
-                          }
+                            }));
+                          }}
                           style={{
                             width: '30px',
                             height: '30px',
@@ -3068,7 +3841,10 @@ export default function PhotoFrameStudioPage() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => updateActiveOverlay((ov) => ({ ...ov, rotation: 0 }))}
+                            onClick={() => {
+                              commitUndoCheckpoint();
+                              updateSelectedOverlays((ov) => ({ ...ov, rotation: 0 }));
+                            }}
                             style={{
                               padding: '0.15rem 0.45rem',
                               borderRadius: '6px',
@@ -3089,7 +3865,13 @@ export default function PhotoFrameStudioPage() {
                         max={180}
                         step={1}
                         value={activeOverlay.rotation}
-                        onChange={(e) => updateActiveOverlay((ov) => ({ ...ov, rotation: Number(e.target.value) }))}
+                        onPointerDown={beginContinuousGesture}
+                        onPointerUp={clearPendingGestureCheckpoint}
+                        onChange={(e) => {
+                          flushPendingGestureCheckpoint();
+                          const nextRot = Number(e.target.value);
+                          updateSelectedOverlays((ov) => ({ ...ov, rotation: nextRot }));
+                        }}
                         style={{ width: '100%', accentColor: '#8b5cf6' }}
                       />
                     </div>
@@ -3110,7 +3892,13 @@ export default function PhotoFrameStudioPage() {
                         max={1}
                         step={0.02}
                         value={activeOverlay.opacity}
-                        onChange={(e) => updateActiveOverlay((ov) => ({ ...ov, opacity: Number(e.target.value) }))}
+                        onPointerDown={beginContinuousGesture}
+                        onPointerUp={clearPendingGestureCheckpoint}
+                        onChange={(e) => {
+                          flushPendingGestureCheckpoint();
+                          const nextOp = Number(e.target.value);
+                          updateSelectedOverlays((ov) => ({ ...ov, opacity: nextOp }));
+                        }}
                         style={{ width: '100%', accentColor: '#8b5cf6' }}
                       />
                     </div>
@@ -3262,23 +4050,121 @@ export default function PhotoFrameStudioPage() {
               )}
             </div>
 
-            {/* Aspect Ratio Selector */}
+            {/* Aspect Ratio Selector + Rotate Orientation (Landscape / Portrait) */}
             <div>
-              <div style={{ fontSize: '0.79rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.32rem' }}>
-                សមាមាត្ររូបភាព (Aspect Ratio)
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.4rem',
+                  flexWrap: 'wrap',
+                  marginBottom: '0.38rem',
+                }}
+              >
+                <span style={{ fontSize: '0.79rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  សមាមាត្ររូបភាព (Aspect Ratio)
+                </span>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.22rem',
+                    padding: '2px',
+                    borderRadius: '8px',
+                    background: 'var(--main-bg)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleRotateCanvasOrientation('portrait')}
+                    style={{
+                      padding: '0.2rem 0.48rem',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background:
+                        canvasOrientationKind === 'portrait' ? 'var(--accent-primary)' : 'transparent',
+                      color:
+                        canvasOrientationKind === 'portrait' ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.24rem',
+                    }}
+                    title="ប្តូរ Canvas ជាបញ្ឈរ (Portrait)"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                      <rect x="6" y="3" width="12" height="18" rx="2" />
+                    </svg>
+                    ឈរ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRotateCanvasOrientation('landscape')}
+                    style={{
+                      padding: '0.2rem 0.48rem',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background:
+                        canvasOrientationKind === 'landscape' ? 'var(--accent-primary)' : 'transparent',
+                      color:
+                        canvasOrientationKind === 'landscape' ? '#ffffff' : 'var(--text-secondary)',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.24rem',
+                    }}
+                    title="ប្តូរ Canvas ជាផ្តេក (Landscape)"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                      <rect x="3" y="6" width="18" height="12" rx="2" />
+                    </svg>
+                    ដេក
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRotateCanvasOrientation('toggle')}
+                    style={{
+                      padding: '0.2rem 0.42rem',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--accent-primary)',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    title="បង្វិល 90° (ប្តូរ ដេក ↔ ឈរ)"
+                  >
+                    <AppIcon name="rotate-cw" size={12} />
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.32rem' }}>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                 {ASPECT_RATIO_OPTIONS.map((opt) => {
                   const active = aspectMode === opt.value;
+                  const displayLabel =
+                    active && swapOrientation && opt.swappedShortLabel
+                      ? opt.swappedShortLabel
+                      : opt.shortLabel;
                   return (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setAspectMode(opt.value)}
+                      onClick={() => handleSelectAspectMode(opt.value)}
                       style={{
-                        padding: '0.32rem 0.56rem',
+                        padding: '0.3rem 0.54rem',
                         borderRadius: '8px',
-                        fontSize: '0.74rem',
+                        fontSize: '0.73rem',
                         fontWeight: 700,
                         border: `1px solid ${active ? 'var(--accent-primary)' : 'var(--border-color)'}`,
                         background: active
@@ -3287,8 +4173,9 @@ export default function PhotoFrameStudioPage() {
                         color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                       }}
+                      title={opt.label}
                     >
-                      {opt.shortLabel}
+                      {displayLabel}
                     </button>
                   );
                 })}
@@ -3339,7 +4226,10 @@ export default function PhotoFrameStudioPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem' }}>
                   <button
                     type="button"
-                    onClick={() => setBackgroundColor('transparent')}
+                    onClick={() => {
+                      commitUndoCheckpoint();
+                      setBackgroundColor('transparent');
+                    }}
                     className="photo-frame-checkerboard"
                     style={{
                       width: '28px',
@@ -3352,7 +4242,10 @@ export default function PhotoFrameStudioPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setBackgroundColor('#ffffff')}
+                    onClick={() => {
+                      commitUndoCheckpoint();
+                      setBackgroundColor('#ffffff');
+                    }}
                     style={{
                       width: '28px',
                       height: '28px',
@@ -3365,7 +4258,10 @@ export default function PhotoFrameStudioPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setBackgroundColor('#0f172a')}
+                    onClick={() => {
+                      commitUndoCheckpoint();
+                      setBackgroundColor('#0f172a');
+                    }}
                     style={{
                       width: '28px',
                       height: '28px',
@@ -3379,7 +4275,11 @@ export default function PhotoFrameStudioPage() {
                   <input
                     type="color"
                     value={backgroundColor === 'transparent' ? '#ffffff' : backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    onPointerDown={beginContinuousGesture}
+                    onChange={(e) => {
+                      flushPendingGestureCheckpoint();
+                      setBackgroundColor(e.target.value);
+                    }}
                     style={{
                       width: '28px',
                       height: '28px',
@@ -3580,7 +4480,55 @@ export default function PhotoFrameStudioPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.24rem', flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      disabled={!historyMeta.canUndo}
+                      onClick={handleUndo}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-primary)',
+                        opacity: historyMeta.canUndo ? 1 : 0.4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: historyMeta.canUndo ? 'pointer' : 'not-allowed',
+                      }}
+                      title="Undo"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 14 4 9l5-5" />
+                        <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!historyMeta.canRedo}
+                      onClick={handleRedo}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--main-bg)',
+                        color: 'var(--text-primary)',
+                        opacity: historyMeta.canRedo ? 1 : 0.4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: historyMeta.canRedo ? 'pointer' : 'not-allowed',
+                      }}
+                      title="Redo"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m15 14 5-5-5-5" />
+                        <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+                      </svg>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setFloatingExpanded((v) => !v)}
@@ -3713,7 +4661,7 @@ export default function PhotoFrameStudioPage() {
                     }}
                   >
                     {/* Quick Layer Mode Switcher */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.26rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '0.22rem' }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -3721,18 +4669,18 @@ export default function PhotoFrameStudioPage() {
                           setPhotoSubTab('transform');
                         }}
                         style={{
-                          padding: '0.32rem 0.25rem',
+                          padding: '0.32rem 0.2rem',
                           borderRadius: '8px',
                           border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--border-color)'}`,
                           background: editMode === 'photo' && photoSubTab === 'transform' ? 'var(--accent-primary)' : 'var(--main-bg)',
                           color: editMode === 'photo' && photoSubTab === 'transform' ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '0.68rem',
+                          fontSize: '0.66rem',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.2rem',
+                          gap: '0.16rem',
                         }}
                       >
                         <AppIcon name="image" size={11} />
@@ -3745,18 +4693,18 @@ export default function PhotoFrameStudioPage() {
                           setPhotoSubTab('retouch');
                         }}
                         style={{
-                          padding: '0.32rem 0.25rem',
+                          padding: '0.32rem 0.2rem',
                           borderRadius: '8px',
                           border: `1.5px solid ${editMode === 'photo' && photoSubTab === 'retouch' ? '#f59e0b' : 'var(--border-color)'}`,
                           background: editMode === 'photo' && photoSubTab === 'retouch' ? '#f59e0b' : 'var(--main-bg)',
                           color: editMode === 'photo' && photoSubTab === 'retouch' ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '0.68rem',
+                          fontSize: '0.66rem',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.2rem',
+                          gap: '0.16rem',
                         }}
                       >
                         <AppIcon name="sun" size={11} />
@@ -3769,23 +4717,46 @@ export default function PhotoFrameStudioPage() {
                           if (currentOverlays.length > 0) setEditMode('overlay');
                         }}
                         style={{
-                          padding: '0.32rem 0.25rem',
+                          padding: '0.32rem 0.2rem',
                           borderRadius: '8px',
                           border: `1.5px solid ${editMode === 'overlay' ? '#8b5cf6' : 'var(--border-color)'}`,
                           background: editMode === 'overlay' ? '#8b5cf6' : 'var(--main-bg)',
                           color: editMode === 'overlay' ? '#ffffff' : 'var(--text-primary)',
-                          fontSize: '0.68rem',
+                          fontSize: '0.66rem',
                           fontWeight: 700,
                           cursor: currentOverlays.length === 0 ? 'not-allowed' : 'pointer',
                           opacity: currentOverlays.length === 0 ? 0.45 : 1,
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '0.2rem',
+                          gap: '0.16rem',
                         }}
                       >
                         <AppIcon name="move" size={11} />
-                        Element
+                        Layer
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!activePhoto && currentOverlays.length === 0}
+                        onClick={() => setEditMode('align')}
+                        style={{
+                          padding: '0.32rem 0.2rem',
+                          borderRadius: '8px',
+                          border: `1.5px solid ${editMode === 'align' ? '#0ea5e9' : 'var(--border-color)'}`,
+                          background: editMode === 'align' ? '#0ea5e9' : 'var(--main-bg)',
+                          color: editMode === 'align' ? '#ffffff' : 'var(--text-primary)',
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          cursor: !activePhoto && currentOverlays.length === 0 ? 'not-allowed' : 'pointer',
+                          opacity: !activePhoto && currentOverlays.length === 0 ? 0.45 : 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.16rem',
+                        }}
+                      >
+                        <AppIcon name="layers" size={11} />
+                        តម្រឹម
                       </button>
                     </div>
 
@@ -3939,6 +4910,7 @@ export default function PhotoFrameStudioPage() {
         overlays={currentOverlays}
         overlayImages={loadedImages}
         aspectMode={aspectMode}
+        swapOrientation={swapOrientation}
         primaryFrameImg={primaryFrameImg}
         activePhotoImg={activePhotoImg}
         driveConfig={driveConfig}

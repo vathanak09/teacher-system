@@ -21,6 +21,7 @@ interface SaveDesignAsFrameModalProps {
   overlays: OverlayLayer[];
   overlayImages: Record<string, HTMLImageElement | undefined>;
   aspectMode: AspectRatioMode;
+  swapOrientation?: boolean;
   primaryFrameImg: HTMLImageElement | null;
   activePhotoImg: HTMLImageElement | null;
   driveConfig: DriveUploadConfig | null;
@@ -40,6 +41,7 @@ export default function SaveDesignAsFrameModal({
   overlays,
   overlayImages,
   aspectMode,
+  swapOrientation = false,
   primaryFrameImg,
   activePhotoImg,
   driveConfig,
@@ -83,8 +85,9 @@ export default function SaveDesignAsFrameModal({
         primaryFrameImg,
         photoImg: activePhotoImg,
         qualityMultiplier: qualityMult,
+        swapOrientation,
       }),
-    [aspectMode, primaryFrameImg, activePhotoImg, qualityMult]
+    [aspectMode, primaryFrameImg, activePhotoImg, qualityMult, swapOrientation]
   );
 
   const previewDims = useMemo(() => {
