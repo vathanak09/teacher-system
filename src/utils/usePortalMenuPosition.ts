@@ -57,7 +57,8 @@ export function usePortalMenuPosition({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
       if (
         containerRef.current &&
         !containerRef.current.contains(target) &&
@@ -86,7 +87,8 @@ export function usePortalMenuPosition({
     computePosition();
 
     const handleReposition = (e: Event) => {
-      if (e.target && menuRef.current && menuRef.current.contains(e.target as Node)) {
+      const target = e.target;
+      if (target instanceof Node && menuRef.current && menuRef.current.contains(target)) {
         return;
       }
       computePosition();
