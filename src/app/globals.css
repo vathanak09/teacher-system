@@ -2173,6 +2173,12 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   }
 }
 
+@media screen {
+  .report-card-hidden-screen {
+    display: none !important;
+  }
+}
+
 @media print {
   .no-print {
     display: none !important;
@@ -2558,12 +2564,16 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 
   @keyframes printSidebarSectionPulse {
     0% {
-      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.75);
-      border-color: rgba(56, 189, 248, 0.95);
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.85);
+      border-color: rgba(56, 189, 248, 1);
     }
-    45% {
-      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.35);
-      border-color: rgba(56, 189, 248, 0.95);
+    35% {
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.42);
+      border-color: rgba(56, 189, 248, 0.98);
+    }
+    70% {
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      border-color: rgba(56, 189, 248, 0.85);
     }
     100% {
       box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
@@ -2571,6 +2581,6 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   }
 
   .print-sidebar-section-flash {
-    animation: printSidebarSectionPulse 1.05s ease-out;
+    animation: printSidebarSectionPulse 1.8s ease-out;
   }
 }

@@ -28,11 +28,13 @@ import {
   ReportCardPaperMode,
   ReportCardPastelTheme,
   ReportCardSortMode,
+  ReportCardSubjectFilterItem,
   StudentReportCardData,
   StudentReportCardSharedProps,
   StudentReportPairA4LandscapeSheet,
   StudentReportSingleA5Sheet,
   buildStudentReportCardsForClass,
+  getReportCardAvailableSubjectItems,
   toArabicDigits,
 } from './StudentReportCardSheet';
 
@@ -83,6 +85,16 @@ export default function StudentReportCardModal({
   const [selectedStudentUids, setSelectedStudentUids] = useState<string[] | null>(null);
   const studentMenuRef = useRef<HTMLDivElement>(null);
 
+  // Subject columns picker popover (synced from score entry table)
+  const [isSubjectMenuOpen, setIsSubjectMenuOpen] = useState(false);
+  const [subjectSearch, setSubjectSearch] = useState('');
+  const [hiddenSubjectKeys, setHiddenSubjectKeys] = useState<string[]>([]);
+  const subjectMenuRef = useRef<HTMLDivElement>(null);
+
+  // Single-page preview toggle & pagination
+  const [singlePageView, setSinglePageView] = useState<boolean>(false);
+  const [activePageIdx, setActivePageIdx] = useState<number>(0);
+
   // Layout, Theme & Content Options
   const [paperMode, setPaperMode] = useState<ReportCardPaperMode>('a4_landscape_2up');
   const [themeId, setThemeId] = useState<string>(REPORT_CARD_PASTEL_THEMES[0].id);
@@ -102,9 +114,7 @@ export default function StudentReportCardModal({
 
   // Branding & Editable Text Fields
   const [logoUrl, setLogoUrl] = useState<string>(
-    scoreSettings?.reportCardLogoUrl ||
-      scoreSettings?.verticalLogoUrl ||
-      DEFAULT_RECEIPT_HEADER_DRIVE_URL
+    scoreSettings?.reportCardLogoUrl || DEFAULT_RECEIPT_HEADER_DRIVE_URL
   );
   const [logoHeightMm, setLogoHeightMm] = useState<number>(15);
   const [stampUrl, setStampUrl] = useState<string>(scoreSettings?.resultStampUrl || '');
@@ -160,9 +170,7 @@ export default function StudentReportCardModal({
   useEffect(() => {
     if (!isOpen) return;
     setLogoUrl(
-      scoreSettings?.reportCardLogoUrl ||
-        scoreSettings?.verticalLogoUrl ||
-        DEFAULT_RECEIPT_HEADER_DRIVE_URL
+      scoreSettings?.reportCardLogoUrl || DEFAULT_RECEIPT_HEADER_DRIVE_URL
     );
     setStampUrl(scoreSettings?.resultStampUrl || '');
     setSignatureUrl(scoreSettings?.resultSignatureUrl || '');
@@ -174,7 +182,6 @@ export default function StudentReportCardModal({
   }, [
     isOpen,
     scoreSettings?.reportCardLogoUrl,
-    scoreSettings?.verticalLogoUrl,
     scoreSettings?.resultStampUrl,
     scoreSettings?.resultSignatureUrl,
     scoreSettings?.resultSignatoryName,
@@ -221,7 +228,9 @@ export default function StudentReportCardModal({
     if (!isOpen) return;
     setIsClassMenuOpen(false);
     setIsStudentMenuOpen(false);
+    setIsSubjectMenuOpen(false);
     setSelectedStudentUids(null);
+    setActivePageIdx(0);
     if (initialClassId && classes.some((c) => c.id === initialClassId)) {
       setSelectedClassIds([initialClassId]);
       return;
@@ -291,18 +300,23 @@ export default function StudentReportCardModal({
 
   // Close popovers when clicking outside
   useEffect(() => {
-    if (!isClassMenuOpen && !isStudentMenuOpen) return;
+    if (!isClassMenuOpen && !isStudentMenuOpen && !isSubjectMenuOpen) return;
     const handleOutside = (e: MouseEvent) => {
-      if (isClassMenuOpen && classMenuRef.current && !classMenuRef.current.contains(e.target as Node)) {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (isClassMenuOpen && classMenuRef.current && !classMenuRef.current.contains(target)) {
         setIsClassMenuOpen(false);
       }
-      if (isStudentMenuOpen && studentMenuRef.current && !studentMenuRef.current.contains(e.target as Node)) {
+      if (isStudentMenuOpen && studentMenuRef.current && !studentMenuRef.current.contains(target)) {
         setIsStudentMenuOpen(false);
+      }
+      if (isSubjectMenuOpen && subjectMenuRef.current && !subjectMenuRef.current.contains(target)) {
+        setIsSubjectMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
-  }, [isClassMenuOpen, isStudentMenuOpen]);
+  }, [isClassMenuOpen, isStudentMenuOpen, isSubjectMenuOpen]);
 
   const activeSheetSpec =
     paperMode === 'a4_landscape_2up'
@@ -346,11 +360,62 @@ export default function StudentReportCardModal({
     [themeId]
   );
 
+  const selectedClassObjects = useMemo(() => {
+    const selectedSet = new Set(selectedClassIds);
+    return sortedClasses.filter((c) => selectedSet.has(c.id));
+  }, [sortedClasses, selectedClassIds]);
+
+  // All active columns from the score entry table + 3 trait columns for the selected classes & month
+  const availableSubjectItems: ReportCardSubjectFilterItem[] = useMemo(
+    () =>
+      getReportCardAvailableSubjectItems({
+        selectedClasses: selectedClassObjects,
+        monthCoeffMap,
+        scoreSettings,
+      }),
+    [selectedClassObjects, monthCoeffMap, scoreSettings]
+  );
+
+  const visibleSubjectCount = useMemo(() => {
+    const hiddenSet = new Set(hiddenSubjectKeys);
+    return availableSubjectItems.filter(
+      (item) =>
+        !hiddenSet.has(item.key) &&
+        (includeExamColumns || item.kind !== 'exam') &&
+        (includeTraitPunctuality || item.key !== 'punctuality')
+    ).length;
+  }, [availableSubjectItems, hiddenSubjectKeys, includeExamColumns, includeTraitPunctuality]);
+
+  const filteredSubjectItems = useMemo(() => {
+    const q = subjectSearch.trim().toLowerCase();
+    if (!q) return availableSubjectItems;
+    return availableSubjectItems.filter(
+      (item) =>
+        item.labelKh.toLowerCase().includes(q) ||
+        item.labelEn.toLowerCase().includes(q) ||
+        item.key.toLowerCase().includes(q)
+    );
+  }, [availableSubjectItems, subjectSearch]);
+
+  const toggleSubjectVisibility = (key: string) => {
+    setHiddenSubjectKeys((prev) => {
+      const exists = prev.includes(key);
+      if (exists) {
+        if (key === 'quiz' || key === 'exercise' || key === 'test') {
+          setIncludeExamColumns(true);
+        }
+        if (key === 'punctuality') {
+          setIncludeTraitPunctuality(true);
+        }
+        return prev.filter((k) => k !== key);
+      }
+      return [...prev, key];
+    });
+  };
+
   // Build all candidate student report cards for selected classes
   const allCandidateCards: StudentReportCardData[] = useMemo(() => {
-    const selectedSet = new Set(selectedClassIds);
-    return sortedClasses
-      .filter((c) => selectedSet.has(c.id))
+    return selectedClassObjects
       .flatMap((classObj) => {
         const classScoreRows = allScores.filter(
           (s: any) => s?.classId === classObj.id && s?.month === selectedMonth
@@ -368,12 +433,12 @@ export default function StudentReportCardModal({
           includeUnscored: includeUnscored || Boolean(initialStudentId),
           includeExamColumns,
           includeTraitPunctuality,
+          hiddenSubjectKeys,
           attendanceMap,
         });
       });
   }, [
-    sortedClasses,
-    selectedClassIds,
+    selectedClassObjects,
     allScores,
     selectedMonth,
     allStudents,
@@ -387,6 +452,7 @@ export default function StudentReportCardModal({
     initialStudentId,
     includeExamColumns,
     includeTraitPunctuality,
+    hiddenSubjectKeys,
     attendanceMap,
   ]);
 
@@ -461,6 +527,15 @@ export default function StudentReportCardModal({
     return pairs;
   }, [activeCards, paperMode]);
 
+  // Keep activePageIdx valid whenever renderedPages shrinks or filters change
+  useEffect(() => {
+    if (renderedPages.length === 0) {
+      setActivePageIdx(0);
+    } else if (activePageIdx >= renderedPages.length) {
+      setActivePageIdx(renderedPages.length - 1);
+    }
+  }, [renderedPages.length, activePageIdx]);
+
   const handlePrint = () => {
     if (typeof window === 'undefined' || renderedPages.length === 0) return;
 
@@ -518,6 +593,8 @@ export default function StudentReportCardModal({
     includeUnscored,
     includeExamColumns,
     includeTraitPunctuality,
+    hiddenSubjectKeys,
+    singlePageView,
     showStudentPhoto,
     showNumericScores,
     showAttendance,
@@ -543,6 +620,10 @@ export default function StudentReportCardModal({
     if (typeof opts.includeUnscored === 'boolean') setIncludeUnscored(opts.includeUnscored);
     if (typeof opts.includeExamColumns === 'boolean') setIncludeExamColumns(opts.includeExamColumns);
     if (typeof opts.includeTraitPunctuality === 'boolean') setIncludeTraitPunctuality(opts.includeTraitPunctuality);
+    if (Array.isArray(opts.hiddenSubjectKeys)) {
+      setHiddenSubjectKeys(opts.hiddenSubjectKeys.map((k: unknown) => String(k)));
+    }
+    if (typeof opts.singlePageView === 'boolean') setSinglePageView(opts.singlePageView);
     if (typeof opts.showStudentPhoto === 'boolean') setShowStudentPhoto(opts.showStudentPhoto);
     if (typeof opts.showNumericScores === 'boolean') setShowNumericScores(opts.showNumericScores);
     if (typeof opts.showAttendance === 'boolean') setShowAttendance(opts.showAttendance);
@@ -1035,6 +1116,256 @@ export default function StudentReportCardModal({
               )}
             </div>
 
+            {/* Subject Columns Dropdown Checkbox (Show/Hide Score-Table Subjects on Print) */}
+            <div ref={subjectMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setIsSubjectMenuOpen((v) => !v)}
+                style={{
+                  padding: '0.38rem 0.65rem',
+                  borderRadius: '8px',
+                  background:
+                    visibleSubjectCount < availableSubjectItems.length
+                      ? 'rgba(245, 158, 11, 0.2)'
+                      : '#1e293b',
+                  border: `1px solid ${
+                    isSubjectMenuOpen || visibleSubjectCount < availableSubjectItems.length
+                      ? '#fbbf24'
+                      : 'rgba(148, 163, 184, 0.35)'
+                  }`,
+                  color: '#f8fafc',
+                  fontSize: '0.79rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.36rem',
+                }}
+                title="ជ្រើសរើសមុខវិជ្ជាពីតារាងបញ្ចូលពិន្ទុ ដើម្បីបង្ហាញ ឬលាក់ពេល Print"
+              >
+                <AppIcon name="sliders" size={13} />
+                <span>
+                  មុខវិជ្ជា ({visibleSubjectCount}/{availableSubjectItems.length})
+                </span>
+                <AppIcon name="chevron-down" size={14} />
+              </button>
+
+              {isSubjectMenuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    width: '320px',
+                    maxHeight: '390px',
+                    background: '#1e293b',
+                    border: '1px solid rgba(148, 163, 184, 0.35)',
+                    borderRadius: '10px',
+                    boxShadow: '0 14px 36px rgba(0, 0, 0, 0.55)',
+                    padding: '0.55rem',
+                    zIndex: 50,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.45rem',
+                  }}
+                >
+                  <div style={{ fontSize: '0.73rem', fontWeight: 700, color: '#fde68a' }}>
+                    មុខវិជ្ជាពីតារាងបញ្ចូលពិន្ទុ (បង្ហាញ/លាក់ពេល Print)
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="ស្វែងរកមុខវិជ្ជា..."
+                    value={subjectSearch}
+                    onChange={(e) => setSubjectSearch(e.target.value)}
+                    style={fieldInputStyle}
+                  />
+                  <div style={{ display: 'flex', gap: '0.32rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHiddenSubjectKeys([]);
+                        setIncludeExamColumns(true);
+                        setIncludeTraitPunctuality(true);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '0.26rem 0.4rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                        background: 'rgba(52, 211, 153, 0.14)',
+                        color: '#6ee7b7',
+                        fontSize: '0.71rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      បង្ហាញទាំងអស់
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIncludeExamColumns(false);
+                        setHiddenSubjectKeys((prev) =>
+                          Array.from(new Set([...prev, 'quiz', 'exercise', 'test']))
+                        );
+                      }}
+                      style={{
+                        padding: '0.26rem 0.45rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(251, 191, 36, 0.38)',
+                        background: 'rgba(251, 191, 36, 0.12)',
+                        color: '#fde68a',
+                        fontSize: '0.71rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      លាក់ Quiz/Ex/Test
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHiddenSubjectKeys(availableSubjectItems.map((item) => item.key))
+                      }
+                      style={{
+                        padding: '0.26rem 0.45rem',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(248, 113, 113, 0.35)',
+                        background: 'rgba(248, 113, 113, 0.1)',
+                        color: '#fca5a5',
+                        fontSize: '0.71rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      លាក់អស់
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.22rem',
+                      maxHeight: '245px',
+                    }}
+                  >
+                    {filteredSubjectItems.map((item) => {
+                      const isShown =
+                        !hiddenSubjectKeys.includes(item.key) &&
+                        (includeExamColumns || item.kind !== 'exam') &&
+                        (includeTraitPunctuality || item.key !== 'punctuality');
+                      return (
+                        <label
+                          key={item.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '0.32rem 0.45rem',
+                            borderRadius: '6px',
+                            background: isShown ? 'rgba(16, 185, 129, 0.14)' : 'transparent',
+                            color: '#f1f5f9',
+                            fontSize: '0.77rem',
+                            cursor: 'pointer',
+                            gap: '0.38rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={isShown}
+                              onChange={() => toggleSubjectVisibility(item.key)}
+                            />
+                            <span
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                background: item.dotColor,
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {item.labelKh}
+                            </span>
+                            {item.labelEn && item.labelEn !== item.labelKh && (
+                              <span style={{ color: '#94a3b8', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                                ({item.labelEn})
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            style={{
+                              fontSize: '0.66rem',
+                              padding: '0.06rem 0.36rem',
+                              borderRadius: '999px',
+                              background:
+                                item.kind === 'exam'
+                                  ? 'rgba(99, 102, 241, 0.22)'
+                                  : item.kind === 'trait'
+                                    ? 'rgba(14, 165, 233, 0.2)'
+                                    : 'rgba(16, 185, 129, 0.18)',
+                              color:
+                                item.kind === 'exam'
+                                  ? '#c7d2fe'
+                                  : item.kind === 'trait'
+                                    ? '#7dd3fc'
+                                    : '#6ee7b7',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.kind === 'exam'
+                              ? 'ប្រឡង'
+                              : item.kind === 'trait'
+                                ? 'វាយតម្លៃ'
+                                : 'មុខវិជ្ជា'}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Single-Page Preview View Checkbox */}
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.36rem',
+                padding: '0.35rem 0.62rem',
+                borderRadius: '8px',
+                background: singlePageView ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+                border: `1px solid ${singlePageView ? '#38bdf8' : 'rgba(148, 163, 184, 0.35)'}`,
+                color: singlePageView ? '#e0f2fe' : '#e2e8f0',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+              }}
+              title="ធីកដើម្បីមើលផ្ទាំងលទ្ធផលម្ដងមួយទំព័រ (នៅពេល Print នៅតែព្រីនគ្រប់ទំព័រទាំងអស់)"
+            >
+              <input
+                type="checkbox"
+                checked={singlePageView}
+                onChange={(e) => setSinglePageView(e.target.checked)}
+                style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+              />
+              <span>មើលម្ដង ១ ទំព័រ</span>
+            </label>
+
             {/* Month Picker */}
             <input
               type="month"
@@ -1312,16 +1643,49 @@ export default function StudentReportCardModal({
                   <span>បង្ហាញលេខពិន្ទុ</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#e2e8f0', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={includeExamColumns} onChange={(e) => setIncludeExamColumns(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={
+                      includeExamColumns &&
+                      !hiddenSubjectKeys.includes('quiz') &&
+                      !hiddenSubjectKeys.includes('exercise') &&
+                      !hiddenSubjectKeys.includes('test')
+                    }
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIncludeExamColumns(next);
+                      setHiddenSubjectKeys((prev) =>
+                        next
+                          ? prev.filter((k) => k !== 'quiz' && k !== 'exercise' && k !== 'test')
+                          : Array.from(new Set([...prev, 'quiz', 'exercise', 'test']))
+                      );
+                    }}
+                  />
                   <span>Quiz / Ex / Test</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#e2e8f0', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={includeTraitPunctuality} onChange={(e) => setIncludeTraitPunctuality(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={includeTraitPunctuality && !hiddenSubjectKeys.includes('punctuality')}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIncludeTraitPunctuality(next);
+                      setHiddenSubjectKeys((prev) =>
+                        next
+                          ? prev.filter((k) => k !== 'punctuality')
+                          : Array.from(new Set([...prev, 'punctuality']))
+                      );
+                    }}
+                  />
                   <span>ឧស្សាហ៍ព្យាយាម</span>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#e2e8f0', cursor: 'pointer' }}>
                   <input type="checkbox" checked={includeUnscored} onChange={(e) => setIncludeUnscored(e.target.checked)} />
                   <span>សិស្សអត់ពិន្ទុ</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#7dd3fc', cursor: 'pointer', fontWeight: 700 }}>
+                  <input type="checkbox" checked={singlePageView} onChange={(e) => setSinglePageView(e.target.checked)} />
+                  <span>មើលម្ដង ១ ទំព័រ</span>
                 </label>
                 {paperMode === 'a4_landscape_2up' && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#e2e8f0', cursor: 'pointer' }}>
@@ -1655,15 +2019,113 @@ export default function StudentReportCardModal({
                 </div>
               </div>
             ) : (
-              renderedPages.map((pg, idx) => (
-                <div
-                  key={pg.key}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
+              <>
+                {singlePageView && (
+                  <div
+                    className="no-print"
+                    style={{
+                      position: 'sticky',
+                      top: '0.5rem',
+                      zIndex: 15,
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      justifyContent: 'center',
+                      gap: '0.55rem',
+                      padding: '0.52rem 0.85rem',
+                      borderRadius: '12px',
+                      background: 'rgba(15, 23, 42, 0.92)',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      boxShadow: '0 10px 28px rgba(0, 0, 0, 0.42)',
+                      backdropFilter: 'blur(8px)',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={activePageIdx <= 0}
+                      onClick={() => setActivePageIdx((p) => Math.max(0, p - 1))}
+                      style={{
+                        padding: '0.35rem 0.7rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(148, 163, 184, 0.35)',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: activePageIdx <= 0 ? 'not-allowed' : 'pointer',
+                        opacity: activePageIdx <= 0 ? 0.4 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      <AppIcon name="chevron-left" size={14} />
+                      ទំព័រមុន
+                    </button>
+
+                    <select
+                      value={activePageIdx}
+                      onChange={(e) => setActivePageIdx(Number(e.target.value))}
+                      style={{
+                        padding: '0.34rem 0.65rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(56, 189, 248, 0.45)',
+                        background: '#0f172a',
+                        color: '#e0f2fe',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        outline: 'none',
+                        maxWidth: '330px',
+                      }}
+                    >
+                      {renderedPages.map((pageItem, pIdx) => (
+                        <option key={pageItem.key} value={pIdx}>
+                          ទំព័រទី {pIdx + 1} / {renderedPages.length} — {pageItem.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={activePageIdx >= renderedPages.length - 1}
+                      onClick={() =>
+                        setActivePageIdx((p) => Math.min(renderedPages.length - 1, p + 1))
+                      }
+                      style={{
+                        padding: '0.35rem 0.7rem',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(148, 163, 184, 0.35)',
+                        background: '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        cursor: activePageIdx >= renderedPages.length - 1 ? 'not-allowed' : 'pointer',
+                        opacity: activePageIdx >= renderedPages.length - 1 ? 0.4 : 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      ទំព័របន្ទាប់
+                      <AppIcon name="chevron-right" size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {renderedPages.map((pg, idx) => (
+                  <div
+                    key={pg.key}
+                    className={
+                      singlePageView && idx !== activePageIdx
+                        ? 'report-card-hidden-screen'
+                        : undefined
+                    }
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
                   <div
                     className="no-print"
                     style={{
@@ -1723,7 +2185,8 @@ export default function StudentReportCardModal({
                     </div>
                   </div>
                 </div>
-              ))
+              ))}
+              </>
             )}
           </div>
         </div>

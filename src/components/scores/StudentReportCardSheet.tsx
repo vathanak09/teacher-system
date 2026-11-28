@@ -443,6 +443,65 @@ function buildAutoRecommendation(
   return parts.join(' ');
 }
 
+export interface ReportCardSubjectFilterItem {
+  key: string;
+  labelKh: string;
+  labelEn: string;
+  dotColor: string;
+  kind: 'subject' | 'exam' | 'trait';
+}
+
+/**
+ * Collects the ordered union of active score-table columns across the selected classes
+ * plus the 3 trait columns so the print modal can toggle showing/hiding each item.
+ */
+export function getReportCardAvailableSubjectItems(params: {
+  selectedClasses: any[];
+  monthCoeffMap: Record<string, any>;
+  scoreSettings: any;
+}): ReportCardSubjectFilterItem[] {
+  const { selectedClasses, monthCoeffMap, scoreSettings } = params;
+  const itemMap = new Map<string, ReportCardSubjectFilterItem>();
+
+  const registerCols = (cols: ActiveScoreSubjectColumn[]) => {
+    cols.forEach((col, idx) => {
+      if (itemMap.has(col.key)) return;
+      const known = KNOWN_SUBJECT_BILINGUAL_MAP[col.key.toLowerCase()];
+      itemMap.set(col.key, {
+        key: col.key,
+        labelKh: known ? known.labelKh : col.label,
+        labelEn: known ? known.labelEn : col.label,
+        dotColor: known?.dotColor || FALLBACK_DOT_COLORS[idx % FALLBACK_DOT_COLORS.length],
+        kind: LOCKED_SUBJECT_KEY_SET.has(col.key) ? 'exam' : 'subject',
+      });
+    });
+  };
+
+  if (selectedClasses.length === 0) {
+    const fallbackCfg = resolveClassColumnsConfig(null, scoreSettings?.defaultColumnsConfig);
+    registerCols(getActiveSubjectColumns(fallbackCfg));
+  } else {
+    selectedClasses.forEach((cls) => {
+      const classMonthEntry = cls?.id ? monthCoeffMap?.[cls.id] : null;
+      const cfg = resolveClassColumnsConfig(classMonthEntry, scoreSettings?.defaultColumnsConfig);
+      registerCols(getActiveSubjectColumns(cfg));
+    });
+  }
+
+  TRAIT_EVALUATION_COLUMNS.forEach((trait) => {
+    const known = KNOWN_SUBJECT_BILINGUAL_MAP[trait.key];
+    itemMap.set(trait.key, {
+      key: trait.key,
+      labelKh: trait.labelKh,
+      labelEn: trait.labelEn,
+      dotColor: known?.dotColor || '#10b981',
+      kind: 'trait',
+    });
+  });
+
+  return Array.from(itemMap.values());
+}
+
 export interface BuildReportCardsParams {
   classObj: any;
   allStudents: any[];
@@ -454,8 +513,9 @@ export interface BuildReportCardsParams {
   sortMode: ReportCardSortMode;
   splitBehavior: 'auto' | 'always' | 'never';
   includeUnscored: boolean;
-  includeExamColumns: boolean;
-  includeTraitPunctuality: boolean;
+  includeExamColumns?: boolean;
+  includeTraitPunctuality?: boolean;
+  hiddenSubjectKeys?: string[];
   attendanceMap: MonthlyAttendanceCountMap;
 }
 
@@ -470,8 +530,9 @@ export function buildStudentReportCardsForClass({
   sortMode,
   splitBehavior,
   includeUnscored,
-  includeExamColumns,
-  includeTraitPunctuality,
+  includeExamColumns = true,
+  includeTraitPunctuality = true,
+  hiddenSubjectKeys = [],
   attendanceMap,
 }: BuildReportCardsParams): StudentReportCardData[] {
   const packets: MonthlyResultClassPacket[] = computeMonthlyResultPacketsForClass(
@@ -489,6 +550,8 @@ export function buildStudentReportCardsForClass({
     splitBehavior
   );
 
+  const hiddenSet = new Set<string>(hiddenSubjectKeys);
+
   // Resolve exact active score columns for this class + month
   const classMonthEntry = classObj?.id ? monthCoeffMap?.[classObj.id] : null;
   const colsConfig = resolveClassColumnsConfig(
@@ -496,7 +559,9 @@ export function buildStudentReportCardsForClass({
     scoreSettings?.defaultColumnsConfig
   );
   const activeCols: ActiveScoreSubjectColumn[] = getActiveSubjectColumns(colsConfig).filter(
-    (col) => includeExamColumns || !LOCKED_SUBJECT_KEY_SET.has(col.key)
+    (col) =>
+      !hiddenSet.has(col.key) &&
+      (includeExamColumns || !LOCKED_SUBJECT_KEY_SET.has(col.key))
   );
 
   // Precompute max scale per numeric column across this class so numeric scores map cleanly to Excellent/Good/Fair/Poor
@@ -536,7 +601,7 @@ export function buildStudentReportCardsForClass({
 
   const cards: StudentReportCardData[] = [];
   const activeTraits = TRAIT_EVALUATION_COLUMNS.filter(
-    (t) => includeTraitPunctuality || t.key !== 'punctuality'
+    (t) => !hiddenSet.has(t.key) && (includeTraitPunctuality || t.key !== 'punctuality')
   );
 
   packets.forEach((pkt) => {

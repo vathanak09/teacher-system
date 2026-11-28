@@ -35,6 +35,7 @@ import {
 } from '@/components/print/printStylePresets';
 
 export interface MonthlyResultBrandingConfig {
+  monthlyResultVerticalLogoUrl?: string;
   verticalLogoUrl?: string;
   reportCardLogoUrl?: string;
   resultStampUrl?: string;
@@ -42,6 +43,11 @@ export interface MonthlyResultBrandingConfig {
   resultSignatoryName?: string;
   resultThemeId?: string;
 }
+
+const resolveMonthlyVerticalLogoSetting = (settings?: MonthlyResultBrandingConfig): string =>
+  settings?.monthlyResultVerticalLogoUrl !== undefined
+    ? String(settings.monthlyResultVerticalLogoUrl || '')
+    : String(settings?.verticalLogoUrl || '');
 
 export interface MonthlyResultPrintModalProps {
   isOpen: boolean;
@@ -89,7 +95,9 @@ export default function MonthlyResultPrintModal({
   const [showStampAndSignature, setShowStampAndSignature] = useState<boolean>(true);
 
   const [themeId, setThemeId] = useState<string>(scoreSettings?.resultThemeId || RESULT_COLOR_THEMES[0].id);
-  const [verticalLogoUrl, setVerticalLogoUrl] = useState<string>(scoreSettings?.verticalLogoUrl || '');
+  const [verticalLogoUrl, setVerticalLogoUrl] = useState<string>(() =>
+    resolveMonthlyVerticalLogoSetting(scoreSettings)
+  );
   const [stampUrl, setStampUrl] = useState<string>(scoreSettings?.resultStampUrl || '');
   const [signatureUrl, setSignatureUrl] = useState<string>(scoreSettings?.resultSignatureUrl || '');
   const [signatoryName, setSignatoryName] = useState<string>(
@@ -240,7 +248,7 @@ export default function MonthlyResultPrintModal({
   useEffect(() => {
     if (!isOpen) return;
     setThemeId(scoreSettings?.resultThemeId || RESULT_COLOR_THEMES[0].id);
-    setVerticalLogoUrl(scoreSettings?.verticalLogoUrl || '');
+    setVerticalLogoUrl(resolveMonthlyVerticalLogoSetting(scoreSettings));
     setStampUrl(scoreSettings?.resultStampUrl || '');
     setSignatureUrl(scoreSettings?.resultSignatureUrl || '');
     setSignatoryName(scoreSettings?.resultSignatoryName || 'សំរិត វឌ្ឍនៈ');
@@ -251,6 +259,7 @@ export default function MonthlyResultPrintModal({
   }, [
     isOpen,
     scoreSettings?.resultThemeId,
+    scoreSettings?.monthlyResultVerticalLogoUrl,
     scoreSettings?.verticalLogoUrl,
     scoreSettings?.resultStampUrl,
     scoreSettings?.resultSignatureUrl,
@@ -470,7 +479,7 @@ export default function MonthlyResultPrintModal({
     setSaveFeedback('');
     try {
       await onSaveBrandingSettings({
-        verticalLogoUrl: verticalLogoUrl.trim(),
+        monthlyResultVerticalLogoUrl: verticalLogoUrl.trim(),
         resultStampUrl: stampUrl.trim(),
         resultSignatureUrl: signatureUrl.trim(),
         resultSignatoryName: signatoryName.trim() || 'សំរិត វឌ្ឍនៈ',

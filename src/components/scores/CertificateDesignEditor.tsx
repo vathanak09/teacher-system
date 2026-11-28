@@ -122,30 +122,81 @@ export default function CertificateDesignEditor({
   const [frameDragEnabled, setFrameDragEnabled] = useState<boolean>(false);
   const [draggingFrame, setDraggingFrame] = useState<boolean>(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('element');
+  const [highlightedInspectorTab, setHighlightedInspectorTab] = useState<InspectorTab | null>(null);
   const [showMarginGuide, setShowMarginGuide] = useState<boolean>(true);
   const [newTemplateName, setNewTemplateName] = useState<string>('');
   const [editorScale, setEditorScale] = useState<number>(0.9);
   const stageWrapperRef = useRef<HTMLDivElement>(null);
   const inspectorCardRef = useRef<HTMLDivElement>(null);
+  const positionCardRef = useRef<HTMLDivElement>(null);
+  const inspectorTabBarRef = useRef<HTMLDivElement>(null);
+  const inspectorTabRef = useRef<InspectorTab>('element');
+  inspectorTabRef.current = inspectorTab;
+  const pendingElementFlashRef = useRef<boolean>(false);
+  const inspectorFlashTimerRef = useRef<number | null>(null);
+  const inspectorTabHighlightTimerRef = useRef<number | null>(null);
 
   const flashInspectorCard = () => {
+    if (typeof window === 'undefined') return;
     window.setTimeout(() => {
-      const el = inspectorCardRef.current;
+      const ctxEl = inspectorCardRef.current;
+      const el = ctxEl && ctxEl.childElementCount > 0 ? ctxEl : positionCardRef.current;
       if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Highlight where the element/text-block setting lives without scrolling or jumping to it
       el.classList.remove('print-sidebar-section-flash');
       void el.offsetWidth;
       el.classList.add('print-sidebar-section-flash');
-      window.setTimeout(() => el.classList.remove('print-sidebar-section-flash'), 1150);
+      if (inspectorFlashTimerRef.current) window.clearTimeout(inspectorFlashTimerRef.current);
+      inspectorFlashTimerRef.current = window.setTimeout(() => {
+        el.classList.remove('print-sidebar-section-flash');
+      }, 1900);
     }, 45);
   };
+
+  const indicateElementSettingLocation = () => {
+    if (inspectorTabRef.current === 'element') {
+      pendingElementFlashRef.current = false;
+      setHighlightedInspectorTab(null);
+      flashInspectorCard();
+      return;
+    }
+    // Keep user on current tab and highlight the tab where element settings live
+    pendingElementFlashRef.current = true;
+    setHighlightedInspectorTab('element');
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const btn = inspectorTabBarRef.current?.querySelector(
+          '[data-inspector-tab="element"]'
+        ) as HTMLElement | null;
+        if (!btn) return;
+        btn.classList.remove('print-sidebar-section-flash');
+        void btn.offsetWidth;
+        btn.classList.add('print-sidebar-section-flash');
+        window.setTimeout(() => btn.classList.remove('print-sidebar-section-flash'), 1900);
+      }, 20);
+      if (inspectorTabHighlightTimerRef.current) {
+        window.clearTimeout(inspectorTabHighlightTimerRef.current);
+      }
+      inspectorTabHighlightTimerRef.current = window.setTimeout(() => {
+        setHighlightedInspectorTab((prev) => (prev === 'element' ? null : prev));
+      }, 4500);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (inspectorFlashTimerRef.current) window.clearTimeout(inspectorFlashTimerRef.current);
+      if (inspectorTabHighlightTimerRef.current) {
+        window.clearTimeout(inspectorTabHighlightTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!initialSelectedKey) return;
     setSelectedCustomTextId(null);
     setSelectedKey(initialSelectedKey);
-    setInspectorTab('element');
-    flashInspectorCard();
+    indicateElementSettingLocation();
   }, [initialSelectedKey]);
 
   const [selectedCustomTextId, setSelectedCustomTextId] = useState<string | null>(null);
@@ -546,8 +597,7 @@ export default function CertificateDesignEditor({
     setSelectedCustomTextId(null);
     setSelectedKey(key);
     setDraggingKey(key);
-    setInspectorTab('element');
-    flashInspectorCard();
+    indicateElementSettingLocation();
     document.body.style.cursor = 'grabbing';
     const el = latestDesignRef.current.elements[key];
     dragStateRef.current = {
@@ -566,8 +616,7 @@ export default function CertificateDesignEditor({
     e.stopPropagation();
     setSelectedCustomTextId(id);
     setDraggingCustomTextId(id);
-    setInspectorTab('element');
-    flashInspectorCard();
+    indicateElementSettingLocation();
     document.body.style.cursor = 'grabbing';
     const box = (latestDesignRef.current.customTextBoxes || []).find((b) => b.id === id);
     if (!box) return;
@@ -1231,6 +1280,7 @@ export default function CertificateDesignEditor({
 
         {/* Inspector Mode Tabs */}
         <div
+          ref={inspectorTabBarRef}
           style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr',
@@ -1244,25 +1294,62 @@ export default function CertificateDesignEditor({
             { id: 'element' as InspectorTab, label: 'ទីតាំងធាតុ' },
             { id: 'typography' as InspectorTab, label: 'ពុម្ពអក្សរ & ពណ៌' },
             { id: 'images' as InspectorTab, label: 'រូបភាព, បូរ & ផ្ទៃ' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setInspectorTab(tab.id)}
-              style={{
-                padding: '0.34rem 0.4rem',
-                borderRadius: '6px',
-                border: 'none',
-                background: inspectorTab === tab.id ? '#2563eb' : 'transparent',
-                color: inspectorTab === tab.id ? '#ffffff' : '#94a3b8',
-                fontSize: '0.74rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          ].map((tab) => {
+            const isActive = inspectorTab === tab.id;
+            const isHighlighted = !isActive && highlightedInspectorTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-inspector-tab={tab.id}
+                onClick={() => {
+                  setInspectorTab(tab.id);
+                  if (tab.id === 'element' && pendingElementFlashRef.current) {
+                    pendingElementFlashRef.current = false;
+                    setHighlightedInspectorTab(null);
+                    flashInspectorCard();
+                  } else if (highlightedInspectorTab === tab.id) {
+                    setHighlightedInspectorTab(null);
+                  }
+                }}
+                style={{
+                  padding: '0.34rem 0.4rem',
+                  borderRadius: '6px',
+                  border: isHighlighted
+                    ? '1.5px solid #38bdf8'
+                    : '1.5px solid transparent',
+                  background: isActive
+                    ? '#2563eb'
+                    : isHighlighted
+                      ? 'rgba(56, 189, 248, 0.16)'
+                      : 'transparent',
+                  color: isActive ? '#ffffff' : isHighlighted ? '#7dd3fc' : '#94a3b8',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.25rem',
+                }}
+              >
+                {isHighlighted && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '999px',
+                      background: '#38bdf8',
+                      boxShadow: '0 0 6px #38bdf8',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab 1: Element Position & Scale */}
@@ -1351,8 +1438,8 @@ export default function CertificateDesignEditor({
               </div>
             </div>
 
-            {/* Contextual Settings for Selected Non-TextBox Element (Auto-Opened on Click!) */}
-            <div ref={inspectorCardRef} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {/* Contextual Settings for Selected Element / TextBlock (Highlighted without scrolling) */}
+            <div ref={inspectorCardRef} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', borderRadius: '10px' }}>
             {selectedCustomBox ? (
               <CertificateRichTextPanel
                 boxId={`custom::${docType}::${selectedCustomBox.id}`}
@@ -1767,6 +1854,7 @@ export default function CertificateDesignEditor({
 
             {/* Position X/Y & Scale Card (works for both Built-in Elements & Custom TextBoxes) */}
             <div
+              ref={positionCardRef}
               style={{
                 padding: '0.65rem',
                 borderRadius: '10px',

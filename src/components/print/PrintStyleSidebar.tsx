@@ -67,7 +67,7 @@ export interface PrintStyleSidebarProps {
   wide?: boolean;
   /** Optional default active tab */
   defaultTab?: PrintSidebarTabId;
-  /** Optional imperative focus request to auto-switch tab & scroll to matching setting card */
+  /** Optional focus hint request to highlight the matching setting tab/card without jumping scroll */
   focusRequest?: SidebarFocusRequest | null;
 }
 
@@ -141,6 +141,7 @@ export default function PrintStyleSidebar({
   focusRequest = null,
 }: PrintStyleSidebarProps) {
   const [activeTab, setActiveTab] = useState<SidebarTabId>(defaultTab);
+  const [highlightedTab, setHighlightedTab] = useState<SidebarTabId | null>(null);
   const [newPresetName, setNewPresetName] = useState('');
   const [localPcFonts, setLocalPcFonts] = useState<string[]>([]);
   const [isLoadingPcFonts, setIsLoadingPcFonts] = useState(false);
@@ -150,10 +151,14 @@ export default function PrintStyleSidebar({
   const [cellFontSizeDraft, setCellFontSizeDraft] = useState<string>('');
 
   const sidebarRef = useRef<HTMLElement>(null);
+  const activeTabRef = useRef<SidebarTabId>(defaultTab);
+  activeTabRef.current = activeTab;
   const prevSelectionSigRef = useRef<string>('');
   const flashTimerRef = useRef<number | null>(null);
+  const tabHighlightTimerRef = useRef<number | null>(null);
+  const pendingTabSectionRef = useRef<{ tab: SidebarTabId; sectionId?: string } | null>(null);
 
-  const scrollAndFlashSection = useCallback((sectionId?: string) => {
+  const flashSection = useCallback((sectionId?: string) => {
     if (!sectionId || typeof window === 'undefined') return;
     window.setTimeout(() => {
       const root = sidebarRef.current;
@@ -162,35 +167,70 @@ export default function PrintStyleSidebar({
         `[data-sidebar-section="${sectionId}"]`
       ) as HTMLElement | null;
       if (!target) return;
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Highlight where the setting lives without scrolling or jumping the viewport
       target.classList.remove('print-sidebar-section-flash');
       void target.offsetWidth;
       target.classList.add('print-sidebar-section-flash');
       if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
       flashTimerRef.current = window.setTimeout(() => {
         target.classList.remove('print-sidebar-section-flash');
-      }, 1150);
+      }, 1900);
     }, 45);
   }, []);
+
+  const flashTabButton = useCallback((tab: SidebarTabId) => {
+    if (typeof window === 'undefined') return;
+    window.setTimeout(() => {
+      const root = sidebarRef.current;
+      const btn = root?.querySelector(`[data-sidebar-tab="${tab}"]`) as HTMLElement | null;
+      if (!btn) return;
+      btn.classList.remove('print-sidebar-section-flash');
+      void btn.offsetWidth;
+      btn.classList.add('print-sidebar-section-flash');
+      window.setTimeout(() => {
+        btn.classList.remove('print-sidebar-section-flash');
+      }, 1900);
+    }, 20);
+  }, []);
+
+  const indicateSettingLocation = useCallback(
+    (tab: SidebarTabId, sectionId?: string) => {
+      const targetTab: SidebarTabId =
+        tab === 'table' && !showTableSettings ? 'doc' : tab;
+      if (activeTabRef.current === targetTab) {
+        pendingTabSectionRef.current = null;
+        setHighlightedTab(null);
+        if (sectionId) {
+          flashSection(sectionId);
+        }
+        return;
+      }
+      // Highlight the tab containing this setting instead of jumping tabs or scrolling
+      pendingTabSectionRef.current = { tab: targetTab, sectionId };
+      setHighlightedTab(targetTab);
+      flashTabButton(targetTab);
+      if (tabHighlightTimerRef.current) window.clearTimeout(tabHighlightTimerRef.current);
+      tabHighlightTimerRef.current = window.setTimeout(() => {
+        setHighlightedTab((prev) => (prev === targetTab ? null : prev));
+      }, 4500);
+    },
+    [showTableSettings, flashSection, flashTabButton]
+  );
 
   useEffect(() => {
     return () => {
       if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      if (tabHighlightTimerRef.current) window.clearTimeout(tabHighlightTimerRef.current);
     };
   }, []);
 
-  // Imperatively switch tab & scroll to matching section when a preview area/element is clicked
+  // Highlight matching section (if on active tab) or tab button (if on another tab) without jumping
   useEffect(() => {
     if (!focusRequest) return;
-    const nextTab: SidebarTabId =
-      focusRequest.tab === 'table' && !showTableSettings ? 'doc' : focusRequest.tab;
-    setActiveTab(nextTab);
-    if (focusRequest.sectionId) {
-      scrollAndFlashSection(focusRequest.sectionId);
-    }
-  }, [focusRequest?.nonce, focusRequest?.tab, focusRequest?.sectionId, showTableSettings, scrollAndFlashSection]);
+    indicateSettingLocation(focusRequest.tab, focusRequest.sectionId);
+  }, [focusRequest?.nonce, focusRequest?.tab, focusRequest?.sectionId, indicateSettingLocation]);
 
-  // Auto-switch to the Table tab every time the user selects a cell/row/col on the live preview
+  // Highlight Table tab or cell card when preview table cells are selected without auto-switching/scrolling
   const selectionSig = (tableSelection?.selectedCoords || [])
     .map((c) => `${c.pageIdx}:${c.tableIdx}:${c.section}:${c.rowIdx}:${c.colIdx}`)
     .join('|');
@@ -198,11 +238,10 @@ export default function PrintStyleSidebar({
   useEffect(() => {
     const count = tableSelection?.selectedCoords.length || 0;
     if (showTableSettings && count > 0 && selectionSig !== prevSelectionSigRef.current) {
-      setActiveTab('table');
-      scrollAndFlashSection('table-cell');
+      indicateSettingLocation('table', 'table-cell');
     }
     prevSelectionSigRef.current = selectionSig;
-  }, [selectionSig, tableSelection?.selectedCoords.length, showTableSettings, scrollAndFlashSection]);
+  }, [selectionSig, tableSelection?.selectedCoords.length, showTableSettings, indicateSettingLocation]);
 
   const isCustomized = useMemo(() => hasCustomPrintStyle(styleConfig), [styleConfig]);
   const cellOverridesCount = useMemo(
@@ -591,56 +630,84 @@ export default function PrintStyleSidebar({
           border: '1px solid rgba(148, 163, 184, 0.22)',
         }}
       >
-        <button
-          type="button"
-          onClick={() => setActiveTab('doc')}
-          style={{
-            padding: '0.38rem 0.35rem',
-            borderRadius: '7px',
-            border: 'none',
-            background: activeTab === 'doc' ? '#2563eb' : 'transparent',
-            color: activeTab === 'doc' ? '#ffffff' : '#cbd5e1',
-            fontSize: '0.74rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          ទូទៅ &amp; ច្រោះ
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('typography')}
-          style={{
-            padding: '0.38rem 0.35rem',
-            borderRadius: '7px',
-            border: 'none',
-            background: activeTab === 'typography' ? '#7c3aed' : 'transparent',
-            color: activeTab === 'typography' ? '#ffffff' : '#cbd5e1',
-            fontSize: '0.74rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Font &amp; គម្លាត
-        </button>
-        {showTableSettings && (
-          <button
-            type="button"
-            onClick={() => setActiveTab('table')}
-            style={{
-              padding: '0.38rem 0.35rem',
-              borderRadius: '7px',
-              border: 'none',
-              background: activeTab === 'table' ? '#059669' : 'transparent',
-              color: activeTab === 'table' ? '#ffffff' : selectedCount > 0 ? '#7dd3fc' : '#cbd5e1',
-              fontSize: '0.74rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            {selectedCount > 0 ? `តារាង (${selectedCount})` : 'តារាង / Cell'}
-          </button>
-        )}
+        {(
+          [
+            { id: 'doc' as SidebarTabId, label: 'ទូទៅ & ច្រោះ', activeBg: '#2563eb' },
+            { id: 'typography' as SidebarTabId, label: 'Font & គម្លាត', activeBg: '#7c3aed' },
+            ...(showTableSettings
+              ? [
+                  {
+                    id: 'table' as SidebarTabId,
+                    label: selectedCount > 0 ? `តារាង (${selectedCount})` : 'តារាង / Cell',
+                    activeBg: '#059669',
+                  },
+                ]
+              : []),
+          ]
+        ).map((tabItem) => {
+          const isActive = activeTab === tabItem.id;
+          const isHighlighted = !isActive && highlightedTab === tabItem.id;
+          return (
+            <button
+              key={tabItem.id}
+              type="button"
+              data-sidebar-tab={tabItem.id}
+              onClick={() => {
+                setActiveTab(tabItem.id);
+                const pending = pendingTabSectionRef.current;
+                if (pending && pending.tab === tabItem.id) {
+                  pendingTabSectionRef.current = null;
+                  setHighlightedTab(null);
+                  if (pending.sectionId) {
+                    flashSection(pending.sectionId);
+                  }
+                } else if (highlightedTab === tabItem.id) {
+                  setHighlightedTab(null);
+                }
+              }}
+              style={{
+                position: 'relative',
+                padding: '0.38rem 0.35rem',
+                borderRadius: '7px',
+                border: isHighlighted
+                  ? '1.5px solid #38bdf8'
+                  : '1.5px solid transparent',
+                background: isActive
+                  ? tabItem.activeBg
+                  : isHighlighted
+                    ? 'rgba(56, 189, 248, 0.16)'
+                    : 'transparent',
+                color: isActive
+                  ? '#ffffff'
+                  : isHighlighted || (tabItem.id === 'table' && selectedCount > 0)
+                    ? '#7dd3fc'
+                    : '#cbd5e1',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.28rem',
+              }}
+            >
+              {isHighlighted && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '999px',
+                    background: '#38bdf8',
+                    boxShadow: '0 0 6px #38bdf8',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <span>{tabItem.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab 1: Document-Specific Settings */}
