@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DueNoticeCard, {
   DEFAULT_NOTICE_CASHIER,
@@ -10,6 +10,12 @@ import DueNoticeCard, {
   getEffectiveNoticePrintCount,
 } from './receipts/DueNoticeCard';
 import { AppIcon } from './AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import {
+  PrintSinglePageNavBar,
+  PrintSinglePageToggle,
+} from '@/components/print/PrintSinglePageControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
   PrintSelectedArea,
@@ -92,6 +98,9 @@ export default function DueNoticePrintModal({
 
   // Left Sidebar & Cashier/Signature Editor
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [singlePageView, setSinglePageView] = useState<boolean>(false);
+  const [activePageIdx, setActivePageIdx] = useState<number>(0);
+  const portalRootRef = useRef<HTMLDivElement>(null);
   const [draftCashierName, setDraftCashierName] = useState<string>(
     noticeCashierName || DEFAULT_NOTICE_CASHIER
   );
@@ -391,6 +400,12 @@ export default function DueNoticePrintModal({
     return chunks;
   }, [filteredItems]);
 
+  useEffect(() => {
+    setActivePageIdx((prev) =>
+      filteredItems.length === 0 ? 0 : Math.min(prev, filteredItems.length - 1)
+    );
+  }, [filteredItems.length]);
+
   const recordCurrentBatchPrint = async (targets: DueNoticeItem[]) => {
     if (!onRecordNoticesPrinted || targets.length === 0) return;
     setIsRecordingPrint(true);
@@ -498,6 +513,7 @@ export default function DueNoticePrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -618,6 +634,13 @@ export default function DueNoticePrintModal({
               </label>
             )}
 
+            <PrintSinglePageToggle
+              checked={singlePageView}
+              onChange={setSinglePageView}
+              label="មើលម្ដង ១ ឈ្មោះ"
+              title="ធីកដើម្បីបង្ហាញលិខិតជូនដំណឹងជាឈ្មោះម្ដងមួយៗ (មិនដាក់ក្នុងក្រដាស A4) • ពេល Print នៅតែព្រីន A4 គ្រប់ទំព័រ"
+            />
+
             <button
               type="button"
               onClick={() => setIsSidebarOpen((v) => !v)}
@@ -638,6 +661,27 @@ export default function DueNoticePrintModal({
               <AppIcon name="sliders" size={14} />
               <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  singlePageView
+                    ? '#single-item-export-card'
+                    : '.receipt-a4-sheets-container .receipt-a4-sheet'
+                )
+              }
+              fileNameBase={
+                singlePageView
+                  ? `bsis-due-notice-${
+                      filteredItems[
+                        Math.min(activePageIdx, Math.max(0, filteredItems.length - 1))
+                      ]?.student?.fullName || 'single'
+                    }`
+                  : `bsis-due-notices-${issueDateStr || 'export'}`
+              }
+              disabled={filteredItems.length === 0}
+            />
 
             <button
               type="button"
@@ -1075,8 +1119,117 @@ export default function DueNoticePrintModal({
 
       {/* Preview / Print Sheets Container */}
       <div className="print-preview-stage">
+      {singlePageView && filteredItems.length > 0 && (() => {
+        const singleIdx = Math.min(activePageIdx, filteredItems.length - 1);
+        const singleItem = filteredItems[singleIdx];
+        const slotStudentId = String(singleItem?.student?.id || '');
+        const basePrintCount =
+          typeof singleItem?.noticePrintCount === 'number'
+            ? singleItem.noticePrintCount
+            : getEffectiveNoticePrintCount(singleItem?.student, singleItem?.dueDateStr);
+        const displayPrintNum =
+          (slotStudentId && sessionPrintNumMap[slotStudentId]) ||
+          basePrintCount + 1;
+        const singleCardScale = Math.min(1.45, Math.max(0.75, previewScale * 1.45));
+        const cardWPx = 396.85;
+        const cardHPx = 373.61;
+
+        return (
+          <div
+            className="no-print"
+            style={{
+              padding: '1.25rem 1rem 2.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.9rem',
+              width: '100%',
+            }}
+          >
+            <PrintSinglePageNavBar
+              unitLabel="ឈ្មោះ"
+              prevLabel="មុន"
+              nextLabel="បន្ទាប់"
+              activeIdx={singleIdx}
+              pages={filteredItems.map((it, idx) => {
+                const name = it.student?.fullName || `សិស្ស ${idx + 1}`;
+                const cls = String(it.classCode || it.student?.classCode || '').trim();
+                const amt = !hideAmount ? `${Number(it.amountDue || 0).toLocaleString('en-US')} ៛` : '';
+                return {
+                  key: `${it.student?.id || 'due'}-${idx}`,
+                  label: [name, cls, amt].filter(Boolean).join(' • '),
+                };
+              })}
+              onChangeIdx={setActivePageIdx}
+            />
+
+            <div style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700 }}>
+              ឈ្មោះទី {singleIdx + 1} / {filteredItems.length} —{' '}
+              <span style={{ color: '#f8fafc' }}>{singleItem.student?.fullName || 'សិស្ស'}</span>
+            </div>
+
+            <div
+              style={{
+                width: `${cardWPx * singleCardScale}px`,
+                height: `${cardHPx * singleCardScale}px`,
+                position: 'relative',
+                boxShadow: '0 20px 45px rgba(0, 0, 0, 0.45)',
+                borderRadius: '6px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: '10.5cm',
+                  height: '98.85mm',
+                  transform: `scale(${singleCardScale})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <PrintInteractiveSheet
+                  id="single-item-export-card"
+                  scopeId="due-notice-print"
+                  pageIdx={0}
+                  styleConfig={printStyle.styleConfig}
+                  tableSelection={tableSelection}
+                  onCellSelected={() => setIsSidebarOpen(true)}
+                  onAreaSelected={handleAreaSelected}
+                  style={{
+                    width: '10.5cm',
+                    height: '98.85mm',
+                    background: '#ffffff',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <DueNoticeCard
+                    item={singleItem}
+                    penaltyPercentPerDay={penaltyPercent}
+                    showPenalty={!hidePenalty}
+                    showAmount={!hideAmount}
+                    hideHeader={hideHeader}
+                    hideFooter={hideFooter}
+                    showSignature={showSignature}
+                    showPrintCount={!hidePrintCount}
+                    displayPrintNumber={displayPrintNum}
+                    issueDate={issueDateStr}
+                    schoolPhone={schoolPhone}
+                    schoolAddress={schoolAddress}
+                    headerLogoUrl={headerLogoUrl}
+                    noticeCashierName={activeCashierName}
+                    noticeSignatureUrl={activeSignatureUrl}
+                    showCutRight={false}
+                    showCutBottom={false}
+                  />
+                </PrintInteractiveSheet>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <div
-        className="receipt-a4-sheets-container"
+        className={`receipt-a4-sheets-container${singlePageView && filteredItems.length > 0 ? ' report-card-hidden-screen' : ''}`}
         style={{
           padding: '1.25rem 0 2.5rem',
           display: 'flex',

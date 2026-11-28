@@ -23,6 +23,8 @@ import MonthlyResultSheet, {
   paginateMonthlyResultRows,
 } from './MonthlyResultSheet';
 import { AppIcon } from '../AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
   PrintSelectedArea,
@@ -125,6 +127,7 @@ export default function MonthlyResultPrintModal({
   const printStyle = usePrintDocumentStyle('monthly_result', isOpen);
   const tableSelection = useTableSelection(isOpen);
   const { focusRequest, requestFocus } = usePrintSidebarFocus();
+  const portalRootRef = useRef<HTMLDivElement>(null);
 
   const handleSelectFooterElement = useCallback(
     (k: MonthlyResultFooterKey | null) => {
@@ -528,6 +531,7 @@ export default function MonthlyResultPrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -796,6 +800,17 @@ export default function MonthlyResultPrintModal({
               <AppIcon name="sliders" size={15} strokeWidth={2} />
               <span>{isLinkPanelOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ ពណ៌ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  '.receipt-a4-sheets-container .receipt-a4-preview-scale > *'
+                )
+              }
+              fileNameBase={`bsis-monthly-results-${selectedMonth || 'export'}`}
+              disabled={renderedPages.length === 0}
+            />
 
             <button
               type="button"

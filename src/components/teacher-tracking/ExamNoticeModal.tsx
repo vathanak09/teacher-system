@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import CustomDatePicker from '@/components/CustomDatePicker';
 import { AppIcon } from '@/components/AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import ExamNoticeLetterCard, { ExamNoticeStyleVariant } from './ExamNoticeLetterCard';
 import {
   DEFAULT_EXAM_NOTICE_NOTE,
@@ -249,6 +251,16 @@ export default function ExamNoticeModal({
               <AppIcon name={copiedText ? 'check' : 'copy'} size={13} />
               <span>{copiedText ? 'បានចម្លង!' : 'ចម្លងអត្ថបទ Group Chat'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  '#exam-notice-print-portal-root',
+                  '#printable-exam-notice'
+                )
+              }
+              fileNameBase={`bsis-exam-notice-${monthKey || 'export'}`}
+            />
 
             <button
               type="button"

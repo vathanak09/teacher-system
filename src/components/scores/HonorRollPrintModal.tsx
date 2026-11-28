@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AppIcon } from '@/components/AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import { BUILTIN_RICH_FONT_CHOICES } from './certificateRichText';
 import {
@@ -150,6 +152,7 @@ export default function HonorRollPrintModal({
 
   const printStyle = usePrintDocumentStyle('honor_roll', isOpen);
   const { focusRequest, requestFocus } = usePrintSidebarFocus();
+  const portalRootRef = useRef<HTMLDivElement>(null);
   const printScopeProps = useMemo(
     () => buildPrintScopeProps(printStyle.styleConfig),
     [printStyle.styleConfig]
@@ -747,6 +750,7 @@ export default function HonorRollPrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -1061,6 +1065,17 @@ export default function HonorRollPrintModal({
               <AppIcon name="sliders" size={14} />
               <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  '.receipt-a4-sheets-container .receipt-a4-preview-scale > *'
+                )
+              }
+              fileNameBase={`bsis-honor-roll-${selectedMonth || 'export'}`}
+              disabled={renderedPages.length === 0}
+            />
 
             <button
               type="button"

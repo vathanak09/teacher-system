@@ -13,6 +13,8 @@ import PrintableAttendanceSheet, {
   getAttendanceSheetSpec,
 } from './PrintableAttendanceSheet';
 import { AppIcon } from '../AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
   PrintSelectedArea,
@@ -123,6 +125,7 @@ export default function AttendancePrintModal({
   const printStyle = usePrintDocumentStyle('attendance', isOpen);
   const tableSelection = useTableSelection(isOpen);
   const { focusRequest, requestFocus } = usePrintSidebarFocus();
+  const portalRootRef = useRef<HTMLDivElement>(null);
 
   const handleAreaSelected = useCallback(
     (area: PrintSelectedArea) => {
@@ -369,6 +372,7 @@ export default function AttendancePrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -665,6 +669,17 @@ export default function AttendancePrintModal({
               <AppIcon name="sliders" size={14} />
               <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  '.receipt-a4-sheets-container .receipt-a4-preview-scale > *'
+                )
+              }
+              fileNameBase={`bsis-attendance-${year}-${String(month).padStart(2, '0')}`}
+              disabled={renderedPages.length === 0}
+            />
 
             <button
               type="button"

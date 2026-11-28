@@ -8,6 +8,8 @@ import {
   SchoolProfileInfo,
 } from '@/components/settings/SchoolInfoSettingsPanel';
 import { AppIcon } from '../AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
   PrintSelectedArea,
@@ -149,6 +151,7 @@ export default function StudentReportCardModal({
   const printStyle = usePrintDocumentStyle('student_report', isOpen);
   const tableSelection = useTableSelection(isOpen);
   const { focusRequest, requestFocus } = usePrintSidebarFocus();
+  const portalRootRef = useRef<HTMLDivElement>(null);
 
   const handleAreaSelected = useCallback(
     (area: PrintSelectedArea) => {
@@ -752,6 +755,7 @@ export default function StudentReportCardModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -1414,6 +1418,17 @@ export default function StudentReportCardModal({
               <AppIcon name="sliders" size={14} />
               <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ ពណ៌ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  '.receipt-a4-sheets-container .receipt-a4-preview-scale > *'
+                )
+              }
+              fileNameBase={`bsis-report-cards-${selectedMonth || 'export'}`}
+              disabled={renderedPages.length === 0}
+            />
 
             <button
               type="button"

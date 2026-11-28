@@ -38,6 +38,8 @@ import CertificateDesignEditor, {
   SavedCertificateDesignTemplate,
 } from './CertificateDesignEditor';
 import { AppIcon } from '../AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 
 export interface SavedCustomFrameLink {
   id: string;
@@ -305,6 +307,7 @@ export default function CertificatePrintModal({
 
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'preview' | 'design'>('preview');
+  const portalRootRef = useRef<HTMLDivElement>(null);
   const [editorInitialSelectedKey, setEditorInitialSelectedKey] = useState<CertElementKey | null>(null);
   const [praiseDesignConfig, setPraiseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_CERTIFICATE_DESIGN);
   const [courseDesignConfig, setCourseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_COURSE_CERTIFICATE_DESIGN);
@@ -1427,6 +1430,7 @@ export default function CertificatePrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -1971,6 +1975,22 @@ export default function CertificatePrintModal({
               <AppIcon name="sliders" size={14} />
               <span>ស៊ុម, រូបថត &amp; កាលបរិច្ឆេទ</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  '.receipt-a4-sheets-container .receipt-a4-preview-scale > *'
+                )
+              }
+              fileNameBase={`bsis-${docType === 'certificate' ? 'certificates' : 'praise'}-${selectedMonth || 'export'}`}
+              disabled={renderedPrintPages.length === 0 || viewMode !== 'preview'}
+              disabledTitle={
+                viewMode !== 'preview'
+                  ? 'សូមប្ដូរទៅផ្ទាំង Print រួចសិន ដើម្បីទាញយក PDF / រូបភាព'
+                  : undefined
+              }
+            />
 
             <button
               type="button"

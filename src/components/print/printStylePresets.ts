@@ -564,7 +564,7 @@ export function buildActiveSelectionCss(
     const key = makeTableOverrideKey(mode, coord, applyAllPages);
     const parsed = parseTableOverrideKey(key);
     if (parsed) {
-      selectorSet.add(buildCellSelectorForKey(scopeId, parsed));
+      selectorSet.add(`body:not(.exporting-print-sheets) ${buildCellSelectorForKey(scopeId, parsed)}`);
     }
   }
   const selectors = Array.from(selectorSet);

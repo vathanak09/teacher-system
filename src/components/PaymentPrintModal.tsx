@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   formatDMYSlash,
@@ -20,6 +20,12 @@ import {
   RECEIPT_TEMPLATE_OPTIONS,
 } from './receipts/ModernReceiptCards';
 import { AppIcon } from './AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
+import {
+  PrintSinglePageNavBar,
+  PrintSinglePageToggle,
+} from '@/components/print/PrintSinglePageControls';
+import { collectPrintSheetElements } from '@/utils/printExport';
 import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
   PrintSelectedArea,
@@ -206,6 +212,9 @@ export default function PaymentPrintModal({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [draftSignatureUrl, setDraftSignatureUrl] = useState(cashierSignatureUrl || '');
   const [isSavingSignature, setIsSavingSignature] = useState(false);
+  const [singlePageView, setSinglePageView] = useState(false);
+  const [activePageIdx, setActivePageIdx] = useState(0);
+  const portalRootRef = useRef<HTMLDivElement>(null);
 
   const printStyle = usePrintDocumentStyle('receipt', Boolean(doc));
   const tableSelection = useTableSelection(Boolean(doc));
@@ -410,6 +419,14 @@ export default function PaymentPrintModal({
     return pages;
   }, [filteredReceiptItems, activeSpec.perPage]);
 
+  useEffect(() => {
+    setActivePageIdx((prev) =>
+      filteredReceiptItems.length === 0
+        ? 0
+        : Math.min(prev, filteredReceiptItems.length - 1)
+    );
+  }, [filteredReceiptItems.length]);
+
   const unprintedPaymentIds = useMemo(
     () =>
       filteredReceiptItems
@@ -508,10 +525,118 @@ export default function PaymentPrintModal({
 
     const slotW = activeSpec.orientation === 'portrait' ? '10.5cm' : '14.85cm';
     const slotH = activeSpec.orientation === 'portrait' ? '14.85cm' : '10.5cm';
+    const singleSlotWPx = activeSpec.orientation === 'portrait' ? 396.85 : 561.26;
+    const singleSlotHPx = activeSpec.orientation === 'portrait' ? 561.26 : 396.85;
+    const singleCardScale = Math.min(
+      1.35,
+      Math.max(0.75, previewScale * (activeSpec.perPage === 4 ? 1.65 : 1.15))
+    );
+    const activeSingleItem =
+      filteredReceiptItems[Math.min(activePageIdx, filteredReceiptItems.length - 1)];
 
     return (
+      <>
+        {singlePageView && activeSingleItem && (
+          <div
+            className="no-print"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.9rem',
+              width: '100%',
+            }}
+          >
+            <PrintSinglePageNavBar
+              unitLabel="ឈ្មោះ"
+              prevLabel="មុន"
+              nextLabel="បន្ទាប់"
+              activeIdx={activePageIdx}
+              pages={filteredReceiptItems.map((it, idx) => {
+                const name = it.student?.fullName || it.payment?.studentName || `សិស្ស ${idx + 1}`;
+                const cls = getItemClassCodes(it).join(', ');
+                const amt =
+                  it.payment?.amount !== undefined && it.payment?.amount !== null
+                    ? formatRiels(Number(it.payment.amount))
+                    : '';
+                return {
+                  key: String(it.payment?.id || `single-rcp-${idx}`),
+                  label: [name, cls, amt].filter(Boolean).join(' • '),
+                };
+              })}
+              onChangeIdx={setActivePageIdx}
+            />
+
+            <div
+              style={{
+                fontSize: '0.82rem',
+                color: '#cbd5e1',
+                fontWeight: 700,
+              }}
+            >
+              ឈ្មោះទី {activePageIdx + 1} / {filteredReceiptItems.length} —{' '}
+              <span style={{ color: '#f8fafc' }}>
+                {activeSingleItem.student?.fullName ||
+                  activeSingleItem.payment?.studentName ||
+                  'វិក្កយបត្រ'}
+              </span>
+            </div>
+
+            <div
+              style={{
+                width: `${singleSlotWPx * singleCardScale}px`,
+                height: `${singleSlotHPx * singleCardScale}px`,
+                position: 'relative',
+                boxShadow: '0 20px 45px rgba(0, 0, 0, 0.42)',
+                borderRadius: '6px',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: slotW,
+                  height: slotH,
+                  transform: `scale(${singleCardScale})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <PrintInteractiveSheet
+                  id="single-item-export-card"
+                  scopeId="receipt-print"
+                  pageIdx={0}
+                  styleConfig={printStyle.styleConfig}
+                  tableSelection={tableSelection}
+                  onCellSelected={() => setIsSidebarOpen(true)}
+                  onAreaSelected={handleAreaSelected}
+                  style={{
+                    width: slotW,
+                    height: slotH,
+                    background: '#ffffff',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {renderReceiptCardByTemplate(templateId, {
+                    item: activeSingleItem,
+                    orientation: activeSpec.orientation,
+                    schoolPhone,
+                    schoolAddress,
+                    cashierName,
+                    cashierSignatureUrl: effectiveSignatureUrl,
+                    headerLogoUrl,
+                    showAmount,
+                    showSignature,
+                    prePrintedOnly: templateId === 'classic' ? prePrintedOnly : false,
+                    showCutRight: false,
+                    showCutBottom: false,
+                  })}
+                </PrintInteractiveSheet>
+              </div>
+            </div>
+          </div>
+        )}
+
       <div
-        className="receipt-a4-sheets-container"
+        className={`receipt-a4-sheets-container${singlePageView ? ' report-card-hidden-screen' : ''}`}
         style={{
           display: 'flex',
           flexDirection: 'column',
@@ -637,6 +762,7 @@ export default function PaymentPrintModal({
           </div>
         ))}
       </div>
+      </>
     );
   };
 
@@ -890,6 +1016,7 @@ export default function PaymentPrintModal({
 
   return createPortal(
     <div
+      ref={portalRootRef}
       id="payment-print-portal-root"
       style={{
         position: 'fixed',
@@ -945,6 +1072,15 @@ export default function PaymentPrintModal({
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.45rem' }}>
+            {isReceiptMode && (
+              <PrintSinglePageToggle
+                checked={singlePageView}
+                onChange={setSinglePageView}
+                label="មើលម្ដង ១ ឈ្មោះ"
+                title="ធីកដើម្បីបង្ហាញវិក្កយបត្រជាឈ្មោះម្ដងមួយៗ (មិនដាក់ក្នុងក្រដាស A4) • ពេល Print នៅតែព្រីន A4 គ្រប់ទំព័រ"
+              />
+            )}
+
             <button
               type="button"
               onClick={() => setIsSidebarOpen((v) => !v)}
@@ -965,6 +1101,35 @@ export default function PaymentPrintModal({
               <AppIcon name="sliders" size={14} />
               <span>{isSidebarOpen ? 'លាក់ការកំណត់' : 'ការកំណត់ & Font'}</span>
             </button>
+
+            <PrintExportControls
+              getExportElements={() =>
+                collectPrintSheetElements(
+                  portalRootRef.current,
+                  isReceiptMode
+                    ? singlePageView
+                      ? '#single-item-export-card'
+                      : '.receipt-a4-sheets-container .receipt-a4-sheet'
+                    : '#printable-payment-doc'
+                )
+              }
+              fileNameBase={
+                isReceiptMode
+                  ? singlePageView
+                    ? `bsis-receipt-${
+                        filteredReceiptItems[
+                          Math.min(activePageIdx, Math.max(0, filteredReceiptItems.length - 1))
+                        ]?.student?.fullName ||
+                        filteredReceiptItems[
+                          Math.min(activePageIdx, Math.max(0, filteredReceiptItems.length - 1))
+                        ]?.payment?.studentName ||
+                        'single'
+                      }`
+                    : 'bsis-receipts'
+                  : 'bsis-due-notice'
+              }
+              disabled={isReceiptMode && filteredReceiptItems.length === 0}
+            />
 
             <button
               type="button"

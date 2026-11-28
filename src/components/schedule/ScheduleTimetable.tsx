@@ -1,6 +1,7 @@
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { AppIcon } from '@/components/AppIcons';
+import PrintExportControls from '@/components/print/PrintExportControls';
 import { CLASS_COLORS } from '@/constants/classAppearance';
 import {
   ROW_CATEGORY_META,
@@ -44,6 +45,7 @@ export default function ScheduleTimetable({
     return matched ? matched.key : 'mon';
   }, [todayJsDay]);
   const [selectedDayKey, setSelectedDayKey] = useState<WeekDayKey>(defaultActiveDay);
+  const scheduleCardRef = useRef<HTMLDivElement>(null);
 
   const shiftMeta = SHIFT_PRESETS[schedule.shiftType] || SHIFT_PRESETS.morning;
 
@@ -228,6 +230,8 @@ export default function ScheduleTimetable({
 
   return (
     <div
+      ref={scheduleCardRef}
+      id="printable-schedule-sheet"
       className="glass-panel"
       style={{
         padding: '1.25rem',
@@ -405,6 +409,14 @@ export default function ScheduleTimetable({
             <AppIcon name="download" size={14} />
             <span>Excel</span>
           </button>
+
+          <PrintExportControls
+            getExportElements={() =>
+              scheduleCardRef.current ? [scheduleCardRef.current] : []
+            }
+            fileNameBase={`bsis-schedule-${schedule.title || schedule.id}`}
+            variant="light"
+          />
 
           <button
             type="button"
