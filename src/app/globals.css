@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Moul&family=Koulen&family=Metal&family=Siemreap&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&family=Chenla&family=Fasthand&family=Playfair+Display:wght@400;600;700&family=Cinzel:wght@500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Kantumruy+Pro:wght@300;400;500;600;700&family=Battambang:wght@100;300;400;700;900&family=Moul&family=Koulen&family=Metal&family=Siemreap&family=Suwannaphum:wght@100;300;400;700;900&family=Hanuman:wght@100;300;400;700;900&family=Chenla&family=Fasthand&family=Playfair+Display:wght@400;600;700&family=Cinzel:wght@500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;700&display=swap');
 
 :root {
   --sidebar-bg: #1e3a8a; 
@@ -2419,11 +2419,11 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   font-size: var(--pr-body-size) !important;
 }
 
-.print-custom-scope.print-ov-font-weight p:not([style*="Moul"]):not([style*="Muol"]),
-.print-custom-scope.print-ov-font-weight span:not([style*="Moul"]):not([style*="Muol"]),
-.print-custom-scope.print-ov-font-weight div:not([style*="Moul"]):not([style*="Muol"]),
-.print-custom-scope.print-ov-font-weight strong:not([style*="Moul"]):not([style*="Muol"]),
-.print-custom-scope.print-ov-font-weight b:not([style*="Moul"]):not([style*="Muol"]),
+.print-custom-scope.print-ov-font-weight p:not([style*="Moul"]):not([style*="Muol"]):not([data-print-preserve-weight="true"]):not([data-print-preserve-weight="true"] *),
+.print-custom-scope.print-ov-font-weight span:not([style*="Moul"]):not([style*="Muol"]):not([data-print-preserve-weight="true"]):not([data-print-preserve-weight="true"] *),
+.print-custom-scope.print-ov-font-weight div:not([style*="Moul"]):not([style*="Muol"]):not([data-print-preserve-weight="true"]):not([data-print-preserve-weight="true"] *),
+.print-custom-scope.print-ov-font-weight strong:not([style*="Moul"]):not([style*="Muol"]):not([data-print-preserve-weight="true"]):not([data-print-preserve-weight="true"] *),
+.print-custom-scope.print-ov-font-weight b:not([style*="Moul"]):not([style*="Muol"]):not([data-print-preserve-weight="true"]):not([data-print-preserve-weight="true"] *),
 .print-custom-scope.print-ov-font-weight table td,
 .print-custom-scope.print-ov-font-weight table td *,
 .print-custom-scope.print-ov-font-weight table th,
@@ -2444,7 +2444,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
 }
 
 .print-custom-scope.print-ov-text-color,
-.print-custom-scope.print-ov-text-color *:not(thead th):not(thead th *):not(svg):not(svg *) {
+.print-custom-scope.print-ov-text-color *:not(thead th):not(thead th *):not(svg):not(svg *):not([data-print-preserve-color="true"]):not([data-print-preserve-color="true"] *) {
   color: var(--pr-text-color) !important;
 }
 

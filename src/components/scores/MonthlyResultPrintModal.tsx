@@ -36,6 +36,7 @@ import {
 
 export interface MonthlyResultBrandingConfig {
   verticalLogoUrl?: string;
+  reportCardLogoUrl?: string;
   resultStampUrl?: string;
   resultSignatureUrl?: string;
   resultSignatoryName?: string;

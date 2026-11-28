@@ -6,6 +6,7 @@ import { settingsService } from '@/services/db';
 export type PrintDocCategory =
   | 'attendance'
   | 'monthly_result'
+  | 'student_report'
   | 'receipt'
   | 'due_notice'
   | 'honor_roll';

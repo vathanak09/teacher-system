@@ -9,6 +9,7 @@ import ScoresGuideModal from '@/components/ScoresGuideModal';
 import MonthlyResultPrintModal, { MonthlyResultBrandingConfig } from '@/components/scores/MonthlyResultPrintModal';
 import CertificatePrintModal, { CertificateBrandingConfig } from '@/components/scores/CertificatePrintModal';
 import HonorRollPrintModal from '@/components/scores/HonorRollPrintModal';
+import StudentReportCardModal from '@/components/scores/StudentReportCardModal';
 import AssignScoreLevelModal, { AssignableScoreStudent } from '@/components/scores/AssignScoreLevelModal';
 import ScoreEvalDropdown from '@/components/scores/ScoreEvalDropdown';
 import AdminDefaultColumnsModal from '@/components/scores/AdminDefaultColumnsModal';
@@ -281,6 +282,8 @@ export default function ScoresPage() {
   const [isMonthlyResultOpen, setIsMonthlyResultOpen] = useState(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [isHonorRollOpen, setIsHonorRollOpen] = useState(false);
+  const [isStudentReportOpen, setIsStudentReportOpen] = useState(false);
+  const [studentReportInitialStudentId, setStudentReportInitialStudentId] = useState<string | null>(null);
 
   const handleSaveScorePrintSettings = async (
     patch: MonthlyResultBrandingConfig | CertificateBrandingConfig
@@ -311,6 +314,33 @@ export default function ScoresPage() {
     >
       <AppIcon name="printer" size={16} strokeWidth={2.2} />
       <span>លទ្ធផលប្រចាំខែ</span>
+    </button>
+  );
+
+  const studentReportButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setStudentReportInitialStudentId(null);
+        setIsStudentReportOpen(true);
+      }}
+      style={{
+        padding: '0.5rem 0.95rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        background: 'linear-gradient(135deg, #0d9488, #0284c7)',
+        border: '1px solid rgba(167, 243, 208, 0.45)',
+        borderRadius: '8px',
+        color: '#ffffff',
+        cursor: 'pointer',
+        fontWeight: 600,
+        boxShadow: '0 2px 8px rgba(13, 148, 136, 0.28)',
+      }}
+      title="ព្រីនលទ្ធផលសិក្សាប្រចាំខែសម្រាប់សិស្សម្នាក់ៗ (A5 ចំនួន ២ លើ A4 ផ្ដេក)"
+    >
+      <AppIcon name="file-text" size={16} strokeWidth={2.2} />
+      <span>លទ្ធផលសិស្សម្នាក់ៗ</span>
     </button>
   );
 
@@ -2229,6 +2259,32 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
     />
   ) : null;
 
+  const studentReportModal = isStudentReportOpen ? (
+    <StudentReportCardModal
+      isOpen={isStudentReportOpen}
+      onClose={() => {
+        setIsStudentReportOpen(false);
+        setStudentReportInitialStudentId(null);
+      }}
+      classes={displayClasses}
+      allStudents={allStudents}
+      allTeachers={allTeachers}
+      allScores={allScores}
+      monthCoeffMap={monthCoeffMap}
+      scoreSettings={settings}
+      selectedMonth={selectedMonth.startsWith('FINAL_') ? monthlyMonthDraft : selectedMonth}
+      onMonthChange={(m) => {
+        setExamMode('monthly');
+        setMonthlyMonthDraft(m);
+        setSelectedMonth(m);
+      }}
+      monthExtraData={monthExtraData}
+      initialClassId={selectedClassId}
+      initialStudentId={studentReportInitialStudentId}
+      onSaveBrandingSettings={handleSaveScorePrintSettings}
+    />
+  ) : null;
+
   const certificateModal = isCertificateModalOpen ? (
     <CertificatePrintModal
       isOpen={isCertificateModalOpen}
@@ -2707,6 +2763,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
             {examSessionSelectorBar}
 
             {monthlyResultButton}
+            {studentReportButton}
             {honorRollButton}
             {certificateButton}
             {guideButton}
@@ -3011,6 +3068,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         )}
         <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
         {monthlyResultModal}
+        {studentReportModal}
         {honorRollModal}
         {certificateModal}
         {adminDefaultColsModal}
@@ -3035,6 +3093,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           {examSessionSelectorBar}
           {monthlyResultButton}
+          {studentReportButton}
           {honorRollButton}
           {certificateButton}
           {guideButton}
@@ -4102,21 +4161,37 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
                           </td>
 
                           <td style={{ padding: '0.2rem', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                            <button 
-                              onClick={() => removeScoreRecord(scoreRec.id)}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', transition: 'transform 0.2s', opacity: 0.8 }}
-                              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.opacity = '1'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '0.8'; }}
-                              title="លុបចេញពីខែនេះ"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 6h18"/>
-                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                                <line x1="10" x2="10" y1="11" y2="17"/>
-                                <line x1="14" x2="14" y1="11" y2="17"/>
-                              </svg>
-                            </button>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const targetId = String(scoreRec.studentDocId || scoreRec.studentId || scoreRec.studentIdCode || scoreRec.id || '');
+                                  setStudentReportInitialStudentId(targetId || null);
+                                  setIsStudentReportOpen(true);
+                                }}
+                                style={{ background: 'rgba(13, 148, 136, 0.1)', border: '1px solid rgba(13, 148, 136, 0.28)', borderRadius: '6px', padding: '0.22rem 0.28rem', cursor: 'pointer', color: '#0d9488', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s, background 0.2s' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.12)'; e.currentTarget.style.background = 'rgba(13, 148, 136, 0.2)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(13, 148, 136, 0.1)'; }}
+                                title="ព្រីនលទ្ធផលសិក្សាប្រចាំខែសិស្សនេះ (A5)"
+                              >
+                                <AppIcon name="file-text" size={16} strokeWidth={2.2} />
+                              </button>
+                              <button 
+                                onClick={() => removeScoreRecord(scoreRec.id)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', opacity: 0.8 }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)'; e.currentTarget.style.opacity = '1'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '0.8'; }}
+                                title="លុបចេញពីខែនេះ"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 6h18"/>
+                                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                  <line x1="10" x2="10" y1="11" y2="17"/>
+                                  <line x1="14" x2="14" y1="11" y2="17"/>
+                                </svg>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -4482,6 +4557,7 @@ const handleScoreChange = async (scoreRec: any, field: string, value: string) =>
         )}
       <ScoresGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {monthlyResultModal}
+      {studentReportModal}
       {honorRollModal}
       {certificateModal}
       {adminDefaultColsModal}
