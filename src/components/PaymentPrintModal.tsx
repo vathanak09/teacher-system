@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   formatDMYSlash,
@@ -20,8 +20,9 @@ import {
   RECEIPT_TEMPLATE_OPTIONS,
 } from './receipts/ModernReceiptCards';
 import { AppIcon } from './AppIcons';
-import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
+  PrintSelectedArea,
   PrintTableOverrideStyles,
 } from '@/components/print/PrintInteractiveSheet';
 import {
@@ -208,6 +209,23 @@ export default function PaymentPrintModal({
 
   const printStyle = usePrintDocumentStyle('receipt', Boolean(doc));
   const tableSelection = useTableSelection(Boolean(doc));
+  const { focusRequest, requestFocus } = usePrintSidebarFocus();
+
+  const handleAreaSelected = useCallback(
+    (area: PrintSelectedArea) => {
+      setIsSidebarOpen(true);
+      if (area.kind === 'table') {
+        requestFocus('table', 'table-cell');
+      } else if (area.kind === 'section') {
+        requestFocus('doc', area.sectionId || 'template');
+      } else if (area.kind === 'heading') {
+        requestFocus('typography', 'font-size');
+      } else {
+        requestFocus('typography', 'font-family');
+      }
+    },
+    [requestFocus]
+  );
 
   useEffect(() => {
     setDraftSignatureUrl(cashierSignatureUrl || '');
@@ -536,6 +554,7 @@ export default function PaymentPrintModal({
                 styleConfig={printStyle.styleConfig}
                 tableSelection={tableSelection}
                 onCellSelected={() => setIsSidebarOpen(true)}
+                onAreaSelected={handleAreaSelected}
                 className="receipt-a4-sheet"
                 data-print-grid="true"
                 style={{
@@ -643,6 +662,7 @@ export default function PaymentPrintModal({
         styleConfig={printStyle.styleConfig}
         tableSelection={tableSelection}
         onCellSelected={() => setIsSidebarOpen(true)}
+        onAreaSelected={handleAreaSelected}
         style={{
           background: '#ffffff',
           color: '#111827',
@@ -1027,6 +1047,7 @@ export default function PaymentPrintModal({
             onResetStyle={printStyle.resetStyleConfig}
             tableSelection={tableSelection}
             showTableSettings={true}
+            focusRequest={focusRequest}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
             isSavingPreset={printStyle.isSavingPreset}
@@ -1040,6 +1061,7 @@ export default function PaymentPrintModal({
               <>
                 {/* Template & Paper Layout Card */}
                 <div
+                  data-sidebar-section="template"
                   style={{
                     background: 'rgba(30, 41, 59, 0.72)',
                     border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -1113,6 +1135,7 @@ export default function PaymentPrintModal({
 
                 {/* Display Options Card */}
                 <div
+                  data-sidebar-section="display"
                   style={{
                     background: 'rgba(30, 41, 59, 0.72)',
                     border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -1290,6 +1313,7 @@ export default function PaymentPrintModal({
 
                 {/* Signature Link Editor Card */}
                 <div
+                  data-sidebar-section="signature"
                   style={{
                     background: 'rgba(30, 41, 59, 0.72)',
                     border: '1px solid rgba(56, 189, 248, 0.25)',

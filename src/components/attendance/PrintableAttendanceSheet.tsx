@@ -252,7 +252,11 @@ export default function PrintableAttendanceSheet({
       }}
     >
       {/* Far Left: Logo + School Name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.8mm', flexShrink: 0 }}>
+      <div
+        data-print-section="layout"
+        title="ចុចដើម្បីកែទម្រង់ក្រដាស និងការតម្រៀបសិស្ស"
+        style={{ display: 'flex', alignItems: 'center', gap: '1.8mm', flexShrink: 0 }}
+      >
         <img
           src="/logo.png"
           alt="BSIS"
@@ -425,6 +429,8 @@ export default function PrintableAttendanceSheet({
 
       {/* Right Month Highlight Box */}
       <div
+        data-print-section="sections"
+        title="ចុចដើម្បីកែផ្នែកបង្ហាញ និងពណ៌ថ្ងៃឈប់សម្រាក"
         style={{
           background: MONTH_SAGE_BG,
           border: '0.75pt solid #000000',

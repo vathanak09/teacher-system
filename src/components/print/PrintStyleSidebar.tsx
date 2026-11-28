@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppIcon } from '@/components/AppIcons';
 import {
   BUILTIN_RICH_FONT_CHOICES,
@@ -14,6 +14,26 @@ import {
   TableSelectionMode,
   hasCustomPrintStyle,
 } from './printStylePresets';
+
+export type PrintSidebarTabId = 'doc' | 'typography' | 'table';
+
+export interface SidebarFocusRequest {
+  tab: PrintSidebarTabId;
+  sectionId?: string;
+  nonce: number;
+}
+
+export function usePrintSidebarFocus() {
+  const [focusRequest, setFocusRequest] = useState<SidebarFocusRequest | null>(null);
+  const requestFocus = useCallback((tab: PrintSidebarTabId, sectionId?: string) => {
+    setFocusRequest((prev) => ({
+      tab,
+      sectionId,
+      nonce: (prev?.nonce || 0) + 1,
+    }));
+  }, []);
+  return { focusRequest, requestFocus };
+}
 
 export interface PrintStyleSidebarProps {
   /** Header title for this document sidebar */
@@ -46,10 +66,12 @@ export interface PrintStyleSidebarProps {
   /** Optional wider sidebar width */
   wide?: boolean;
   /** Optional default active tab */
-  defaultTab?: 'doc' | 'typography' | 'table';
+  defaultTab?: PrintSidebarTabId;
+  /** Optional imperative focus request to auto-switch tab & scroll to matching setting card */
+  focusRequest?: SidebarFocusRequest | null;
 }
 
-type SidebarTabId = 'doc' | 'typography' | 'table';
+type SidebarTabId = PrintSidebarTabId;
 
 const TEXT_COLOR_PRESETS = [
   { label: 'លំនាំដើម', value: '' },
@@ -116,6 +138,7 @@ export default function PrintStyleSidebar({
   onApplyPreset,
   wide = false,
   defaultTab = 'doc',
+  focusRequest = null,
 }: PrintStyleSidebarProps) {
   const [activeTab, setActiveTab] = useState<SidebarTabId>(defaultTab);
   const [newPresetName, setNewPresetName] = useState('');
@@ -126,16 +149,60 @@ export default function PrintStyleSidebar({
   const [customCellFontInput, setCustomCellFontInput] = useState('');
   const [cellFontSizeDraft, setCellFontSizeDraft] = useState<string>('');
 
-  const prevSelectedCountRef = useRef<number>(0);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const prevSelectionSigRef = useRef<string>('');
+  const flashTimerRef = useRef<number | null>(null);
 
-  // Auto-switch to the Table tab as soon as the user clicks a cell/row on the live preview
+  const scrollAndFlashSection = useCallback((sectionId?: string) => {
+    if (!sectionId || typeof window === 'undefined') return;
+    window.setTimeout(() => {
+      const root = sidebarRef.current;
+      if (!root) return;
+      const target = root.querySelector(
+        `[data-sidebar-section="${sectionId}"]`
+      ) as HTMLElement | null;
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      target.classList.remove('print-sidebar-section-flash');
+      void target.offsetWidth;
+      target.classList.add('print-sidebar-section-flash');
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = window.setTimeout(() => {
+        target.classList.remove('print-sidebar-section-flash');
+      }, 1150);
+    }, 45);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    };
+  }, []);
+
+  // Imperatively switch tab & scroll to matching section when a preview area/element is clicked
+  useEffect(() => {
+    if (!focusRequest) return;
+    const nextTab: SidebarTabId =
+      focusRequest.tab === 'table' && !showTableSettings ? 'doc' : focusRequest.tab;
+    setActiveTab(nextTab);
+    if (focusRequest.sectionId) {
+      scrollAndFlashSection(focusRequest.sectionId);
+    }
+  }, [focusRequest?.nonce, focusRequest?.tab, focusRequest?.sectionId, showTableSettings, scrollAndFlashSection]);
+
+  // Auto-switch to the Table tab every time the user selects a cell/row/col on the live preview
+  const selectionSig = (tableSelection?.selectedCoords || [])
+    .map((c) => `${c.pageIdx}:${c.tableIdx}:${c.section}:${c.rowIdx}:${c.colIdx}`)
+    .join('|');
+
   useEffect(() => {
     const count = tableSelection?.selectedCoords.length || 0;
-    if (showTableSettings && count > 0 && prevSelectedCountRef.current === 0) {
+    if (showTableSettings && count > 0 && selectionSig !== prevSelectionSigRef.current) {
       setActiveTab('table');
+      scrollAndFlashSection('table-cell');
     }
-    prevSelectedCountRef.current = count;
-  }, [tableSelection?.selectedCoords.length, showTableSettings]);
+    prevSelectionSigRef.current = selectionSig;
+  }, [selectionSig, tableSelection?.selectedCoords.length, showTableSettings, scrollAndFlashSection]);
 
   const isCustomized = useMemo(() => hasCustomPrintStyle(styleConfig), [styleConfig]);
   const cellOverridesCount = useMemo(
@@ -327,6 +394,7 @@ export default function PrintStyleSidebar({
 
   return (
     <aside
+      ref={sidebarRef}
       className={`no-print print-left-sidebar${wide ? ' print-sidebar-wide' : ''}`}
       onClick={(e) => e.stopPropagation()}
     >
@@ -586,7 +654,7 @@ export default function PrintStyleSidebar({
       {activeTab === 'typography' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.62rem' }}>
           {/* Font Family Section */}
-          <div style={sectionCardStyle}>
+          <div data-sidebar-section="font-family" style={sectionCardStyle}>
             <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#93c5fd' }}>
               ពុម្ពអក្សរ (Web &amp; កុំព្យូទ័រ PC)
             </div>
@@ -747,7 +815,7 @@ export default function PrintStyleSidebar({
           </div>
 
           {/* Font Size & Weight */}
-          <div style={sectionCardStyle}>
+          <div data-sidebar-section="font-size" style={sectionCardStyle}>
             <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#c4b5fd' }}>
               ទំហំអក្សរ &amp; កម្រាស់ (Size &amp; Weight)
             </div>
@@ -1109,6 +1177,7 @@ export default function PrintStyleSidebar({
           {/* Interactive Cell / Row / Column Direct Selection Editor */}
           {tableSelection && (
             <div
+              data-sidebar-section="table-cell"
               style={{
                 ...sectionCardStyle,
                 border:

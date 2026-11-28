@@ -26,7 +26,10 @@ export type HonorRollElementKey =
   | 'slot4'
   | 'slot5'
   | 'classMeta'
-  | 'footerBlock'
+  | 'footerDate'
+  | 'principalTitle'
+  | 'signature'
+  | 'signatoryName'
   | 'stamp'
   | 'watermarkLogo';
 
@@ -40,7 +43,10 @@ export const HONOR_ELEMENT_LABELS: Record<HonorRollElementKey, string> = {
   slot4: 'សិស្សលេខ ៤ (4th)',
   slot5: 'សិស្សលេខ ៥ (5th)',
   classMeta: 'ឈ្មោះថ្នាក់ & គ្រូ',
-  footerBlock: 'កាលបរិច្ឆេទ & នាយក',
+  footerDate: 'កាលបរិច្ឆេទ (Date)',
+  principalTitle: 'តួនាទីនាយក (Principal)',
+  signature: 'ហត្ថលេខា (Signature)',
+  signatoryName: 'ឈ្មោះអ្នកចុះហត្ថលេខា',
   stamp: 'ត្រាសាលា (Stamp)',
   watermarkLogo: 'ឡូហ្គោ Watermark កណ្ដាល',
 };
@@ -49,6 +55,12 @@ export interface HonorElementTransform {
   dxMm: number;
   dyMm: number;
   scale: number;
+  fontFamily?: string;
+  fontSizePt?: number;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  visible?: boolean;
 }
 
 export interface HonorRollLayoutConfig {
@@ -86,6 +98,8 @@ export interface HonorRollLayoutConfig {
   stampSizeMm: number;
   stampOpacity: number;
   stampRotationDeg: number;
+  signatureHeightMm: number;
+  signatureColor: string;
 
   // Free Per-Element Drag & Scale Offsets
   elements: Partial<Record<HonorRollElementKey, HonorElementTransform>>;
@@ -119,9 +133,11 @@ export const DEFAULT_HONOR_LAYOUT_CONFIG: HonorRollLayoutConfig = {
 
   bannerHeightMm: 21,
   watermarkSizeMm: 124,
-  stampSizeMm: 31,
+  stampSizeMm: 35,
   stampOpacity: 0.9,
   stampRotationDeg: -8,
+  signatureHeightMm: 13,
+  signatureColor: '#1d4ed8',
 
   elements: {},
 };
@@ -136,13 +152,38 @@ export function normalizeHonorLayoutConfig(
   };
   const nextElements: Partial<Record<HonorRollElementKey, HonorElementTransform>> = {};
   if (src.elements && typeof src.elements === 'object') {
-    for (const [k, v] of Object.entries(src.elements)) {
-      if (!v || typeof v !== 'object') continue;
-      nextElements[k as HonorRollElementKey] = {
+    const rawEls = src.elements as Record<string, any>;
+    const legacyFooter = rawEls.footerBlock;
+    for (const [k, v] of Object.entries(rawEls)) {
+      if (!v || typeof v !== 'object' || k === 'footerBlock') continue;
+      const tr: HonorElementTransform = {
         dxMm: clamp((v as any).dxMm, 0, -180, 180),
         dyMm: clamp((v as any).dyMm, 0, -240, 240),
         scale: clamp((v as any).scale, 1, 0.4, 2.2),
       };
+      if (typeof (v as any).fontFamily === 'string' && (v as any).fontFamily.trim()) {
+        tr.fontFamily = (v as any).fontFamily.trim();
+      }
+      if ((v as any).fontSizePt !== undefined && Number.isFinite(Number((v as any).fontSizePt))) {
+        tr.fontSizePt = clamp((v as any).fontSizePt, 10, 6, 32);
+      }
+      if (typeof (v as any).color === 'string' && (v as any).color.trim()) {
+        tr.color = (v as any).color.trim();
+      }
+      if (typeof (v as any).bold === 'boolean') tr.bold = (v as any).bold;
+      if (typeof (v as any).italic === 'boolean') tr.italic = (v as any).italic;
+      if (typeof (v as any).visible === 'boolean') tr.visible = (v as any).visible;
+      nextElements[k as HonorRollElementKey] = tr;
+    }
+    if (legacyFooter && typeof legacyFooter === 'object') {
+      const migrated: HonorElementTransform = {
+        dxMm: clamp(legacyFooter.dxMm, 0, -180, 180),
+        dyMm: clamp(legacyFooter.dyMm, 0, -240, 240),
+        scale: clamp(legacyFooter.scale, 1, 0.4, 2.2),
+      };
+      (['footerDate', 'principalTitle', 'signature', 'signatoryName'] as HonorRollElementKey[]).forEach((k) => {
+        if (!nextElements[k]) nextElements[k] = { ...migrated };
+      });
     }
   }
   const d = DEFAULT_HONOR_LAYOUT_CONFIG;
@@ -174,9 +215,14 @@ export function normalizeHonorLayoutConfig(
 
     bannerHeightMm: clamp(src.bannerHeightMm, d.bannerHeightMm, 12, 36),
     watermarkSizeMm: clamp(src.watermarkSizeMm, d.watermarkSizeMm, 60, 180),
-    stampSizeMm: clamp(src.stampSizeMm, d.stampSizeMm, 16, 56),
+    stampSizeMm: clamp(src.stampSizeMm, d.stampSizeMm, 16, 64),
     stampOpacity: clamp(src.stampOpacity, d.stampOpacity, 0.15, 1),
     stampRotationDeg: clamp(src.stampRotationDeg, d.stampRotationDeg, -45, 45),
+    signatureHeightMm: clamp(src.signatureHeightMm, d.signatureHeightMm, 5, 28),
+    signatureColor:
+      typeof src.signatureColor === 'string' && src.signatureColor.trim()
+        ? src.signatureColor.trim()
+        : d.signatureColor,
     elements: nextElements,
   };
 }
@@ -538,6 +584,7 @@ export default function HonorRollSheet({
     (key: HonorRollElementKey): HonorElementTransform => {
       const t = cfg.elements?.[key];
       return {
+        ...(t || {}),
         dxMm: t?.dxMm ?? 0,
         dyMm: t?.dyMm ?? 0,
         scale: t?.scale ?? 1,
@@ -613,6 +660,7 @@ export default function HonorRollSheet({
     extraTransform = ''
   ) => {
     const tr = getTransform(key);
+    if (tr.visible === false) return null;
     const isSel = interactive && selectedElement === key;
     const transformParts: string[] = [];
     if (extraTransform) transformParts.push(extraTransform);
@@ -626,22 +674,32 @@ export default function HonorRollSheet({
     return (
       <div
         key={key}
+        data-print-movable="true"
         onMouseDown={interactive ? (e) => startDrag(e, key, 'move') : undefined}
         style={{
           ...baseStyle,
           transform: transformParts.length > 0 ? transformParts.join(' ') : undefined,
           transformOrigin: 'center center',
           cursor: interactive ? 'grab' : undefined,
-          outline: isSel ? '1.8px solid #0284c7' : undefined,
-          outlineOffset: isSel ? '2px' : undefined,
           borderRadius: isSel ? '4px' : baseStyle.borderRadius,
         }}
       >
         {content}
 
-        {/* Screen-only Selection Label & Resize Corner Handle */}
+        {/* Screen-only Selection Outline, Label & Resize Corner Handle */}
         {isSel && (
           <>
+            <div
+              className="no-print"
+              style={{
+                position: 'absolute',
+                inset: '-2px',
+                border: '1.8px solid #0284c7',
+                borderRadius: '4px',
+                pointerEvents: 'none',
+                zIndex: 48,
+              }}
+            />
             <div
               className="no-print"
               style={{
@@ -1112,129 +1170,114 @@ export default function HonorRollSheet({
 
       {/* Optional Bottom-Left Class / Teacher Info (Movable & Resizable) */}
       {showClassTag &&
-        (classMetaLabel || teacherMetaLabel) &&
-        renderInteractiveBox(
-          'classMeta',
+        (classMetaLabel || teacherMetaLabel) && (() => {
+          const tr = getTransform('classMeta');
+          return renderInteractiveBox(
+            'classMeta',
+            {
+              position: 'absolute',
+              left: '15mm',
+              bottom: '13mm',
+              zIndex: 8,
+              fontFamily: tr.fontFamily || "'Kantumruy Pro', 'Khmer OS Siemreap', sans-serif",
+              fontSize: `${tr.fontSizePt ?? 9}pt`,
+              fontWeight: tr.bold === false ? 400 : 700,
+              fontStyle: tr.italic ? 'italic' : 'normal',
+              color: tr.color || '#1e3a8a',
+              lineHeight: 1.45,
+            },
+            <>
+              {classMetaLabel && <div>ថ្នាក់ / វគ្គ៖ {classMetaLabel}</div>}
+              {teacherMetaLabel && <div>គ្រូបន្ទុកថ្នាក់៖ {teacherMetaLabel}</div>}
+            </>
+          );
+        })()}
+
+      {/* 1. Bottom-Right Official Khmer + English Date (Independent Movable & Resizable Block) */}
+      {(() => {
+        const tr = getTransform('footerDate');
+        return renderInteractiveBox(
+          'footerDate',
           {
             position: 'absolute',
-            left: '15mm',
-            bottom: '13mm',
-            zIndex: 8,
-            fontFamily: "'Kantumruy Pro', 'Khmer OS Siemreap', sans-serif",
-            fontSize: '9pt',
-            fontWeight: 700,
-            color: '#1e3a8a',
-            lineHeight: 1.45,
+            right: '11mm',
+            top: `${cfg.footerTopMm}mm`,
+            width: '74mm',
+            zIndex: 9,
+            textAlign: 'center',
+            lineHeight: 1.38,
           },
-          <>
-            {classMetaLabel && <div>ថ្នាក់ / វគ្គ៖ {classMetaLabel}</div>}
-            {teacherMetaLabel && <div>គ្រូបន្ទុកថ្នាក់៖ {teacherMetaLabel}</div>}
-          </>
-        )}
+          <div data-print-no-scale={tr.fontSizePt ? 'true' : undefined}>
+            <div
+              style={{
+                fontFamily: tr.fontFamily || "'Kantumruy Pro', 'Khmer OS Siemreap', sans-serif",
+                fontSize: `${tr.fontSizePt ?? cfg.footerFontPt}pt`,
+                fontWeight: tr.bold === false ? 400 : 700,
+                fontStyle: tr.italic ? 'italic' : 'normal',
+                color: tr.color || '#111827',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {footerDateKhmer}
+            </div>
+            <div
+              style={{
+                fontFamily: tr.fontFamily || "'News706 BT', 'Georgia', serif",
+                fontSize: `${tr.fontSizePt ?? cfg.footerFontPt}pt`,
+                fontWeight: tr.bold === false ? 400 : 700,
+                fontStyle: tr.italic ? 'italic' : 'normal',
+                color: tr.color || '#111827',
+                marginTop: '0.5mm',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {footerDateEnglish}
+            </div>
+          </div>
+        );
+      })()}
 
-      {/* Bottom-Right Official Khmer + English Date, Principal & Signature (Movable & Resizable) */}
-      {renderInteractiveBox(
-        'footerBlock',
-        {
-          position: 'absolute',
-          right: '11mm',
-          top: `${cfg.footerTopMm}mm`,
-          width: '74mm',
-          zIndex: 9,
-          textAlign: 'center',
-          lineHeight: 1.38,
-        },
-        <>
+      {/* 2. Principal Title (Independent Movable & Resizable Block) */}
+      {principalTitleKh && (() => {
+        const tr = getTransform('principalTitle');
+        return renderInteractiveBox(
+          'principalTitle',
+          {
+            position: 'absolute',
+            right: '11mm',
+            top: `${cfg.footerTopMm + 10.2}mm`,
+            width: '74mm',
+            zIndex: 10,
+            textAlign: 'center',
+            lineHeight: 1.35,
+          },
           <div
+            data-print-no-scale={tr.fontSizePt ? 'true' : undefined}
             style={{
-              fontFamily: "'Kantumruy Pro', 'Khmer OS Siemreap', sans-serif",
-              fontSize: `${cfg.footerFontPt}pt`,
-              fontWeight: 700,
-              color: '#111827',
+              fontFamily: tr.fontFamily || "'Khmer OS Muol Light', 'Moul', serif",
+              fontSize: `${tr.fontSizePt ?? cfg.footerFontPt}pt`,
+              fontWeight: tr.bold ? 700 : 400,
+              fontStyle: tr.italic ? 'italic' : 'normal',
+              color: tr.color || '#111827',
               whiteSpace: 'nowrap',
-            }}
-          >
-            {footerDateKhmer}
-          </div>
-          <div
-            style={{
-              fontFamily: "'News706 BT', 'Georgia', serif",
-              fontSize: `${cfg.footerFontPt}pt`,
-              fontWeight: 700,
-              color: '#111827',
-              marginTop: '0.5mm',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {footerDateEnglish}
-          </div>
-          <div
-            style={{
-              fontFamily: "'Khmer OS Muol Light', 'Moul', serif",
-              fontSize: `${cfg.footerFontPt}pt`,
-              fontWeight: 400,
-              color: '#111827',
-              marginTop: '0.8mm',
             }}
           >
             {principalTitleKh}
           </div>
+        );
+      })()}
 
-          {showSignature && (
-            <div
-              style={{
-                position: 'relative',
-                minHeight: '22mm',
-                marginTop: '1mm',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <div
-                style={{
-                  height: '14mm',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <ReceiptSignature
-                  signatureUrl={signatureUrl}
-                  height="13mm"
-                  color="#1d4ed8"
-                />
-              </div>
-              {signatoryName && (
-                <div
-                  style={{
-                    fontFamily: "'Khmer OS Muol Light', 'Moul', serif",
-                    fontSize: `${cfg.footerFontPt}pt`,
-                    fontWeight: 400,
-                    color: '#1e3a8a',
-                    marginTop: '0.6mm',
-                  }}
-                >
-                  {signatoryName}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Independent Movable & Resizable Official Red School Stamp */}
+      {/* 3. Independent Movable & Resizable Official Red School Stamp (default 35mm / 3.5cm) */}
       {showStamp &&
         renderInteractiveBox(
           'stamp',
           {
             position: 'absolute',
-            right: '43mm',
-            top: `${cfg.footerTopMm + 11}mm`,
+            right: '41mm',
+            top: `${cfg.footerTopMm + 10}mm`,
             width: `${cfg.stampSizeMm}mm`,
             height: `${cfg.stampSizeMm}mm`,
-            zIndex: 12,
+            zIndex: 11,
           },
           <div
             style={{
@@ -1251,6 +1294,59 @@ export default function HonorRollSheet({
             />
           </div>
         )}
+
+      {/* 4. Independent Movable & Resizable Signature */}
+      {showSignature &&
+        renderInteractiveBox(
+          'signature',
+          {
+            position: 'absolute',
+            right: '11mm',
+            top: `${cfg.footerTopMm + 16.5}mm`,
+            width: '74mm',
+            minHeight: `${Math.max(10, cfg.signatureHeightMm + 1)}mm`,
+            zIndex: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          <ReceiptSignature
+            signatureUrl={signatureUrl}
+            height={`${cfg.signatureHeightMm}mm`}
+            color={cfg.signatureColor || '#1d4ed8'}
+          />
+        )}
+
+      {/* 5. Independent Movable & Resizable Signatory Name */}
+      {showSignature &&
+        signatoryName && (() => {
+          const tr = getTransform('signatoryName');
+          return renderInteractiveBox(
+            'signatoryName',
+            {
+              position: 'absolute',
+              right: '11mm',
+              top: `${cfg.footerTopMm + 31.2}mm`,
+              width: '74mm',
+              zIndex: 14,
+              textAlign: 'center',
+              lineHeight: 1.35,
+            },
+            <div
+              data-print-no-scale={tr.fontSizePt ? 'true' : undefined}
+              style={{
+                fontFamily: tr.fontFamily || "'Khmer OS Muol Light', 'Moul', serif",
+                fontSize: `${tr.fontSizePt ?? cfg.footerFontPt}pt`,
+                fontWeight: tr.bold ? 700 : 400,
+                fontStyle: tr.italic ? 'italic' : 'normal',
+                color: tr.color || '#1e3a8a',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {signatoryName}
+            </div>
+          );
+        })()}
     </div>
   );
 }

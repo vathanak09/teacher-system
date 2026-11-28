@@ -603,7 +603,11 @@ export type CertElementKey =
   | 'certNumber'
   | 'studentPhoto'
   | 'classMeta'
-  | 'stampBlock';
+  | 'issuedDateBlock'
+  | 'principalTitleBlock'
+  | 'stamp'
+  | 'signature'
+  | 'signatoryName';
 
 export type CertResizeHandleMode =
   | 'elementScale'
@@ -617,6 +621,7 @@ export type CertResizeHandleMode =
   | 'ministryLogoWidth'
   | 'ministryLogoHeight'
   | 'stampSize'
+  | 'signatureSize'
   | 'ribbonSize'
   | 'frameSize'
   | 'frameWidth'
@@ -633,7 +638,11 @@ export const CERT_ELEMENT_LABELS: Record<CertElementKey, string> = {
   certNumber: 'លេខរៀងប័ណ្ណ (No.)',
   studentPhoto: 'ប្រអប់រូបថតសិស្ស',
   classMeta: 'ព័ត៌មានថ្នាក់ & គ្រូ',
-  stampBlock: 'ថ្ងៃចុះហត្ថលេខា, ត្រា & ហត្ថលេខា',
+  issuedDateBlock: 'កាលបរិច្ឆេទ (Issued Date)',
+  principalTitleBlock: 'តួនាទីនាយក (Principal)',
+  stamp: 'ត្រាសាលា (Stamp)',
+  signature: 'ហត្ថលេខា (Signature)',
+  signatoryName: 'ឈ្មោះអ្នកចុះហត្ថលេខា',
 };
 
 export interface CertFontOption {
@@ -725,7 +734,10 @@ export interface CertificateDesignConfig {
   photoHeightMm: number;
   photoRadiusMm: number;
   stampSizeMm: number;
+  stampOpacity?: number;
+  stampRotationDeg?: number;
   signatureHeightMm: number;
+  signatureColor?: string;
   showWatermark: boolean;
   watermarkOpacity: number;
   watermarkSizeMm: number;
@@ -782,8 +794,11 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
   photoWidthMm: 22,
   photoHeightMm: 27.5,
   photoRadiusMm: 2.2,
-  stampSizeMm: 22,
-  signatureHeightMm: 8.5,
+  stampSizeMm: 35,
+  stampOpacity: 0.95,
+  stampRotationDeg: 0,
+  signatureHeightMm: 9.5,
+  signatureColor: '',
   showWatermark: true,
   watermarkOpacity: 0.08,
   watermarkSizeMm: 54,
@@ -811,7 +826,11 @@ export const DEFAULT_CERTIFICATE_DESIGN: CertificateDesignConfig = {
     certNumber: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
     studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
-    stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    issuedDateBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    principalTitleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    stamp: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    signature: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    signatoryName: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
   },
 };
 
@@ -858,7 +877,11 @@ export const DEFAULT_COURSE_CERTIFICATE_DESIGN: CertificateDesignConfig = {
     certNumber: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     studentPhoto: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
     classMeta: { dxMm: 0, dyMm: 0, scale: 1, visible: false },
-    stampBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    issuedDateBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    principalTitleBlock: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    stamp: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    signature: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
+    signatoryName: { dxMm: 0, dyMm: 0, scale: 1, visible: true },
   },
 };
 
@@ -867,10 +890,18 @@ export function normalizeCertificateDesign(
   baseDefaults: CertificateDesignConfig = DEFAULT_CERTIFICATE_DESIGN
 ): CertificateDesignConfig {
   const baseEl = baseDefaults.elements;
-  const rawEl = raw?.elements || ({} as Partial<Record<CertElementKey, CertElementLayout>>);
+  const rawEl = (raw?.elements || {}) as Record<string, CertElementLayout | undefined>;
+  const legacyStampBlock = rawEl.stampBlock;
+  const splitStampKeys = new Set<CertElementKey>([
+    'issuedDateBlock',
+    'principalTitleBlock',
+    'stamp',
+    'signature',
+    'signatoryName',
+  ]);
   const mergedElements = {} as Record<CertElementKey, CertElementLayout>;
   (Object.keys(baseEl) as CertElementKey[]).forEach((key) => {
-    const src = rawEl[key];
+    const src = rawEl[key] || (splitStampKeys.has(key) ? legacyStampBlock : undefined);
     mergedElements[key] = {
       dxMm: typeof src?.dxMm === 'number' && Number.isFinite(src.dxMm) ? src.dxMm : baseEl[key].dxMm,
       dyMm: typeof src?.dyMm === 'number' && Number.isFinite(src.dyMm) ? src.dyMm : baseEl[key].dyMm,
@@ -976,6 +1007,7 @@ export interface CertificateCardProps {
   editorDraggingFrame?: boolean;
   showMarginGuide?: boolean;
   onElementPointerDown?: (key: CertElementKey, e: React.PointerEvent) => void;
+  onPreviewElementClick?: (key: CertElementKey) => void;
   onResizeHandlePointerDown?: (
     key: CertElementKey,
     mode: CertResizeHandleMode,
@@ -1026,7 +1058,8 @@ export function CertificateCardA5({
   frameDragEnabled = false,
   editorDraggingFrame = false,
   showMarginGuide = false,
-  onElementPointerDown,
+  onElementPointerDown: rawOnElementPointerDown,
+  onPreviewElementClick,
   onResizeHandlePointerDown,
   onCustomTextPointerDown,
   onCustomTextResizePointerDown,
@@ -1047,7 +1080,16 @@ export function CertificateCardA5({
       ),
     [designConfig, isCertDoc]
   );
-  const isEditing = Boolean(onElementPointerDown);
+  const isEditing = Boolean(rawOnElementPointerDown);
+  const onElementPointerDown = rawOnElementPointerDown
+    ? rawOnElementPointerDown
+    : onPreviewElementClick
+      ? (key: CertElementKey, e: React.PointerEvent) => {
+          if (e.button !== 0 && e.pointerType === 'mouse') return;
+          e.stopPropagation();
+          onPreviewElementClick(key);
+        }
+      : undefined;
 
   const frameImgSrc = resolveSheetAssetSrc(customFrameUrl);
   const photoImgSrc = resolveSheetAssetSrc(recipient.photo);
@@ -1234,7 +1276,11 @@ export function CertificateCardA5({
             touchAction: 'none',
             backgroundColor: isSel ? 'rgba(59, 130, 246, 0.08)' : baseStyle?.backgroundColor,
           }
-        : {}),
+        : onPreviewElementClick
+          ? {
+              cursor: 'pointer',
+            }
+          : {}),
     };
   };
 
@@ -2416,127 +2462,196 @@ export function CertificateCardA5({
                   })()}
                 </div>
 
-                {/* Right: Issued Date + The Principal of BSIS + Official Stamp & Signature */}
-                {design.elements.stampBlock.visible !== false && (
+                {/* Right: Separated Movable & Resizable Blocks (Issued Date, Principal Title, Official Stamp, Signature, Signatory Name) */}
+                {(design.elements.issuedDateBlock.visible !== false ||
+                  design.elements.principalTitleBlock.visible !== false ||
+                  design.elements.stamp.visible !== false ||
+                  design.elements.signature.visible !== false ||
+                  design.elements.signatoryName.visible !== false) && (
                   <div
-                    onPointerDown={onElementPointerDown ? (e) => onElementPointerDown('stampBlock', e) : undefined}
-                    style={getInteractiveProps('stampBlock', {
+                    style={{
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       minWidth: '72mm',
                       position: 'relative',
-                    })}
+                    }}
                   >
-                    {isCertDoc ? (
-                      <>
+                    {/* 1. Issued Date (Independent Text Block) */}
+                    {design.elements.issuedDateBlock.visible !== false && (() => {
+                      const ov = getTextBoxOverride('issuedDateBlock');
+                      const richNode = renderRichOverrideBody(ov, 0.25);
+                      return (
                         <div
                           className="cert-inherit-font"
-                          style={{
-                            fontSize: '8.2pt',
-                            color: design.bodyColor,
-                            fontFamily: design.englishFont,
-                            lineHeight: 1.25,
-                            textAlign: 'center',
-                          }}
+                          onPointerDown={
+                            onElementPointerDown ? (e) => onElementPointerDown('issuedDateBlock', e) : undefined
+                          }
+                          style={getInteractiveProps('issuedDateBlock', {
+                            fontSize: `${ov?.fontSizePt ?? (isCertDoc ? 8.2 : 8.8)}pt`,
+                            color: ov?.color || design.bodyColor,
+                            fontFamily: ov?.fontFamily || design.englishFont,
+                            lineHeight: ov?.lineHeight ?? 1.25,
+                            letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                            textAlign: ov?.textAlign || 'center',
+                            width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
+                            marginBottom: isCertDoc ? '0.2mm' : '0.4mm',
+                            zIndex: 4,
+                          })}
                         >
-                          <div>Issued Dated</div>
-                          <div style={{ fontWeight: 600 }}>{resolvedCertPlaceDate}</div>
+                          {richNode ? (
+                            richNode
+                          ) : isCertDoc ? (
+                            <>
+                              <div>Issued Dated</div>
+                              <div style={{ fontWeight: 600 }}>{resolvedCertPlaceDate}</div>
+                            </>
+                          ) : (
+                            <>
+                              <span>Issued Date</span>
+                              <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
+                            </>
+                          )}
+                          {renderResizeHandle('issuedDateBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមកាលបរិច្ឆេទ')}
                         </div>
+                      );
+                    })()}
+
+                    {/* 2. Principal Title (Independent Text Block) */}
+                    {design.elements.principalTitleBlock.visible !== false && (() => {
+                      const ov = getTextBoxOverride('principalTitleBlock');
+                      const richNode = renderRichOverrideBody(ov, 0.25);
+                      return (
                         <div
                           className="cert-inherit-font"
-                          style={{
-                            fontSize: '8.3pt',
+                          onPointerDown={
+                            onElementPointerDown ? (e) => onElementPointerDown('principalTitleBlock', e) : undefined
+                          }
+                          style={getInteractiveProps('principalTitleBlock', {
+                            fontSize: `${ov?.fontSizePt ?? (isCertDoc ? 8.3 : 8.8)}pt`,
                             fontWeight: 700,
-                            color: '#1e293b',
-                            fontFamily: design.englishFont,
-                            marginTop: '0.3mm',
-                            marginBottom: '-2.5mm',
-                            position: 'relative',
-                            zIndex: 2,
-                          }}
+                            color: ov?.color || '#1e293b',
+                            fontFamily: ov?.fontFamily || design.englishFont,
+                            lineHeight: ov?.lineHeight ?? 1.25,
+                            letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                            textAlign: ov?.textAlign || 'center',
+                            width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
+                            marginTop: isCertDoc ? '0.2mm' : undefined,
+                            marginBottom: '-1.5mm',
+                            zIndex: 5,
+                          })}
                         >
-                          {principalTitle}
+                          {richNode ? richNode : principalTitle}
+                          {renderResizeHandle('principalTitleBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមតួនាទីនាយក')}
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div
-                          className="cert-inherit-font"
-                          style={{
-                            fontSize: '8.8pt',
-                            color: design.bodyColor,
-                            fontFamily: design.englishFont,
-                            marginBottom: '0.4mm',
-                          }}
-                        >
-                          <span>Issued Date</span>
-                          <strong style={{ marginLeft: '4mm', fontWeight: 700 }}>{issuedDate}</strong>
-                        </div>
+                      );
+                    })()}
 
-                        <div
-                          className="cert-inherit-font"
-                          style={{
-                            fontSize: '8.8pt',
-                            fontWeight: 700,
-                            color: '#1e293b',
-                            fontFamily: design.englishFont,
-                            marginBottom: '-2.5mm',
-                            position: 'relative',
-                            zIndex: 2,
-                          }}
-                        >
-                          {principalTitle}
-                        </div>
-                      </>
-                    )}
-
-                    <div style={{ position: 'relative', width: '48mm', height: `${Math.max(16, design.stampSizeMm)}mm` }}>
-                      <div style={{ position: 'absolute', left: '2mm', top: '-1mm' }}>
-                        <OfficialSchoolStamp
-                          stampUrl={stampUrl}
-                          schoolProfile={schoolProfile}
-                          size={`${design.stampSizeMm}mm`}
-                        />
-                      </div>
-
+                    {/* 3 & 4. Official Stamp (default 35mm / 3.5cm) & Signature (Separated Independent Blocks) */}
+                    {(design.elements.stamp.visible !== false ||
+                      design.elements.signature.visible !== false) && (
                       <div
                         style={{
-                          position: 'absolute',
-                          right: '-2mm',
-                          bottom: '0.5mm',
-                          width: '28mm',
-                          zIndex: 3,
-                          pointerEvents: 'none',
-                        }}
-                      >
-                        <ReceiptSignature
-                          signatureUrl={signatureUrl}
-                          height={`${design.signatureHeightMm}mm`}
-                          color={design.valueColor}
-                        />
-                      </div>
-                      {renderResizeHandle('stampBlock', 'stampSize', 'inner-se', 'ទាញផ្លាស់ប្តូរទំហំត្រា & ហត្ថលេខា', '#e11d48')}
-                    </div>
-
-                    {signatoryName && (
-                      <div
-                        style={{
-                          marginTop: '-0.8mm',
-                          paddingLeft: '14mm',
-                          fontSize: `${design.signatoryFontPt}pt`,
-                          fontWeight: 400,
-                          color: framePreset.signatoryColor,
-                          fontFamily: design.studentNameKhFont,
-                          whiteSpace: 'nowrap',
                           position: 'relative',
-                          zIndex: 4,
+                          width: '58mm',
+                          height: '24mm',
+                          overflow: 'visible',
                         }}
                       >
-                        {signatoryName}
+                        {design.elements.stamp.visible !== false && (
+                          <div
+                            onPointerDown={
+                              onElementPointerDown ? (e) => onElementPointerDown('stamp', e) : undefined
+                            }
+                            style={getInteractiveProps('stamp', {
+                              position: 'absolute',
+                              left: '-1mm',
+                              top: '50%',
+                              marginTop: `${-(design.stampSizeMm / 2)}mm`,
+                              width: `${design.stampSizeMm}mm`,
+                              height: `${design.stampSizeMm}mm`,
+                              zIndex: 3,
+                            })}
+                          >
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                opacity: design.stampOpacity ?? 0.95,
+                                transform: design.stampRotationDeg
+                                  ? `rotate(${design.stampRotationDeg}deg)`
+                                  : undefined,
+                                pointerEvents: 'none',
+                              }}
+                            >
+                              <OfficialSchoolStamp
+                                stampUrl={stampUrl}
+                                schoolProfile={schoolProfile}
+                                size={`${design.stampSizeMm}mm`}
+                              />
+                            </div>
+                            {renderResizeHandle('stamp', 'stampSize', 'se', 'ទាញផ្លាស់ប្តូរទំហំត្រា (mm)', '#e11d48')}
+                          </div>
+                        )}
+
+                        {design.elements.signature.visible !== false && (
+                          <div
+                            onPointerDown={
+                              onElementPointerDown ? (e) => onElementPointerDown('signature', e) : undefined
+                            }
+                            style={getInteractiveProps('signature', {
+                              position: 'absolute',
+                              right: '0mm',
+                              bottom: '1mm',
+                              width: '30mm',
+                              minHeight: `${Math.max(8, design.signatureHeightMm)}mm`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              zIndex: isEditing ? (editorSelectedKey === 'signature' ? 50 : 14) : 6,
+                            })}
+                          >
+                            <ReceiptSignature
+                              signatureUrl={signatureUrl}
+                              height={`${design.signatureHeightMm}mm`}
+                              color={design.signatureColor || design.valueColor}
+                            />
+                            {renderResizeHandle('signature', 'signatureSize', 'se', 'ទាញផ្លាស់ប្តូរទំហំហត្ថលេខា', '#0284c7')}
+                          </div>
+                        )}
                       </div>
                     )}
-                    {renderResizeHandle('stampBlock', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមប្រអប់ហត្ថលេខា')}
+
+                    {/* 5. Signatory Name (Independent Text Block) */}
+                    {signatoryName && design.elements.signatoryName.visible !== false && (() => {
+                      const ov = getTextBoxOverride('signatoryName');
+                      const richNode = renderRichOverrideBody(ov, 0.25);
+                      return (
+                        <div
+                          className="cert-inherit-font"
+                          onPointerDown={
+                            onElementPointerDown ? (e) => onElementPointerDown('signatoryName', e) : undefined
+                          }
+                          style={getInteractiveProps('signatoryName', {
+                            marginTop: '-0.5mm',
+                            paddingLeft: '12mm',
+                            fontSize: `${ov?.fontSizePt ?? design.signatoryFontPt}pt`,
+                            fontWeight: 400,
+                            color: ov?.color || framePreset.signatoryColor,
+                            fontFamily: ov?.fontFamily || design.studentNameKhFont,
+                            lineHeight: ov?.lineHeight ?? 1.3,
+                            letterSpacing: ov?.letterSpacingPx !== undefined ? `${ov.letterSpacingPx}px` : undefined,
+                            textAlign: ov?.textAlign || 'center',
+                            width: ov?.widthMm ? `${ov.widthMm}mm` : undefined,
+                            whiteSpace: 'nowrap',
+                            zIndex: isEditing ? (editorSelectedKey === 'signatoryName' ? 50 : 15) : 7,
+                          })}
+                        >
+                          {richNode ? richNode : signatoryName}
+                          {renderResizeHandle('signatoryName', 'elementScale', 'se', 'ទាញពង្រីក/បង្រួមឈ្មោះអ្នកចុះហត្ថលេខា')}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

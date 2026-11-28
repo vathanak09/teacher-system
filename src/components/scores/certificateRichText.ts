@@ -6,7 +6,10 @@ export type CertTextBoxKey =
   | 'khmerBody'
   | 'englishBody'
   | 'certNumber'
-  | 'classMeta';
+  | 'classMeta'
+  | 'issuedDateBlock'
+  | 'principalTitleBlock'
+  | 'signatoryName';
 
 export const CERT_TEXTBOX_KEYS: CertTextBoxKey[] = [
   'nationalMotto',
@@ -15,6 +18,9 @@ export const CERT_TEXTBOX_KEYS: CertTextBoxKey[] = [
   'englishBody',
   'certNumber',
   'classMeta',
+  'issuedDateBlock',
+  'principalTitleBlock',
+  'signatoryName',
 ];
 
 export function isCertTextBoxKey(key: string): key is CertTextBoxKey {
@@ -410,6 +416,24 @@ export function getDefaultTextBoxRichHtml(
       `<div>គ្រូ៖ {{teacherName}}</div>`,
       `<div>ID: {{studentId}}</div>`,
     ].join('');
+  }
+
+  if (boxKey === 'issuedDateBlock') {
+    if (isCert) {
+      return [
+        `<div>Issued Dated</div>`,
+        `<div style="font-weight: 600;">{{certPlaceDate}}</div>`,
+      ].join('');
+    }
+    return `<div>Issued Date&nbsp;&nbsp;&nbsp;&nbsp;<strong>{{issuedDate}}</strong></div>`;
+  }
+
+  if (boxKey === 'principalTitleBlock') {
+    return `<div style="font-weight: 700;">{{principalTitle}}</div>`;
+  }
+
+  if (boxKey === 'signatoryName') {
+    return `<div style="font-family: ${hints.studentNameKhFont};">{{signatoryName}}</div>`;
   }
 
   if (boxKey === 'khmerBody') {

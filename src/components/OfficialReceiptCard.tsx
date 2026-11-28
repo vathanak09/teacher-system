@@ -230,6 +230,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
         {/* Header Banner + Title (visibility:hidden preserves exact mm coordinates in prePrintedOnly mode) */}
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div
+            data-print-section="template"
+            title="ចុចដើម្បីប្ដូរស្តាយ៍វិក្កយបត្រ និងទំហំក្រដាស"
             style={{
               display: 'flex',
               justifyContent: 'center',
@@ -542,6 +544,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                 <span style={{ fontSize: '7.6pt', fontWeight: 600, color: '#000000' }}>Total Amount</span>
               </div>
               <div
+                data-print-section="display"
+                title="ចុចដើម្បីកែជម្រើសបង្ហាញទឹកប្រាក់"
                 style={{
                   width: '3.45cm',
                   height: '8.5mm',
@@ -856,6 +860,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
                   សរុបទឹកប្រាក់ / Total
                 </div>
                 <div
+                  data-print-section="display"
+                  title="ចុចដើម្បីកែជម្រើសបង្ហាញទឹកប្រាក់"
                   style={{
                     height: '9mm',
                     border: thinBorder,
@@ -971,6 +977,8 @@ export default function OfficialReceiptCard(props: ReceiptCardSharedProps) {
           </div>
 
           <div
+            data-print-section="signature"
+            title="ចុចដើម្បីកែ Link ហត្ថលេខាអ្នកទទួលប្រាក់"
             style={{
               width: isPortrait ? '4cm' : '3.65cm',
               marginLeft: isPortrait ? 'auto' : 0,

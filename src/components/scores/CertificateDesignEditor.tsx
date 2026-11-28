@@ -77,6 +77,7 @@ export interface CertificateDesignEditorProps {
   onUpdateCurrentDesignTemplate: () => Promise<void>;
   onDeleteDesignTemplate: (id: string) => Promise<void>;
   isSavingTemplate: boolean;
+  initialSelectedKey?: CertElementKey | null;
 }
 
 type InspectorTab = 'element' | 'typography' | 'images';
@@ -114,8 +115,9 @@ export default function CertificateDesignEditor({
   onUpdateCurrentDesignTemplate,
   onDeleteDesignTemplate,
   isSavingTemplate,
+  initialSelectedKey = null,
 }: CertificateDesignEditorProps) {
-  const [selectedKey, setSelectedKey] = useState<CertElementKey>('titleBlock');
+  const [selectedKey, setSelectedKey] = useState<CertElementKey>(initialSelectedKey || 'titleBlock');
   const [draggingKey, setDraggingKey] = useState<CertElementKey | null>(null);
   const [frameDragEnabled, setFrameDragEnabled] = useState<boolean>(false);
   const [draggingFrame, setDraggingFrame] = useState<boolean>(false);
@@ -124,6 +126,27 @@ export default function CertificateDesignEditor({
   const [newTemplateName, setNewTemplateName] = useState<string>('');
   const [editorScale, setEditorScale] = useState<number>(0.9);
   const stageWrapperRef = useRef<HTMLDivElement>(null);
+  const inspectorCardRef = useRef<HTMLDivElement>(null);
+
+  const flashInspectorCard = () => {
+    window.setTimeout(() => {
+      const el = inspectorCardRef.current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      el.classList.remove('print-sidebar-section-flash');
+      void el.offsetWidth;
+      el.classList.add('print-sidebar-section-flash');
+      window.setTimeout(() => el.classList.remove('print-sidebar-section-flash'), 1150);
+    }, 45);
+  };
+
+  useEffect(() => {
+    if (!initialSelectedKey) return;
+    setSelectedCustomTextId(null);
+    setSelectedKey(initialSelectedKey);
+    setInspectorTab('element');
+    flashInspectorCard();
+  }, [initialSelectedKey]);
 
   const [selectedCustomTextId, setSelectedCustomTextId] = useState<string | null>(null);
   const [draggingCustomTextId, setDraggingCustomTextId] = useState<string | null>(null);
@@ -416,10 +439,12 @@ export default function CertificateDesignEditor({
         }
       } else if (st.mode === 'stampSize') {
         const deltaAvg = (deltaXMm + deltaYMm) / 2;
-        const stampSizeMm = clampVal(roundStep(st.startStampSize + deltaAvg / elScale, 0.5), 12, 42);
-        const ratio = st.startStampSize > 0 ? stampSizeMm / st.startStampSize : 1;
-        const signatureHeightMm = clampVal(roundStep(st.startSigHeight * ratio, 0.5), 5, 20);
-        onChangeDesignRef.current({ ...curDesign, stampSizeMm, signatureHeightMm });
+        const stampSizeMm = clampVal(roundStep(st.startStampSize + deltaAvg / elScale, 0.5), 12, 60);
+        onChangeDesignRef.current({ ...curDesign, stampSizeMm });
+      } else if (st.mode === 'signatureSize') {
+        const deltaAvg = (deltaXMm + deltaYMm) / 2;
+        const signatureHeightMm = clampVal(roundStep(st.startSigHeight + deltaAvg * 0.65 / elScale, 0.5), 5, 28);
+        onChangeDesignRef.current({ ...curDesign, signatureHeightMm });
       } else if (st.mode === 'ribbonSize') {
         const deltaAvg = (deltaXMm + deltaYMm) / 2;
         const rankRibbonSizeMm = clampVal(roundStep(st.startRibbonSize + deltaAvg / elScale, 0.5), 14, 38);
@@ -521,9 +546,8 @@ export default function CertificateDesignEditor({
     setSelectedCustomTextId(null);
     setSelectedKey(key);
     setDraggingKey(key);
-    if (isCertTextBoxKey(key)) {
-      setInspectorTab('element');
-    }
+    setInspectorTab('element');
+    flashInspectorCard();
     document.body.style.cursor = 'grabbing';
     const el = latestDesignRef.current.elements[key];
     dragStateRef.current = {
@@ -543,6 +567,7 @@ export default function CertificateDesignEditor({
     setSelectedCustomTextId(id);
     setDraggingCustomTextId(id);
     setInspectorTab('element');
+    flashInspectorCard();
     document.body.style.cursor = 'grabbing';
     const box = (latestDesignRef.current.customTextBoxes || []).find((b) => b.id === id);
     if (!box) return;
@@ -792,25 +817,38 @@ export default function CertificateDesignEditor({
         ? normalizedDesign.mottoLineHeight
         : boxKey === 'titleBlock'
           ? 1.14
-          : normalizedDesign.bodyLineHeight;
+          : boxKey === 'issuedDateBlock' || boxKey === 'principalTitleBlock'
+            ? 1.25
+            : normalizedDesign.bodyLineHeight;
     const baseGap =
       boxKey === 'khmerBody' || boxKey === 'englishBody' ? normalizedDesign.rowGapMm : 0.35;
     const baseFontFamily =
       boxKey === 'nationalMotto' || boxKey === 'titleBlock'
         ? normalizedDesign.khmerTitleFont
-        : boxKey === 'englishBody' || boxKey === 'certNumber'
-          ? normalizedDesign.englishFont
-          : normalizedDesign.khmerBodyFont;
+        : boxKey === 'signatoryName'
+          ? normalizedDesign.studentNameKhFont
+          : boxKey === 'englishBody' ||
+              boxKey === 'certNumber' ||
+              boxKey === 'issuedDateBlock' ||
+              boxKey === 'principalTitleBlock'
+            ? normalizedDesign.englishFont
+            : normalizedDesign.khmerBodyFont;
     const baseFontSizePt =
       boxKey === 'nationalMotto'
         ? normalizedDesign.mottoKhFontPt
         : boxKey === 'titleBlock'
           ? normalizedDesign.titleFontPt
-          : boxKey === 'englishBody' || boxKey === 'certNumber'
-            ? normalizedDesign.englishBodyFontPt
-            : boxKey === 'classMeta'
-              ? 7.5
-              : normalizedDesign.khmerBodyFontPt;
+          : boxKey === 'signatoryName'
+            ? normalizedDesign.signatoryFontPt
+            : boxKey === 'issuedDateBlock' || boxKey === 'principalTitleBlock'
+              ? isCert
+                ? 8.2
+                : 8.8
+              : boxKey === 'englishBody' || boxKey === 'certNumber'
+                ? normalizedDesign.englishBodyFontPt
+                : boxKey === 'classMeta'
+                  ? 7.5
+                  : normalizedDesign.khmerBodyFontPt;
     const baseColor =
       boxKey === 'nationalMotto'
         ? normalizedDesign.mottoColor
@@ -818,11 +856,21 @@ export default function CertificateDesignEditor({
           ? isCert
             ? normalizedDesign.certTitleColor || '#dc2626'
             : framePreset.titleColor
-          : boxKey === 'classMeta'
-            ? '#64748b'
-            : normalizedDesign.bodyColor;
+          : boxKey === 'signatoryName'
+            ? framePreset.signatoryColor
+            : boxKey === 'principalTitleBlock'
+              ? '#1e293b'
+              : boxKey === 'classMeta'
+                ? '#64748b'
+                : normalizedDesign.bodyColor;
     const baseAlign: 'left' | 'center' | 'right' | 'justify' =
-      boxKey === 'nationalMotto' || boxKey === 'titleBlock' ? 'center' : 'left';
+      boxKey === 'nationalMotto' ||
+      boxKey === 'titleBlock' ||
+      boxKey === 'issuedDateBlock' ||
+      boxKey === 'principalTitleBlock' ||
+      boxKey === 'signatoryName'
+        ? 'center'
+        : 'left';
 
     return {
       hasRichOverride: Boolean(ov?.richHtml && ov.richHtml.trim()),
@@ -1303,7 +1351,8 @@ export default function CertificateDesignEditor({
               </div>
             </div>
 
-            {/* Word-Style Rich Text & Line Spacing Editor (Automatically Loaded When Any TextBox Is Selected!) */}
+            {/* Contextual Settings for Selected Non-TextBox Element (Auto-Opened on Click!) */}
+            <div ref={inspectorCardRef} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
             {selectedCustomBox ? (
               <CertificateRichTextPanel
                 boxId={`custom::${docType}::${selectedCustomBox.id}`}
@@ -1353,7 +1402,368 @@ export default function CertificateDesignEditor({
                   onResetContent={() => resetBuiltInTextBoxOverride(selectedKey)}
                 />
               );
-            })() : null}
+            })() : selectedKey === 'stamp' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(251, 113, 133, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#fda4af' }}>
+                  ការកំណត់ត្រាសាលា (Official Stamp)
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.15rem' }}>
+                    <span>ទំហំត្រា (លំនាំដើម 3.5 cm)</span>
+                    <strong style={{ color: '#fda4af' }}>
+                      {normalizedDesign.stampSizeMm} mm ({(normalizedDesign.stampSizeMm / 10).toFixed(1)} cm)
+                    </strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="14"
+                    max="60"
+                    step="0.5"
+                    value={normalizedDesign.stampSizeMm}
+                    onChange={(e) => updateDesignField('stampSizeMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1', marginBottom: '0.12rem' }}>
+                      <span>បង្វិលត្រា</span>
+                      <strong style={{ color: '#fda4af' }}>{normalizedDesign.stampRotationDeg ?? 0}°</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="-45"
+                      max="45"
+                      step="1"
+                      value={normalizedDesign.stampRotationDeg ?? 0}
+                      onChange={(e) => updateDesignField('stampRotationDeg', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1', marginBottom: '0.12rem' }}>
+                      <span>ភាពច្បាស់ត្រា</span>
+                      <strong style={{ color: '#fda4af' }}>
+                        {Math.round((normalizedDesign.stampOpacity ?? 0.95) * 100)}%
+                      </strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="0.15"
+                      max="1"
+                      step="0.05"
+                      value={normalizedDesign.stampOpacity ?? 0.95}
+                      onChange={(e) => updateDesignField('stampOpacity', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : selectedKey === 'signature' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(96, 165, 250, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#93c5fd' }}>
+                  ការកំណត់ហត្ថលេខា (Signature)
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1', marginBottom: '0.15rem' }}>
+                    <span>កម្ពស់ហត្ថលេខា</span>
+                    <strong style={{ color: '#93c5fd' }}>{normalizedDesign.signatureHeightMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="28"
+                    step="0.5"
+                    value={normalizedDesign.signatureHeightMm}
+                    onChange={(e) => updateDesignField('signatureHeightMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.71rem', color: '#cbd5e1' }}>ពណ៌ប៊ិកហត្ថលេខា</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.24rem' }}>
+                    {['#1d4ed8', '#0f172a', '#dc2626', '#047857', '#6d28d9'].map((hex) => (
+                      <button
+                        key={hex}
+                        type="button"
+                        onClick={() => updateDesignField('signatureColor', hex)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '4px',
+                          border: (normalizedDesign.signatureColor || normalizedDesign.valueColor) === hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                          background: hex,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={normalizedDesign.signatureColor || normalizedDesign.valueColor || '#1d4ed8'}
+                      onChange={(e) => updateDesignField('signatureColor', e.target.value)}
+                      style={{ width: '22px', height: '20px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : selectedKey === 'studentPhoto' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(56, 189, 248, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#7dd3fc' }}>
+                  ការកំណត់ប្រអប់រូបថតសិស្ស
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>ទទឹង</span>
+                      <strong style={{ color: '#7dd3fc' }}>{normalizedDesign.photoWidthMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="42"
+                      step="0.5"
+                      value={normalizedDesign.photoWidthMm}
+                      onChange={(e) => updateDesignField('photoWidthMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>កម្ពស់</span>
+                      <strong style={{ color: '#7dd3fc' }}>{normalizedDesign.photoHeightMm} mm</strong>
+                    </label>
+                    <input
+                      type="range"
+                      min="12"
+                      max="50"
+                      step="0.5"
+                      value={normalizedDesign.photoHeightMm}
+                      onChange={(e) => updateDesignField('photoHeightMm', parseFloat(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                    <span>ភាពមូលជ្រុង (Radius)</span>
+                    <strong style={{ color: '#7dd3fc' }}>{normalizedDesign.photoRadiusMm} mm</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="15"
+                    step="0.2"
+                    value={normalizedDesign.photoRadiusMm}
+                    onChange={(e) => updateDesignField('photoRadiusMm', parseFloat(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            ) : selectedKey === 'schoolLogo' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(251, 191, 36, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#fbbf24' }}>
+                    ការកំណត់ឡូហ្គោសាលា
+                  </span>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.7rem', color: '#cbd5e1', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={normalizedDesign.showLogoSchoolText}
+                      onChange={(e) => updateDesignField('showLogoSchoolText', e.target.checked)}
+                    />
+                    <span>បង្ហាញឈ្មោះសាលា</span>
+                  </label>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                  {(['vertical', 'horizontal'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => updateDesignField('logoLayoutMode', mode)}
+                      style={{
+                        padding: '0.26rem',
+                        borderRadius: '6px',
+                        border: normalizedDesign.logoLayoutMode === mode ? '1.5px solid #fbbf24' : '1px solid rgba(148,163,184,0.3)',
+                        background: normalizedDesign.logoLayoutMode === mode ? 'rgba(251,191,36,0.2)' : '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.71rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {mode === 'vertical' ? 'បញ្ឈរ (Vertical)' : 'ផ្ដេក (Horizontal)'}
+                    </button>
+                  ))}
+                </div>
+                {normalizedDesign.logoLayoutMode !== 'horizontal' ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                        <span>ទទឹង Logo</span>
+                        <strong style={{ color: '#fbbf24' }}>{normalizedDesign.logoWidthMm} mm</strong>
+                      </label>
+                      <input type="range" min="8" max="44" step="0.5" value={normalizedDesign.logoWidthMm} onChange={(e) => updateDesignField('logoWidthMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                        <span>កម្ពស់ Logo</span>
+                        <strong style={{ color: '#fbbf24' }}>{normalizedDesign.logoHeightMm} mm</strong>
+                      </label>
+                      <input type="range" min="8" max="44" step="0.5" value={normalizedDesign.logoHeightMm} onChange={(e) => updateDesignField('logoHeightMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>ទំហំ Logo</span>
+                      <strong style={{ color: '#fbbf24' }}>{normalizedDesign.schoolLogoSizeMm} mm</strong>
+                    </label>
+                    <input type="range" min="6" max="30" step="0.5" value={normalizedDesign.schoolLogoSizeMm} onChange={(e) => updateDesignField('schoolLogoSizeMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                  </div>
+                )}
+              </div>
+            ) : selectedKey === 'ministryLogo' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(56, 189, 248, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#7dd3fc' }}>
+                  ការកំណត់ឡូហ្គោក្រសួងអប់រំ (MoEYS)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>ទទឹង</span>
+                      <strong style={{ color: '#7dd3fc' }}>{normalizedDesign.ministryLogoWidthMm} mm</strong>
+                    </label>
+                    <input type="range" min="8" max="36" step="0.5" value={normalizedDesign.ministryLogoWidthMm} onChange={(e) => updateDesignField('ministryLogoWidthMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                      <span>កម្ពស់</span>
+                      <strong style={{ color: '#7dd3fc' }}>{normalizedDesign.ministryLogoHeightMm} mm</strong>
+                    </label>
+                    <input type="range" min="8" max="36" step="0.5" value={normalizedDesign.ministryLogoHeightMm} onChange={(e) => updateDesignField('ministryLogoHeightMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                  </div>
+                </div>
+              </div>
+            ) : selectedKey === 'rankBadge' ? (
+              <div
+                style={{
+                  padding: '0.62rem',
+                  borderRadius: '10px',
+                  background: '#0f172a',
+                  border: '1px solid rgba(251, 146, 60, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                }}
+              >
+                <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#fdba74' }}>
+                  ការកំណត់បូរចំណាត់ថ្នាក់ (Rank Badge)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                  {(['ribbon', 'pill'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => updateDesignField('rankBadgeStyle', st)}
+                      style={{
+                        padding: '0.26rem',
+                        borderRadius: '6px',
+                        border: normalizedDesign.rankBadgeStyle === st ? '1.5px solid #fb923c' : '1px solid rgba(148,163,184,0.3)',
+                        background: normalizedDesign.rankBadgeStyle === st ? 'rgba(251,146,60,0.2)' : '#1e293b',
+                        color: '#f8fafc',
+                        fontSize: '0.71rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {st === 'ribbon' ? 'បូរមេដាយ (Ribbon)' : 'ផ្លាកមូល (Pill)'}
+                    </button>
+                  ))}
+                </div>
+                {normalizedDesign.rankBadgeStyle !== 'pill' && (
+                  <>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.71rem', color: '#cbd5e1' }}>
+                        <span>ទំហំបូរ</span>
+                        <strong style={{ color: '#fdba74' }}>{normalizedDesign.rankRibbonSizeMm} mm</strong>
+                      </label>
+                      <input type="range" min="12" max="40" step="0.5" value={normalizedDesign.rankRibbonSizeMm} onChange={(e) => updateDesignField('rankRibbonSizeMm', parseFloat(e.target.value))} style={{ width: '100%' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      {RIBBON_COLOR_SWATCHES.map((sw) => (
+                        <button
+                          key={sw.color}
+                          type="button"
+                          title={sw.label}
+                          onClick={() => updateDesignField('rankRibbonColor', sw.color)}
+                          style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '5px',
+                            border: normalizedDesign.rankRibbonColor === sw.color ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                            background: sw.color,
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
+            </div>
 
             {/* Position X/Y & Scale Card (works for both Built-in Elements & Custom TextBoxes) */}
             <div
@@ -2354,12 +2764,12 @@ export default function CertificateDesignEditor({
               <div>
                 <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#cbd5e1' }}>
                   <span>ទំហំត្រាសាលា</span>
-                  <strong>{normalizedDesign.stampSizeMm} mm</strong>
+                  <strong>{normalizedDesign.stampSizeMm} mm ({(normalizedDesign.stampSizeMm / 10).toFixed(1)} cm)</strong>
                 </label>
                 <input
                   type="range"
                   min="12"
-                  max="42"
+                  max="60"
                   step="0.5"
                   value={normalizedDesign.stampSizeMm}
                   onChange={(e) => updateDesignField('stampSizeMm', parseFloat(e.target.value))}
@@ -2374,7 +2784,7 @@ export default function CertificateDesignEditor({
                 <input
                   type="range"
                   min="5"
-                  max="20"
+                  max="28"
                   step="0.5"
                   value={normalizedDesign.signatureHeightMm}
                   onChange={(e) => updateDesignField('signatureHeightMm', parseFloat(e.target.value))}

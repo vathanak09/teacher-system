@@ -2534,7 +2534,7 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   font-size: var(--pr-title-size) !important;
 }
 
-/* Interactive Table Cell / Row / Column Selection Hover Cue (Screen Only) */
+/* Interactive Table Cell / Row / Column Selection Hover Cue & Sidebar Auto-Focus Flash (Screen Only) */
 @media screen {
   .print-table-selectable table th,
   .print-table-selectable table td {
@@ -2544,5 +2544,33 @@ h1, h2, h3, h4, h5, h6, p, span, div, input, select, textarea, button, a {
   .print-table-selectable table td:hover {
     outline: 1.5px dashed rgba(2, 132, 199, 0.85) !important;
     outline-offset: -1.5px !important;
+  }
+  .print-area-clickable [data-print-section],
+  .print-area-clickable [data-print-heading="true"] {
+    cursor: pointer;
+  }
+  .print-area-clickable [data-print-section]:hover,
+  .print-area-clickable [data-print-heading="true"]:hover {
+    outline: 1.5px dashed rgba(56, 189, 248, 0.72);
+    outline-offset: 1.5px;
+    border-radius: 3px;
+  }
+
+  @keyframes printSidebarSectionPulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.75);
+      border-color: rgba(56, 189, 248, 0.95);
+    }
+    45% {
+      box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.35);
+      border-color: rgba(56, 189, 248, 0.95);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+    }
+  }
+
+  .print-sidebar-section-flash {
+    animation: printSidebarSectionPulse 1.05s ease-out;
   }
 }

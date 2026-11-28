@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ENGLISH_MONTH_NAMES,
@@ -13,8 +13,9 @@ import PrintableAttendanceSheet, {
   getAttendanceSheetSpec,
 } from './PrintableAttendanceSheet';
 import { AppIcon } from '../AppIcons';
-import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
+  PrintSelectedArea,
   PrintTableOverrideStyles,
 } from '@/components/print/PrintInteractiveSheet';
 import {
@@ -121,6 +122,23 @@ export default function AttendancePrintModal({
 
   const printStyle = usePrintDocumentStyle('attendance', isOpen);
   const tableSelection = useTableSelection(isOpen);
+  const { focusRequest, requestFocus } = usePrintSidebarFocus();
+
+  const handleAreaSelected = useCallback(
+    (area: PrintSelectedArea) => {
+      setIsSidebarOpen(true);
+      if (area.kind === 'table') {
+        requestFocus('table', 'table-cell');
+      } else if (area.kind === 'section') {
+        requestFocus('doc', area.sectionId || 'layout');
+      } else if (area.kind === 'heading') {
+        requestFocus('typography', 'font-size');
+      } else {
+        requestFocus('typography', 'font-family');
+      }
+    },
+    [requestFocus]
+  );
 
   const getDocOptions = () => ({
     layoutMode,
@@ -710,6 +728,7 @@ export default function AttendancePrintModal({
             onResetStyle={printStyle.resetStyleConfig}
             tableSelection={tableSelection}
             showTableSettings={true}
+            focusRequest={focusRequest}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
             isSavingPreset={printStyle.isSavingPreset}
@@ -721,6 +740,7 @@ export default function AttendancePrintModal({
           >
             {/* Layout & Sorting Card */}
             <div
+              data-sidebar-section="layout"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -788,6 +808,7 @@ export default function AttendancePrintModal({
 
             {/* Sections & Highlights Card */}
             <div
+              data-sidebar-section="sections"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -974,6 +995,7 @@ export default function AttendancePrintModal({
                     styleConfig={printStyle.styleConfig}
                     tableSelection={tableSelection}
                     onCellSelected={() => setIsSidebarOpen(true)}
+                    onAreaSelected={handleAreaSelected}
                     style={{ width: '100%', height: '100%' }}
                   >
                     <PrintableAttendanceSheet

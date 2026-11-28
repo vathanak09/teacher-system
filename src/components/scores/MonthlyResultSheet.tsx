@@ -921,7 +921,7 @@ export function computeMonthlyResultPacketsForClass(
 export function OfficialSchoolStamp({
   stampUrl,
   schoolProfile,
-  size = '27mm',
+  size = '35mm',
 }: {
   stampUrl?: string;
   schoolProfile?: SchoolProfileInfo;
@@ -1137,6 +1137,121 @@ function VerticalSchoolLogo({
   );
 }
 
+export type MonthlyResultFooterKey =
+  | 'issueDate'
+  | 'teacherTitle'
+  | 'approvalLabel'
+  | 'stamp'
+  | 'signature'
+  | 'signatoryName';
+
+export const MONTHLY_RESULT_FOOTER_LABELS: Record<MonthlyResultFooterKey, string> = {
+  issueDate: 'កាលបរិច្ឆេទ (Date)',
+  teacherTitle: 'គ្រូបន្ទុកថ្នាក់',
+  approvalLabel: 'បានឃើញ និងឯកភាព',
+  stamp: 'ត្រាសាលា (Stamp)',
+  signature: 'ហត្ថលេខា (Signature)',
+  signatoryName: 'ឈ្មោះអ្នកចុះហត្ថលេខា',
+};
+
+export interface MonthlyResultElementTransform {
+  dxMm: number;
+  dyMm: number;
+  scale: number;
+  fontSizePt?: number;
+  fontFamily?: string;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  opacity?: number;
+  rotationDeg?: number;
+  visible?: boolean;
+}
+
+export interface MonthlyResultFooterLayout {
+  stampSizeMm: number;
+  stampOpacity?: number;
+  stampRotationDeg?: number;
+  signatureHeightMm: number;
+  signatureColor?: string;
+  elements: Partial<Record<MonthlyResultFooterKey, MonthlyResultElementTransform>>;
+}
+
+export const DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT: MonthlyResultFooterLayout = {
+  stampSizeMm: 35,
+  stampOpacity: 0.92,
+  stampRotationDeg: 0,
+  signatureHeightMm: 10,
+  signatureColor: '',
+  elements: {},
+};
+
+export function normalizeMonthlyResultFooterLayout(
+  raw?: Partial<MonthlyResultFooterLayout> | null
+): MonthlyResultFooterLayout {
+  const src = raw || {};
+  const clamp = (val: unknown, fallback: number, min: number, max: number) => {
+    const n = Number(val);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
+  };
+  const nextElements: Partial<Record<MonthlyResultFooterKey, MonthlyResultElementTransform>> = {};
+  if (src.elements && typeof src.elements === 'object') {
+    for (const [k, v] of Object.entries(src.elements)) {
+      if (!v || typeof v !== 'object') continue;
+      const obj = v as Record<string, any>;
+      const tr: MonthlyResultElementTransform = {
+        dxMm: clamp(obj.dxMm, 0, -180, 180),
+        dyMm: clamp(obj.dyMm, 0, -180, 180),
+        scale: clamp(obj.scale, 1, 0.45, 2.2),
+      };
+      if (typeof obj.fontSizePt === 'number' && Number.isFinite(obj.fontSizePt)) {
+        tr.fontSizePt = clamp(obj.fontSizePt, 9.2, 5, 24);
+      }
+      if (typeof obj.fontFamily === 'string' && obj.fontFamily.trim()) {
+        tr.fontFamily = obj.fontFamily;
+      }
+      if (typeof obj.color === 'string' && obj.color.trim()) {
+        tr.color = obj.color;
+      }
+      if (typeof obj.bold === 'boolean') tr.bold = obj.bold;
+      if (typeof obj.italic === 'boolean') tr.italic = obj.italic;
+      if (typeof obj.opacity === 'number' && Number.isFinite(obj.opacity)) {
+        tr.opacity = clamp(obj.opacity, 1, 0.15, 1);
+      }
+      if (typeof obj.rotationDeg === 'number' && Number.isFinite(obj.rotationDeg)) {
+        tr.rotationDeg = clamp(obj.rotationDeg, 0, -45, 45);
+      }
+      if (typeof obj.visible === 'boolean') tr.visible = obj.visible;
+      nextElements[k as MonthlyResultFooterKey] = tr;
+    }
+  }
+  return {
+    stampSizeMm: clamp(src.stampSizeMm, DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT.stampSizeMm, 16, 64),
+    stampOpacity: clamp(
+      src.stampOpacity,
+      DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT.stampOpacity ?? 0.92,
+      0.15,
+      1
+    ),
+    stampRotationDeg: clamp(
+      src.stampRotationDeg,
+      DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT.stampRotationDeg ?? 0,
+      -45,
+      45
+    ),
+    signatureHeightMm: clamp(
+      src.signatureHeightMm,
+      DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT.signatureHeightMm,
+      5,
+      28
+    ),
+    signatureColor: typeof src.signatureColor === 'string' ? src.signatureColor : '',
+    elements: nextElements,
+  };
+}
+
+const MR_PX_PER_MM = 96 / 25.4;
+
 export interface MonthlyResultSheetProps {
   packet: MonthlyResultClassPacket;
   rowsSlice: MonthlyResultStudentRow[];
@@ -1153,9 +1268,19 @@ export interface MonthlyResultSheetProps {
   signatureUrl?: string;
   signatoryName?: string;
   approvalLabel?: string;
+  teacherTitleLabel?: string;
   showStampAndSignature?: boolean;
   schoolProfile?: SchoolProfileInfo;
   layoutMode?: ResultPageLayoutMode;
+  footerLayout?: MonthlyResultFooterLayout;
+  interactive?: boolean;
+  previewScale?: number;
+  selectedFooterElement?: MonthlyResultFooterKey | null;
+  onSelectFooterElement?: (key: MonthlyResultFooterKey | null) => void;
+  onUpdateFooterElementTransform?: (
+    key: MonthlyResultFooterKey,
+    next: MonthlyResultElementTransform
+  ) => void;
 }
 
 export default function MonthlyResultSheet({
@@ -1174,9 +1299,16 @@ export default function MonthlyResultSheet({
   signatureUrl,
   signatoryName = 'សំរិត វឌ្ឍនៈ',
   approvalLabel = 'បានឃើញ និងឯកភាព',
+  teacherTitleLabel = 'គ្រូបន្ទុកថ្នាក់',
   showStampAndSignature = true,
   schoolProfile,
   layoutMode = 'fit_one_page',
+  footerLayout = DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT,
+  interactive = false,
+  previewScale = 1,
+  selectedFooterElement = null,
+  onSelectFooterElement,
+  onUpdateFooterElementTransform,
 }: MonthlyResultSheetProps) {
   const rowCountOnPage = rowsSlice.length;
   // Slightly tighter, clean row height while keeping Khmer font comfortably readable
@@ -1187,10 +1319,17 @@ export default function MonthlyResultSheet({
   const bodyFontPt = isCompact ? 9.2 : 9.5;
   const headerFontPt = isCompact ? 9.3 : 9.5;
 
+  const fCfg = footerLayout || DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT;
+  const stampSizeMm = fCfg.stampSizeMm || 35;
+  const stampOpacity = fCfg.stampOpacity ?? 0.92;
+  const stampRotationDeg = fCfg.stampRotationDeg ?? 0;
+  const signatureHeightMm = fCfg.signatureHeightMm || 10;
+  const signatureColor = fCfg.signatureColor || theme.signatoryColor;
+
   // In 'fit_one_page' mode, proportionally scale content by vertical height so the entire list + footer
   // fits cleanly on 1 A4 Portrait sheet, naturally leaving balanced white margins on left & right sides.
   const headerBudgetMm = pageIndex === 0 ? 39 : 13;
-  const footerBudgetMm = isLastPageForClass ? (showStampAndSignature ? 49 : 21) : 0;
+  const footerBudgetMm = isLastPageForClass ? (showStampAndSignature ? Math.max(54, stampSizeMm + 21) : 21) : 0;
   const estimatedContentHeightMm =
     headerBudgetMm + headerHeightMm + rowCountOnPage * (rowHeightMm + 0.16) + footerBudgetMm;
   const usablePageHeightMm = 283.5; // 296.6mm - 11mm vertical padding - safety margin
@@ -1198,6 +1337,186 @@ export default function MonthlyResultSheet({
     layoutMode === 'fit_one_page' && estimatedContentHeightMm > usablePageHeightMm
       ? Math.max(0.52, usablePageHeightMm / estimatedContentHeightMm)
       : 1;
+
+  const dragStateRef = React.useRef<{
+    mode: 'move' | 'resize';
+    key: MonthlyResultFooterKey;
+    startClientX: number;
+    startClientY: number;
+    startTransform: MonthlyResultElementTransform;
+  } | null>(null);
+
+  const getFooterTransform = React.useCallback(
+    (key: MonthlyResultFooterKey): MonthlyResultElementTransform => {
+      const t = fCfg.elements?.[key];
+      return {
+        ...(t || {}),
+        dxMm: t?.dxMm ?? 0,
+        dyMm: t?.dyMm ?? 0,
+        scale: t?.scale ?? 1,
+      };
+    },
+    [fCfg.elements]
+  );
+
+  React.useEffect(() => {
+    if (!interactive) return;
+
+    const handleMove = (e: MouseEvent) => {
+      const st = dragStateRef.current;
+      if (!st || !onUpdateFooterElementTransform) return;
+      const denom = Math.max(0.2, previewScale * fitScale) * MR_PX_PER_MM;
+      const dPxX = e.clientX - st.startClientX;
+      const dPxY = e.clientY - st.startClientY;
+
+      if (st.mode === 'move') {
+        const nextDx = Number((st.startTransform.dxMm + dPxX / denom).toFixed(1));
+        const nextDy = Number((st.startTransform.dyMm + dPxY / denom).toFixed(1));
+        onUpdateFooterElementTransform(st.key, {
+          ...st.startTransform,
+          dxMm: Math.max(-180, Math.min(180, nextDx)),
+          dyMm: Math.max(-180, Math.min(180, nextDy)),
+        });
+      } else {
+        const delta = (dPxX + dPxY) / (150 * Math.max(0.25, previewScale * fitScale));
+        const nextScale = Number(
+          Math.max(0.45, Math.min(2.2, st.startTransform.scale + delta)).toFixed(2)
+        );
+        onUpdateFooterElementTransform(st.key, {
+          ...st.startTransform,
+          scale: nextScale,
+        });
+      }
+    };
+
+    const handleUp = () => {
+      dragStateRef.current = null;
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [interactive, previewScale, fitScale, onUpdateFooterElementTransform]);
+
+  const startFooterDrag = (
+    e: React.MouseEvent,
+    key: MonthlyResultFooterKey,
+    mode: 'move' | 'resize'
+  ) => {
+    if (!interactive || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (onSelectFooterElement) onSelectFooterElement(key);
+    dragStateRef.current = {
+      mode,
+      key,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startTransform: getFooterTransform(key),
+    };
+  };
+
+  const renderMovableFooterBlock = (
+    key: MonthlyResultFooterKey,
+    baseStyle: React.CSSProperties,
+    content: React.ReactNode
+  ) => {
+    const tr = getFooterTransform(key);
+    if (tr.visible === false) return null;
+    const isSel = interactive && selectedFooterElement === key;
+    const transformParts: string[] = [];
+    if (tr.dxMm !== 0 || tr.dyMm !== 0) {
+      transformParts.push(`translate(${tr.dxMm}mm, ${tr.dyMm}mm)`);
+    }
+    if (tr.scale !== 1) {
+      transformParts.push(`scale(${tr.scale})`);
+    }
+    return (
+      <div
+        key={key}
+        data-print-movable="true"
+        data-print-no-scale="true"
+        onMouseDown={interactive ? (e) => startFooterDrag(e, key, 'move') : undefined}
+        style={{
+          ...baseStyle,
+          ...(tr.fontSizePt !== undefined ? { fontSize: `${tr.fontSizePt}pt` } : {}),
+          ...(tr.fontFamily ? { fontFamily: tr.fontFamily } : {}),
+          ...(tr.color ? { color: tr.color } : {}),
+          ...(tr.bold !== undefined ? { fontWeight: tr.bold ? 700 : 400 } : {}),
+          ...(tr.italic !== undefined ? { fontStyle: tr.italic ? 'italic' : 'normal' } : {}),
+          ...(tr.opacity !== undefined ? { opacity: tr.opacity } : {}),
+          position: baseStyle.position || 'relative',
+          zIndex: isSel ? 50 : baseStyle.zIndex,
+          transform: transformParts.length > 0 ? transformParts.join(' ') : undefined,
+          transformOrigin: 'center center',
+          cursor: interactive ? 'grab' : undefined,
+          userSelect: interactive ? 'none' : undefined,
+          WebkitUserSelect: interactive ? 'none' : undefined,
+        }}
+      >
+        {content}
+        {interactive && (
+          <div
+            className="no-print"
+            style={{
+              position: 'absolute',
+              inset: '-1.5px',
+              border: isSel ? '1.8px solid #0284c7' : '1px dashed rgba(2, 132, 199, 0.45)',
+              borderRadius: '3px',
+              background: isSel ? 'rgba(2, 132, 199, 0.06)' : 'transparent',
+              pointerEvents: 'none',
+              zIndex: 48,
+            }}
+          />
+        )}
+        {isSel && (
+          <>
+            <div
+              className="no-print"
+              style={{
+                position: 'absolute',
+                top: '-5.5mm',
+                left: 0,
+                background: '#0284c7',
+                color: '#ffffff',
+                fontSize: '6.8pt',
+                fontWeight: 700,
+                padding: '0.4mm 1.8mm',
+                borderRadius: '3px',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                zIndex: 52,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.28)',
+              }}
+            >
+              {MONTHLY_RESULT_FOOTER_LABELS[key]} ({Math.round(tr.scale * 100)}%)
+            </div>
+            <div
+              className="no-print"
+              title="អូសដើម្បីពង្រីក ឬបង្រួមទំហំ"
+              onMouseDown={(e) => startFooterDrag(e, key, 'resize')}
+              style={{
+                position: 'absolute',
+                right: '-2mm',
+                bottom: '-2mm',
+                width: '4mm',
+                height: '4mm',
+                borderRadius: '50%',
+                background: '#0284c7',
+                border: '1.5px solid #ffffff',
+                cursor: 'nwse-resize',
+                zIndex: 55,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+              }}
+            />
+          </>
+        )}
+      </div>
+    );
+  };
 
   const titleText = formatKhmerMonthTitle(monthStr, customMonthName);
 
@@ -1253,7 +1572,11 @@ export default function MonthlyResultSheet({
                 minHeight: '26mm',
               }}
             >
-              <div style={{ marginLeft: '7mm', marginTop: '4.8mm' }}>
+              <div
+                data-print-section="branding"
+                title="ចុចដើម្បីកែឡូហ្គោ ត្រា និងហត្ថលេខា"
+                style={{ marginLeft: '7mm', marginTop: '4.8mm' }}
+              >
                 <VerticalSchoolLogo
                   verticalLogoUrl={verticalLogoUrl}
                   schoolProfile={schoolProfile}
@@ -1639,81 +1962,125 @@ export default function MonthlyResultSheet({
                   paddingTop: '0.5mm',
                   fontSize: '9.2pt',
                   color: '#0f172a',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.5mm',
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{khmerIssueDate}</div>
-                <div style={{ fontWeight: 700, marginTop: '0.5mm' }}>គ្រូបន្ទុកថ្នាក់</div>
+                {renderMovableFooterBlock(
+                  'issueDate',
+                  { fontWeight: 600, whiteSpace: 'nowrap', zIndex: 8 },
+                  <>{khmerIssueDate}</>
+                )}
+                {renderMovableFooterBlock(
+                  'teacherTitle',
+                  { fontWeight: 700, whiteSpace: 'nowrap', zIndex: 8 },
+                  <>{teacherTitleLabel}</>
+                )}
               </div>
             </div>
 
-            {/* Bottom Footer Row: Official Stamp + Approval + Signature + Signatory Name */}
+            {/* Bottom Footer Row: Independently Movable Approval, Official Stamp (3.5cm), Signature & Signatory Name */}
             {showStampAndSignature && (
               <div
                 style={{
                   marginTop: '1.2mm',
                   marginLeft: '-2mm',
-                  width: '54mm',
+                  width: '64mm',
                   textAlign: 'center',
                   position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
                 }}
               >
-                <div
-                  style={{
+                {renderMovableFooterBlock(
+                  'approvalLabel',
+                  {
                     fontSize: '8.8pt',
                     fontWeight: 700,
                     color: '#1e293b',
-                    marginBottom: '-3.5mm',
+                    marginBottom: '-2.5mm',
+                    zIndex: 9,
+                    whiteSpace: 'nowrap',
+                  },
+                  <>{approvalLabel}</>
+                )}
+
+                <div
+                  style={{
                     position: 'relative',
-                    zIndex: 2,
+                    width: '60mm',
+                    height: `${Math.max(26, stampSizeMm * 0.85)}mm`,
+                    overflow: 'visible',
                   }}
                 >
-                  {approvalLabel}
-                </div>
-
-                <div style={{ position: 'relative', height: '27mm' }}>
-                  <OfficialSchoolStamp
-                    stampUrl={stampUrl}
-                    schoolProfile={schoolProfile}
-                    size="27mm"
-                  />
-
-                  {/* Signature layered gracefully across lower-right portion of stamp just like reference */}
-                  <div
-                    style={{
+                  {renderMovableFooterBlock(
+                    'stamp',
+                    {
                       position: 'absolute',
-                      left: '56%',
-                      bottom: '-1.5mm',
-                      transform: 'translateX(-30%)',
-                      width: '30mm',
-                      zIndex: 3,
-                      pointerEvents: 'none',
-                    }}
-                  >
+                      left: '2mm',
+                      top: '50%',
+                      marginTop: `${-(stampSizeMm / 2)}mm`,
+                      width: `${stampSizeMm}mm`,
+                      height: `${stampSizeMm}mm`,
+                      zIndex: 4,
+                    },
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        opacity: stampOpacity,
+                        transform: stampRotationDeg ? `rotate(${stampRotationDeg}deg)` : undefined,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <OfficialSchoolStamp
+                        stampUrl={stampUrl}
+                        schoolProfile={schoolProfile}
+                        size={`${stampSizeMm}mm`}
+                      />
+                    </div>
+                  )}
+
+                  {/* Signature layered gracefully across lower-right portion of stamp, independently movable */}
+                  {renderMovableFooterBlock(
+                    'signature',
+                    {
+                      position: 'absolute',
+                      left: '24mm',
+                      bottom: '0mm',
+                      width: '32mm',
+                      minHeight: `${Math.max(8, signatureHeightMm)}mm`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10,
+                    },
                     <ReceiptSignature
                       signatureUrl={signatureUrl}
-                      height="9.5mm"
-                      color={theme.signatoryColor}
+                      height={`${signatureHeightMm}mm`}
+                      color={signatureColor}
                     />
-                  </div>
+                  )}
                 </div>
 
-                {signatoryName && (
-                  <div
-                    style={{
+                {signatoryName &&
+                  renderMovableFooterBlock(
+                    'signatoryName',
+                    {
                       marginTop: '0.5mm',
                       marginLeft: '14mm',
                       fontSize: '9.8pt',
                       fontWeight: 400,
                       color: theme.signatoryColor,
                       fontFamily: "'Khmer OS Muol Light', 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif",
-                      position: 'relative',
-                      zIndex: 4,
+                      zIndex: 11,
                       whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {signatoryName}
-                  </div>
-                )}
+                    },
+                    <>{signatoryName}</>
+                  )}
               </div>
             )}
           </div>

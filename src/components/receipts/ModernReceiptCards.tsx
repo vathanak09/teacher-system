@@ -373,6 +373,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
           {/* Highlighted Amount + Next Payment Strip */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.8mm' }}>
             <div
+              data-print-section="display"
+              title="ចុចដើម្បីកែជម្រើសបង្ហាញលើវិក្កយបត្រ"
               style={{
                 background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
                 border: '0.7pt solid #93c5fd',
@@ -443,6 +445,8 @@ export function ModernNavyReceiptCard(props: ReceiptCardSharedProps) {
             </div>
 
             <div
+              data-print-section="signature"
+              title="ចុចដើម្បីកែហត្ថលេខាអ្នកទទួលប្រាក់"
               style={{
                 width: isPortrait ? '3.9cm' : '3.5cm',
                 marginLeft: isPortrait ? 'auto' : 0,
@@ -787,6 +791,8 @@ export function ModernTealReceiptCard(props: ReceiptCardSharedProps) {
           </div>
 
           <div
+            data-print-section="signature"
+            title="ចុចដើម្បីកែហត្ថលេខាអ្នកទទួលប្រាក់"
             style={{
               width: isPortrait ? '3.9cm' : '3.5cm',
               marginLeft: isPortrait ? 'auto' : 0,
@@ -1291,6 +1297,8 @@ export function ModernRoyalReceiptCard(props: ReceiptCardSharedProps) {
             </div>
 
             <div
+              data-print-section="signature"
+              title="ចុចដើម្បីកែហត្ថលេខាអ្នកទទួលប្រាក់"
               style={{
                 width: isPortrait ? '3.9cm' : '3.5cm',
                 marginLeft: isPortrait ? 'auto' : 0,

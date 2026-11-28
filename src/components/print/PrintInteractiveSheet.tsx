@@ -254,12 +254,19 @@ function buildRangeCoords(
   return out.length > 0 ? out : [target];
 }
 
+export interface PrintSelectedArea {
+  kind: 'table' | 'heading' | 'body' | 'section';
+  sectionId?: string;
+}
+
 export interface PrintInteractiveSheetProps {
   scopeId: string;
   pageIdx: number;
   styleConfig: PrintDocumentStyleConfig;
   tableSelection?: TableSelectionController;
   onCellSelected?: () => void;
+  /** Called whenever the user clicks a table cell, heading, body text, or [data-print-section] area on the live sheet */
+  onAreaSelected?: (area: PrintSelectedArea) => void;
   className?: string;
   style?: React.CSSProperties;
   id?: string;
@@ -269,7 +276,8 @@ export interface PrintInteractiveSheetProps {
 
 /**
  * Wraps any printable sheet so users can directly click/drag/Shift-click/Ctrl-click
- * individual cells, rows, or columns on live tables and customize their typography & styling.
+ * individual cells, rows, or columns on live tables and click headings, body text,
+ * or tagged sections to automatically open the matching setting panel.
  */
 export default function PrintInteractiveSheet({
   scopeId,
@@ -277,6 +285,7 @@ export default function PrintInteractiveSheet({
   styleConfig,
   tableSelection,
   onCellSelected,
+  onAreaSelected,
   className = '',
   style,
   id,
@@ -311,85 +320,115 @@ export default function PrintInteractiveSheet({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!tableSelection || e.button !== 0) return;
+      if (e.button !== 0) return;
       const targetEl = e.target as HTMLElement | null;
-      const cellEl = targetEl?.closest('td, th') as HTMLElement | null;
       const root = containerRef.current;
-      if (!cellEl || !root || !root.contains(cellEl)) {
+      if (!targetEl || !root) return;
+
+      // Let custom movable/draggable blocks (e.g. footer stamp/date/signature) handle their own interaction
+      if (targetEl.closest('[data-print-movable="true"]')) {
         return;
       }
 
-      // Ensure DOM tags are fresh before reading coordinates
-      if (cellEl.getAttribute('data-pt-c') === null) {
-        tagTablesInContainer(root);
+      const cellEl = targetEl.closest('td, th') as HTMLElement | null;
+      if (cellEl && root.contains(cellEl) && tableSelection) {
+        // Ensure DOM tags are fresh before reading coordinates
+        if (cellEl.getAttribute('data-pt-c') === null) {
+          tagTablesInContainer(root);
+        }
+
+        const coord = readCoordFromCell(cellEl, pageIdx);
+        if (!coord) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const mode = tableSelection.selectionMode;
+        const isMulti = e.ctrlKey || e.metaKey;
+        const isShift = e.shiftKey && tableSelection.anchorCoord;
+
+        if (isShift && tableSelection.anchorCoord) {
+          const range = buildRangeCoords(root, tableSelection.anchorCoord, coord, mode);
+          tableSelection.setSelection(range, tableSelection.anchorCoord);
+        } else if (isMulti) {
+          const isSameTable = (c: TableCellCoord) =>
+            coord.tableKey && c.tableKey
+              ? c.tableKey === coord.tableKey
+              : c.tableIdx === coord.tableIdx;
+          const exists = tableSelection.selectedCoords.some((c) => {
+            if (mode === 'row') {
+              return (
+                (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
+                isSameTable(c) &&
+                c.section === coord.section &&
+                c.rowIdx === coord.rowIdx
+              );
+            }
+            if (mode === 'col') {
+              return (
+                (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
+                isSameTable(c) &&
+                c.colIdx === coord.colIdx
+              );
+            }
+            return isSameCoord(c, coord);
+          });
+          const nextList = exists
+            ? tableSelection.selectedCoords.filter((c) => {
+                if (mode === 'row') {
+                  return !(
+                    (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
+                    isSameTable(c) &&
+                    c.section === coord.section &&
+                    c.rowIdx === coord.rowIdx
+                  );
+                }
+                if (mode === 'col') {
+                  return !(
+                    (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
+                    isSameTable(c) &&
+                    c.colIdx === coord.colIdx
+                  );
+                }
+                return !isSameCoord(c, coord);
+              })
+            : [...tableSelection.selectedCoords, coord];
+          tableSelection.setSelection(nextList, coord);
+        } else {
+          tableSelection.setSelection([coord], coord);
+          isDraggingRef.current = true;
+          dragAnchorRef.current = coord;
+        }
+
+        if (onCellSelected) onCellSelected();
+        if (onAreaSelected) onAreaSelected({ kind: 'table', sectionId: 'table-cell' });
+        return;
       }
 
-      const coord = readCoordFromCell(cellEl, pageIdx);
-      if (!coord) return;
+      if (!onAreaSelected) return;
 
-      e.preventDefault();
-      e.stopPropagation();
-
-      const mode = tableSelection.selectionMode;
-      const isMulti = e.ctrlKey || e.metaKey;
-      const isShift = e.shiftKey && tableSelection.anchorCoord;
-
-      if (isShift && tableSelection.anchorCoord) {
-        const range = buildRangeCoords(root, tableSelection.anchorCoord, coord, mode);
-        tableSelection.setSelection(range, tableSelection.anchorCoord);
-      } else if (isMulti) {
-        const isSameTable = (c: TableCellCoord) =>
-          coord.tableKey && c.tableKey
-            ? c.tableKey === coord.tableKey
-            : c.tableIdx === coord.tableIdx;
-        const exists = tableSelection.selectedCoords.some((c) => {
-          if (mode === 'row') {
-            return (
-              (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
-              isSameTable(c) &&
-              c.section === coord.section &&
-              c.rowIdx === coord.rowIdx
-            );
-          }
-          if (mode === 'col') {
-            return (
-              (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
-              isSameTable(c) &&
-              c.colIdx === coord.colIdx
-            );
-          }
-          return isSameCoord(c, coord);
-        });
-        const nextList = exists
-          ? tableSelection.selectedCoords.filter((c) => {
-              if (mode === 'row') {
-                return !(
-                  (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
-                  isSameTable(c) &&
-                  c.section === coord.section &&
-                  c.rowIdx === coord.rowIdx
-                );
-              }
-              if (mode === 'col') {
-                return !(
-                  (tableSelection.applyAllPages || c.pageIdx === coord.pageIdx) &&
-                  isSameTable(c) &&
-                  c.colIdx === coord.colIdx
-                );
-              }
-              return !isSameCoord(c, coord);
-            })
-          : [...tableSelection.selectedCoords, coord];
-        tableSelection.setSelection(nextList, coord);
-      } else {
-        tableSelection.setSelection([coord], coord);
-        isDraggingRef.current = true;
-        dragAnchorRef.current = coord;
+      // Non-table area click -> auto-open matching setting section
+      const sectionEl = targetEl.closest('[data-print-section]') as HTMLElement | null;
+      if (sectionEl && root.contains(sectionEl)) {
+        const sectionId = sectionEl.getAttribute('data-print-section') || undefined;
+        tableSelection?.clearSelection();
+        onAreaSelected({ kind: 'section', sectionId });
+        return;
       }
 
-      if (onCellSelected) onCellSelected();
+      const headingEl = targetEl.closest('[data-print-heading="true"], h1, h2, h3') as HTMLElement | null;
+      if (headingEl && root.contains(headingEl)) {
+        tableSelection?.clearSelection();
+        onAreaSelected({ kind: 'heading', sectionId: 'font-size' });
+        return;
+      }
+
+      if (!targetEl.closest('button, input, select, textarea, a')) {
+        tableSelection?.clearSelection();
+        onAreaSelected({ kind: 'body', sectionId: 'font-family' });
+      }
     },
-    [tableSelection, pageIdx, onCellSelected]
+    [tableSelection, pageIdx, onCellSelected, onAreaSelected]
   );
 
   const handleMouseOver = useCallback(
@@ -417,6 +456,7 @@ export default function PrintInteractiveSheet({
   const mergedClassName = [
     scopeProps.className,
     tableSelection ? 'print-table-selectable' : '',
+    onAreaSelected ? 'print-area-clickable' : '',
     className,
   ]
     .filter(Boolean)

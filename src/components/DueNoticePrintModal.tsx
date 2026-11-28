@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DueNoticeCard, {
   DEFAULT_NOTICE_CASHIER,
@@ -10,8 +10,9 @@ import DueNoticeCard, {
   getEffectiveNoticePrintCount,
 } from './receipts/DueNoticeCard';
 import { AppIcon } from './AppIcons';
-import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
+  PrintSelectedArea,
   PrintTableOverrideStyles,
 } from '@/components/print/PrintInteractiveSheet';
 import {
@@ -99,6 +100,23 @@ export default function DueNoticePrintModal({
 
   const printStyle = usePrintDocumentStyle('due_notice', isOpen);
   const tableSelection = useTableSelection(isOpen);
+  const { focusRequest, requestFocus } = usePrintSidebarFocus();
+
+  const handleAreaSelected = useCallback(
+    (area: PrintSelectedArea) => {
+      setIsSidebarOpen(true);
+      if (area.kind === 'table') {
+        requestFocus('table', 'table-cell');
+      } else if (area.kind === 'section') {
+        requestFocus('doc', area.sectionId || 'display-toggles');
+      } else if (area.kind === 'heading') {
+        requestFocus('typography', 'font-size');
+      } else {
+        requestFocus('typography', 'font-family');
+      }
+    },
+    [requestFocus]
+  );
 
   // Restore saved preferences from localStorage
   useEffect(() => {
@@ -683,6 +701,7 @@ export default function DueNoticePrintModal({
             onResetStyle={printStyle.resetStyleConfig}
             tableSelection={tableSelection}
             showTableSettings={true}
+            focusRequest={focusRequest}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
             isSavingPreset={printStyle.isSavingPreset}
@@ -694,6 +713,7 @@ export default function DueNoticePrintModal({
           >
             {/* Penalty & Date Card */}
             <div
+              data-sidebar-section="penalty-date"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -780,6 +800,7 @@ export default function DueNoticePrintModal({
 
             {/* Show/Hide Toggles Card */}
             <div
+              data-sidebar-section="display-toggles"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -975,6 +996,7 @@ export default function DueNoticePrintModal({
 
             {/* Cashier Name & Signature Link Card */}
             <div
+              data-sidebar-section="cashier-signature"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(56, 189, 248, 0.25)',
@@ -1133,6 +1155,7 @@ export default function DueNoticePrintModal({
                     styleConfig={printStyle.styleConfig}
                     tableSelection={tableSelection}
                     onCellSelected={() => setIsSidebarOpen(true)}
+                    onAreaSelected={handleAreaSelected}
                     className="receipt-a4-sheet"
                     data-print-grid="true"
                     style={{

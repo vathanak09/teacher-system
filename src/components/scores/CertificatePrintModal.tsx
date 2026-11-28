@@ -16,6 +16,7 @@ import {
   A4_LANDSCAPE_SPEC,
   A5_LANDSCAPE_SPEC,
   CERTIFICATE_FRAME_PRESETS,
+  CertElementKey,
   CertificateDesignConfig,
   CertificateDocType,
   CertificatePairA4Page,
@@ -304,6 +305,7 @@ export default function CertificatePrintModal({
 
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'preview' | 'design'>('preview');
+  const [editorInitialSelectedKey, setEditorInitialSelectedKey] = useState<CertElementKey | null>(null);
   const [praiseDesignConfig, setPraiseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_CERTIFICATE_DESIGN);
   const [courseDesignConfig, setCourseDesignConfig] = useState<CertificateDesignConfig>(DEFAULT_COURSE_CERTIFICATE_DESIGN);
   const activeDefaultDesign =
@@ -1417,6 +1419,10 @@ export default function CertificatePrintModal({
     signatoryName,
     principalTitle,
     schoolProfile,
+    onPreviewElementClick: (key: CertElementKey) => {
+      setEditorInitialSelectedKey(key);
+      setViewMode('design');
+    },
   };
 
   return createPortal(
@@ -3521,6 +3527,7 @@ export default function CertificatePrintModal({
             onUpdateCurrentDesignTemplate={handleUpdateCurrentDesignTemplate}
             onDeleteDesignTemplate={handleDeleteDesignTemplate}
             isSavingTemplate={isSavingDesignTemplate}
+            initialSelectedKey={editorInitialSelectedKey}
           />
         </div>
       ) : (

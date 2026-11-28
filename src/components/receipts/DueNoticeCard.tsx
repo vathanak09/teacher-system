@@ -195,6 +195,8 @@ export default function DueNoticeCard({
       <div style={{ position: 'relative', minHeight: '17.2mm' }}>
         {/* Top-Left: Overdue days + Penalty per day */}
         <div
+          data-print-section="penalty-date"
+          title="ចុចដើម្បីកែអត្រាផាកពិន័យ និងថ្ងៃចេញលិខិត"
           style={{
             position: 'absolute',
             top: '0.2mm',
@@ -245,6 +247,8 @@ export default function DueNoticeCard({
 
         {/* Top-Right: Teacher Short Code + Level + Shift + Notice Print Count */}
         <div
+          data-print-section="display-toggles"
+          title="ចុចដើម្បីបង្ហាញ ឬលាក់ផ្នែកលើលិខិត"
           style={{
             position: 'absolute',
             top: '0.2mm',
@@ -286,6 +290,8 @@ export default function DueNoticeCard({
 
         {/* Center Header: School Banner + Title (visibility:hidden preserves exact mm spacing) */}
         <div
+          data-print-section="display-toggles"
+          title="ចុចដើម្បីបង្ហាញ ឬលាក់ Header លើលិខិត"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -445,6 +451,8 @@ export default function DueNoticeCard({
 
         {/* Row 4: Total Amount (Toggleable via showAmount — Orange-Peach Highlight Box) */}
         <div
+          data-print-section="display-toggles"
+          title="ចុចដើម្បីបង្ហាញ ឬលាក់ទឹកប្រាក់"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -507,7 +515,11 @@ export default function DueNoticeCard({
             >
               ឱ្យបានរួសរាន់តាមការអញ្ជើញរបស់សាលា។
             </span>
-            <span style={{ fontSize: '8.8pt', fontWeight: 800, color: '#b91c1c' }}>
+            <span
+              data-print-section="penalty-date"
+              title="ចុចដើម្បីកែថ្ងៃចេញលិខិត និងផាកពិន័យ"
+              style={{ fontSize: '8.8pt', fontWeight: 800, color: '#b91c1c' }}
+            >
               {issueDateText}
             </span>
           </div>
@@ -583,6 +595,8 @@ export default function DueNoticeCard({
         </div>
 
         <div
+          data-print-section="cashier-signature"
+          title="ចុចដើម្បីកែឈ្មោះបេឡា និងហត្ថលេខា"
           style={{
             width: '2.15cm',
             flexShrink: 0,

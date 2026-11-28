@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AppIcon } from '@/components/AppIcons';
-import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
+import { BUILTIN_RICH_FONT_CHOICES } from './certificateRichText';
 import {
   buildPrintScopeProps,
   usePrintDocumentStyle,
@@ -148,9 +149,21 @@ export default function HonorRollPrintModal({
   const [previewScale, setPreviewScale] = useState<number>(1);
 
   const printStyle = usePrintDocumentStyle('honor_roll', isOpen);
+  const { focusRequest, requestFocus } = usePrintSidebarFocus();
   const printScopeProps = useMemo(
     () => buildPrintScopeProps(printStyle.styleConfig),
     [printStyle.styleConfig]
+  );
+
+  const handleSelectHonorElement = useCallback(
+    (key: HonorRollElementKey | null) => {
+      setSelectedElement(key);
+      if (key) {
+        setIsSidebarOpen(true);
+        requestFocus('doc', 'element-inspector');
+      }
+    },
+    [requestFocus]
   );
 
   // Restore saved layout tweaks from localStorage when modal opens
@@ -1110,6 +1123,7 @@ export default function HonorRollPrintModal({
               setSelectedElement(null);
             }}
             showTableSettings={false}
+            focusRequest={focusRequest}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
             isSavingPreset={printStyle.isSavingPreset}
@@ -1119,8 +1133,9 @@ export default function HonorRollPrintModal({
             onDeletePreset={printStyle.deletePreset}
             onApplyPreset={(preset) => printStyle.applyPreset(preset, applyDocOptions)}
           >
-            {/* 1. Interactive Element Position & Scale Inspector */}
+            {/* 1. Interactive Element Position, Scale & Contextual Settings Inspector */}
             <div
+              data-sidebar-section="element-inspector"
               style={{
                 ...cardStyle,
                 border: selectedElement
@@ -1133,7 +1148,7 @@ export default function HonorRollPrintModal({
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#38bdf8' }}>
-                  ផ្លាស់ទី &amp; សារ៉េទំហំធាតុ (Drag / Resize)
+                  ផ្លាស់ទី &amp; កែធាតុដែលបានជ្រើស (Inspector)
                 </span>
                 {movedElementsCount > 0 && (
                   <button
@@ -1162,7 +1177,7 @@ export default function HonorRollPrintModal({
                 value={selectedElement || ''}
                 onChange={(e) => {
                   const val = e.target.value as HonorRollElementKey | '';
-                  setSelectedElement(val || null);
+                  handleSelectHonorElement(val || null);
                   if (val) setIsDragMode(true);
                 }}
                 style={fieldInputStyle}
@@ -1176,7 +1191,488 @@ export default function HonorRollPrintModal({
               </select>
 
               {selectedElement ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.38rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.42rem' }}>
+                  {/* Contextual Quick Controls Tailored to Selected Element */}
+                  <div
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.68)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      borderRadius: '8px',
+                      padding: '0.46rem 0.52rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.36rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#bae6fd' }}>
+                        ការកំណត់៖ {HONOR_ELEMENT_LABELS[selectedElement]}
+                      </span>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.68rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            selectedElement === 'stamp'
+                              ? showStamp
+                              : selectedElement === 'signature'
+                                ? showSignature
+                                : selectedElement === 'watermarkLogo'
+                                  ? showCenterWatermarkLogo
+                                  : activeElemTransform.visible !== false
+                          }
+                          onChange={(e) => {
+                            if (selectedElement === 'stamp') setShowStamp(e.target.checked);
+                            else if (selectedElement === 'signature') setShowSignature(e.target.checked);
+                            else if (selectedElement === 'watermarkLogo') setShowCenterWatermarkLogo(e.target.checked);
+                            else {
+                              updateElementTransform(selectedElement, {
+                                ...activeElemTransform,
+                                visible: e.target.checked,
+                              });
+                            }
+                          }}
+                        />
+                        <span>បង្ហាញ</span>
+                      </label>
+                    </div>
+
+                    {/* STAMP contextual controls */}
+                    {selectedElement === 'stamp' && (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                          <div>
+                            <label style={sliderRowLabel}>
+                              <span>ទំហំត្រា</span>
+                              <span style={{ color: '#fda4af' }}>
+                                {layoutConfig.stampSizeMm}mm ({(layoutConfig.stampSizeMm / 10).toFixed(1)}cm)
+                              </span>
+                            </label>
+                            <input
+                              type="range"
+                              min={16}
+                              max={64}
+                              step={0.5}
+                              value={layoutConfig.stampSizeMm}
+                              onChange={(e) => patchLayout({ stampSizeMm: Number(e.target.value) })}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={sliderRowLabel}>
+                              <span>បង្វិល</span>
+                              <span style={{ color: '#fda4af' }}>{layoutConfig.stampRotationDeg}°</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={-45}
+                              max={45}
+                              step={1}
+                              value={layoutConfig.stampRotationDeg}
+                              onChange={(e) => patchLayout({ stampRotationDeg: Number(e.target.value) })}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={sliderRowLabel}>
+                            <span>ភាពច្បាស់ត្រា</span>
+                            <span style={{ color: '#fda4af' }}>{Math.round(layoutConfig.stampOpacity * 100)}%</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={0.2}
+                            max={1}
+                            step={0.05}
+                            value={layoutConfig.stampOpacity}
+                            onChange={(e) => patchLayout({ stampOpacity: Number(e.target.value) })}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={customStampUrl}
+                          onChange={(e) => setCustomStampUrl(e.target.value)}
+                          placeholder="Link ត្រា (ទុកទំនេរ = ត្រា BSIS)..."
+                          style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                        />
+                      </>
+                    )}
+
+                    {/* SIGNATURE contextual controls */}
+                    {selectedElement === 'signature' && (
+                      <>
+                        <div>
+                          <label style={sliderRowLabel}>
+                            <span>កម្ពស់ហត្ថលេខា</span>
+                            <span style={{ color: '#93c5fd' }}>{layoutConfig.signatureHeightMm} mm</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={5}
+                            max={28}
+                            step={0.5}
+                            value={layoutConfig.signatureHeightMm}
+                            onChange={(e) => patchLayout({ signatureHeightMm: Number(e.target.value) })}
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                          <span style={{ fontSize: '0.68rem', color: '#cbd5e1', fontWeight: 600 }}>ពណ៌ប៊ិកហត្ថលេខា</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem' }}>
+                            {['#1d4ed8', '#0f172a', '#dc2626', '#047857', '#6d28d9'].map((hex) => (
+                              <button
+                                key={hex}
+                                type="button"
+                                onClick={() => patchLayout({ signatureColor: hex })}
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '4px',
+                                  border: layoutConfig.signatureColor === hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                                  background: hex,
+                                  cursor: 'pointer',
+                                  padding: 0,
+                                }}
+                              />
+                            ))}
+                            <input
+                              type="color"
+                              value={layoutConfig.signatureColor || '#1d4ed8'}
+                              onChange={(e) => patchLayout({ signatureColor: e.target.value })}
+                              style={{ width: '20px', height: '18px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                            />
+                          </div>
+                        </div>
+                        <input
+                          type="text"
+                          value={customSignatureUrl}
+                          onChange={(e) => setCustomSignatureUrl(e.target.value)}
+                          placeholder="Link ហត្ថលេខា (ទុកទំនេរ = ប៊ិកខៀវ)..."
+                          style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                        />
+                      </>
+                    )}
+
+                    {/* FOOTER DATE / PRINCIPAL TITLE / SIGNATORY NAME / CLASS META */}
+                    {(selectedElement === 'footerDate' ||
+                      selectedElement === 'principalTitle' ||
+                      selectedElement === 'signatoryName' ||
+                      selectedElement === 'classMeta') && (
+                      <>
+                        {selectedElement === 'footerDate' && (
+                          <>
+                            <input
+                              type="date"
+                              value={issueDateIso}
+                              onChange={(e) => handleIssueDatePick(e.target.value)}
+                              style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                            />
+                            <input
+                              type="text"
+                              value={footerDateKhmer}
+                              onChange={(e) => setFooterDateKhmer(e.target.value)}
+                              placeholder="កាលបរិច្ឆេទខ្មែរ"
+                              style={{ ...fieldInputStyle, fontSize: '0.72rem' }}
+                            />
+                            <input
+                              type="text"
+                              value={footerDateEnglish}
+                              onChange={(e) => setFooterDateEnglish(e.target.value)}
+                              placeholder="English Date"
+                              style={{ ...fieldInputStyle, fontSize: '0.72rem' }}
+                            />
+                          </>
+                        )}
+                        {selectedElement === 'principalTitle' && (
+                          <input
+                            type="text"
+                            value={principalTitleKh}
+                            onChange={(e) => setPrincipalTitleKh(e.target.value)}
+                            placeholder="តួនាទី (ឧ. នាយក)"
+                            style={{ ...fieldInputStyle, fontSize: '0.73rem' }}
+                          />
+                        )}
+                        {selectedElement === 'signatoryName' && (
+                          <input
+                            type="text"
+                            value={signatoryName}
+                            onChange={(e) => setSignatoryName(e.target.value)}
+                            placeholder="ឈ្មោះអ្នកចុះហត្ថលេខា"
+                            style={{ ...fieldInputStyle, fontSize: '0.73rem' }}
+                          />
+                        )}
+
+                        <select
+                          value={activeElemTransform.fontFamily || ''}
+                          onChange={(e) =>
+                            updateElementTransform(selectedElement, {
+                              ...activeElemTransform,
+                              fontFamily: e.target.value || undefined,
+                            })
+                          }
+                          style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                        >
+                          <option value="">ពុម្ពអក្សរ៖ លំនាំដើម (Default)</option>
+                          {BUILTIN_RICH_FONT_CHOICES.map((f) => (
+                            <option key={f.value} value={f.value}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={sliderRowLabel}>
+                              <span>ទំហំអក្សរ</span>
+                              <span style={{ color: '#fbbf24' }}>
+                                {activeElemTransform.fontSizePt ? `${activeElemTransform.fontSizePt} pt` : `${layoutConfig.footerFontPt} pt`}
+                              </span>
+                            </label>
+                            <input
+                              type="range"
+                              min={6.5}
+                              max={20}
+                              step={0.5}
+                              value={activeElemTransform.fontSizePt ?? layoutConfig.footerFontPt}
+                              onChange={(e) =>
+                                updateElementTransform(selectedElement, {
+                                  ...activeElemTransform,
+                                  fontSizePt: Number(e.target.value),
+                                })
+                              }
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <input
+                            type="color"
+                            title="ពណ៌អក្សរ"
+                            value={activeElemTransform.color || '#111827'}
+                            onChange={(e) =>
+                              updateElementTransform(selectedElement, {
+                                ...activeElemTransform,
+                                color: e.target.value,
+                              })
+                            }
+                            style={{ width: '24px', height: '24px', border: '1px solid #475569', borderRadius: '5px', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                          />
+                          <button
+                            type="button"
+                            title="Bold"
+                            onClick={() =>
+                              updateElementTransform(selectedElement, {
+                                ...activeElemTransform,
+                                bold: activeElemTransform.bold === undefined ? true : !activeElemTransform.bold,
+                              })
+                            }
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '5px',
+                              border: activeElemTransform.bold ? '1px solid #38bdf8' : '1px solid rgba(148,163,184,0.35)',
+                              background: activeElemTransform.bold ? 'rgba(56,189,248,0.25)' : '#1e293b',
+                              color: '#f8fafc',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            title="Italic"
+                            onClick={() =>
+                              updateElementTransform(selectedElement, {
+                                ...activeElemTransform,
+                                italic: !activeElemTransform.italic,
+                              })
+                            }
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '5px',
+                              border: activeElemTransform.italic ? '1px solid #38bdf8' : '1px solid rgba(148,163,184,0.35)',
+                              background: activeElemTransform.italic ? 'rgba(56,189,248,0.25)' : '#1e293b',
+                              color: '#f8fafc',
+                              fontSize: '0.72rem',
+                              fontStyle: 'italic',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            I
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* TITLE BLOCK contextual controls */}
+                    {selectedElement === 'titleBlock' && (
+                      <>
+                        <input type="text" value={titleKhmer} onChange={(e) => setTitleKhmer(e.target.value)} placeholder="ចំណងជើងខ្មែរ" style={{ ...fieldInputStyle, fontSize: '0.72rem' }} />
+                        <input type="text" value={titleEnglish} onChange={(e) => setTitleEnglish(e.target.value)} placeholder="English Title" style={{ ...fieldInputStyle, fontSize: '0.72rem' }} />
+                        <input type="text" value={congratsKhmer} onChange={(e) => setCongratsKhmer(e.target.value)} placeholder="អបអរសាទរខ្មែរ" style={{ ...fieldInputStyle, fontSize: '0.72rem' }} />
+                        <input type="text" value={congratsEnglish} onChange={(e) => setCongratsEnglish(e.target.value)} placeholder="English Congratulation" style={{ ...fieldInputStyle, fontSize: '0.72rem' }} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                          <div>
+                            <label style={sliderRowLabel}>
+                              <span>ចំណងជើងខ្មែរ</span>
+                              <span style={{ color: '#c4b5fd' }}>{layoutConfig.titleKhPt}pt</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={12}
+                              max={26}
+                              step={0.5}
+                              value={layoutConfig.titleKhPt}
+                              onChange={(e) => patchLayout({ titleKhPt: Number(e.target.value) })}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={sliderRowLabel}>
+                              <span>ចំណងជើង Eng</span>
+                              <span style={{ color: '#c4b5fd' }}>{layoutConfig.titleEnPt}pt</span>
+                            </label>
+                            <input
+                              type="range"
+                              min={9}
+                              max={22}
+                              step={0.5}
+                              value={layoutConfig.titleEnPt}
+                              onChange={(e) => patchLayout({ titleEnPt: Number(e.target.value) })}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* STUDENT PHOTO SLOTS (#1 - #5) contextual controls */}
+                    {/^slot[1-5]$/.test(selectedElement) && (() => {
+                      const rankNum = Number(selectedElement.replace('slot', ''));
+                      const ov = slotOverrides[rankNum] || {};
+                      return (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
+                            <div>
+                              <label style={sliderRowLabel}>
+                                <span>ទទឹងស៊ុម</span>
+                                <span style={{ color: '#fbbf24' }}>{layoutConfig.frameWidthMm}mm</span>
+                              </label>
+                              <input type="range" min={30} max={56} step={0.5} value={layoutConfig.frameWidthMm} onChange={(e) => patchLayout({ frameWidthMm: Number(e.target.value) })} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={sliderRowLabel}>
+                                <span>កម្ពស់ស៊ុម</span>
+                                <span style={{ color: '#fbbf24' }}>{layoutConfig.frameHeightMm}mm</span>
+                              </label>
+                              <input type="range" min={36} max={64} step={0.5} value={layoutConfig.frameHeightMm} onChange={(e) => patchLayout({ frameHeightMm: Number(e.target.value) })} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={sliderRowLabel}>
+                                <span>ទំហំមេដាយ</span>
+                                <span style={{ color: '#fbbf24' }}>{Math.round(layoutConfig.medalScale * 100)}%</span>
+                              </label>
+                              <input type="range" min={0.5} max={1.3} step={0.05} value={layoutConfig.medalScale} onChange={(e) => patchLayout({ medalScale: Number(e.target.value) })} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                              <label style={sliderRowLabel}>
+                                <span>ទំហំឈ្មោះសិស្ស</span>
+                                <span style={{ color: '#c4b5fd' }}>{layoutConfig.studentNamePt}pt</span>
+                              </label>
+                              <input type="range" min={8.5} max={18} step={0.25} value={layoutConfig.studentNamePt} onChange={(e) => patchLayout({ studentNamePt: Number(e.target.value) })} style={{ width: '100%' }} />
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.26rem' }}>
+                            <input
+                              type="text"
+                              value={ov.customName || ''}
+                              onChange={(e) =>
+                                setSlotOverrides((prev) => ({
+                                  ...prev,
+                                  [rankNum]: { ...(prev[rankNum] || {}), customName: e.target.value },
+                                }))
+                              }
+                              placeholder={`កែឈ្មោះសិស្សលេខ ${rankNum}...`}
+                              style={{ ...fieldInputStyle, flex: 1, fontSize: '0.71rem' }}
+                            />
+                            <label
+                              style={{
+                                padding: '0.24rem 0.45rem',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(56, 189, 248, 0.45)',
+                                background: 'rgba(56, 189, 248, 0.14)',
+                                color: '#bae6fd',
+                                fontSize: '0.69rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                              }}
+                            >
+                              រូបថត
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) =>
+                                  handleUploadImageDataUrl(e.target.files?.[0] || null, (url) =>
+                                    setSlotOverrides((prev) => ({
+                                      ...prev,
+                                      [rankNum]: { ...(prev[rankNum] || {}), customPhotoUrl: url },
+                                    }))
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
+                        </>
+                      );
+                    })()}
+
+                    {/* HEADER BANNER contextual controls */}
+                    {selectedElement === 'headerBanner' && (
+                      <>
+                        <div>
+                          <label style={sliderRowLabel}>
+                            <span>ទំហំ Logo ខាងលើ</span>
+                            <span style={{ color: '#c4b5fd' }}>{layoutConfig.bannerHeightMm} mm</span>
+                          </label>
+                          <input type="range" min={13} max={34} step={0.5} value={layoutConfig.bannerHeightMm} onChange={(e) => patchLayout({ bannerHeightMm: Number(e.target.value) })} style={{ width: '100%' }} />
+                        </div>
+                        <input
+                          type="text"
+                          value={bannerLogoUrl}
+                          onChange={(e) => setBannerLogoUrl(e.target.value)}
+                          placeholder="Link ឡូហ្គោខាងលើ (ស្រេចចិត្ត)"
+                          style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                        />
+                      </>
+                    )}
+
+                    {/* WATERMARK LOGO contextual controls */}
+                    {selectedElement === 'watermarkLogo' && (
+                      <>
+                        <div>
+                          <label style={sliderRowLabel}>
+                            <span>ទំហំ Watermark កណ្ដាល</span>
+                            <span style={{ color: '#c4b5fd' }}>{layoutConfig.watermarkSizeMm} mm</span>
+                          </label>
+                          <input type="range" min={70} max={170} step={2} value={layoutConfig.watermarkSizeMm} onChange={(e) => patchLayout({ watermarkSizeMm: Number(e.target.value) })} style={{ width: '100%' }} />
+                        </div>
+                        <input
+                          type="text"
+                          value={watermarkLogoUrl}
+                          onChange={(e) => setWatermarkLogoUrl(e.target.value)}
+                          placeholder="Link ឡូហ្គោ Watermark (ស្រេចចិត្ត)"
+                          style={{ ...fieldInputStyle, fontSize: '0.71rem' }}
+                        />
+                      </>
+                    )}
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
                     <div>
                       <label style={sliderRowLabel}>
@@ -1272,37 +1768,57 @@ export default function HonorRollPrintModal({
                 </div>
               ) : (
                 <div style={{ fontSize: '0.7rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                  ចុចអូសលើរូបថត ប្រអប់ចំណងជើង ត្រាសាលា ឬកាលបរិច្ឆេទ ដើម្បីផ្លាស់ទី ឬអូសជ្រុងក្រោមស្ដាំដើម្បីពង្រីក-បង្រួម។
+                  ចុចលើធាតុណាមួយលើទំព័រ A4 (រូបថត ចំណងជើង កាលបរិច្ឆេទ ត្រា ឬហត្ថលេខា) ដើម្បីបើកការកំណត់ដោយស្វ័យប្រវត្តិ។
                 </div>
               )}
             </div>
 
             {/* 2. Official Red Stamp & Signature Card */}
-            <div style={{ ...cardStyle, border: '1px solid rgba(248, 113, 113, 0.32)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div data-sidebar-section="stamp-signature" style={{ ...cardStyle, border: '1px solid rgba(248, 113, 113, 0.32)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.28rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fda4af' }}>
                   ត្រាផ្លូវការ &amp; ហត្ថលេខា
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowStamp(true);
-                    setIsDragMode(true);
-                    setSelectedElement('stamp');
-                  }}
-                  style={{
-                    padding: '0.14rem 0.45rem',
-                    borderRadius: '5px',
-                    border: '1px solid rgba(56, 189, 248, 0.45)',
-                    background: 'rgba(56, 189, 248, 0.14)',
-                    color: '#bae6fd',
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ជ្រើសរំកិលត្រា
-                </button>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.22rem' }}>
+                  {(
+                    [
+                      { key: 'footerDate', label: 'កាលបរិច្ឆេទ' },
+                      { key: 'principalTitle', label: 'តួនាទី' },
+                      { key: 'stamp', label: 'ត្រា' },
+                      { key: 'signature', label: 'ហត្ថលេខា' },
+                      { key: 'signatoryName', label: 'ឈ្មោះ' },
+                    ] as const
+                  ).map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        if (item.key === 'stamp') setShowStamp(true);
+                        if (item.key === 'signature' || item.key === 'signatoryName') setShowSignature(true);
+                        setIsDragMode(true);
+                        handleSelectHonorElement(item.key);
+                      }}
+                      style={{
+                        padding: '0.12rem 0.36rem',
+                        borderRadius: '5px',
+                        border:
+                          selectedElement === item.key
+                            ? '1.5px solid #38bdf8'
+                            : '1px solid rgba(56, 189, 248, 0.4)',
+                        background:
+                          selectedElement === item.key
+                            ? 'rgba(56, 189, 248, 0.28)'
+                            : 'rgba(56, 189, 248, 0.12)',
+                        color: selectedElement === item.key ? '#ffffff' : '#bae6fd',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem' }}>
@@ -1331,13 +1847,15 @@ export default function HonorRollPrintModal({
                     <div>
                       <label style={sliderRowLabel}>
                         <span>ទំហំត្រា</span>
-                        <span style={{ color: '#fda4af' }}>{layoutConfig.stampSizeMm} mm</span>
+                        <span style={{ color: '#fda4af' }}>
+                          {layoutConfig.stampSizeMm} mm ({(layoutConfig.stampSizeMm / 10).toFixed(1)} cm)
+                        </span>
                       </label>
                       <input
                         type="range"
                         min={16}
-                        max={54}
-                        step={1}
+                        max={64}
+                        step={0.5}
                         value={layoutConfig.stampSizeMm}
                         onChange={(e) => patchLayout({ stampSizeMm: Number(e.target.value) })}
                         style={{ width: '100%' }}
@@ -2075,7 +2593,7 @@ export default function HonorRollPrintModal({
                         interactive={isDragMode}
                         previewScale={previewScale}
                         selectedElement={selectedElement}
-                        onSelectElement={setSelectedElement}
+                        onSelectElement={handleSelectHonorElement}
                         onUpdateElementTransform={updateElementTransform}
                       />
                     </div>

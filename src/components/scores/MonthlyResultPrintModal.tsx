@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { settingsService } from '@/services/db';
 import { SchoolProfileInfo, DEFAULT_SCHOOL_PROFILE } from '@/components/settings/SchoolInfoSettingsPanel';
 import MonthlyResultSheet, {
   A4_PORTRAIT_SPEC,
+  DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT,
+  MONTHLY_RESULT_FOOTER_LABELS,
   MonthlyResultClassPacket,
+  MonthlyResultElementTransform,
+  MonthlyResultFooterKey,
+  MonthlyResultFooterLayout,
   MonthlyResultStudentRow,
   RESULT_COLOR_THEMES,
   ResultColorTheme,
@@ -14,13 +19,16 @@ import MonthlyResultSheet, {
   ResultSortMode,
   computeMonthlyResultPacketsForClass,
   formatDefaultKhmerDate,
+  normalizeMonthlyResultFooterLayout,
   paginateMonthlyResultRows,
 } from './MonthlyResultSheet';
 import { AppIcon } from '../AppIcons';
-import PrintStyleSidebar from '@/components/print/PrintStyleSidebar';
+import PrintStyleSidebar, { usePrintSidebarFocus } from '@/components/print/PrintStyleSidebar';
 import PrintInteractiveSheet, {
+  PrintSelectedArea,
   PrintTableOverrideStyles,
 } from '@/components/print/PrintInteractiveSheet';
+import { BUILTIN_RICH_FONT_CHOICES } from './certificateRichText';
 import {
   usePrintDocumentStyle,
   useTableSelection,
@@ -86,6 +94,8 @@ export default function MonthlyResultPrintModal({
   const [signatoryName, setSignatoryName] = useState<string>(
     scoreSettings?.resultSignatoryName || 'សំរិត វឌ្ឍនៈ'
   );
+  const [approvalLabel, setApprovalLabel] = useState<string>('បានឃើញ និងឯកភាព');
+  const [teacherTitleLabel, setTeacherTitleLabel] = useState<string>('គ្រូបន្ទុកថ្នាក់');
   const [customMonthTitle, setCustomMonthTitle] = useState<string>('');
   const [khmerIssueDate, setKhmerIssueDate] = useState<string>(
     monthExtraData?.issueDateKhmer || formatDefaultKhmerDate()
@@ -96,9 +106,106 @@ export default function MonthlyResultPrintModal({
   const [saveFeedback, setSaveFeedback] = useState<string>('');
   const [previewScale, setPreviewScale] = useState<number>(1);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileInfo>(DEFAULT_SCHOOL_PROFILE);
+  const [footerLayout, setFooterLayout] = useState<MonthlyResultFooterLayout>(
+    DEFAULT_MONTHLY_RESULT_FOOTER_LAYOUT
+  );
+  const [isDragFooterMode, setIsDragFooterMode] = useState<boolean>(true);
+  const [selectedFooterElement, setSelectedFooterElement] =
+    useState<MonthlyResultFooterKey | null>(null);
 
   const printStyle = usePrintDocumentStyle('monthly_result', isOpen);
   const tableSelection = useTableSelection(isOpen);
+  const { focusRequest, requestFocus } = usePrintSidebarFocus();
+
+  const handleSelectFooterElement = useCallback(
+    (k: MonthlyResultFooterKey | null) => {
+      setSelectedFooterElement(k);
+      if (k) {
+        setIsLinkPanelOpen(true);
+        tableSelection.clearSelection();
+        requestFocus('doc', 'footer-inspector');
+      }
+    },
+    [tableSelection, requestFocus]
+  );
+
+  const handleAreaSelected = useCallback(
+    (area: PrintSelectedArea) => {
+      setIsLinkPanelOpen(true);
+      setSelectedFooterElement(null);
+      if (area.kind === 'table') {
+        requestFocus('table', 'table-cell');
+      } else if (area.kind === 'section') {
+        requestFocus('doc', area.sectionId || 'branding');
+      } else if (area.kind === 'heading') {
+        requestFocus('typography', 'font-size');
+      } else {
+        requestFocus('typography', 'font-family');
+      }
+    },
+    [requestFocus]
+  );
+
+  const updateFooterElementTransform = useCallback(
+    (key: MonthlyResultFooterKey, next: MonthlyResultElementTransform) => {
+      setFooterLayout((prev) => ({
+        ...prev,
+        elements: {
+          ...(prev.elements || {}),
+          [key]: next,
+        },
+      }));
+    },
+    []
+  );
+
+  // Keyboard arrow-key nudging for the currently selected footer block
+  useEffect(() => {
+    if (!isOpen || !isDragFooterMode || !selectedFooterElement) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return;
+      }
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 2 : 0.5;
+      setFooterLayout((prev) => {
+        const cur = prev.elements?.[selectedFooterElement] || { dxMm: 0, dyMm: 0, scale: 1 };
+        const dxMm = Number(
+          (
+            cur.dxMm +
+            (e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0)
+          ).toFixed(1)
+        );
+        const dyMm = Number(
+          (
+            cur.dyMm +
+            (e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0)
+          ).toFixed(1)
+        );
+        return {
+          ...prev,
+          elements: {
+            ...(prev.elements || {}),
+            [selectedFooterElement]: {
+              ...cur,
+              dxMm: Math.max(-180, Math.min(180, dxMm)),
+              dyMm: Math.max(-180, Math.min(180, dyMm)),
+            },
+          },
+        };
+      });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, isDragFooterMode, selectedFooterElement]);
+
+  const activeFooterTransform: MonthlyResultElementTransform = selectedFooterElement
+    ? footerLayout.elements?.[selectedFooterElement] || { dxMm: 0, dyMm: 0, scale: 1 }
+    : { dxMm: 0, dyMm: 0, scale: 1 };
+
+  const movedFooterElementsCount = Object.keys(footerLayout.elements || {}).length;
 
   const getDocOptions = () => ({
     themeId,
@@ -108,6 +215,9 @@ export default function MonthlyResultPrintModal({
     includeUnscored,
     showStampAndSignature,
     customMonthTitle,
+    approvalLabel,
+    teacherTitleLabel,
+    footerLayout,
   });
 
   const applyDocOptions = (opts: Record<string, any>) => {
@@ -118,6 +228,11 @@ export default function MonthlyResultPrintModal({
     if (typeof opts.includeUnscored === 'boolean') setIncludeUnscored(opts.includeUnscored);
     if (typeof opts.showStampAndSignature === 'boolean') setShowStampAndSignature(opts.showStampAndSignature);
     if (typeof opts.customMonthTitle === 'string') setCustomMonthTitle(opts.customMonthTitle);
+    if (typeof opts.approvalLabel === 'string') setApprovalLabel(opts.approvalLabel);
+    if (typeof opts.teacherTitleLabel === 'string') setTeacherTitleLabel(opts.teacherTitleLabel);
+    if (opts.footerLayout && typeof opts.footerLayout === 'object') {
+      setFooterLayout(normalizeMonthlyResultFooterLayout(opts.footerLayout));
+    }
   };
 
   // Sync persisted branding & date when modal opens or scoreSettings updates
@@ -734,6 +849,7 @@ export default function MonthlyResultPrintModal({
             onResetStyle={printStyle.resetStyleConfig}
             tableSelection={tableSelection}
             showTableSettings={true}
+            focusRequest={focusRequest}
             presets={printStyle.presets}
             activePresetId={printStyle.activePresetId}
             isSavingPreset={printStyle.isSavingPreset}
@@ -745,6 +861,7 @@ export default function MonthlyResultPrintModal({
           >
             {/* Layout, Sort & Color Themes */}
             <div
+              data-sidebar-section="doc-options"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -926,6 +1043,7 @@ export default function MonthlyResultPrintModal({
 
             {/* Links, Signatory, Date & Month Title Override */}
             <div
+              data-sidebar-section="branding"
               style={{
                 background: 'rgba(30, 41, 59, 0.72)',
                 border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -1163,6 +1281,562 @@ export default function MonthlyResultPrintModal({
                 </div>
               )}
             </div>
+
+            {/* Movable Footer Blocks Inspector (Date, Teacher Role, Approval, Stamp 3.5cm, Signature, Signatory Name) */}
+            <div
+              data-sidebar-section="footer-inspector"
+              style={{
+                background: selectedFooterElement
+                  ? 'rgba(14, 116, 144, 0.2)'
+                  : 'rgba(30, 41, 59, 0.72)',
+                border: selectedFooterElement
+                  ? '1.5px solid rgba(56, 189, 248, 0.65)'
+                  : '1px solid rgba(148, 163, 184, 0.22)',
+                borderRadius: '10px',
+                padding: '0.62rem 0.7rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#38bdf8' }}>
+                  ផ្លាស់ទីកាលបរិច្ឆេទ ត្រា &amp; ហត្ថលេខា
+                </span>
+                {movedFooterElementsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFooterLayout((prev) => ({ ...prev, elements: {} }));
+                      setSelectedFooterElement(null);
+                    }}
+                    style={{
+                      padding: '0.12rem 0.4rem',
+                      borderRadius: '5px',
+                      border: '1px solid rgba(248, 113, 113, 0.45)',
+                      background: 'rgba(239, 68, 68, 0.14)',
+                      color: '#fca5a5',
+                      fontSize: '0.66rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    កំណត់ទីតាំងដើម
+                  </button>
+                )}
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.73rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={isDragFooterMode}
+                  onChange={(e) => {
+                    setIsDragFooterMode(e.target.checked);
+                    if (!e.target.checked) setSelectedFooterElement(null);
+                  }}
+                />
+                <span>អនុញ្ញាតអូសរំកិលប្រអប់ដោយ Mouse (Drag)</span>
+              </label>
+
+              {/* Quick-select buttons for each separated footer text/asset block */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.26rem' }}>
+                {(Object.keys(MONTHLY_RESULT_FOOTER_LABELS) as MonthlyResultFooterKey[]).map((key) => {
+                  const active = selectedFooterElement === key;
+                  const hidden = footerLayout.elements?.[key]?.visible === false;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setIsDragFooterMode(true);
+                        setSelectedFooterElement(active ? null : key);
+                      }}
+                      style={{
+                        padding: '0.16rem 0.42rem',
+                        borderRadius: '6px',
+                        border: active
+                          ? '1.5px solid #38bdf8'
+                          : '1px solid rgba(148, 163, 184, 0.28)',
+                        background: active ? 'rgba(56, 189, 248, 0.26)' : '#0f172a',
+                        color: hidden ? '#64748b' : active ? '#ffffff' : '#cbd5e1',
+                        fontSize: '0.68rem',
+                        fontWeight: active ? 700 : 500,
+                        cursor: 'pointer',
+                        textDecoration: hidden ? 'line-through' : 'none',
+                      }}
+                    >
+                      {MONTHLY_RESULT_FOOTER_LABELS[key]}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Stamp Size (default 35mm / 3.5cm) & Signature Height */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', color: '#cbd5e1', marginBottom: '0.12rem' }}>
+                    <span>ទំហំត្រា</span>
+                    <span style={{ color: '#fda4af', fontWeight: 700 }}>
+                      {footerLayout.stampSizeMm} mm ({(footerLayout.stampSizeMm / 10).toFixed(1)} cm)
+                    </span>
+                  </label>
+                  <input
+                    type="range"
+                    min={16}
+                    max={64}
+                    step={0.5}
+                    value={footerLayout.stampSizeMm}
+                    onChange={(e) =>
+                      setFooterLayout((prev) => ({ ...prev, stampSizeMm: Number(e.target.value) }))
+                    }
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', color: '#cbd5e1', marginBottom: '0.12rem' }}>
+                    <span>កម្ពស់ហត្ថលេខា</span>
+                    <span style={{ color: '#93c5fd', fontWeight: 700 }}>
+                      {footerLayout.signatureHeightMm} mm
+                    </span>
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={28}
+                    step={0.5}
+                    value={footerLayout.signatureHeightMm}
+                    onChange={(e) =>
+                      setFooterLayout((prev) => ({
+                        ...prev,
+                        signatureHeightMm: Number(e.target.value),
+                      }))
+                    }
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              {/* Contextual Element Settings + X / Y / Scale Controls */}
+              {selectedFooterElement ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingTop: '0.28rem', borderTop: '1px solid rgba(56, 189, 248, 0.35)' }}>
+                  {/* Active element header + Show/Hide toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.73rem', fontWeight: 800, color: '#bae6fd' }}>
+                      កំពុងកែ៖ {MONTHLY_RESULT_FOOTER_LABELS[selectedFooterElement]}
+                    </span>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.28rem', fontSize: '0.69rem', color: '#e2e8f0', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={activeFooterTransform.visible !== false}
+                        onChange={(e) =>
+                          updateFooterElementTransform(selectedFooterElement, {
+                            ...activeFooterTransform,
+                            visible: e.target.checked,
+                          })
+                        }
+                      />
+                      <span>បង្ហាញ</span>
+                    </label>
+                  </div>
+
+                  {/* Contextual Controls for STAMP */}
+                  {selectedFooterElement === 'stamp' && (
+                    <div
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(251, 113, 133, 0.32)',
+                        borderRadius: '8px',
+                        padding: '0.42rem 0.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.34rem',
+                      }}
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.38rem' }}>
+                        <div>
+                          <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#cbd5e1' }}>
+                            <span>បង្វិលត្រា</span>
+                            <span style={{ color: '#fda4af', fontWeight: 700 }}>{footerLayout.stampRotationDeg ?? 0}°</span>
+                          </label>
+                          <input
+                            type="range"
+                            min={-45}
+                            max={45}
+                            step={1}
+                            value={footerLayout.stampRotationDeg ?? 0}
+                            onChange={(e) =>
+                              setFooterLayout((prev) => ({
+                                ...prev,
+                                stampRotationDeg: Number(e.target.value),
+                              }))
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#cbd5e1' }}>
+                            <span>ភាពច្បាស់ត្រា</span>
+                            <span style={{ color: '#fda4af', fontWeight: 700 }}>
+                              {Math.round((footerLayout.stampOpacity ?? 0.92) * 100)}%
+                            </span>
+                          </label>
+                          <input
+                            type="range"
+                            min={0.15}
+                            max={1}
+                            step={0.05}
+                            value={footerLayout.stampOpacity ?? 0.92}
+                            onChange={(e) =>
+                              setFooterLayout((prev) => ({
+                                ...prev,
+                                stampOpacity: Number(e.target.value),
+                              }))
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        value={stampUrl}
+                        onChange={(e) => setStampUrl(e.target.value)}
+                        placeholder="Link រូបត្រា (ទុកទំនេរ = ត្រាស្តង់ដារ BSIS)..."
+                        style={{
+                          width: '100%',
+                          padding: '0.26rem 0.42rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.71rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Contextual Controls for SIGNATURE */}
+                  {selectedFooterElement === 'signature' && (
+                    <div
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(96, 165, 250, 0.35)',
+                        borderRadius: '8px',
+                        padding: '0.42rem 0.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.34rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                        <span style={{ fontSize: '0.68rem', color: '#cbd5e1', fontWeight: 600 }}>ពណ៌ប៊ិកហត្ថលេខា</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.22rem' }}>
+                          {['#1d4ed8', '#0f172a', '#dc2626', '#047857', '#6d28d9'].map((hex) => (
+                            <button
+                              key={hex}
+                              type="button"
+                              onClick={() => setFooterLayout((prev) => ({ ...prev, signatureColor: hex }))}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '4px',
+                                border: (footerLayout.signatureColor || '#1d4ed8') === hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                                background: hex,
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={footerLayout.signatureColor || '#1d4ed8'}
+                            onChange={(e) => setFooterLayout((prev) => ({ ...prev, signatureColor: e.target.value }))}
+                            style={{ width: '20px', height: '18px', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                          />
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        value={signatureUrl}
+                        onChange={(e) => setSignatureUrl(e.target.value)}
+                        placeholder="Link រូបហត្ថលេខា (ទុកទំនេរ = ប៊ិកខៀវ)..."
+                        style={{
+                          width: '100%',
+                          padding: '0.26rem 0.42rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.71rem',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Contextual Controls for TEXT BLOCKS (issueDate, teacherTitle, approvalLabel, signatoryName) */}
+                  {(selectedFooterElement === 'issueDate' ||
+                    selectedFooterElement === 'teacherTitle' ||
+                    selectedFooterElement === 'approvalLabel' ||
+                    selectedFooterElement === 'signatoryName') && (
+                    <div
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        border: '1px solid rgba(56, 189, 248, 0.32)',
+                        borderRadius: '8px',
+                        padding: '0.45rem 0.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      {/* Direct Text Edit */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.67rem', color: '#94a3b8', marginBottom: '0.12rem' }}>
+                          កែអក្សរផ្ទាល់
+                        </label>
+                        <input
+                          type="text"
+                          value={
+                            selectedFooterElement === 'issueDate'
+                              ? khmerIssueDate
+                              : selectedFooterElement === 'teacherTitle'
+                                ? teacherTitleLabel
+                                : selectedFooterElement === 'approvalLabel'
+                                  ? approvalLabel
+                                  : signatoryName
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (selectedFooterElement === 'issueDate') setKhmerIssueDate(val);
+                            else if (selectedFooterElement === 'teacherTitle') setTeacherTitleLabel(val);
+                            else if (selectedFooterElement === 'approvalLabel') setApprovalLabel(val);
+                            else setSignatoryName(val);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '0.28rem 0.44rem',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(148, 163, 184, 0.32)',
+                            background: '#0f172a',
+                            color: '#f8fafc',
+                            fontSize: '0.74rem',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+
+                      {/* Font Family */}
+                      <select
+                        value={activeFooterTransform.fontFamily || ''}
+                        onChange={(e) =>
+                          updateFooterElementTransform(selectedFooterElement, {
+                            ...activeFooterTransform,
+                            fontFamily: e.target.value || undefined,
+                          })
+                        }
+                        style={{
+                          width: '100%',
+                          padding: '0.25rem 0.4rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: '#0f172a',
+                          color: '#f8fafc',
+                          fontSize: '0.71rem',
+                        }}
+                      >
+                        <option value="">ពុម្ពអក្សរ៖ លំនាំដើម (Default)</option>
+                        {BUILTIN_RICH_FONT_CHOICES.map((f) => (
+                          <option key={f.value} value={f.value}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Font Size + Color + Bold/Italic */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.67rem', color: '#cbd5e1' }}>
+                            <span>ទំហំអក្សរ</span>
+                            <span style={{ color: '#fbbf24', fontWeight: 700 }}>
+                              {activeFooterTransform.fontSizePt ? `${activeFooterTransform.fontSizePt} pt` : 'ដើម'}
+                            </span>
+                          </label>
+                          <input
+                            type="range"
+                            min={6}
+                            max={20}
+                            step={0.5}
+                            value={activeFooterTransform.fontSizePt ?? 9.5}
+                            onChange={(e) =>
+                              updateFooterElementTransform(selectedFooterElement, {
+                                ...activeFooterTransform,
+                                fontSizePt: Number(e.target.value),
+                              })
+                            }
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <input
+                          type="color"
+                          title="ពណ៌អក្សរ"
+                          value={activeFooterTransform.color || '#0f172a'}
+                          onChange={(e) =>
+                            updateFooterElementTransform(selectedFooterElement, {
+                              ...activeFooterTransform,
+                              color: e.target.value,
+                            })
+                          }
+                          style={{ width: '24px', height: '24px', border: '1px solid #475569', borderRadius: '5px', background: 'transparent', cursor: 'pointer', padding: 0 }}
+                        />
+                        <button
+                          type="button"
+                          title="អក្សរដិត (Bold)"
+                          onClick={() =>
+                            updateFooterElementTransform(selectedFooterElement, {
+                              ...activeFooterTransform,
+                              bold: activeFooterTransform.bold === undefined ? true : !activeFooterTransform.bold,
+                            })
+                          }
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '5px',
+                            border: activeFooterTransform.bold ? '1px solid #38bdf8' : '1px solid rgba(148,163,184,0.35)',
+                            background: activeFooterTransform.bold ? 'rgba(56,189,248,0.25)' : '#1e293b',
+                            color: '#f8fafc',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          title="អក្សរទ្រេត (Italic)"
+                          onClick={() =>
+                            updateFooterElementTransform(selectedFooterElement, {
+                              ...activeFooterTransform,
+                              italic: !activeFooterTransform.italic,
+                            })
+                          }
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '5px',
+                            border: activeFooterTransform.italic ? '1px solid #38bdf8' : '1px solid rgba(148,163,184,0.35)',
+                            background: activeFooterTransform.italic ? 'rgba(56,189,248,0.25)' : '#1e293b',
+                            color: '#f8fafc',
+                            fontSize: '0.72rem',
+                            fontStyle: 'italic',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          I
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', color: '#cbd5e1' }}>
+                        <span>ឆ្វេង-ស្ដាំ (X)</span>
+                        <span style={{ color: '#7dd3fc' }}>{activeFooterTransform.dxMm} mm</span>
+                      </label>
+                      <input
+                        type="range"
+                        min={-140}
+                        max={140}
+                        step={0.5}
+                        value={activeFooterTransform.dxMm}
+                        onChange={(e) =>
+                          updateFooterElementTransform(selectedFooterElement, {
+                            ...activeFooterTransform,
+                            dxMm: Number(e.target.value),
+                          })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', color: '#cbd5e1' }}>
+                        <span>លើ-ក្រោម (Y)</span>
+                        <span style={{ color: '#7dd3fc' }}>{activeFooterTransform.dyMm} mm</span>
+                      </label>
+                      <input
+                        type="range"
+                        min={-120}
+                        max={120}
+                        step={0.5}
+                        value={activeFooterTransform.dyMm}
+                        onChange={(e) =>
+                          updateFooterElementTransform(selectedFooterElement, {
+                            ...activeFooterTransform,
+                            dyMm: Number(e.target.value),
+                          })
+                        }
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.69rem', color: '#cbd5e1' }}>
+                      <span>ពង្រីក / បង្រួម (Scale)</span>
+                      <span style={{ color: '#fbbf24' }}>{Math.round(activeFooterTransform.scale * 100)}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0.5}
+                      max={2.0}
+                      step={0.02}
+                      value={activeFooterTransform.scale}
+                      onChange={(e) =>
+                        updateFooterElementTransform(selectedFooterElement, {
+                          ...activeFooterTransform,
+                          scale: Number(e.target.value),
+                        })
+                      }
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                      អូសផ្ទាល់ ឬប្រើព្រួញ ↑↓←→ លើ Keyboard
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFooterLayout((prev) => {
+                          const nextEl = { ...(prev.elements || {}) };
+                          delete nextEl[selectedFooterElement];
+                          return { ...prev, elements: nextEl };
+                        });
+                      }}
+                      style={{
+                        padding: '0.14rem 0.45rem',
+                        borderRadius: '5px',
+                        border: '1px solid rgba(251, 191, 36, 0.45)',
+                        background: 'rgba(251, 191, 36, 0.14)',
+                        color: '#fde68a',
+                        fontSize: '0.67rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Reset ធាតុនេះ
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                  ចុចលើតារាង ចំណងជើង ឡូហ្គោ កាលបរិច្ឆេទ ត្រា ឬហត្ថលេខា លើទំព័រ A4 ដើម្បីបើកការកំណត់ដោយស្វ័យប្រវត្តិ។
+                </div>
+              )}
+            </div>
           </PrintStyleSidebar>
         )}
 
@@ -1249,7 +1923,11 @@ export default function MonthlyResultPrintModal({
                     pageIdx={idx}
                     styleConfig={printStyle.styleConfig}
                     tableSelection={tableSelection}
-                    onCellSelected={() => setIsLinkPanelOpen(true)}
+                    onCellSelected={() => {
+                      setIsLinkPanelOpen(true);
+                      setSelectedFooterElement(null);
+                    }}
+                    onAreaSelected={handleAreaSelected}
                     style={{ width: '100%', height: '100%' }}
                   >
                     <MonthlyResultSheet
@@ -1267,9 +1945,17 @@ export default function MonthlyResultPrintModal({
                       stampUrl={stampUrl}
                       signatureUrl={signatureUrl}
                       signatoryName={signatoryName}
+                      approvalLabel={approvalLabel}
+                      teacherTitleLabel={teacherTitleLabel}
                       showStampAndSignature={showStampAndSignature}
                       schoolProfile={schoolProfile}
                       layoutMode={pageLayoutMode}
+                      footerLayout={footerLayout}
+                      interactive={isDragFooterMode}
+                      previewScale={previewScale}
+                      selectedFooterElement={selectedFooterElement}
+                      onSelectFooterElement={handleSelectFooterElement}
+                      onUpdateFooterElementTransform={updateFooterElementTransform}
                     />
                   </PrintInteractiveSheet>
                 </div>
